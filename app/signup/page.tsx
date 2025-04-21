@@ -66,12 +66,6 @@ export default function SignupPage() {
     }
 
     try {
-      // Map the role value to match what the API expects
-      const roleMapping = {
-        user: "user",
-        "event-planner": "event-planner",
-      }
-
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {
@@ -82,15 +76,30 @@ export default function SignupPage() {
           lastName: formData.lastName,
           email: formData.email,
           password: formData.password,
-          role: roleMapping[formData.role as keyof typeof roleMapping],
+          role: formData.role,
         }),
       })
 
-      const data = await response.json()
-
+      // Check if response is ok before trying to parse JSON
       if (!response.ok) {
-        throw new Error(data.error || "Something went wrong")
+        const errorText = await response.text()
+        let errorMessage = "Something went wrong"
+
+        try {
+          // Try to parse the error as JSON
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.error || errorMessage
+        } catch (parseError) {
+          // If parsing fails, use the raw text or a default message
+          errorMessage = errorText || errorMessage
+          console.error("Error parsing response:", parseError)
+        }
+
+        throw new Error(errorMessage)
       }
+
+      // Only try to parse JSON if the response is ok
+      const data = await response.json()
 
       // Show toast notification
       toast({
@@ -102,7 +111,8 @@ export default function SignupPage() {
       // Move to verification step
       setStep(2)
     } catch (err: any) {
-      setError(err.message)
+      console.error("Signup error:", err)
+      setError(err.message || "An error occurred during signup")
     } finally {
       setIsLoading(false)
     }
@@ -125,11 +135,24 @@ export default function SignupPage() {
         }),
       })
 
-      const data = await response.json()
-
+      // Check if response is ok before trying to parse JSON
       if (!response.ok) {
-        throw new Error(data.error || "Verification failed")
+        const errorText = await response.text()
+        let errorMessage = "Verification failed"
+
+        try {
+          // Try to parse the error as JSON
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.error || errorMessage
+        } catch (parseError) {
+          // If parsing fails, use the raw text or a default message
+          errorMessage = errorText || errorMessage
+        }
+
+        throw new Error(errorMessage)
       }
+
+      const data = await response.json()
 
       setVerificationSuccess(true)
       setTimeout(() => {
@@ -157,11 +180,24 @@ export default function SignupPage() {
         }),
       })
 
-      const data = await response.json()
-
+      // Check if response is ok before trying to parse JSON
       if (!response.ok) {
-        throw new Error(data.error || "Failed to resend verification code")
+        const errorText = await response.text()
+        let errorMessage = "Failed to resend verification code"
+
+        try {
+          // Try to parse the error as JSON
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.error || errorMessage
+        } catch (parseError) {
+          // If parsing fails, use the raw text or a default message
+          errorMessage = errorText || errorMessage
+        }
+
+        throw new Error(errorMessage)
       }
+
+      const data = await response.json()
 
       // Start countdown
       const timer = setInterval(() => {
