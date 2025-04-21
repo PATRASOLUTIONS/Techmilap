@@ -1,0 +1,30 @@
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { CheckCircle } from "lucide-react"
+
+interface FormSuccessMessageProps {
+  title: string
+  message: string
+  eventId: string
+  formType: string
+}
+
+export function FormSuccessMessage({ title, message, eventId, formType }: FormSuccessMessageProps) {
+  return (
+    <div className="bg-green-50 border border-green-200 rounded-lg p-8 text-center">
+      <div className="flex justify-center mb-4">
+        <CheckCircle className="h-16 w-16 text-green-500" />
+      </div>
+      <h2 className="text-2xl font-bold text-green-800 mb-4">{title}</h2>
+      <p className="text-green-700 mb-6">{message}</p>
+      <div className="flex flex-col sm:flex-row justify-center gap-4">
+        <Button asChild variant="outline">
+          <Link href={`/events/${eventId}`}>Back to Event</Link>
+        </Button>
+        <Button asChild>
+          <Link href="/events">Browse More Events</Link>
+        </Button>
+      </div>
+    </div>
+  )
+}

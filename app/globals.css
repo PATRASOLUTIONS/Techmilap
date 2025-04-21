@@ -1,0 +1,200 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-rgb: 255, 255, 255;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    /* Modern purple-blue primary color */
+    --primary: 250 95% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Complementary teal accent */
+    --secondary: 180 70% 45%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Neutral and UI colors */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 250 95% 96%;
+    --accent-foreground: 250 95% 30%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 250 95% 60%;
+
+    /* Destructive/error colors */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    /* Sidebar specific colors */
+    --sidebar-background: 250 20% 99%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-accent: 250 95% 96%;
+    --sidebar-accent-foreground: 250 95% 30%;
+    --sidebar-ring: 250 95% 60%;
+
+    /* Chart colors */
+    --chart-1: hsl(250, 95%, 60%);
+    --chart-2: hsl(180, 70%, 45%);
+    --chart-3: hsl(325, 70%, 60%);
+    --chart-4: hsl(35, 90%, 55%);
+    --chart-5: hsl(280, 70%, 50%);
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    /* Adjusted for dark mode */
+    --primary: 250 95% 65%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 180 70% 40%;
+    --secondary-foreground: 0 0% 100%;
+
+    --card: 222 47% 13%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 13%;
+    --popover-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 250 95% 20%;
+    --accent-foreground: 250 95% 85%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 250 95% 65%;
+
+    --destructive: 0 62.8% 50.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    /* Dark mode sidebar */
+    --sidebar-background: 222 47% 13%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-accent: 250 95% 20%;
+    --sidebar-accent-foreground: 250 95% 85%;
+    --sidebar-ring: 250 95% 65%;
+
+    /* Chart colors - slightly adjusted for dark mode */
+    --chart-1: hsl(250, 95%, 65%);
+    --chart-2: hsl(180, 70%, 40%);
+    --chart-3: hsl(325, 70%, 65%);
+    --chart-4: hsl(35, 90%, 60%);
+    --chart-5: hsl(280, 70%, 55%);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    padding: 0px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans",
+      "Helvetica Neue", sans-serif;
+  }
+}
+
+h1 {
+  color: #6366f1;
+}
+
+/* Page transition animations */
+.page-transition-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.page-transition-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+/* Custom utility classes */
+@layer components {
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-md hover:-translate-y-1;
+  }
+
+  .button-hover {
+    @apply transition-all duration-200 hover:scale-105 active:scale-95;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent;
+  }
+
+  .gradient-border {
+    @apply relative before:absolute before:inset-0 before:rounded-lg before:p-[1px] before:bg-gradient-to-r before:from-primary/50 before:to-secondary/50 before:-z-10;
+  }
+
+  .glass-effect {
+    @apply bg-background/80 backdrop-blur-sm border border-border/50;
+  }
+
+  /* New utility classes for the enhanced landing page */
+  .bg-grid-pattern {
+    background-image: linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent;
+  }
+
+  .hover-lift {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-lg;
+  }
+
+  .card-highlight {
+    @apply relative overflow-hidden;
+  }
+
+  .card-highlight::before {
+    content: "";
+    @apply absolute -inset-0.5 bg-gradient-to-r from-primary to-secondary rounded-lg blur opacity-0 transition-opacity duration-300;
+    z-index: -1;
+  }
+
+  .card-highlight:hover::before {
+    @apply opacity-100;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-20px);
+    }
+    100% {
+      transform: translateY(0px);
+    }
+  }
+}
