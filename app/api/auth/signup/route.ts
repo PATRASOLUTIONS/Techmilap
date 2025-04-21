@@ -11,6 +11,7 @@ function generateOTP(): string {
 export async function POST(req: NextRequest) {
   try {
     const { firstName, lastName, email, password, role = UserRole.USER } = await req.json()
+    console.log("Received role:", role)
 
     // Validate input
     if (!firstName || !lastName || !email || !password) {

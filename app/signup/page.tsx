@@ -66,6 +66,12 @@ export default function SignupPage() {
     }
 
     try {
+      // Map the role value to match what the API expects
+      const roleMapping = {
+        user: "user",
+        "event-planner": "event-planner",
+      }
+
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {
@@ -76,7 +82,7 @@ export default function SignupPage() {
           lastName: formData.lastName,
           email: formData.email,
           password: formData.password,
-          role: formData.role,
+          role: roleMapping[formData.role as keyof typeof roleMapping],
         }),
       })
 
