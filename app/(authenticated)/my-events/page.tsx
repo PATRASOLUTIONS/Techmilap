@@ -627,7 +627,11 @@ function EventCard({ event, onClick, onManageClick, onDeleteClick }) {
               </Button>
             </div>
             <Button size="sm" asChild>
-              <Link href={`/events/${event.slug || event._id}`} target="_blank" onClick={(e) => e.stopPropagation()}>
+              <Link
+                href={`/events/${event.slug || event._id}`}
+                target="_blank"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <ExternalLink className="h-4 w-4 mr-2" />
                 View Live
               </Link>

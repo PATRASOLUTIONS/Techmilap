@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, CheckCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { handleApiError, handleResponse } from "@/lib/error-handling"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -67,6 +66,12 @@ export default function SignupPage() {
     }
 
     try {
+      // Map the role value to match what the API expects
+      const roleMapping = {
+        user: "user",
+        "event-planner": "event-planner",
+      }
+
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {
@@ -77,12 +82,15 @@ export default function SignupPage() {
           lastName: formData.lastName,
           email: formData.email,
           password: formData.password,
-          role: formData.role,
+          role: roleMapping[formData.role as keyof typeof roleMapping],
         }),
       })
 
-      // Use our utility function to handle the response
-      const data = await handleResponse(response)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Something went wrong")
+      }
 
       // Show toast notification
       toast({
@@ -94,16 +102,7 @@ export default function SignupPage() {
       // Move to verification step
       setStep(2)
     } catch (err: any) {
-      // Use our utility function to handle the error
-      const errorMessage = handleApiError(err, (msg) => {
-        toast({
-          variant: "destructive",
-          title: "Signup Error",
-          description: msg,
-        })
-      })
-
-      setError(errorMessage)
+      setError(err.message)
     } finally {
       setIsLoading(false)
     }
@@ -126,17 +125,18 @@ export default function SignupPage() {
         }),
       })
 
-      // Use our utility function to handle the response
-      const data = await handleResponse(response)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Verification failed")
+      }
 
       setVerificationSuccess(true)
       setTimeout(() => {
         router.push("/login?verified=true")
       }, 2000)
     } catch (err: any) {
-      // Use our utility function to handle the error
-      const errorMessage = handleApiError(err)
-      setVerificationError(errorMessage)
+      setVerificationError(err.message)
     } finally {
       setIsLoading(false)
     }
@@ -157,8 +157,11 @@ export default function SignupPage() {
         }),
       })
 
-      // Use our utility function to handle the response
-      const data = await handleResponse(response)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to resend verification code")
+      }
 
       // Start countdown
       const timer = setInterval(() => {
@@ -172,9 +175,7 @@ export default function SignupPage() {
         })
       }, 1000)
     } catch (err: any) {
-      // Use our utility function to handle the error
-      const errorMessage = handleApiError(err)
-      setVerificationError(errorMessage)
+      setVerificationError(err.message)
       setResendDisabled(false)
     }
   }

@@ -20,7 +20,8 @@ export default async function CreateEventPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Create New Event</h1>
         <p className="text-muted-foreground">
-          Fill out the form below to create a new event. You can save it as a draft or publish it right away.
+          Fill out the form below to create a new event. Events can be scheduled up to 1 year in advance, with operating
+          hours between 9:00 and 21:00.
         </p>
       </div>
 

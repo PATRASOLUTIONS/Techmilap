@@ -34,6 +34,15 @@ export function EventDetailsForm({ data, updateData }) {
     }
   }, [data.name, data.slug, updateData])
 
+  useEffect(() => {
+    if (data.startDate) {
+      setStartDate(new Date(data.startDate))
+    }
+    if (data.endDate) {
+      setEndDate(new Date(data.endDate))
+    }
+  }, [data.startDate, data.endDate])
+
   const generateSlug = (text) => {
     return text
       .toLowerCase()
@@ -355,7 +364,7 @@ export function EventDetailsForm({ data, updateData }) {
                       onSelect={(date) => handleDateChange(date, "endDate")}
                       initialFocus
                       disabled={(date) => {
-                        // Disable dates in the past
+                        // Disable dates before the start date
                         const today = new Date()
                         today.setHours(0, 0, 0, 0)
 
@@ -363,7 +372,8 @@ export function EventDetailsForm({ data, updateData }) {
                         const oneYearFromNow = new Date()
                         oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
 
-                        return date < today || date > oneYearFromNow
+                        // If start date is selected, don't allow end date before start date
+                        return (startDate ? date < startDate : date < today) || date > oneYearFromNow
                       }}
                     />
                   </PopoverContent>
@@ -387,8 +397,8 @@ export function EventDetailsForm({ data, updateData }) {
                     <SelectValue placeholder="Select time" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.from({ length: 13 }).map((_, index) => {
-                      const hour = index + 9 // Start from 9:00
+                    {Array.from({ length: 13 }).map((_, hourOffset) => {
+                      const hour = hourOffset + 9 // Start from 9:00
                       return Array.from({ length: 4 }).map((_, minute) => {
                         const h = hour.toString().padStart(2, "0")
                         const m = (minute * 15).toString().padStart(2, "0")
@@ -410,8 +420,8 @@ export function EventDetailsForm({ data, updateData }) {
                     <SelectValue placeholder="Select time" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.from({ length: 13 }).map((_, index) => {
-                      const hour = index + 9 // Start from 9:00
+                    {Array.from({ length: 13 }).map((_, hourOffset) => {
+                      const hour = hourOffset + 9 // Start from 9:00
                       return Array.from({ length: 4 }).map((_, minute) => {
                         const h = hour.toString().padStart(2, "0")
                         const m = (minute * 15).toString().padStart(2, "0")
