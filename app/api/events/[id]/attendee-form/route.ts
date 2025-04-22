@@ -14,9 +14,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     await connectToDatabase()
     const eventId = params.id
 
-    const event = await Event.findById(eventId).lean()
+    // Try to find by ID first, then by slug if ID fails
+    let event = await Event.findById(eventId).lean()
     if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      // Try to find by slug
+      event = await Event.findOne({ slug: eventId }).lean()
+      if (!event) {
+        return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      }
     }
 
     // Check if the user is the organizer or a super-admin
@@ -48,9 +53,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     await connectToDatabase()
     const eventId = params.id
 
-    const event = await Event.findById(eventId)
+    // Try to find by ID first, then by slug if ID fails
+    let event = await Event.findById(eventId)
     if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      // Try to find by slug
+      event = await Event.findOne({ slug: eventId })
+      if (!event) {
+        return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      }
     }
 
     // Check if the user is the organizer or a super-admin

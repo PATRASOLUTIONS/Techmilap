@@ -1,0 +1,103 @@
+import mongoose, { Schema, type Document } from "mongoose"
+
+export interface IEvent extends Document {
+  title: string
+  displayName: string
+  slug: string
+  description: string
+  date: Date
+  endDate: Date
+  startTime: string
+  endTime: string
+  location: string
+  image: string
+  capacity: number
+  price: number
+  category: string
+  tags: string[]
+  status: "draft" | "published" | "cancelled" | "completed" | "active"
+  organizer: mongoose.Types.ObjectId
+  attendees: mongoose.Types.ObjectId[]
+  customQuestions: {
+    attendee: any[]
+    volunteer: any[]
+    speaker: any[]
+  }
+  attendeeForm: {
+    status: "draft" | "published"
+  }
+  volunteerForm: {
+    status: "draft" | "published"
+  }
+  speakerForm: {
+    status: "draft" | "published"
+  }
+}
+
+const EventSchema = new Schema<IEvent>(
+  {
+    title: { type: String, required: true },
+    displayName: { type: String },
+    slug: { type: String, unique: true, sparse: true },
+    description: { type: String, required: true },
+    date: { type: Date, required: true },
+    endDate: { type: Date },
+    startTime: { type: String },
+    endTime: { type: String },
+    location: { type: String, required: true },
+    image: { type: String },
+    capacity: { type: Number, required: true, default: 100 },
+    price: { type: Number, default: 0 },
+    category: { type: String, required: true },
+    tags: [{ type: String }],
+    status: {
+      type: String,
+      enum: ["draft", "published", "cancelled", "completed", "active"],
+      default: "draft",
+    },
+    organizer: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    attendees: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    customQuestions: {
+      attendee: [Schema.Types.Mixed],
+      volunteer: [Schema.Types.Mixed],
+      speaker: [Schema.Types.Mixed],
+    },
+    attendeeForm: {
+      status: {
+        type: String,
+        enum: ["draft", "published"],
+        default: "draft",
+      },
+    },
+    volunteerForm: {
+      status: {
+        type: String,
+        enum: ["draft", "published"],
+        default: "draft",
+      },
+    },
+    speakerForm: {
+      status: {
+        type: String,
+        enum: ["draft", "published"],
+        default: "draft",
+      },
+    },
+  },
+  {
+    timestamps: true,
+  },
+)
+
+const Event = mongoose.models.Event || mongoose.model<IEvent>("Event", EventSchema)
+
+export default Event

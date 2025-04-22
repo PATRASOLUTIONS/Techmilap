@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
+import Event from "@/lib/models/event.model"
 
 export async function POST(request: Request, { params }: { params: { id: string; formType: string } }) {
   try {
@@ -32,13 +32,14 @@ export async function POST(request: Request, { params }: { params: { id: string;
     const client = await connectToDatabase()
     const db = client.db()
 
-    // Get the event to check ownership
-    const event = await db.collection("events").findOne({
-      _id: new ObjectId(eventId),
-    })
-
+    // Find the event by ID or slug
+    let event = await Event.findById(eventId)
     if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      // Try to find by slug
+      event = await Event.findOne({ slug: eventId })
+      if (!event) {
+        return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      }
     }
 
     // Check if the user is the organizer
@@ -79,7 +80,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
     console.log("Updating event with:", updateObj)
 
     // Update the database
-    const updateResult = await db.collection("events").updateOne({ _id: new ObjectId(eventId) }, { $set: updateObj })
+    const updateResult = await db.collection("events").updateOne({ _id: event._id }, { $set: updateObj })
 
     if (updateResult.matchedCount === 0) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
@@ -87,7 +88,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
 
     // Fetch the updated event to verify changes
     const updatedEvent = await db.collection("events").findOne({
-      _id: new ObjectId(eventId),
+      _id: event._id,
     })
 
     console.log("Updated event:", {

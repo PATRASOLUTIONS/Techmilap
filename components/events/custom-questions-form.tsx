@@ -470,7 +470,7 @@ export function CustomQuestionsForm({
       if (shouldPublish) {
         const baseUrl = window.location.origin
         const formPath = formType === "attendee" ? "register" : formType
-        const url = `${baseUrl}/events/${eventId}/${formPath}`
+        const url = `${baseUrl}/events/${eventId || "[id]"}/${formPath}`
 
         setPublishedUrls((prev) => ({
           ...prev,
