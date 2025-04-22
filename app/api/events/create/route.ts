@@ -71,7 +71,12 @@ export async function POST(req: NextRequest) {
       visibility: details.visibility || "Public",
       capacity: Array.isArray(tickets)
         ? tickets.reduce((total, ticket) => {
-            const quantity = Number.parseInt(ticket.quantity || "0")
+            const quantity =
+              typeof ticket.quantity === "string"
+                ? Number.parseInt(ticket.quantity, 10)
+                : typeof ticket.quantity === "number"
+                  ? ticket.quantity
+                  : 0
             return isNaN(quantity) ? total : total + quantity
           }, 0)
         : 0,
@@ -81,7 +86,8 @@ export async function POST(req: NextRequest) {
               ...tickets
                 .filter((t) => t?.pricingModel === "Paid")
                 .map((t) => {
-                  const price = Number.parseFloat(t.price || "0")
+                  const price =
+                    typeof t.price === "string" ? Number.parseFloat(t.price) : typeof t.price === "number" ? t.price : 0
                   return isNaN(price) ? 0 : price
                 }),
             )
@@ -125,13 +131,24 @@ export async function POST(req: NextRequest) {
     // Create tickets if they exist
     if (Array.isArray(tickets) && tickets.length > 0) {
       const ticketPromises = tickets.map((ticket) => {
+        // Ensure numeric values are properly parsed
+        const price =
+          ticket.pricingModel === "Paid"
+            ? typeof ticket.price === "string"
+              ? Number.parseFloat(ticket.price) || 0
+              : ticket.price || 0
+            : 0
+
+        const quantity =
+          typeof ticket.quantity === "string" ? Number.parseInt(ticket.quantity, 10) || 0 : ticket.quantity || 0
+
         return new Ticket({
           name: ticket.name || "General Admission",
           type: ticket.type || "Standard",
           description: ticket.description || "",
           pricingModel: ticket.pricingModel || "Free",
-          price: ticket.pricingModel === "Paid" ? ticket.price || 0 : 0,
-          quantity: Number.parseInt(ticket.quantity || "0"),
+          price: price,
+          quantity: quantity,
           saleStartDate: ticket.saleStartDate || event.date,
           saleEndDate: ticket.saleEndDate || event.date,
           feeStructure: ticket.feeStructure || "Organizer",

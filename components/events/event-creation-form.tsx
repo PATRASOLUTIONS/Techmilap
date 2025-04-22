@@ -204,8 +204,18 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
               .replace(/[^\w\s-]/g, "")
               .replace(/\s+/g, "-"),
         },
-        tickets: formData.tickets || [],
-        customQuestions: formData.customQuestions || { attendee: [], volunteer: [], speaker: [] },
+        tickets:
+          formData.tickets.map((ticket) => ({
+            ...ticket,
+            // Ensure numeric values are properly formatted
+            price: ticket.price ? Number.parseFloat(ticket.price) : 0,
+            quantity: ticket.quantity ? Number.parseInt(ticket.quantity, 10) : 0,
+          })) || [],
+        customQuestions: {
+          attendee: Array.isArray(formData.customQuestions.attendee) ? formData.customQuestions.attendee : [],
+          volunteer: Array.isArray(formData.customQuestions.volunteer) ? formData.customQuestions.volunteer : [],
+          speaker: Array.isArray(formData.customQuestions.speaker) ? formData.customQuestions.speaker : [],
+        },
         status: status, // This will be "published" or "draft" based on the button clicked
         attendeeForm: { status: formStatus.attendee },
         volunteerForm: { status: formStatus.volunteer },
@@ -227,11 +237,14 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
         body: JSON.stringify(apiData),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.error || `Failed to ${isEditing ? "update" : "create"} event`)
+        const errorData = await response.json().catch(() => ({ error: "Failed to parse error response" }))
+        throw new Error(
+          errorData.error || `Failed to ${isEditing ? "update" : "create"} event (Status: ${response.status})`,
+        )
       }
+
+      const data = await response.json()
 
       setSubmittedEventId(data.event?.id || data.event?._id || "event-123") // Fallback ID for testing
       setSubmittedEventSlug(data.event?.slug || formData.details.slug) // Store the slug for the success page
