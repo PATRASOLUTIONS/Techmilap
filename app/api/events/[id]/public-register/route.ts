@@ -38,11 +38,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Could not read request body" }, { status: 400 })
     }
 
-    const { name, email, additionalInfo } = body || {}
+    const { firstName, lastName, email, ...additionalInfo } = body || {}
 
-    if (!name || !email) {
-      console.error("Missing required fields: name or email")
-      return NextResponse.json({ error: "Name and email are required" }, { status: 400 })
+    if (!firstName || !lastName || !email) {
+      console.error("Missing required fields: firstName, lastName, or email")
+      return NextResponse.json({ error: "First Name, Last Name, and email are required" }, { status: 400 })
     }
 
     // Convert string ID to ObjectId if possible
@@ -96,10 +96,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       formType: "attendee",
       status: "approved", // Auto-approve public registrations
       data: {
-        name,
+        firstName,
+        lastName,
         email,
-        ...(additionalInfo || {}),
+        ...additionalInfo,
       },
+      userName: `${firstName} ${lastName}`.trim(),
+      userEmail: email,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
@@ -122,14 +125,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       if (organizer) {
         try {
           // Send email notifications
-          await sendFormSubmissionNotification(
-            event.title,
-            "attendee",
-            email,
-            name,
-            organizer.email,
-            organizer.name || `${organizer.firstName || ""} ${organizer.lastName || ""}`.trim(),
-          )
+          await sendFormSubmissionNotification({
+            eventName: event.title,
+            formType: "attendee",
+            submissionData: submission.data,
+            recipientEmail: organizer.email,
+            recipientName:
+              organizer.name || `${organizer.firstName || ""} ${organizer.lastName || ""}`.trim() || "Event Organizer",
+            eventId: params.id,
+            submissionId: result.insertedId.toString(),
+          })
           console.log("Email notification sent")
         } catch (emailError) {
           console.error("Error sending registration notification:", emailError)

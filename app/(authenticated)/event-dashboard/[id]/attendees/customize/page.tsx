@@ -104,12 +104,8 @@ export default function AttendeeFormCustomizePage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        console.error("Server response:", errorData)
         throw new Error(errorData.error || "Failed to save form")
       }
-
-      const responseData = await response.json()
-      console.log("Server response:", responseData)
 
       toast({
         title: formStatus === "published" ? "Form published" : "Form saved as draft",
@@ -123,7 +119,6 @@ export default function AttendeeFormCustomizePage() {
       router.push(`/event-dashboard/${id}?tab=forms`)
     } catch (error) {
       console.error("Error saving form:", error)
-      setError(error.message || "Failed to save form")
       toast({
         title: "Error",
         description: "Failed to save form. Please try again.",
@@ -137,46 +132,6 @@ export default function AttendeeFormCustomizePage() {
   const handleTogglePublish = () => {
     const newStatus = formStatus === "published" ? "draft" : "published"
     setFormStatus(newStatus)
-  }
-
-  if (loading) {
-    return (
-      <div className="container mx-auto py-8 max-w-5xl">
-        <div className="flex items-center space-x-2 mb-6">
-          <Button variant="outline" size="icon" asChild>
-            <Link href={`/event-dashboard/${id}?tab=forms`}>
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div className="h-8 w-64 bg-muted animate-pulse rounded-md"></div>
-        </div>
-        <div className="h-96 bg-muted animate-pulse rounded-lg"></div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto py-8 max-w-5xl">
-        <div className="flex items-center space-x-2 mb-6">
-          <Button variant="outline" size="icon" asChild>
-            <Link href={`/event-dashboard/${id}?tab=forms`}>
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold">Error Loading Form</h1>
-        </div>
-        <Card>
-          <CardContent className="py-8">
-            <div className="text-center">
-              <h2 className="text-xl font-semibold text-destructive mb-2">Something went wrong</h2>
-              <p className="mb-4">{error}</p>
-              <Button onClick={() => window.location.reload()}>Try Again</Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
   }
 
   return (

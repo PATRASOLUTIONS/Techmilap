@@ -70,9 +70,15 @@ export function PublicEventRegistrationForm({
   // Dynamically build the form schema based on custom questions
   const buildFormSchema = () => {
     const baseSchema = {
-      firstName: z.string().min(1, "First name is required"),
-      lastName: z.string().min(1, "Last name is required"),
-      email: z.string().email("Invalid email address"),
+      firstName: z.string().min(1, {
+        message: "First name must be at least 1 characters.",
+      }),
+      lastName: z.string().min(1, {
+        message: "Last name must be at least 1 characters.",
+      }),
+      email: z.string().email({
+        message: "Please enter a valid email address.",
+      }),
       phone: z.string().optional(),
     }
 
@@ -86,11 +92,15 @@ export function PublicEventRegistrationForm({
       let fieldSchema = z.string()
 
       if (question.type === "email") {
-        fieldSchema = z.string().email(`${question.label} must be a valid email`)
+        fieldSchema = z.string().email({
+          message: `${question.label} must be a valid email`,
+        })
       }
 
       if (question.required) {
-        fieldSchema = fieldSchema.min(1, `${question.label} is required`)
+        fieldSchema = fieldSchema.min(1, {
+          message: `${question.label} is required`,
+        })
       } else {
         fieldSchema = fieldSchema.optional()
       }
