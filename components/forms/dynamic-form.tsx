@@ -99,7 +99,14 @@ export function DynamicForm({
       // Clean the data to ensure no undefined values
       const cleanData = {}
       Object.keys(values).forEach((key) => {
-        cleanData[key] = values[key] === undefined ? "" : values[key]
+        // Handle different types of values appropriately
+        if (values[key] === undefined || values[key] === null) {
+          cleanData[key] = ""
+        } else if (values[key] instanceof Date) {
+          cleanData[key] = values[key].toISOString()
+        } else {
+          cleanData[key] = values[key]
+        }
       })
 
       console.log("Sending data to parent component:", cleanData)

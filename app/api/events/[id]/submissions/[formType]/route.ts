@@ -115,3 +115,27 @@ export async function GET(req: NextRequest, { params }: { params: { id: string; 
     )
   }
 }
+
+export async function POST(request: Request, { params }: { params: { id: string; formType: string } }) {
+  try {
+    // Clone the request to avoid body stream already read issues
+    const requestClone = request.clone()
+
+    // Get the form data from the request
+    let formData
+    try {
+      formData = await request.json()
+    } catch (error) {
+      console.error("Error parsing request body:", error)
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
+
+    // Rest of the function remains the same...
+  } catch (error: any) {
+    console.error(`Error processing form submission:`, error)
+    return NextResponse.json(
+      { error: error.message || `An error occurred while processing form submission` },
+      { status: 500 },
+    )
+  }
+}

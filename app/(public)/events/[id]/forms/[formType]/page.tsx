@@ -204,12 +204,13 @@ export default function EventFormPage() {
       // Try to parse the response as JSON
       let responseData
       try {
+        // Clone the response before reading it to avoid the "body stream already read" error
+        const responseClone = response.clone()
         responseData = await response.json()
         console.log("Response from server:", responseData)
       } catch (e) {
         console.error("Failed to parse response as JSON:", e)
-        const text = await response.text()
-        console.error("Response text:", text)
+        // Don't try to read the original response body again
         throw new Error("Server returned an invalid response")
       }
 

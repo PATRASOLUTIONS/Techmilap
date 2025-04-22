@@ -12,6 +12,20 @@ export async function handleFormSubmission(
   userId: string | null = null,
 ) {
   console.log(`Processing ${formType} submission for event ${eventId}`)
+
+  // Validate input parameters
+  if (!eventId) {
+    throw new Error("Event ID is required")
+  }
+
+  if (!formType) {
+    throw new Error("Form type is required")
+  }
+
+  if (!formData) {
+    throw new Error("Form data is required")
+  }
+
   console.log("Form data received:", JSON.stringify(formData, null, 2))
 
   // Validate form type
