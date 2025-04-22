@@ -59,7 +59,7 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
             {event.category}
           </Badge>
           <EventRegisterButton
-            eventId={event._id.toString()}
+            eventId={event.eventUrl.toString()}
             isRegistered={isRegistered}
             isAtCapacity={isAtCapacity}
             hasAttendeeForm={hasAttendeeForm}
