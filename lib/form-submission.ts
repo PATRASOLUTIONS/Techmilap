@@ -17,12 +17,20 @@ export async function handleFormSubmission(
   // Validate form type
   const validFormTypes = ["attendee", "volunteer", "speaker"]
   if (!validFormTypes.includes(formType)) {
+    console.error(`Invalid form type: ${formType}`)
     throw new Error(`Invalid form type: ${formType}`)
   }
 
   // Connect to MongoDB
-  const { db } = await connectToDatabase()
-  console.log("Connected to database")
+  let db
+  try {
+    const connection = await connectToDatabase()
+    db = connection.db
+    console.log("Connected to database")
+  } catch (dbConnectionError) {
+    console.error("Database connection error:", dbConnectionError)
+    throw new Error(`Failed to connect to database: ${dbConnectionError.message}`)
+  }
 
   // Clean the form data to ensure no undefined values
   const cleanData = {}
