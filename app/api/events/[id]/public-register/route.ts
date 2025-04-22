@@ -52,6 +52,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         null, // No user ID for public submissions
       )
 
+      console.log("handleFormSubmission result:", submissionResult)
+
       return NextResponse.json({
         success: submissionResult.success,
         message: submissionResult.message,
