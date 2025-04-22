@@ -64,8 +64,12 @@ export function SiteFooter() {
           <div>
             <h3 className="font-bold text-lg mb-4">Contact</h3>
             <address className="not-italic text-gray-600">
-              <p>123 Tech Street</p>
-              <p>San Francisco, CA 94105</p>
+              <p>Bengaluru, India</p>
+              <p className="mt-2">
+                <a href="tel:+918332936831" className="hover:text-gray-900">
+                  +91 8332 936 831
+                </a>
+              </p>
               <p className="mt-2">
                 <a href="mailto:info@techmilap.com" className="hover:text-gray-900">
                   info@techmilap.com
