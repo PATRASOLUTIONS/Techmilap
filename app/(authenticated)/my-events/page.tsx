@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -170,102 +170,105 @@ export default function MyEventsPage() {
   }, [toast])
 
   // Function to fetch role-specific events
-  const fetchRoleEvents = async (role: string) => {
-    // Map the tab value to the API role parameter
-    const roleMap = {
-      attending: "attendee",
-      volunteering: "volunteer",
-      speaking: "speaker",
-    }
-
-    const apiRole = roleMap[role] || role
-
-    try {
-      // Set loading state for this specific role
-      setRoleLoading((prev) => ({
-        ...prev,
-        [role]: true,
-      }))
-
-      // Show loading toast
-      toast({
-        title: `Loading ${role} events`,
-        description: "Please wait while we fetch your events...",
-      })
-
-      console.log(`Fetching events for role: ${apiRole}`)
-
-      // Make an API call to fetch the specific role events
-      const response = await fetch(`/api/events/my-events?role=${apiRole}`, {
-        cache: "no-store", // Prevent caching issues
-      })
-
-      if (!response.ok) {
-        let errorMessage = `Failed to fetch ${role} events`
-        try {
-          const errorData = await response.json()
-          errorMessage = errorData.error || errorMessage
-        } catch (e) {
-          console.error("Could not parse error response")
-        }
-        throw new Error(errorMessage)
+  const fetchRoleEvents = useCallback(
+    async (role: string) => {
+      // Map the tab value to the API role parameter
+      const roleMap = {
+        attending: "attendee",
+        volunteering: "volunteer",
+        speaking: "speaker",
       }
 
-      const data = await response.json()
-      console.log(`Received ${data.events.length} ${role} events`)
+      const apiRole = roleMap[role] || role
 
-      // Validate and sanitize each event
-      const sanitizedEvents = Array.isArray(data.events)
-        ? data.events.map((event) => ({
-            _id: event._id || "",
-            title: event.title || "Untitled Event",
-            date: event.date || new Date().toISOString(),
-            location: event.location || "No location specified",
-            capacity: event.capacity || 0,
-            status: event.status || "draft",
-            attendees: Array.isArray(event.attendees) ? event.attendees : [],
-            customQuestions: event.customQuestions || {},
-            createdAt: event.createdAt || new Date().toISOString(),
-            updatedAt: event.updatedAt || new Date().toISOString(),
-            slug: event.slug || event._id || "",
-            userRole: event.userRole || apiRole,
-          }))
-        : []
+      try {
+        // Set loading state for this specific role
+        setRoleLoading((prev) => ({
+          ...prev,
+          [role]: true,
+        }))
 
-      // Update the role-specific events state
-      setRoleEvents((prev) => ({
-        ...prev,
-        [role]: sanitizedEvents,
-      }))
-
-      // Mark this tab as loaded
-      setLoadedTabs((prev) => ({
-        ...prev,
-        [role]: true,
-      }))
-
-      // If we had no events for this role, we could show a message
-      if (sanitizedEvents.length === 0) {
+        // Show loading toast
         toast({
-          title: "No events found",
-          description: `You don't have any ${role} events.`,
+          title: `Loading ${role} events`,
+          description: "Please wait while we fetch your events...",
         })
+
+        console.log(`Fetching events for role: ${apiRole}`)
+
+        // Make an API call to fetch the specific role events
+        const response = await fetch(`/api/events/my-events?role=${apiRole}`, {
+          cache: "no-store", // Prevent caching issues
+        })
+
+        if (!response.ok) {
+          let errorMessage = `Failed to fetch ${role} events`
+          try {
+            const errorData = await response.json()
+            errorMessage = errorData.error || errorMessage
+          } catch (e) {
+            console.error("Could not parse error response")
+          }
+          throw new Error(errorMessage)
+        }
+
+        const data = await response.json()
+        console.log(`Received ${data.events.length} ${role} events`)
+
+        // Validate and sanitize each event
+        const sanitizedEvents = Array.isArray(data.events)
+          ? data.events.map((event) => ({
+              _id: event._id || "",
+              title: event.title || "Untitled Event",
+              date: event.date || new Date().toISOString(),
+              location: event.location || "No location specified",
+              capacity: event.capacity || 0,
+              status: event.status || "draft",
+              attendees: Array.isArray(event.attendees) ? event.attendees : [],
+              customQuestions: event.customQuestions || {},
+              createdAt: event.createdAt || new Date().toISOString(),
+              updatedAt: event.updatedAt || new Date().toISOString(),
+              slug: event.slug || event._id || "",
+              userRole: event.userRole || apiRole,
+            }))
+          : []
+
+        // Update the role-specific events state
+        setRoleEvents((prev) => ({
+          ...prev,
+          [role]: sanitizedEvents,
+        }))
+
+        // Mark this tab as loaded
+        setLoadedTabs((prev) => ({
+          ...prev,
+          [role]: true,
+        }))
+
+        // If we had no events for this role, we could show a message
+        if (sanitizedEvents.length === 0) {
+          toast({
+            title: "No events found",
+            description: `You don't have any ${role} events.`,
+          })
+        }
+      } catch (error) {
+        console.error(`Error fetching ${role} events:`, error)
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : `Failed to load your ${role} events. Please try again.`,
+          variant: "destructive",
+        })
+      } finally {
+        // Clear loading state for this specific role
+        setRoleLoading((prev) => ({
+          ...prev,
+          [role]: false,
+        }))
       }
-    } catch (error) {
-      console.error(`Error fetching ${role} events:`, error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : `Failed to load your ${role} events. Please try again.`,
-        variant: "destructive",
-      })
-    } finally {
-      // Clear loading state for this specific role
-      setRoleLoading((prev) => ({
-        ...prev,
-        [role]: false,
-      }))
-    }
-  }
+    },
+    [toast],
+  )
 
   // Handle tab change
   const handleTabChange = (value: string) => {
