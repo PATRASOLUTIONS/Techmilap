@@ -14,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // Get the request body with careful error handling
     let body
     try {
-      // Get the raw text first to debug any issues
+      // Read the request body once and store it
       const rawText = await req.text()
       console.log("Raw request body:", rawText)
 
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       try {
         body = JSON.parse(rawText)
         console.log("Parsed request body:", body)
-      } catch (jsonError) {
+      } catch (jsonError: any) {
         console.error("JSON parse error:", jsonError)
         return NextResponse.json(
           {
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           { status: 400 },
         )
       }
-    } catch (parseError) {
+    } catch (parseError: any) {
       console.error("Error reading request body:", parseError)
       return NextResponse.json({ error: "Could not read request body" }, { status: 400 })
     }
@@ -149,7 +149,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         message: "Registration successful",
         registrationId: result.insertedId,
       })
-    } catch (dbError) {
+    } catch (dbError: any) {
       console.error("Database error while saving submission:", dbError)
       return NextResponse.json(
         {

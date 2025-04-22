@@ -161,10 +161,10 @@ export function PublicEventRegistrationForm({
         body: JSON.stringify(values),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to register for event")
+        // Read the error message from the response body
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to register for event")
       }
 
       toast({
