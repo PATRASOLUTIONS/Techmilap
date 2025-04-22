@@ -321,6 +321,17 @@ export function EventDetailsForm({ data, updateData }) {
                       selected={startDate}
                       onSelect={(date) => handleDateChange(date, "startDate")}
                       initialFocus
+                      disabled={(date) => {
+                        // Disable dates in the past
+                        const today = new Date()
+                        today.setHours(0, 0, 0, 0)
+
+                        // Disable dates more than 1 year in the future
+                        const oneYearFromNow = new Date()
+                        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
+
+                        return date < today || date > oneYearFromNow
+                      }}
                     />
                   </PopoverContent>
                 </Popover>
@@ -343,6 +354,17 @@ export function EventDetailsForm({ data, updateData }) {
                       selected={endDate}
                       onSelect={(date) => handleDateChange(date, "endDate")}
                       initialFocus
+                      disabled={(date) => {
+                        // Disable dates in the past
+                        const today = new Date()
+                        today.setHours(0, 0, 0, 0)
+
+                        // Disable dates more than 1 year in the future
+                        const oneYearFromNow = new Date()
+                        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
+
+                        return date < today || date > oneYearFromNow
+                      }}
                     />
                   </PopoverContent>
                 </Popover>
@@ -365,8 +387,9 @@ export function EventDetailsForm({ data, updateData }) {
                     <SelectValue placeholder="Select time" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.from({ length: 24 }).map((_, hour) =>
-                      Array.from({ length: 4 }).map((_, minute) => {
+                    {Array.from({ length: 13 }).map((_, index) => {
+                      const hour = index + 9 // Start from 9:00
+                      return Array.from({ length: 4 }).map((_, minute) => {
                         const h = hour.toString().padStart(2, "0")
                         const m = (minute * 15).toString().padStart(2, "0")
                         const time = `${h}:${m}`
@@ -375,8 +398,8 @@ export function EventDetailsForm({ data, updateData }) {
                             {time}
                           </SelectItem>
                         )
-                      }),
-                    )}
+                      })
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -387,8 +410,9 @@ export function EventDetailsForm({ data, updateData }) {
                     <SelectValue placeholder="Select time" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.from({ length: 24 }).map((_, hour) =>
-                      Array.from({ length: 4 }).map((_, minute) => {
+                    {Array.from({ length: 13 }).map((_, index) => {
+                      const hour = index + 9 // Start from 9:00
+                      return Array.from({ length: 4 }).map((_, minute) => {
                         const h = hour.toString().padStart(2, "0")
                         const m = (minute * 15).toString().padStart(2, "0")
                         const time = `${h}:${m}`
@@ -397,8 +421,8 @@ export function EventDetailsForm({ data, updateData }) {
                             {time}
                           </SelectItem>
                         )
-                      }),
-                    )}
+                      })
+                    })}
                   </SelectContent>
                 </Select>
               </div>
