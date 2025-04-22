@@ -13,6 +13,12 @@ const FormSubmissionSchema = new Schema(
       ref: "User",
       required: false, // Not required for public submissions
     },
+    userName: {
+      type: String,
+    },
+    userEmail: {
+      type: String,
+    },
     formType: {
       type: String,
       enum: ["attendee", "volunteer", "speaker"],
