@@ -27,6 +27,7 @@ export default function AttendeeFormCustomizePage() {
       try {
         setLoading(true)
         setError(null)
+        console.log("Fetching attendee form data for event ID:", id)
 
         // Fetch event details
         const response = await fetch(`/api/events/${id}`)
@@ -36,24 +37,34 @@ export default function AttendeeFormCustomizePage() {
 
         const data = await response.json()
         setEventDetails(data.event)
+        console.log("Event data fetched:", data.event)
 
-        // Get the attendee form data specifically
+        // Check if the event has attendee form status
+        if (data.event.attendeeForm) {
+          setFormStatus(data.event.attendeeForm.status || "draft")
+        }
+
+        // Get the attendee form questions specifically
         try {
+          // Use the correct endpoint for attendee form data
           const formResponse = await fetch(`/api/events/${id}/forms/attendee`)
 
           if (formResponse.ok) {
-            const formData = await formResponse.json()
-
-            // Update the form status
-            setFormStatus(formData.status || "draft")
+            const formData = await response.json()
+            console.log("Attendee form data fetched:", formData)
 
             // Initialize custom questions object with attendee questions from API
-            if (Array.isArray(formData.questions)) {
+            if (data.event.customQuestions && Array.isArray(data.event.customQuestions.attendee)) {
+              console.log("Setting attendee questions from event data:", data.event.customQuestions.attendee)
               setCustomQuestions((prev) => ({
                 ...prev,
-                attendee: formData.questions,
+                attendee: data.event.customQuestions.attendee,
               }))
+            } else {
+              console.log("No attendee questions found in event data, using default")
             }
+          } else {
+            console.error("Failed to fetch attendee form data:", formResponse.statusText)
           }
         } catch (formError) {
           console.error("Error fetching form data:", formError)
@@ -86,7 +97,7 @@ export default function AttendeeFormCustomizePage() {
       const attendeeQuestions = customQuestions.attendee || []
 
       // Log the data being sent for debugging
-      console.log("Publishing form with data:", {
+      console.log("Publishing attendee form with data:", {
         status: formStatus,
         questions: attendeeQuestions,
       })
@@ -132,6 +143,22 @@ export default function AttendeeFormCustomizePage() {
   const handleTogglePublish = () => {
     const newStatus = formStatus === "published" ? "draft" : "published"
     setFormStatus(newStatus)
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto py-8 max-w-5xl">
+        <div className="flex items-center space-x-2 mb-6">
+          <Button variant="outline" size="icon" asChild>
+            <Link href={`/event-dashboard/${id}?tab=forms`}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <div className="h-8 w-64 bg-muted animate-pulse rounded-md"></div>
+        </div>
+        <div className="h-96 bg-muted animate-pulse rounded-lg"></div>
+      </div>
+    )
   }
 
   return (

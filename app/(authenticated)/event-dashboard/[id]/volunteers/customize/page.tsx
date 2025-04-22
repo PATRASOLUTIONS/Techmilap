@@ -11,20 +11,23 @@ import { useToast } from "@/hooks/use-toast"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 
-export default function volunteersFormCustomizePage() {
+export default function VolunteersFormCustomizePage() {
   const { id } = useParams()
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [formStatus, setFormStatus] = useState("draft")
-  const [customQuestions, setCustomQuestions] = useState({ attendee: [], volunteer: [], volunteers: [] })
+  const [customQuestions, setCustomQuestions] = useState({ attendee: [], volunteer: [], speaker: [] })
   const [eventDetails, setEventDetails] = useState(null)
 
   useEffect(() => {
     const fetchEventData = async () => {
       try {
         setLoading(true)
+        console.log("Fetching volunteer form data for event ID:", id)
+
+        // Fetch event details
         const response = await fetch(`/api/events/${id}`)
 
         if (!response.ok) {
@@ -33,21 +36,38 @@ export default function volunteersFormCustomizePage() {
 
         const data = await response.json()
         setEventDetails(data.event)
+        console.log("Event data fetched:", data.event)
 
-        // Get the volunteers form data specifically
-        const formResponse = await fetch(`/api/events/${id}/forms/volunteers`)
+        // Check if the event has volunteer form status
+        if (data.event.volunteerForm) {
+          setFormStatus(data.event.volunteerForm.status || "draft")
+        }
 
-        if (formResponse.ok) {
-          const formData = await formResponse.json()
+        // Get the volunteer form questions specifically
+        try {
+          // Use the correct endpoint for volunteer form data
+          const formResponse = await fetch(`/api/events/${id}/forms/volunteer`)
 
-          // Update the form status
-          setFormStatus(formData.status || "draft")
+          if (formResponse.ok) {
+            const formData = await formResponse.json()
+            console.log("Volunteer form data fetched:", formData)
 
-          // Initialize custom questions object with volunteers questions from API
-          setCustomQuestions((prev) => ({
-            ...prev,
-            volunteers: formData.questions || [],
-          }))
+            // Initialize custom questions object with volunteer questions from API
+            if (data.event.customQuestions && Array.isArray(data.event.customQuestions.volunteer)) {
+              console.log("Setting volunteer questions from event data:", data.event.customQuestions.volunteer)
+              setCustomQuestions((prev) => ({
+                ...prev,
+                volunteer: data.event.customQuestions.volunteer,
+              }))
+            } else {
+              console.log("No volunteer questions found in event data, using default")
+            }
+          } else {
+            console.error("Failed to fetch volunteer form data:", formResponse.statusText)
+          }
+        } catch (formError) {
+          console.error("Error fetching form data:", formError)
+          // Continue with default questions if form data fetch fails
         }
       } catch (error) {
         console.error("Error fetching data:", error)
@@ -70,17 +90,23 @@ export default function volunteersFormCustomizePage() {
     try {
       setSaving(true)
 
-      // Only use the volunteers questions part of the customQuestions
-      const volunteersQuestions = customQuestions.volunteers || []
+      // Only use the volunteer questions part of the customQuestions
+      const volunteerQuestions = customQuestions.volunteer || []
 
-      const response = await fetch(`/api/events/${id}/forms/volunteers/publish`, {
+      // Log the data being sent for debugging
+      console.log("Publishing volunteer form with data:", {
+        status: formStatus,
+        questions: volunteerQuestions,
+      })
+
+      const response = await fetch(`/api/events/${id}/forms/volunteer/publish`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           status: formStatus,
-          questions: volunteersQuestions,
+          questions: volunteerQuestions,
         }),
       })
 
@@ -93,8 +119,8 @@ export default function volunteersFormCustomizePage() {
         title: formStatus === "published" ? "Form published" : "Form saved as draft",
         description:
           formStatus === "published"
-            ? "Your volunteers form is now accepting applications"
-            : "Your volunteers form has been saved as a draft",
+            ? "Your volunteer form is now accepting applications"
+            : "Your volunteer form has been saved as a draft",
       })
 
       // Redirect back to the event dashboard
@@ -141,7 +167,7 @@ export default function volunteersFormCustomizePage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-2xl font-bold">Customize volunteers Application Form</h1>
+          <h1 className="text-2xl font-bold">Customize Volunteer Application Form</h1>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center space-x-2 mr-2">
@@ -178,13 +204,13 @@ export default function volunteersFormCustomizePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>volunteers Form Settings</CardTitle>
+          <CardTitle>Volunteer Form Settings</CardTitle>
           <CardDescription>
-            Customize the information you collect from volunteerss applying to present at your event
+            Customize the information you collect from volunteers applying to help at your event
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Use the CustomQuestionsForm component with active tab set to volunteers */}
+          {/* Use the CustomQuestionsForm component with active tab set to volunteer */}
           <CustomQuestionsForm data={customQuestions} updateData={setCustomQuestions} eventId={id.toString()} />
         </CardContent>
       </Card>

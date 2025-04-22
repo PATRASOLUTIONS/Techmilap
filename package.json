@@ -75,7 +75,8 @@
     "crypto": "latest",
     "react-markdown": "latest",
     "@tailwindcss/typography": "latest",
-    "bcryptjs": "latest"
+    "bcryptjs": "latest",
+    "@hello-pangea/dnd": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
