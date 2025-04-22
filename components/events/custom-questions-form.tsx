@@ -300,7 +300,7 @@ export function CustomQuestionsForm({
         const statusData = await response.json()
 
         // Get the event slug
-        const eventSlug = statusData.eventSlug || eventId
+        const eventSlug = statusData.eventSlug || null
 
         // Update publish status based on form status from database
         setPublishStatus({
@@ -320,21 +320,27 @@ export function CustomQuestionsForm({
         if (statusData.attendeeForm?.status === "published") {
           setPublishedUrls((prev) => ({
             ...prev,
-            attendee: `${window.location.origin}/events/${eventSlug}/register`,
+            attendee: eventSlug
+              ? `${window.location.origin}/events/${eventSlug}/register`
+              : `${window.location.origin}/events/${eventId}/register`,
           }))
         }
 
         if (statusData.volunteerForm?.status === "published") {
           setPublishedUrls((prev) => ({
             ...prev,
-            volunteer: `${window.location.origin}/events/${eventSlug}/volunteer`,
+            volunteer: eventSlug
+              ? `${window.location.origin}/events/${eventSlug}/volunteer`
+              : `${window.location.origin}/events/${eventId}/volunteer`,
           }))
         }
 
         if (statusData.speakerForm?.status === "published") {
           setPublishedUrls((prev) => ({
             ...prev,
-            speaker: `${window.location.origin}/events/${eventSlug}/speaker`,
+            speaker: eventSlug
+              ? `${window.location.origin}/events/${eventSlug}/speaker`
+              : `${window.location.origin}/events/${eventId}/speaker`,
           }))
         }
       }
@@ -789,7 +795,9 @@ export function CustomQuestionsForm({
               <div className="flex items-center gap-2">
                 <code className="text-xs bg-background p-1 rounded flex-1 overflow-x-auto">
                   {publishedUrls[type] ||
-                    `${window.location.origin}/events/[slug]/${type === "attendee" ? "register" : type}`}
+                    (eventId
+                      ? `${window.location.origin}/events/${eventId}/${type === "attendee" ? "register" : type}`
+                      : "URL will be available after saving the event")}
                 </code>
                 <Button
                   variant="ghost"
@@ -797,12 +805,23 @@ export function CustomQuestionsForm({
                   onClick={() => {
                     const url =
                       publishedUrls[type] ||
-                      `${window.location.origin}/events/${eventId || "[slug]"}/${type === "attendee" ? "register" : type}`
-                    navigator.clipboard.writeText(url)
-                    toast({
-                      title: "URL Copied",
-                      description: "The public URL has been copied to your clipboard.",
-                    })
+                      (eventId
+                        ? `${window.location.origin}/events/${eventId}/${type === "attendee" ? "register" : type}`
+                        : null)
+
+                    if (url) {
+                      navigator.clipboard.writeText(url)
+                      toast({
+                        title: "URL Copied",
+                        description: "The public URL has been copied to your clipboard.",
+                      })
+                    } else {
+                      toast({
+                        title: "URL Not Available",
+                        description: "Save the event first to generate a public URL.",
+                        variant: "destructive",
+                      })
+                    }
                   }}
                 >
                   <svg

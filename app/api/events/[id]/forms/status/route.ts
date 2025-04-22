@@ -1,20 +1,16 @@
 import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
+import Event from "@/models/Event"
 
-// Update the GET function to include the event slug in the response
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request, { params }) {
   try {
-    const eventId = params.id
+    const { id } = params
 
-    // Connect to database
-    const client = await connectToDatabase()
-    const db = client.db()
+    // Connect to the database
+    await connectToDatabase()
 
-    // Get the event
-    const event = await db.collection("events").findOne({
-      _id: new ObjectId(eventId),
-    })
+    // Find the event
+    const event = await Event.findById(id)
 
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
@@ -22,13 +18,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     // Return the form status and event slug
     return NextResponse.json({
-      attendeeForm: event.attendeeForm || { status: "draft" },
-      volunteerForm: event.volunteerForm || { status: "draft" },
-      speakerForm: event.speakerForm || { status: "draft" },
-      eventSlug: event.slug || eventId, // Include the event slug
+      eventSlug: event.slug,
+      attendeeForm: event.forms?.attendee || { status: "draft" },
+      volunteerForm: event.forms?.volunteer || { status: "draft" },
+      speakerForm: event.forms?.speaker || { status: "draft" },
     })
   } catch (error) {
     console.error("Error fetching form status:", error)
-    return NextResponse.json({ error: "Failed to fetch form status. Please try again." }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch form status" }, { status: 500 })
   }
 }
