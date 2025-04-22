@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 
 export default function AttendeeFormCustomizePage() {
-  const { id: eventId } = useParams()
+  const { id } = useParams()
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
@@ -29,7 +29,7 @@ export default function AttendeeFormCustomizePage() {
         setError(null)
 
         // Fetch event details
-        const response = await fetch(`/api/events/${eventId}`)
+        const response = await fetch(`/api/events/${id}`)
         if (!response.ok) {
           throw new Error("Failed to fetch event data")
         }
@@ -39,7 +39,7 @@ export default function AttendeeFormCustomizePage() {
 
         // Get the attendee form data specifically
         try {
-          const formResponse = await fetch(`/api/events/${eventId}/forms/attendee`)
+          const formResponse = await fetch(`/api/events/${id}/forms/attendee`)
 
           if (formResponse.ok) {
             const formData = await formResponse.json()
@@ -72,10 +72,10 @@ export default function AttendeeFormCustomizePage() {
       }
     }
 
-    if (eventId) {
+    if (id) {
       fetchEventData()
     }
-  }, [eventId, toast])
+  }, [id, toast])
 
   const handleSave = async () => {
     try {
@@ -85,13 +85,24 @@ export default function AttendeeFormCustomizePage() {
       // Only use the attendee questions part of the customQuestions
       const attendeeQuestions = customQuestions.attendee || []
 
+      // Ensure we have valid questions data
+      if (!Array.isArray(attendeeQuestions) || attendeeQuestions.length === 0) {
+        toast({
+          title: "Error",
+          description: "No questions found. Please add at least one question before publishing.",
+          variant: "destructive",
+        })
+        setSaving(false)
+        return
+      }
+
       // Log the data being sent for debugging
       console.log("Publishing form with data:", {
         status: formStatus,
         questions: attendeeQuestions,
       })
 
-      const response = await fetch(`/api/events/${eventId}/forms/attendee/publish`, {
+      const response = await fetch(`/api/events/${id}/forms/attendee/publish`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -103,9 +114,9 @@ export default function AttendeeFormCustomizePage() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({}))
         console.error("Server response:", errorData)
-        throw new Error(errorData.error || "Failed to save form")
+        throw new Error(errorData.error || `Failed to save form (Status: ${response.status})`)
       }
 
       const responseData = await response.json()
@@ -120,7 +131,7 @@ export default function AttendeeFormCustomizePage() {
       })
 
       // Redirect back to the event dashboard
-      router.push(`/event-dashboard/${eventId}?tab=forms`)
+      router.push(`/event-dashboard/${id}?tab=forms`)
     } catch (error) {
       console.error("Error saving form:", error)
       setError(error.message || "Failed to save form")
@@ -144,7 +155,7 @@ export default function AttendeeFormCustomizePage() {
       <div className="container mx-auto py-8 max-w-5xl">
         <div className="flex items-center space-x-2 mb-6">
           <Button variant="outline" size="icon" asChild>
-            <Link href={`/event-dashboard/${eventId}?tab=forms`}>
+            <Link href={`/event-dashboard/${id}?tab=forms`}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -160,7 +171,7 @@ export default function AttendeeFormCustomizePage() {
       <div className="container mx-auto py-8 max-w-5xl">
         <div className="flex items-center space-x-2 mb-6">
           <Button variant="outline" size="icon" asChild>
-            <Link href={`/event-dashboard/${eventId}?tab=forms`}>
+            <Link href={`/event-dashboard/${id}?tab=forms`}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -184,7 +195,7 @@ export default function AttendeeFormCustomizePage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" asChild>
-            <Link href={`/event-dashboard/${eventId}?tab=forms`}>
+            <Link href={`/event-dashboard/${id}?tab=forms`}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -232,7 +243,7 @@ export default function AttendeeFormCustomizePage() {
         </CardHeader>
         <CardContent>
           {/* Use the CustomQuestionsForm component with active tab set to attendee */}
-          <CustomQuestionsForm data={customQuestions} updateData={setCustomQuestions} eventId={eventId.toString()} />
+          <CustomQuestionsForm data={customQuestions} updateData={setCustomQuestions} eventId={id.toString()} />
         </CardContent>
       </Card>
     </div>

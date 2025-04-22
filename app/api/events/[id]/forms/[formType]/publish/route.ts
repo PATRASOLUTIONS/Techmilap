@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import Event from "@/lib/models/event.model"
+import { ObjectId } from "mongodb"
 
 export async function POST(request: Request, { params }: { params: { id: string; formType: string } }) {
   try {
@@ -21,8 +21,19 @@ export async function POST(request: Request, { params }: { params: { id: string;
     const data = await request.json()
     const { status, questions } = data
 
+    console.log(`Publishing ${formType} form with status: ${status}`)
+    console.log(`Questions data:`, questions)
+
     // Validate that we have questions
-    if (!Array.isArray(questions) || questions.length === 0) {
+    if (!questions) {
+      return NextResponse.json({ error: "Questions data is missing." }, { status: 400 })
+    }
+
+    if (!Array.isArray(questions)) {
+      return NextResponse.json({ error: "Questions data must be an array." }, { status: 400 })
+    }
+
+    if (questions.length === 0) {
       return NextResponse.json(
         { error: "No questions provided. Form must have at least default questions." },
         { status: 400 },
@@ -32,14 +43,13 @@ export async function POST(request: Request, { params }: { params: { id: string;
     const client = await connectToDatabase()
     const db = client.db()
 
-    // Find the event by ID or slug
-    let event = await Event.findById(eventId)
+    // Get the event to check ownership
+    const event = await db.collection("events").findOne({
+      _id: new ObjectId(eventId),
+    })
+
     if (!event) {
-      // Try to find by slug
-      event = await Event.findOne({ slug: eventId })
-      if (!event) {
-        return NextResponse.json({ error: "Event not found" }, { status: 404 })
-      }
+      return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
     // Check if the user is the organizer
@@ -80,7 +90,9 @@ export async function POST(request: Request, { params }: { params: { id: string;
     console.log("Updating event with:", updateObj)
 
     // Update the database
-    const updateResult = await db.collection("events").updateOne({ _id: event._id }, { $set: updateObj })
+    const updateResult = await db.collection("events").updateOne({ _id: new ObjectId(eventId) }, { $set: updateObj })
+
+    console.log(`Update result: ${updateResult.matchedCount} matched, ${updateResult.modifiedCount} modified`)
 
     if (updateResult.matchedCount === 0) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
@@ -88,7 +100,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
 
     // Fetch the updated event to verify changes
     const updatedEvent = await db.collection("events").findOne({
-      _id: event._id,
+      _id: new ObjectId(eventId),
     })
 
     console.log("Updated event:", {

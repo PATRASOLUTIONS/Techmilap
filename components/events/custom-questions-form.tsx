@@ -458,9 +458,11 @@ export function CustomQuestionsForm({
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` }))
         console.error("Server response:", errorData)
-        throw new Error(errorData.error || `Failed to ${shouldPublish ? "publish" : "update"} form`)
+        throw new Error(
+          errorData.error || `Failed to ${shouldPublish ? "publish" : "update"} form (Status: ${response.status})`,
+        )
       }
 
       const responseData = await response.json()
@@ -470,7 +472,7 @@ export function CustomQuestionsForm({
       if (shouldPublish) {
         const baseUrl = window.location.origin
         const formPath = formType === "attendee" ? "register" : formType
-        const url = `${baseUrl}/events/${eventId || "[id]"}/${formPath}`
+        const url = `${baseUrl}/events/${eventId}/${formPath}`
 
         setPublishedUrls((prev) => ({
           ...prev,

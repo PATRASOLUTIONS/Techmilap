@@ -11,14 +11,14 @@ import { useToast } from "@/hooks/use-toast"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 
-export default function volunteersFormCustomizePage() {
+export default function VolunteerFormCustomizePage() {
   const { id } = useParams()
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [formStatus, setFormStatus] = useState("draft")
-  const [customQuestions, setCustomQuestions] = useState({ attendee: [], volunteer: [], volunteers: [] })
+  const [customQuestions, setCustomQuestions] = useState({ attendee: [], volunteer: [], speaker: [] })
   const [eventDetails, setEventDetails] = useState(null)
 
   useEffect(() => {
@@ -34,19 +34,19 @@ export default function volunteersFormCustomizePage() {
         const data = await response.json()
         setEventDetails(data.event)
 
-        // Get the volunteers form data specifically
-        const formResponse = await fetch(`/api/events/${id}/forms/volunteers`)
+        // Get the volunteer form data specifically
+        const formResponse = await fetch(`/api/events/${id}/forms/volunteer`)
 
         if (formResponse.ok) {
-          const formData = await formResponse.json()
+          const formData = await response.json()
 
           // Update the form status
           setFormStatus(formData.status || "draft")
 
-          // Initialize custom questions object with volunteers questions from API
+          // Initialize custom questions object with volunteer questions from API
           setCustomQuestions((prev) => ({
             ...prev,
-            volunteers: formData.questions || [],
+            volunteer: formData.questions || [],
           }))
         }
       } catch (error) {
@@ -70,31 +70,43 @@ export default function volunteersFormCustomizePage() {
     try {
       setSaving(true)
 
-      // Only use the volunteers questions part of the customQuestions
-      const volunteersQuestions = customQuestions.volunteers || []
+      // Only use the volunteer questions part of the customQuestions
+      const volunteerQuestions = customQuestions.volunteer || []
 
-      const response = await fetch(`/api/events/${id}/forms/volunteers/publish`, {
+      // Ensure we have valid questions data
+      if (!Array.isArray(volunteerQuestions) || volunteerQuestions.length === 0) {
+        toast({
+          title: "Error",
+          description: "No questions found. Please add at least one question before publishing.",
+          variant: "destructive",
+        })
+        setSaving(false)
+        return
+      }
+
+      const response = await fetch(`/api/events/${id}/forms/volunteer/publish`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           status: formStatus,
-          questions: volunteersQuestions,
+          questions: volunteerQuestions,
         }),
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to save form")
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Server response:", errorData)
+        throw new Error(errorData.error || `Failed to save form (Status: ${response.status})`)
       }
 
       toast({
         title: formStatus === "published" ? "Form published" : "Form saved as draft",
         description:
           formStatus === "published"
-            ? "Your volunteers form is now accepting applications"
-            : "Your volunteers form has been saved as a draft",
+            ? "Your volunteer form is now accepting applications"
+            : "Your volunteer form has been saved as a draft",
       })
 
       // Redirect back to the event dashboard
@@ -103,7 +115,7 @@ export default function volunteersFormCustomizePage() {
       console.error("Error saving form:", error)
       toast({
         title: "Error",
-        description: "Failed to save form. Please try again.",
+        description: error.message || "Failed to save form. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -141,7 +153,7 @@ export default function volunteersFormCustomizePage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-2xl font-bold">Customize volunteers Application Form</h1>
+          <h1 className="text-2xl font-bold">Customize Volunteer Application Form</h1>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center space-x-2 mr-2">
@@ -178,13 +190,13 @@ export default function volunteersFormCustomizePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>volunteers Form Settings</CardTitle>
+          <CardTitle>Volunteer Form Settings</CardTitle>
           <CardDescription>
-            Customize the information you collect from volunteerss applying to present at your event
+            Customize the information you collect from volunteers applying to help at your event
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Use the CustomQuestionsForm component with active tab set to volunteers */}
+          {/* Use the CustomQuestionsForm component with active tab set to volunteer */}
           <CustomQuestionsForm data={customQuestions} updateData={setCustomQuestions} eventId={id.toString()} />
         </CardContent>
       </Card>
