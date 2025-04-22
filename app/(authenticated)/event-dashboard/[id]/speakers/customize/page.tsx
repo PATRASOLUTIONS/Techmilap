@@ -25,9 +25,6 @@ export default function SpeakerFormCustomizePage() {
     const fetchEventData = async () => {
       try {
         setLoading(true)
-        console.log("Fetching speaker form data for event ID:", id)
-
-        // Fetch event details
         const response = await fetch(`/api/events/${id}`)
 
         if (!response.ok) {
@@ -36,38 +33,21 @@ export default function SpeakerFormCustomizePage() {
 
         const data = await response.json()
         setEventDetails(data.event)
-        console.log("Event data fetched:", data.event)
 
-        // Check if the event has speaker form status
-        if (data.event.speakerForm) {
-          setFormStatus(data.event.speakerForm.status || "draft")
-        }
+        // Get the speaker form data specifically
+        const formResponse = await fetch(`/api/events/${id}/forms/speaker`)
 
-        // Get the speaker form questions specifically
-        try {
-          // Use the correct endpoint for speaker form data
-          const formResponse = await fetch(`/api/events/${id}/forms/speaker`)
+        if (formResponse.ok) {
+          const formData = await formResponse.json()
 
-          if (formResponse.ok) {
-            const formData = await formResponse.json()
-            console.log("Speaker form data fetched:", formData)
+          // Update the form status
+          setFormStatus(formData.status || "draft")
 
-            // Initialize custom questions object with speaker questions from API
-            if (data.event.customQuestions && Array.isArray(data.event.customQuestions.speaker)) {
-              console.log("Setting speaker questions from event data:", data.event.customQuestions.speaker)
-              setCustomQuestions((prev) => ({
-                ...prev,
-                speaker: data.event.customQuestions.speaker,
-              }))
-            } else {
-              console.log("No speaker questions found in event data, using default")
-            }
-          } else {
-            console.error("Failed to fetch speaker form data:", formResponse.statusText)
-          }
-        } catch (formError) {
-          console.error("Error fetching form data:", formError)
-          // Continue with default questions if form data fetch fails
+          // Initialize custom questions object with speaker questions from API
+          setCustomQuestions((prev) => ({
+            ...prev,
+            speaker: formData.questions || [],
+          }))
         }
       } catch (error) {
         console.error("Error fetching data:", error)
@@ -92,12 +72,6 @@ export default function SpeakerFormCustomizePage() {
 
       // Only use the speaker questions part of the customQuestions
       const speakerQuestions = customQuestions.speaker || []
-
-      // Log the data being sent for debugging
-      console.log("Publishing speaker form with data:", {
-        status: formStatus,
-        questions: speakerQuestions,
-      })
 
       const response = await fetch(`/api/events/${id}/forms/speaker/publish`, {
         method: "POST",

@@ -12,8 +12,6 @@ export async function GET(request: Request, { params }: { params: { id: string; 
       return NextResponse.json({ error: "Invalid form type" }, { status: 400 })
     }
 
-    console.log(`Fetching ${formType} form data for event ID: ${eventId}`)
-
     // Connect to database
     await connectToDatabase()
     const client = await connectToDatabase()
@@ -43,8 +41,6 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     if (event.customQuestions && Array.isArray(event.customQuestions[formType])) {
       questions = event.customQuestions[formType]
     }
-
-    console.log(`Found ${questions.length} questions for ${formType} form`)
 
     // Return the questions and status
     return NextResponse.json({
