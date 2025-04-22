@@ -23,7 +23,7 @@ export function TicketManagementForm({ data = [], updateData }) {
   const handleAddTicket = () => {
     const newTicket = {
       id: Date.now().toString(),
-      name: "",
+      name: `Ticket ${data.length + 1}`,
       type: "General Admission",
       pricingModel: "Free",
       price: "0",
@@ -33,42 +33,8 @@ export function TicketManagementForm({ data = [], updateData }) {
       feeStructure: "Organizer",
     }
 
-    // Validate the ticket data
-    if (!newTicket.name) {
-      toast({
-        title: "Ticket name required",
-        description: "Please enter a name for the ticket.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (newTicket.pricingModel === "Paid" && (!newTicket.price || Number.parseFloat(newTicket.price) <= 0)) {
-      toast({
-        title: "Invalid price",
-        description: "Please enter a valid price greater than 0.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!newTicket.quantity || Number.parseInt(newTicket.quantity, 10) <= 0) {
-      toast({
-        title: "Invalid quantity",
-        description: "Please enter a valid quantity greater than 0.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Format the data properly
-    const formattedTicket = {
-      ...newTicket,
-      price: newTicket.pricingModel === "Paid" ? Number.parseFloat(newTicket.price) : 0,
-      quantity: Number.parseInt(newTicket.quantity, 10),
-    }
-
-    const updatedTickets = [...data, formattedTicket]
+    // Add the new ticket without validation (validation happens on form submission)
+    const updatedTickets = [...data, newTicket]
     updateData(updatedTickets)
     setSelectedTicket(newTicket)
   }
