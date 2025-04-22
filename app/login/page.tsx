@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { DecorativeBlob } from "@/components/ui/decorative-blob"
 import { Eye, EyeOff, Lock, Mail, AlertCircle, Info, ArrowRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { handleApiError } from "@/lib/error-handling"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -75,6 +76,32 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
+        // Check if it's a 500 error
+        const is500Error = result.error.includes("500") || result.status === 500
+
+        if (is500Error && typeof window !== "undefined") {
+          const refreshAttempted = sessionStorage.getItem("error_refresh_attempted")
+
+          if (!refreshAttempted) {
+            sessionStorage.setItem("error_refresh_attempted", "true")
+            toast({
+              variant: "info",
+              title: "Server Error",
+              description: "Attempting to recover...",
+            })
+
+            setTimeout(() => {
+              window.location.reload()
+            }, 1500)
+
+            setError("Server error encountered. Attempting to recover...")
+            setIsLoading(false)
+            return
+          } else {
+            sessionStorage.removeItem("error_refresh_attempted")
+          }
+        }
+
         setError(result.error)
         toast({
           variant: "destructive",
@@ -103,13 +130,16 @@ export default function LoginPage() {
         setTimeout(() => router.push("/my-events"), 1000)
       }
     } catch (err) {
-      console.error("Login error:", err)
-      setError("An error occurred during login")
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "An error occurred during login",
+      // Use our utility function to handle the error
+      const errorMessage = handleApiError(err, (msg) => {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: msg,
+        })
       })
+
+      setError(errorMessage)
       setIsLoading(false)
     }
   }
@@ -119,7 +149,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-background via-background to-muted/50">
+    <div className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-br from-background via-background to-muted/50">
       {/* Decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <DecorativeBlob

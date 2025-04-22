@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       await connectToDatabase()
     } catch (dbError) {
       console.error("Database connection error:", dbError)
-      return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
+      return NextResponse.json({ error: "Database connection failed", status: 500 }, { status: 500 })
     }
 
     // Check if user already exists
@@ -87,10 +87,13 @@ export async function POST(req: NextRequest) {
       )
     } catch (userError) {
       console.error("Error creating user:", userError)
-      return NextResponse.json({ error: userError.message || "Error creating user" }, { status: 500 })
+      return NextResponse.json({ error: userError.message || "Error creating user", status: 500 }, { status: 500 })
     }
   } catch (error: any) {
     console.error("Signup error:", error)
-    return NextResponse.json({ error: error.message || "An error occurred during signup" }, { status: 500 })
+    return NextResponse.json(
+      { error: error.message || "An error occurred during signup", status: 500 },
+      { status: 500 },
+    )
   }
 }

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, CheckCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { handleApiError, handleResponse } from "@/lib/error-handling"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -80,26 +81,8 @@ export default function SignupPage() {
         }),
       })
 
-      // Check if response is ok before trying to parse JSON
-      if (!response.ok) {
-        const errorText = await response.text()
-        let errorMessage = "Something went wrong"
-
-        try {
-          // Try to parse the error as JSON
-          const errorData = JSON.parse(errorText)
-          errorMessage = errorData.error || errorMessage
-        } catch (parseError) {
-          // If parsing fails, use the raw text or a default message
-          errorMessage = errorText || errorMessage
-          console.error("Error parsing response:", parseError)
-        }
-
-        throw new Error(errorMessage)
-      }
-
-      // Only try to parse JSON if the response is ok
-      const data = await response.json()
+      // Use our utility function to handle the response
+      const data = await handleResponse(response)
 
       // Show toast notification
       toast({
@@ -111,8 +94,16 @@ export default function SignupPage() {
       // Move to verification step
       setStep(2)
     } catch (err: any) {
-      console.error("Signup error:", err)
-      setError(err.message || "An error occurred during signup")
+      // Use our utility function to handle the error
+      const errorMessage = handleApiError(err, (msg) => {
+        toast({
+          variant: "destructive",
+          title: "Signup Error",
+          description: msg,
+        })
+      })
+
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -135,31 +126,17 @@ export default function SignupPage() {
         }),
       })
 
-      // Check if response is ok before trying to parse JSON
-      if (!response.ok) {
-        const errorText = await response.text()
-        let errorMessage = "Verification failed"
-
-        try {
-          // Try to parse the error as JSON
-          const errorData = JSON.parse(errorText)
-          errorMessage = errorData.error || errorMessage
-        } catch (parseError) {
-          // If parsing fails, use the raw text or a default message
-          errorMessage = errorText || errorMessage
-        }
-
-        throw new Error(errorMessage)
-      }
-
-      const data = await response.json()
+      // Use our utility function to handle the response
+      const data = await handleResponse(response)
 
       setVerificationSuccess(true)
       setTimeout(() => {
         router.push("/login?verified=true")
       }, 2000)
     } catch (err: any) {
-      setVerificationError(err.message)
+      // Use our utility function to handle the error
+      const errorMessage = handleApiError(err)
+      setVerificationError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -180,24 +157,8 @@ export default function SignupPage() {
         }),
       })
 
-      // Check if response is ok before trying to parse JSON
-      if (!response.ok) {
-        const errorText = await response.text()
-        let errorMessage = "Failed to resend verification code"
-
-        try {
-          // Try to parse the error as JSON
-          const errorData = JSON.parse(errorText)
-          errorMessage = errorData.error || errorMessage
-        } catch (parseError) {
-          // If parsing fails, use the raw text or a default message
-          errorMessage = errorText || errorMessage
-        }
-
-        throw new Error(errorMessage)
-      }
-
-      const data = await response.json()
+      // Use our utility function to handle the response
+      const data = await handleResponse(response)
 
       // Start countdown
       const timer = setInterval(() => {
@@ -211,7 +172,9 @@ export default function SignupPage() {
         })
       }, 1000)
     } catch (err: any) {
-      setVerificationError(err.message)
+      // Use our utility function to handle the error
+      const errorMessage = handleApiError(err)
+      setVerificationError(errorMessage)
       setResendDisabled(false)
     }
   }
