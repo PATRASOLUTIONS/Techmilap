@@ -67,15 +67,12 @@ export async function GET(req: NextRequest) {
             { "user.email": session.user.email },
             { "userData.email": session.user.email },
             { "formData.email": session.user.email },
-
-            // Check nested structures that might contain email
-            { formData: { $elemMatch: { value: session.user.email, field: "email" } } },
-            { answers: { $elemMatch: { value: session.user.email, question: /email/i } } },
           ],
         },
         {
           $or: [
             { "data.email": session.user.email }, // Check if the email in myevent.formsubmissions.youremail matches the logged-in user's email
+            { userEmail: session.user.email }, // Also check the userEmail field
           ],
         },
       ],
