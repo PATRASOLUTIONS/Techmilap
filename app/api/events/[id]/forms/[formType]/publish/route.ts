@@ -58,33 +58,17 @@ export async function POST(request: Request, { params }: { params: { id: string;
     }
 
     // Create the update object with $set to ensure nested fields are properly updated
-    const updateObj = {}
-
-    // Set the custom questions
-    updateObj[`customQuestions.${formType}`] = questions
+    const updateObj = {
+      [`customQuestions.${formType}`]: questions,
+    }
 
     // Set the form status based on formType
     if (formType === "attendee") {
-      // If attendeeForm doesn't exist, create it
-      if (!event.attendeeForm) {
-        updateObj["attendeeForm"] = { status: status || "published" }
-      } else {
-        updateObj["attendeeForm.status"] = status || "published"
-      }
+      updateObj["attendeeForm.status"] = status || "published"
     } else if (formType === "volunteer") {
-      // If volunteerForm doesn't exist, create it
-      if (!event.volunteerForm) {
-        updateObj["volunteerForm"] = { status: status || "published" }
-      } else {
-        updateObj["volunteerForm.status"] = status || "published"
-      }
+      updateObj["volunteerForm.status"] = status || "published"
     } else if (formType === "speaker") {
-      // If speakerForm doesn't exist, create it
-      if (!event.speakerForm) {
-        updateObj["speakerForm"] = { status: status || "published" }
-      } else {
-        updateObj["speakerForm.status"] = status || "published"
-      }
+      updateObj["speakerForm.status"] = status || "published"
     }
 
     console.log("Updating event with:", updateObj)
@@ -111,7 +95,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
     // Generate the public URL for the form
     const baseUrl = new URL(request.url).origin
     const formPath = formType === "attendee" ? "register" : formType
-    const publicUrl = `${baseUrl}/public-events/${eventId}/${formPath}`
+    const publicUrl = `${baseUrl}/events/${eventId}/${formPath}`
 
     return NextResponse.json({
       success: true,
