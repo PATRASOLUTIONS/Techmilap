@@ -243,7 +243,12 @@ export default function AttendeeFormCustomizePage() {
         </CardHeader>
         <CardContent>
           {/* Use the CustomQuestionsForm component with active tab set to attendee */}
-          <CustomQuestionsForm data={customQuestions} updateData={setCustomQuestions} eventId={id.toString()} />
+          <CustomQuestionsForm
+            data={customQuestions}
+            updateData={setCustomQuestions}
+            eventId={id.toString()}
+            eventSlug={eventDetails?.slug || null}
+          />
         </CardContent>
       </Card>
     </div>

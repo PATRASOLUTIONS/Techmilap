@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 
 export async function POST(request: Request, { params }: { params: { id: string; formType: string } }) {
   try {
@@ -12,38 +12,29 @@ export async function POST(request: Request, { params }: { params: { id: string;
     }
 
     const eventId = params.id
-    const formType = params.formType // attendee, volunteer, or speaker
+    const formType = params.formType
 
+    // Validate form type
     if (!["attendee", "volunteer", "speaker"].includes(formType)) {
       return NextResponse.json({ error: "Invalid form type" }, { status: 400 })
     }
 
-    const data = await request.json()
-    const { status, questions } = data
+    const { status, questions } = await request.json()
 
-    console.log(`Publishing ${formType} form with status: ${status}`)
-    console.log(`Questions data:`, questions)
-
-    // Validate that we have questions
-    if (!questions) {
-      return NextResponse.json({ error: "Questions data is missing." }, { status: 400 })
+    // Validate status
+    if (!["draft", "published"].includes(status)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 })
     }
 
+    // Validate questions
     if (!Array.isArray(questions)) {
-      return NextResponse.json({ error: "Questions data must be an array." }, { status: 400 })
-    }
-
-    if (questions.length === 0) {
-      return NextResponse.json(
-        { error: "No questions provided. Form must have at least default questions." },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: "Questions must be an array" }, { status: 400 })
     }
 
     const client = await connectToDatabase()
     const db = client.db()
 
-    // Get the event to check ownership
+    // Get the event
     const event = await db.collection("events").findOne({
       _id: new ObjectId(eventId),
     })
@@ -53,75 +44,40 @@ export async function POST(request: Request, { params }: { params: { id: string;
     }
 
     // Check if the user is the organizer
-    if (event.organizer.toString() !== session.user.id && session.user.role !== "super-admin") {
-      return NextResponse.json({ error: "You do not have permission to update this event" }, { status: 403 })
+    if (event.organizer.toString() !== session.user.id && session.user.role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
-    // Create the update object with $set to ensure nested fields are properly updated
-    const updateObj = {}
+    // Update the form status and questions
+    const updateField = `${formType}Form`
+    const updateCustomQuestions = `customQuestions.${formType}`
 
-    // Set the custom questions
-    updateObj[`customQuestions.${formType}`] = questions
+    const updateResult = await db.collection("events").updateOne(
+      { _id: new ObjectId(eventId) },
+      {
+        $set: {
+          [updateField]: { status },
+          [updateCustomQuestions]: questions,
+        },
+      },
+    )
 
-    // Set the form status based on formType
-    if (formType === "attendee") {
-      // If attendeeForm doesn't exist, create it
-      if (!event.attendeeForm) {
-        updateObj["attendeeForm"] = { status: status || "published" }
-      } else {
-        updateObj["attendeeForm.status"] = status || "published"
-      }
-    } else if (formType === "volunteer") {
-      // If volunteerForm doesn't exist, create it
-      if (!event.volunteerForm) {
-        updateObj["volunteerForm"] = { status: status || "published" }
-      } else {
-        updateObj["volunteerForm.status"] = status || "published"
-      }
-    } else if (formType === "speaker") {
-      // If speakerForm doesn't exist, create it
-      if (!event.speakerForm) {
-        updateObj["speakerForm"] = { status: status || "published" }
-      } else {
-        updateObj["speakerForm.status"] = status || "published"
-      }
+    if (updateResult.modifiedCount === 0) {
+      return NextResponse.json({ error: "Failed to update form" }, { status: 500 })
     }
 
-    console.log("Updating event with:", updateObj)
-
-    // Update the database
-    const updateResult = await db.collection("events").updateOne({ _id: new ObjectId(eventId) }, { $set: updateObj })
-
-    console.log(`Update result: ${updateResult.matchedCount} matched, ${updateResult.modifiedCount} modified`)
-
-    if (updateResult.matchedCount === 0) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 })
-    }
-
-    // Fetch the updated event to verify changes
-    const updatedEvent = await db.collection("events").findOne({
-      _id: new ObjectId(eventId),
-    })
-
-    console.log("Updated event:", {
-      customQuestions: updatedEvent.customQuestions,
-      [`${formType}Form`]: updatedEvent[`${formType}Form`],
-    })
-
-    // Generate the public URL for the form
-    const baseUrl = new URL(request.url).origin
-    const formPath = formType === "attendee" ? "register" : formType
-    const publicUrl = `${baseUrl}/public-events/${eventId}/${formPath}`
-
+    // Return success
     return NextResponse.json({
       success: true,
-      message: `${formType} form ${status === "published" ? "published" : "updated"} successfully`,
-      formStatus: updatedEvent[`${formType}Form`]?.status || status,
-      questionsCount: updatedEvent.customQuestions?.[formType]?.length || 0,
-      publicUrl: status === "published" ? publicUrl : null,
+      message: `${formType} form ${status === "published" ? "published" : "saved as draft"} successfully`,
+      event: {
+        _id: event._id,
+        title: event.title,
+        slug: event.slug,
+      },
     })
   } catch (error) {
-    console.error(`Error ${params.formType} form:`, error)
-    return NextResponse.json({ error: "Failed to update form. Please try again." }, { status: 500 })
+    console.error("Error publishing form:", error)
+    return NextResponse.json({ error: "Failed to publish form" }, { status: 500 })
   }
 }
