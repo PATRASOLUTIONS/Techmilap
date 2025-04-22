@@ -195,17 +195,6 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
         throw new Error("Event name is required")
       }
 
-      // Generate a slug if one doesn't exist
-      const slug =
-        formData.details.slug ||
-        formData.details.name
-          .toLowerCase()
-          .replace(/[^\w\s-]/g, "")
-          .replace(/\s+/g, "-")
-          .replace(/-+/g, "-")
-          .trim() ||
-        `event-${Date.now()}`
-
       // Convert form data to the format expected by the API
       const apiData = {
         details: {
@@ -221,7 +210,15 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
           type: formData.details.type,
           visibility: formData.details.visibility || "Public", // Default to Public if not specified
           coverImageUrl: formData.details.coverImageUrl,
-          slug: slug,
+          slug:
+            formData.details.slug ||
+            formData.details.name
+              .toLowerCase()
+              .replace(/[^\w\s-]/g, "")
+              .replace(/\s+/g, "-")
+              .replace(/-+/g, "-")
+              .trim() ||
+            `event-${Date.now()}`,
         },
         tickets:
           formData.tickets.map((ticket) => ({
@@ -266,7 +263,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       const data = await response.json()
 
       const eventId = data.event?.id || data.event?._id || "event-123" // Fallback ID for testing
-      const eventSlug = data.event?.slug || slug // Store the slug for the success page
+      const eventSlug = data.event?.slug || formData.details.slug // Store the slug for the success page
 
       setSubmittedEventId(eventId)
       setSubmittedEventSlug(eventSlug)
@@ -527,6 +524,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                     <TicketManagementForm
                       data={formData.tickets}
                       updateData={(data) => updateFormData("tickets", data)}
+                      eventId={isEditing ? existingEvent._id : null}
                     />
                   )}
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,10 +15,41 @@ import { motion, AnimatePresence } from "framer-motion"
 import { TicketPreview } from "./ticket-preview"
 import { useToast } from "@/hooks/use-toast"
 
-export function TicketManagementForm({ data = [], updateData }) {
+interface TicketManagementFormProps {
+  data: any[]
+  updateData: (data: any[]) => void
+  eventId?: string
+}
+
+export function TicketManagementForm({ data = [], updateData, eventId }: TicketManagementFormProps) {
   const { toast } = useToast()
   const [selectedTicket, setSelectedTicket] = useState(null)
   const [selectedDesign, setSelectedDesign] = useState("modern")
+  const [eventName, setEventName] = useState("Your Event")
+
+  useEffect(() => {
+    const fetchEventName = async () => {
+      if (eventId) {
+        try {
+          const response = await fetch(`/api/events/${eventId}`, {
+            headers: {
+              "Cache-Control": "no-cache",
+            },
+          })
+          if (response.ok) {
+            const data = await response.json()
+            setEventName(data.event?.title || "Your Event")
+          } else {
+            console.error("Failed to fetch event name")
+          }
+        } catch (error) {
+          console.error("Error fetching event name:", error)
+        }
+      }
+    }
+
+    fetchEventName()
+  }, [eventId])
 
   const handleAddTicket = () => {
     const newTicket = {
@@ -373,7 +404,7 @@ export function TicketManagementForm({ data = [], updateData }) {
                 <TicketPreview
                   ticket={selectedTicket}
                   eventDetails={{
-                    name: "Your Event",
+                    name: eventName,
                     startDate: new Date().toISOString(),
                     startTime: "10:00",
                     endTime: "18:00",
