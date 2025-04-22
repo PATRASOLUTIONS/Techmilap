@@ -21,19 +21,8 @@ export async function POST(request: Request, { params }: { params: { id: string;
     const data = await request.json()
     const { status, questions } = data
 
-    console.log(`Publishing ${formType} form with status: ${status}`)
-    console.log(`Questions data:`, questions)
-
     // Validate that we have questions
-    if (!questions) {
-      return NextResponse.json({ error: "Questions data is missing." }, { status: 400 })
-    }
-
-    if (!Array.isArray(questions)) {
-      return NextResponse.json({ error: "Questions data must be an array." }, { status: 400 })
-    }
-
-    if (questions.length === 0) {
+    if (!Array.isArray(questions) || questions.length === 0) {
       return NextResponse.json(
         { error: "No questions provided. Form must have at least default questions." },
         { status: 400 },
@@ -53,30 +42,44 @@ export async function POST(request: Request, { params }: { params: { id: string;
     }
 
     // Check if the user is the organizer
-    if (event.organizer.toString() !== session.user.id && session.user.role !== "admin") {
+    if (event.organizer.toString() !== session.user.id && session.user.role !== "super-admin") {
       return NextResponse.json({ error: "You do not have permission to update this event" }, { status: 403 })
     }
 
     // Create the update object with $set to ensure nested fields are properly updated
-    const updateObj = {
-      [`customQuestions.${formType}`]: questions,
-    }
+    const updateObj = {}
+
+    // Set the custom questions
+    updateObj[`customQuestions.${formType}`] = questions
 
     // Set the form status based on formType
     if (formType === "attendee") {
-      updateObj["attendeeForm.status"] = status || "published"
+      // If attendeeForm doesn't exist, create it
+      if (!event.attendeeForm) {
+        updateObj["attendeeForm"] = { status: status || "published" }
+      } else {
+        updateObj["attendeeForm.status"] = status || "published"
+      }
     } else if (formType === "volunteer") {
-      updateObj["volunteerForm.status"] = status || "published"
+      // If volunteerForm doesn't exist, create it
+      if (!event.volunteerForm) {
+        updateObj["volunteerForm"] = { status: status || "published" }
+      } else {
+        updateObj["volunteerForm.status"] = status || "published"
+      }
     } else if (formType === "speaker") {
-      updateObj["speakerForm.status"] = status || "published"
+      // If speakerForm doesn't exist, create it
+      if (!event.speakerForm) {
+        updateObj["speakerForm"] = { status: status || "published" }
+      } else {
+        updateObj["speakerForm.status"] = status || "published"
+      }
     }
 
     console.log("Updating event with:", updateObj)
 
     // Update the database
     const updateResult = await db.collection("events").updateOne({ _id: new ObjectId(eventId) }, { $set: updateObj })
-
-    console.log(`Update result: ${updateResult.matchedCount} matched, ${updateResult.modifiedCount} modified`)
 
     if (updateResult.matchedCount === 0) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
@@ -95,7 +98,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
     // Generate the public URL for the form
     const baseUrl = new URL(request.url).origin
     const formPath = formType === "attendee" ? "register" : formType
-    const publicUrl = `${baseUrl}/events/${eventId}/${formPath}`
+    const publicUrl = `${baseUrl}/public-events/${eventId}/${formPath}`
 
     return NextResponse.json({
       success: true,
@@ -103,13 +106,8 @@ export async function POST(request: Request, { params }: { params: { id: string;
       formStatus: updatedEvent[`${formType}Form`]?.status || status,
       questionsCount: updatedEvent.customQuestions?.[formType]?.length || 0,
       publicUrl: status === "published" ? publicUrl : null,
-      event: {
-        _id: event._id,
-        title: event.title,
-        slug: event.slug,
-      },
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error(`Error ${params.formType} form:`, error)
     return NextResponse.json({ error: "Failed to update form. Please try again." }, { status: 500 })
   }

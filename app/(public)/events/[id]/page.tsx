@@ -188,7 +188,7 @@ export default function EventPage() {
               <Tabs defaultValue="description">
                 <TabsList className="mb-4">
                   <TabsTrigger value="description">Description</TabsTrigger>
-              
+
                   {event.schedule && <TabsTrigger value="schedule">Schedule</TabsTrigger>}
                 </TabsList>
                 <TabsContent value="description" className="space-y-4">
@@ -216,8 +216,6 @@ export default function EventPage() {
             </CardContent>
           </Card>
         </div>
-
-       
       </div>
     </div>
   )

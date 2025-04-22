@@ -15,7 +15,6 @@ export function CustomQuestionsForm({
   data = { attendee: [], volunteer: [], speaker: [] },
   updateData,
   eventId = null,
-  eventSlug = null,
   updateFormStatus = null,
 }) {
   const [activeTab, setActiveTab] = useState("attendee")
@@ -299,7 +298,6 @@ export function CustomQuestionsForm({
       const response = await fetch(`/api/events/${eventId}/forms/status`)
       if (response.ok) {
         const statusData = await response.json()
-        const eventData = statusData.event || {}
 
         // Update publish status based on form status from database
         setPublishStatus({
@@ -315,28 +313,25 @@ export function CustomQuestionsForm({
           updateFormStatus("speaker", statusData.speakerForm?.status || "draft")
         }
 
-        // Get the event slug from the response if available
-        const slug = eventData.slug || eventSlug || eventId
-
         // Set published URLs if forms are published
         if (statusData.attendeeForm?.status === "published") {
           setPublishedUrls((prev) => ({
             ...prev,
-            attendee: `${window.location.origin}/events/${slug}/register`,
+            attendee: `${window.location.origin}/events/${eventId}/register`,
           }))
         }
 
         if (statusData.volunteerForm?.status === "published") {
           setPublishedUrls((prev) => ({
             ...prev,
-            volunteer: `${window.location.origin}/events/${slug}/volunteer`,
+            volunteer: `${window.location.origin}/events/${eventId}/volunteer`,
           }))
         }
 
         if (statusData.speakerForm?.status === "published") {
           setPublishedUrls((prev) => ({
             ...prev,
-            speaker: `${window.location.origin}/events/${slug}/speaker`,
+            speaker: `${window.location.origin}/events/${eventId}/speaker`,
           }))
         }
       }
@@ -463,24 +458,19 @@ export function CustomQuestionsForm({
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` }))
+        const errorData = await response.json()
         console.error("Server response:", errorData)
-        throw new Error(
-          errorData.error || `Failed to ${shouldPublish ? "publish" : "update"} form (Status: ${response.status})`,
-        )
+        throw new Error(errorData.error || `Failed to ${shouldPublish ? "publish" : "update"} form`)
       }
 
       const responseData = await response.json()
       console.log("Server response:", responseData)
 
-      // Get the event slug from the response if available
-      const slug = responseData.event?.slug || eventSlug || eventId
-
       // Set the published URL if publishing
       if (shouldPublish) {
         const baseUrl = window.location.origin
         const formPath = formType === "attendee" ? "register" : formType
-        const url = `${baseUrl}/events/${slug}/${formPath}`
+        const url = `${baseUrl}/events/${eventId}/${formPath}`
 
         setPublishedUrls((prev) => ({
           ...prev,
@@ -794,7 +784,7 @@ export function CustomQuestionsForm({
               <div className="flex items-center gap-2">
                 <code className="text-xs bg-background p-1 rounded flex-1 overflow-x-auto">
                   {publishedUrls[type] ||
-                    `${window.location.origin}/events/${eventSlug || "[slug]"}/${type === "attendee" ? "register" : type}`}
+                    `${window.location.origin}/events/[id]/${type === "attendee" ? "register" : type}`}
                 </code>
                 <Button
                   variant="ghost"
@@ -802,7 +792,7 @@ export function CustomQuestionsForm({
                   onClick={() => {
                     const url =
                       publishedUrls[type] ||
-                      `${window.location.origin}/events/${eventSlug || eventId || "[slug]"}/${type === "attendee" ? "register" : type}`
+                      `${window.location.origin}/events/${eventId || "[id]"}/${type === "attendee" ? "register" : type}`
                     navigator.clipboard.writeText(url)
                     toast({
                       title: "URL Copied",

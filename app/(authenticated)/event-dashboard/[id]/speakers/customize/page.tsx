@@ -73,17 +73,6 @@ export default function SpeakerFormCustomizePage() {
       // Only use the speaker questions part of the customQuestions
       const speakerQuestions = customQuestions.speaker || []
 
-      // Ensure we have valid questions data
-      if (!Array.isArray(speakerQuestions) || speakerQuestions.length === 0) {
-        toast({
-          title: "Error",
-          description: "No questions found. Please add at least one question before publishing.",
-          variant: "destructive",
-        })
-        setSaving(false)
-        return
-      }
-
       const response = await fetch(`/api/events/${id}/forms/speaker/publish`, {
         method: "POST",
         headers: {
@@ -96,9 +85,8 @@ export default function SpeakerFormCustomizePage() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error("Server response:", errorData)
-        throw new Error(errorData.error || `Failed to save form (Status: ${response.status})`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to save form")
       }
 
       toast({

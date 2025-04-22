@@ -85,17 +85,6 @@ export default function AttendeeFormCustomizePage() {
       // Only use the attendee questions part of the customQuestions
       const attendeeQuestions = customQuestions.attendee || []
 
-      // Ensure we have valid questions data
-      if (!Array.isArray(attendeeQuestions) || attendeeQuestions.length === 0) {
-        toast({
-          title: "Error",
-          description: "No questions found. Please add at least one question before publishing.",
-          variant: "destructive",
-        })
-        setSaving(false)
-        return
-      }
-
       // Log the data being sent for debugging
       console.log("Publishing form with data:", {
         status: formStatus,
@@ -114,9 +103,9 @@ export default function AttendeeFormCustomizePage() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
+        const errorData = await response.json()
         console.error("Server response:", errorData)
-        throw new Error(errorData.error || `Failed to save form (Status: ${response.status})`)
+        throw new Error(errorData.error || "Failed to save form")
       }
 
       const responseData = await response.json()
@@ -243,12 +232,7 @@ export default function AttendeeFormCustomizePage() {
         </CardHeader>
         <CardContent>
           {/* Use the CustomQuestionsForm component with active tab set to attendee */}
-          <CustomQuestionsForm
-            data={customQuestions}
-            updateData={setCustomQuestions}
-            eventId={id.toString()}
-            eventSlug={eventDetails?.slug || null}
-          />
+          <CustomQuestionsForm data={customQuestions} updateData={setCustomQuestions} eventId={id.toString()} />
         </CardContent>
       </Card>
     </div>
