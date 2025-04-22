@@ -24,11 +24,11 @@ export function PartnersSection() {
   }
 
   const partners = [
-    { name: "TechCorp", logo: "/placeholder.svg?height=40&width=120&query=techcorp%20logo" },
-    { name: "InnovateX", logo: "/placeholder.svg?height=40&width=120&query=innovatex%20logo" },
-    { name: "DevNetwork", logo: "/placeholder.svg?height=40&width=120&query=devnetwork%20logo" },
-    { name: "StartupHub", logo: "/placeholder.svg?height=40&width=120&query=startuphub%20logo" },
-    { name: "CodeCamp", logo: "/placeholder.svg?height=40&width=120&query=codecamp%20logo" },
+    { name: "TechCorp", logo: "/abstract-techcorp.png" },
+    { name: "InnovateX", logo: "/abstract-innovation-symbol.png" },
+    { name: "DevNetwork", logo: "/abstract-network-design.png" },
+    { name: "StartupHub", logo: "/abstract-growth-network.png" },
+    { name: "CodeCamp", logo: "/abstract-codecamp.png" },
     { name: "FutureTech", logo: "/placeholder.svg?height=40&width=120&query=futuretech%20logo" },
   ]
 
@@ -47,7 +47,15 @@ export function PartnersSection() {
         >
           {partners.map((partner, index) => (
             <motion.div key={index} variants={item} className="grayscale hover:grayscale-0 transition-all">
-              <Image src={partner.logo || "/placeholder.svg"} alt={partner.name} width={120} height={40} />
+              <Image
+                src={partner.logo || "/placeholder.svg"}
+                alt={partner.name}
+                width={120}
+                height={40}
+                onError={(e) => {
+                  e.currentTarget.src = "/placeholder.svg?height=40&width=120&query=logo"
+                }}
+              />
             </motion.div>
           ))}
         </motion.div>
