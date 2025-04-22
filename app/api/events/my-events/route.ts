@@ -52,33 +52,40 @@ export async function GET(req: NextRequest) {
     // Find all form submissions for this user using both ID and email
     // If roleFilter is specified, only get submissions for that role
     const formSubmissionsQuery = {
-      $or: [
-        // Check for user ID in various formats
-        { userId: session.user.id },
-        { userId: userId.toString() },
-        { user: userId },
-        { user: session.user.id },
+      $and: [
+        {
+          $or: [
+            // Check for user ID in various formats
+            { userId: session.user.id },
+            { userId: userId.toString() },
+            { user: userId },
+            { user: session.user.id },
 
-        // Check for user email in various formats
-        { userEmail: session.user.email },
-        { email: session.user.email },
-        { "user.email": session.user.email },
-        { "userData.email": session.user.email },
-        { "formData.email": session.user.email },
+            // Check for user email in various formats
+            { userEmail: session.user.email },
+            { email: session.user.email },
+            { "user.email": session.user.email },
+            { "userData.email": session.user.email },
+            { "formData.email": session.user.email },
 
-        // Check nested structures that might contain email
-        { formData: { $elemMatch: { value: session.user.email, field: "email" } } },
-        { answers: { $elemMatch: { value: session.user.email, question: /email/i } } },
+            // Check nested structures that might contain email
+            { formData: { $elemMatch: { value: session.user.email, field: "email" } } },
+            { answers: { $elemMatch: { value: session.user.email, question: /email/i } } },
+          ],
+        },
+        {
+          $or: [
+            { "data.email": session.user.email }, // Check if the email in myevent.formsubmissions.youremail matches the logged-in user's email
+          ],
+        },
       ],
     }
 
     // Add role filter if specified
     if (roleFilter && roleFilter !== "organizer") {
-      formSubmissionsQuery["$and"] = [
-        {
-          $or: [{ formType: roleFilter }, { type: roleFilter }, { "formData.type": roleFilter }],
-        },
-      ]
+      formSubmissionsQuery["$and"].push({
+        $or: [{ formType: roleFilter }, { type: roleFilter }, { "formData.type": roleFilter }],
+      })
     }
 
     const formSubmissions = await db.collection("formSubmissions").find(formSubmissionsQuery).toArray()
