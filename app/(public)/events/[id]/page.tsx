@@ -151,22 +151,24 @@ export default function EventPage() {
 
                 {/* Registration Buttons */}
                 <div className="space-y-3">
-                  <PublicEventRegisterButton
-                    eventId={eventIdOrSlug}
-                    formType="register"
-                    isFormPublished={isAttendeeFormPublished}
-                    className="w-full"
-                  />
+                  {isAttendeeFormPublished && (
+                    <PublicEventRegisterButton
+                      eventId={event.slug || eventIdOrSlug}
+                      formType="register"
+                      isFormPublished={isAttendeeFormPublished}
+                      className="w-full"
+                    />
+                  )}
                   <div className="grid grid-cols-2 gap-3">
                     <PublicEventRegisterButton
-                      eventId={eventIdOrSlug}
+                      eventId={event.slug || eventIdOrSlug}
                       formType="volunteer"
                       variant="outline"
                       isFormPublished={isVolunteerFormPublished}
                       className="w-full"
                     />
                     <PublicEventRegisterButton
-                      eventId={eventIdOrSlug}
+                      eventId={event.slug || eventIdOrSlug}
                       formType="speaker"
                       variant="outline"
                       isFormPublished={isSpeakerFormPublished}
@@ -317,7 +319,7 @@ export default function EventPage() {
                 <p className="text-muted-foreground">Secure your spot now before registration closes.</p>
               </div>
               <PublicEventRegisterButton
-                eventId={eventIdOrSlug}
+                eventId={event.slug || eventIdOrSlug}
                 formType="register"
                 isFormPublished={isAttendeeFormPublished}
                 className="min-w-[150px]"

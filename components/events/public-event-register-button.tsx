@@ -42,6 +42,10 @@ export function PublicEventRegisterButton({
   // Use the provided button text or the default for this form type
   const text = buttonText || formTypeConfig[formType].text
 
+  const getButtonText = () => {
+    return buttonText || formTypeConfig[formType].text
+  }
+
   if (!isFormPublished) {
     return (
       <Button variant="outline" size={size} disabled className={className} {...props}>
@@ -52,7 +56,7 @@ export function PublicEventRegisterButton({
 
   return (
     <Button variant={variant} size={size} asChild className={className} {...props}>
-      <Link href={formTypeConfig[formType].url}>{text}</Link>
+      <Link href={`/events/${eventId}/${formType}`}>{getButtonText()}</Link>
     </Button>
   )
 }
