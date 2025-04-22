@@ -41,7 +41,7 @@ export async function handleFormSubmission(
     const connection = await connectToDatabase()
     db = connection.db
     console.log("Connected to database")
-  } catch (dbConnectionError) {
+  } catch (dbConnectionError: any) {
     console.error("Database connection error:", dbConnectionError)
     throw new Error(`Failed to connect to database: ${dbConnectionError.message}`)
   }

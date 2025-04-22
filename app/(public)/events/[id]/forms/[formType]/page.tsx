@@ -201,24 +201,19 @@ export default function EventFormPage() {
         body: JSON.stringify(payload),
       })
 
-      // Try to parse the response as JSON
-      let responseData
-      try {
-        // Clone the response before reading it to avoid the "body stream already read" error
-        const responseClone = response.clone()
-        responseData = await response.json()
-        console.log("Response from server:", responseData)
-      } catch (e) {
-        console.error("Failed to parse response as JSON:", e)
-        // Don't try to read the original response body again
-        throw new Error("Server returned an invalid response")
-      }
-
       if (!response.ok) {
-        console.error("Form submission error:", responseData)
-        throw new Error(responseData.error || "Failed to submit form")
+        // Try to get error details from response
+        let errorMessage = "Failed to submit form"
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch (e) {
+          console.error("Could not parse error response:", e)
+        }
+        throw new Error(errorMessage)
       }
 
+      // Success! Show toast and redirect
       toast({
         title: formType === "register" ? "Registration Successful" : "Application Submitted",
         description:

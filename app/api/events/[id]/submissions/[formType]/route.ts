@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+import { handleFormSubmission } from "@/lib/form-submission"
 
 // Import models
 const Event = mongoose.models.Event || mongoose.model("Event", require("@/models/Event").default.schema)
@@ -118,19 +119,40 @@ export async function GET(req: NextRequest, { params }: { params: { id: string; 
 
 export async function POST(request: Request, { params }: { params: { id: string; formType: string } }) {
   try {
-    // Clone the request to avoid body stream already read issues
-    const requestClone = request.clone()
+    console.log(`Processing ${params.formType} submission for event ${params.id}`)
 
-    // Get the form data from the request
-    let formData
+    // Parse the request body
+    let body
     try {
-      formData = await request.json()
+      body = await request.json()
     } catch (error) {
-      console.error("Error parsing request body:", error)
-      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+      console.error("Failed to parse request body:", error)
+      return NextResponse.json({ error: "Invalid request format" }, { status: 400 })
     }
 
-    // Rest of the function remains the same...
+    // Extract the form data and user ID
+    const { data, userId } = body
+
+    if (!data) {
+      console.error("No form data provided")
+      return NextResponse.json({ error: "No form data provided" }, { status: 400 })
+    }
+
+    console.log("Form data received:", JSON.stringify(data, null, 2))
+    console.log("User ID:", userId)
+
+    // Process the form submission
+    const result = await handleFormSubmission(params.id, params.formType, data, userId)
+
+    // Return a successful response
+    return NextResponse.json({
+      success: true,
+      message:
+        params.formType === "attendee"
+          ? "Registration successful"
+          : `${params.formType} application submitted successfully`,
+      submissionId: result.submissionId,
+    })
   } catch (error: any) {
     console.error(`Error processing form submission:`, error)
     return NextResponse.json(
