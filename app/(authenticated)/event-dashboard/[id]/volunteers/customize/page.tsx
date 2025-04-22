@@ -11,15 +11,14 @@ import { useToast } from "@/hooks/use-toast"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 
-// Fix the component name and update the useEffect to properly fetch volunteer form data
-export default function VolunteersFormCustomizePage() {
+export default function volunteersFormCustomizePage() {
   const { id } = useParams()
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [formStatus, setFormStatus] = useState("draft")
-  const [customQuestions, setCustomQuestions] = useState({ attendee: [], volunteer: [], speaker: [] })
+  const [customQuestions, setCustomQuestions] = useState({ attendee: [], volunteer: [], volunteers: [] })
   const [eventDetails, setEventDetails] = useState(null)
 
   useEffect(() => {
@@ -35,31 +34,20 @@ export default function VolunteersFormCustomizePage() {
         const data = await response.json()
         setEventDetails(data.event)
 
-        // Get the volunteer form data specifically
-        try {
-          // Use the correct endpoint for volunteer form data
-          const formResponse = await fetch(`/api/events/${id}/volunteer-form`)
+        // Get the volunteers form data specifically
+        const formResponse = await fetch(`/api/events/${id}/forms/volunteers`)
 
-          if (formResponse.ok) {
-            const formData = await response.json()
-            console.log("Fetched volunteer form data:", formData)
+        if (formResponse.ok) {
+          const formData = await formResponse.json()
 
-            // Update the form status
-            if (data.event.volunteerForm && data.event.volunteerForm.status) {
-              setFormStatus(data.event.volunteerForm.status)
-            }
+          // Update the form status
+          setFormStatus(formData.status || "draft")
 
-            // Initialize custom questions object with volunteer questions from API
-            if (data.event.customQuestions && Array.isArray(data.event.customQuestions.volunteer)) {
-              setCustomQuestions((prev) => ({
-                ...prev,
-                volunteer: data.event.customQuestions.volunteer,
-              }))
-            }
-          }
-        } catch (formError) {
-          console.error("Error fetching form data:", formError)
-          // Continue with default questions if form data fetch fails
+          // Initialize custom questions object with volunteers questions from API
+          setCustomQuestions((prev) => ({
+            ...prev,
+            volunteers: formData.questions || [],
+          }))
         }
       } catch (error) {
         console.error("Error fetching data:", error)
@@ -78,28 +66,21 @@ export default function VolunteersFormCustomizePage() {
     }
   }, [id, toast])
 
-  // Update the handleSave function to use the correct endpoint and data structure
   const handleSave = async () => {
     try {
       setSaving(true)
 
-      // Only use the volunteer questions part of the customQuestions
-      const volunteerQuestions = customQuestions.volunteer || []
+      // Only use the volunteers questions part of the customQuestions
+      const volunteersQuestions = customQuestions.volunteers || []
 
-      // Log the data being sent for debugging
-      console.log("Publishing volunteer form with data:", {
-        status: formStatus,
-        questions: volunteerQuestions,
-      })
-
-      const response = await fetch(`/api/events/${id}/forms/volunteer/publish`, {
+      const response = await fetch(`/api/events/${id}/forms/volunteers/publish`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           status: formStatus,
-          questions: volunteerQuestions,
+          questions: volunteersQuestions,
         }),
       })
 
@@ -112,8 +93,8 @@ export default function VolunteersFormCustomizePage() {
         title: formStatus === "published" ? "Form published" : "Form saved as draft",
         description:
           formStatus === "published"
-            ? "Your volunteer form is now accepting applications"
-            : "Your volunteer form has been saved as a draft",
+            ? "Your volunteers form is now accepting applications"
+            : "Your volunteers form has been saved as a draft",
       })
 
       // Redirect back to the event dashboard

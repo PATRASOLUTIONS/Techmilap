@@ -70,7 +70,7 @@ export default function EventDashboardPage() {
 
         setEvent(data.event)
 
-        // Generate form URLs using the event slug if available
+        // Generate form URLs
         const baseUrl = window.location.origin
         const eventSlug = data.event.slug || eventId
         setFormUrls({
@@ -95,7 +95,7 @@ export default function EventDashboardPage() {
 
     // Check for tab in URL
     if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search)
+      const urlParams = new URLSearchParams(window.location.href)
       const tabParam = urlParams.get("tab")
       if (tabParam) {
         setActiveTab(tabParam)

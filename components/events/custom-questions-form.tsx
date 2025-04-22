@@ -258,8 +258,6 @@ export function CustomQuestionsForm({
         speaker: Array.isArray(data?.speaker) ? data.speaker : [],
       }
 
-      console.log("Initializing CustomQuestionsForm with data:", safeData)
-
       // Use data if it exists, otherwise use defaults
       const attendeeData = safeData.attendee.length > 0 ? safeData.attendee : defaultQuestions.attendee
       const volunteerData = safeData.volunteer.length > 0 ? safeData.volunteer : defaultQuestions.volunteer
@@ -292,7 +290,7 @@ export function CustomQuestionsForm({
       // Update parent with defaults
       updateData(defaultQuestions)
     }
-  }, [data]) // Add data as a dependency to re-run when data changes
+  }, [])
 
   // Fetch form publish status
   const fetchFormStatus = async () => {

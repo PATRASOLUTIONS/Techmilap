@@ -17,9 +17,7 @@ export function HeroSection() {
 
   useEffect(() => {
     if (isInView) {
-      controls.start("visible").catch((err) => {
-        console.error("Animation error:", err)
-      })
+      controls.start("visible")
     }
   }, [controls, isInView])
 

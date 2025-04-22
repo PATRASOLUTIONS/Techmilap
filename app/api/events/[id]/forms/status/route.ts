@@ -1,41 +1,27 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
+import Event from "@/models/Event"
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request, { params }) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const { id } = params
 
-    const eventId = params.id
+    // Connect to the database
     await connectToDatabase()
-    const client = await connectToDatabase()
-    const db = client.db()
 
-    // Get the event
-    const event = await db.collection("events").findOne({
-      _id: new ObjectId(eventId),
-    })
+    // Find the event
+    const event = await Event.findById(id)
 
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
-    // Check if the user is the organizer or a super-admin
-    if (event.organizer.toString() !== session.user.id && session.user.role !== "super-admin") {
-      return NextResponse.json({ error: "Forbidden: You don't have permission to access this form" }, { status: 403 })
-    }
-
-    // Return the form statuses and event slug
+    // Return the form status and event slug
     return NextResponse.json({
-      attendeeForm: event.attendeeForm || { status: "draft" },
-      volunteerForm: event.volunteerForm || { status: "draft" },
-      speakerForm: event.speakerForm || { status: "draft" },
-      eventSlug: event.slug || null,
+      eventSlug: event.slug,
+      attendeeForm: event.forms?.attendee || { status: "draft" },
+      volunteerForm: event.forms?.volunteer || { status: "draft" },
+      speakerForm: event.forms?.speaker || { status: "draft" },
     })
   } catch (error) {
     console.error("Error fetching form status:", error)

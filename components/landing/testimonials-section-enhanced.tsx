@@ -14,9 +14,7 @@ export function TestimonialsSection() {
 
   useEffect(() => {
     if (isInView) {
-      controls.start("visible").catch((err) => {
-        console.error("Animation error in testimonials:", err)
-      })
+      controls.start("visible")
     }
   }, [controls, isInView])
 
@@ -139,9 +137,6 @@ export function TestimonialsSection() {
                         alt={testimonial.name}
                         fill
                         className="object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = "/placeholder.svg?height=48&width=48&query=person"
-                        }}
                       />
                     </motion.div>
                     <div>

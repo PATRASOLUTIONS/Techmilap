@@ -1,6 +1,11 @@
 import type React from "react"
 import type { Metadata } from "next"
-import ClientRootLayout from "./clientLayout"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { SessionProvider } from "@/components/providers/session-provider"
+import { Toaster } from "@/components/ui/toaster"
+
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "TechEventPlanner - Plan & Host Amazing Tech Events",
@@ -13,8 +18,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  return <ClientRootLayout children={children} />
+  return (
+    <html lang="en">
+      <body className={inter.className}>
+        <SessionProvider>{children}</SessionProvider>
+        <Toaster />
+      </body>
+    </html>
+  )
 }
-
-
-import './globals.css'
