@@ -39,19 +39,21 @@ export default function AttendeeFormCustomizePage() {
 
         // Get the attendee form data specifically
         try {
-          const formResponse = await fetch(`/api/events/${id}/forms/attendee`)
+          // Use the correct endpoint for attendee form data
+          const formResponse = await fetch(`/api/events/${id}/attendee-form`)
 
           if (formResponse.ok) {
             const formData = await formResponse.json()
+            console.log("Fetched attendee form data:", formData)
 
             // Update the form status
             setFormStatus(formData.status || "draft")
 
             // Initialize custom questions object with attendee questions from API
-            if (Array.isArray(formData.questions)) {
+            if (Array.isArray(formData.customQuestions)) {
               setCustomQuestions((prev) => ({
                 ...prev,
-                attendee: formData.questions,
+                attendee: formData.customQuestions,
               }))
             }
           }
@@ -88,17 +90,17 @@ export default function AttendeeFormCustomizePage() {
       // Log the data being sent for debugging
       console.log("Publishing form with data:", {
         status: formStatus,
-        questions: attendeeQuestions,
+        customQuestions: attendeeQuestions,
       })
 
-      const response = await fetch(`/api/events/${id}/forms/attendee/publish`, {
+      const response = await fetch(`/api/events/${id}/attendee-form`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           status: formStatus,
-          questions: attendeeQuestions,
+          customQuestions: attendeeQuestions,
         }),
       })
 

@@ -4,7 +4,56 @@ import { authOptions } from "@/lib/auth"
 import clientPromise from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 
+// Update the GET method to properly return volunteer form data
 export async function GET(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const eventId = params.id
+    const client = await clientPromise
+    const db = client.db()
+
+    // Get the event to check ownership and retrieve form data
+    const event = await db.collection("events").findOne({
+      _id: new ObjectId(eventId),
+    })
+
+    if (!event) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+    }
+
+    // Check if user is organizer or super-admin
+    if (event.organizer.toString() !== session.user.id && session.user.role !== "super-admin") {
+      return NextResponse.json(
+        { error: "Unauthorized: You don't have permission to access this form" },
+        { status: 403 },
+      )
+    }
+
+    // Return the volunteer form data from the event
+    const volunteerFormStatus = event.volunteerForm?.status || "draft"
+    const volunteerQuestions = event.customQuestions?.volunteer || []
+
+    console.log("Returning volunteer form data:", {
+      status: volunteerFormStatus,
+      customQuestions: volunteerQuestions,
+    })
+
+    return NextResponse.json({
+      status: volunteerFormStatus,
+      customQuestions: volunteerQuestions,
+    })
+  } catch (error) {
+    console.error("Error fetching volunteer form:", error)
+    return NextResponse.json({ error: "Failed to fetch volunteer form" }, { status: 500 })
+  }
+}
+
+// Add a POST method to update the volunteer form
+export async function POST(request: Request, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
@@ -18,90 +67,47 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // Get the event to check ownership
     const event = await db.collection("events").findOne({
       _id: new ObjectId(eventId),
-      "organizer.id": session.user.id,
     })
 
     if (!event) {
-      return NextResponse.json({ error: "Event not found or you don't have permission" }, { status: 404 })
+      return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
-    // Get the volunteer form for this event
-    const volunteerForm = await db.collection("volunteerForms").findOne({
-      eventId: new ObjectId(eventId),
-    })
+    // Check if user is organizer or super-admin
+    if (event.organizer.toString() !== session.user.id && session.user.role !== "super-admin") {
+      return NextResponse.json(
+        { error: "Unauthorized: You don't have permission to update this form" },
+        { status: 403 },
+      )
+    }
 
-    // If no form exists yet, return default fields
-    if (!volunteerForm) {
-      return NextResponse.json({
-        form: {
-          title: "Volunteer Application Form",
-          description: "Please fill out this form to apply as a volunteer for this event.",
-          fields: [
-            {
-              id: "name",
-              type: "text",
-              label: "Full Name",
-              placeholder: "Enter your full name",
-              required: true,
-              order: 1,
-            },
-            {
-              id: "email",
-              type: "email",
-              label: "Email Address",
-              placeholder: "Enter your email address",
-              required: true,
-              order: 2,
-            },
-            {
-              id: "phone",
-              type: "tel",
-              label: "Phone Number",
-              placeholder: "Enter your phone number",
-              required: true,
-              order: 3,
-            },
-            {
-              id: "role",
-              type: "select",
-              label: "Preferred Role",
-              placeholder: "Select your preferred role",
-              options: ["Event Setup", "Registration Desk", "Technical Support", "Food Service", "Cleanup Crew"],
-              required: true,
-              order: 4,
-            },
-            {
-              id: "availability",
-              type: "date",
-              label: "Availability",
-              placeholder: "Select dates you're available",
-              required: true,
-              order: 5,
-            },
-            {
-              id: "experience",
-              type: "textarea",
-              label: "Previous Experience",
-              placeholder: "Describe your previous volunteer experience",
-              required: false,
-              order: 6,
-            },
-            {
-              id: "agreeToTerms",
-              type: "checkbox",
-              label: "I agree to the volunteer terms and conditions",
-              required: true,
-              order: 7,
-            },
-          ],
-          status: "draft",
+    // Get the form data from the request
+    const { status, customQuestions } = await request.json()
+    console.log("Received volunteer form data:", { status, customQuestions })
+
+    // Update the event with the new form data
+    const result = await db.collection("events").updateOne(
+      { _id: new ObjectId(eventId) },
+      {
+        $set: {
+          "volunteerForm.status": status || "draft",
+          "customQuestions.volunteer": customQuestions || [],
         },
-      })
+      },
+    )
+
+    if (result.modifiedCount === 0) {
+      return NextResponse.json({ error: "Failed to update volunteer form" }, { status: 500 })
     }
 
-    return NextResponse.json({ form: volunteerForm })
+    return NextResponse.json({
+      success: true,
+      message: "Volunteer form updated successfully",
+      status: status || "draft",
+      customQuestions: customQuestions || [],
+    })
   } catch (error) {
-    console.error("Error fetching volunteer form:", error)
-    return NextResponse.json({ error: "Failed to fetch volunteer form" }, { status: 500 })
+    console.error("Error updating volunteer form:", error)
+    return NextResponse.json({ error: "Failed to update volunteer form" }, { status: 500 })
   }
 }

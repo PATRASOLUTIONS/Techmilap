@@ -59,10 +59,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     const { customQuestions, status } = await req.json()
+    console.log("Received form data:", { customQuestions, status })
 
     // Initialize the customQuestions object if it doesn't exist
     if (!event.customQuestions) {
-      event.customQuestions = { attendee: [], volunteer: [] }
+      event.customQuestions = { attendee: [], volunteer: [], speaker: [] }
     }
 
     // Update the attendee questions
@@ -77,6 +78,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     event.attendeeForm.status = status || "draft"
 
     await event.save()
+    console.log("Updated event with form data:", {
+      attendeeQuestions: event.customQuestions.attendee,
+      status: event.attendeeForm.status,
+    })
 
     return NextResponse.json({
       success: true,

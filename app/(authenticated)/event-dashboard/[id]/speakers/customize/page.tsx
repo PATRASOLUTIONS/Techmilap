@@ -35,19 +35,30 @@ export default function SpeakerFormCustomizePage() {
         setEventDetails(data.event)
 
         // Get the speaker form data specifically
-        const formResponse = await fetch(`/api/events/${id}/forms/speaker`)
+        try {
+          // Use the correct endpoint for speaker form data
+          const formResponse = await fetch(`/api/events/${id}/speaker-form/public`)
 
-        if (formResponse.ok) {
-          const formData = await formResponse.json()
+          if (formResponse.ok) {
+            const formData = await response.json()
+            console.log("Fetched speaker form data:", formData)
 
-          // Update the form status
-          setFormStatus(formData.status || "draft")
+            // Update the form status
+            if (data.event.speakerForm && data.event.speakerForm.status) {
+              setFormStatus(data.event.speakerForm.status)
+            }
 
-          // Initialize custom questions object with speaker questions from API
-          setCustomQuestions((prev) => ({
-            ...prev,
-            speaker: formData.questions || [],
-          }))
+            // Initialize custom questions object with speaker questions from API
+            if (data.event.customQuestions && Array.isArray(data.event.customQuestions.speaker)) {
+              setCustomQuestions((prev) => ({
+                ...prev,
+                speaker: data.event.customQuestions.speaker,
+              }))
+            }
+          }
+        } catch (formError) {
+          console.error("Error fetching form data:", formError)
+          // Continue with default questions if form data fetch fails
         }
       } catch (error) {
         console.error("Error fetching data:", error)
@@ -72,6 +83,12 @@ export default function SpeakerFormCustomizePage() {
 
       // Only use the speaker questions part of the customQuestions
       const speakerQuestions = customQuestions.speaker || []
+
+      // Log the data being sent for debugging
+      console.log("Publishing speaker form with data:", {
+        status: formStatus,
+        customQuestions: speakerQuestions,
+      })
 
       const response = await fetch(`/api/events/${id}/forms/speaker/publish`, {
         method: "POST",
