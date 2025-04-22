@@ -1,99 +1,89 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeft, Save } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { CustomQuestionsForm } from "@/components/events/custom-questions-form"
-import { useToast } from "@/hooks/use-toast"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
+import { toast } from "@/hooks/use-toast"
+import { Loader2, CheckCircle } from "lucide-react"
 
-export default function FormsCustomizePage() {
-  const { id } = useParams() || {}
-  const eventId = Array.isArray(id) ? id[0] : id
+export default function FormCustomizationPage({ params }: { params: { id: string } }) {
   const router = useRouter()
-  const { toast } = useToast()
-
-  const [event, setEvent] = useState<any>(null)
+  const eventId = params.id
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [formData, setFormData] = useState({
+  const [eventData, setEventData] = useState<any>(null)
+  const [formData, setFormData] = useState<{
+    attendee: any[]
+    volunteer: any[]
+    speaker: any[]
+  }>({
     attendee: [],
     volunteer: [],
     speaker: [],
   })
-  const [formStatus, setFormStatus] = useState({
+  const [formStatus, setFormStatus] = useState<{
+    attendee: string
+    volunteer: string
+    speaker: string
+  }>({
     attendee: "draft",
     volunteer: "draft",
     speaker: "draft",
   })
 
   useEffect(() => {
-    const fetchEventAndForms = async () => {
-      if (!eventId) {
-        setLoading(false)
-        return
-      }
-
+    const fetchEventData = async () => {
       try {
-        setLoading(true)
-
-        // Fetch event data
-        const eventResponse = await fetch(`/api/events/${eventId}`, {
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-        })
-
-        if (!eventResponse.ok) {
-          throw new Error(`Failed to fetch event (Status: ${eventResponse.status})`)
+        const response = await fetch(`/api/events/${eventId}`)
+        if (!response.ok) {
+          throw new Error("Failed to fetch event data")
         }
-
-        const eventData = await eventResponse.json()
-        setEvent(eventData.event)
+        const data = await response.json()
+        setEventData(data)
 
         // Extract form data from the event
-        const customQuestions = eventData.event.customQuestions || {}
+        const customQuestions = data.event.customQuestions || {}
         const formDataObj = {
           attendee: Array.isArray(customQuestions.attendee) ? customQuestions.attendee : [],
           volunteer: Array.isArray(customQuestions.volunteer) ? customQuestions.volunteer : [],
           speaker: Array.isArray(customQuestions.speaker) ? customQuestions.speaker : [],
         }
+        setFormData(formDataObj)
 
         // Extract form status from the event
         const formStatusObj = {
-          attendee: eventData.event.attendeeForm?.status || "draft",
-          volunteer: eventData.event.volunteerForm?.status || "draft",
-          speaker: eventData.event.speakerForm?.status || "draft",
+          attendee: data.event.attendeeForm?.status || "draft",
+          volunteer: data.event.volunteerForm?.status || "draft",
+          speaker: data.event.speakerForm?.status || "draft",
         }
-
-        setFormData(formDataObj)
         setFormStatus(formStatusObj)
 
-        console.log("Fetched form data:", formDataObj)
-        console.log("Fetched form status:", formStatusObj)
+        setLoading(false)
       } catch (error) {
-        console.error("Error fetching data:", error)
+        console.error("Error fetching event data:", error)
         toast({
           title: "Error",
-          description: error instanceof Error ? error.message : "Failed to load data. Please try again.",
+          description: "Failed to fetch event data. Please try again.",
           variant: "destructive",
         })
-      } finally {
         setLoading(false)
       }
     }
 
-    fetchEventAndForms()
-  }, [eventId, toast])
+    fetchEventData()
+  }, [eventId])
 
-  const handleUpdateFormData = (data) => {
-    setFormData(data)
+  const handleFormDataChange = (formType: string, questions: any[]) => {
+    setFormData((prev) => ({
+      ...prev,
+      [formType]: questions,
+    }))
   }
 
-  const handleUpdateFormStatus = (formType, status) => {
+  const handleStatusChange = (formType: string, status: string) => {
     setFormStatus((prev) => ({
       ...prev,
       [formType]: status,
@@ -101,12 +91,9 @@ export default function FormsCustomizePage() {
   }
 
   const handleSaveAll = async () => {
-    if (!eventId) return
-
+    setSaving(true)
     try {
-      setSaving(true)
-
-      // Update the event with all form data and status
+      // Update the event with all form data at once
       const response = await fetch(`/api/events/${eventId}`, {
         method: "PUT",
         headers: {
@@ -121,19 +108,21 @@ export default function FormsCustomizePage() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to update forms")
+        throw new Error("Failed to save form data")
       }
 
       toast({
-        title: "Forms saved",
-        description: "All form changes have been saved successfully.",
+        title: "Success",
+        description: "All forms have been saved successfully.",
       })
+
+      // Refresh the page data
+      router.refresh()
     } catch (error) {
-      console.error("Error saving forms:", error)
+      console.error("Error saving form data:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save forms. Please try again.",
+        description: "Failed to save form data. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -141,102 +130,106 @@ export default function FormsCustomizePage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="container mx-auto py-8">
-        <div className="flex items-center space-x-2 mb-6">
-          <Button variant="outline" size="icon" asChild>
-            <Link href={`/event-dashboard/${eventId}`}>
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <Skeleton className="h-8 w-64" />
-        </div>
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-7 w-48 mb-2" />
-            <Skeleton className="h-5 w-96" />
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-64 w-full" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
+  const getPublicFormUrl = (formType: string) => {
+    if (!eventData?.event?.slug) return "#"
+    return `/events/${eventData.event.slug}/${formType === "attendee" ? "register" : formType}`
   }
 
-  if (!event) {
+  if (loading) {
     return (
-      <div className="container mx-auto py-8">
-        <div className="flex items-center space-x-2 mb-6">
-          <Button variant="outline" size="icon" asChild>
-            <Link href="/my-events">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold">Event Not Found</h1>
-        </div>
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <h2 className="text-xl font-semibold mb-2">Event Not Found</h2>
-            <p className="text-muted-foreground mb-4">
-              The event you're looking for doesn't exist or has been removed.
-            </p>
-            <Button asChild>
-              <Link href="/my-events">Back to My Events</Link>
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="icon" asChild>
-            <Link href={`/event-dashboard/${eventId}`}>
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Form Customization</h1>
-            <p className="text-muted-foreground">{event.title || "Untitled Event"}</p>
-          </div>
-        </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Form Customization</h1>
         <Button onClick={handleSaveAll} disabled={saving}>
-          {saving ? (
-            "Saving..."
-          ) : (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-              Save All Forms
-            </>
-          )}
+          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Save All Forms
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Customize Event Forms</CardTitle>
-          <CardDescription>
-            Customize the registration, volunteer, and speaker forms for your event. Add custom questions to collect the
-            information you need.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <CustomQuestionsForm
-            data={formData}
-            updateData={handleUpdateFormData}
-            eventId={eventId}
-            updateFormStatus={handleUpdateFormStatus}
-          />
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="attendee" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="attendee" className="relative">
+            Attendee Form
+            <Badge variant={formStatus.attendee === "published" ? "success" : "outline"} className="ml-2">
+              {formStatus.attendee === "published" ? "Published" : "Draft"}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="volunteer" className="relative">
+            Volunteer Form
+            <Badge variant={formStatus.volunteer === "published" ? "success" : "outline"} className="ml-2">
+              {formStatus.volunteer === "published" ? "Published" : "Draft"}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="speaker" className="relative">
+            Speaker Form
+            <Badge variant={formStatus.speaker === "published" ? "success" : "outline"} className="ml-2">
+              {formStatus.speaker === "published" ? "Published" : "Draft"}
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
+
+        {["attendee", "volunteer", "speaker"].map((formType) => (
+          <TabsContent key={formType} value={formType} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold capitalize">{formType} Form</h2>
+                <p className="text-sm text-muted-foreground">
+                  Customize the questions for your {formType} registration form.
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="text-sm">
+                  Status:
+                  <Badge
+                    variant={formStatus[formType as keyof typeof formStatus] === "published" ? "success" : "outline"}
+                    className="ml-2"
+                  >
+                    {formStatus[formType as keyof typeof formStatus] === "published" ? "Published" : "Draft"}
+                  </Badge>
+                </div>
+                <Button
+                  variant={formStatus[formType as keyof typeof formStatus] === "published" ? "outline" : "default"}
+                  onClick={() =>
+                    handleStatusChange(
+                      formType,
+                      formStatus[formType as keyof typeof formStatus] === "published" ? "draft" : "published",
+                    )
+                  }
+                >
+                  {formStatus[formType as keyof typeof formStatus] === "published" ? "Unpublish" : "Publish"}
+                </Button>
+              </div>
+            </div>
+
+            {formStatus[formType as keyof typeof formStatus] === "published" && (
+              <div className="bg-muted p-4 rounded-md flex items-center justify-between">
+                <div className="flex items-center">
+                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                  <span>This form is published and available to the public.</span>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                  <a href={getPublicFormUrl(formType)} target="_blank" rel="noopener noreferrer">
+                    View Public Form
+                  </a>
+                </Button>
+              </div>
+            )}
+
+            <CustomQuestionsForm
+              formType={formType}
+              initialQuestions={formData[formType as keyof typeof formData] || []}
+              onQuestionsChange={(questions) => handleFormDataChange(formType, questions)}
+            />
+          </TabsContent>
+        ))}
+      </Tabs>
     </div>
   )
 }

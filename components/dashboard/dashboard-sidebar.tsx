@@ -1,307 +1,174 @@
 "use client"
 
-import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
-import { useSession, signOut } from "next-auth/react"
-import { Calendar, LayoutDashboard, LogOut, Settings, User, Users, ChevronDown, ChevronRight, Menu } from "lucide-react"
+import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { useState } from "react"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import {
+  BarChart3,
+  Calendar,
+  CheckSquare,
+  Home,
+  LayoutDashboard,
+  PlusCircle,
+  Settings,
+  Users,
+  FileText,
+  FormInput,
+} from "lucide-react"
 
-export function DashboardSidebar() {
+interface DashboardSidebarProps {
+  eventId?: string
+  className?: string
+}
+
+export function DashboardSidebar({ eventId, className }: DashboardSidebarProps) {
   const pathname = usePathname()
-  const { data: session } = useSession()
-  const router = useRouter()
-  const userRole = session?.user?.role || "user"
 
-  // State to track expanded sections
-  const [expandedSections, setExpandedSections] = useState({
-    events: true, // Events section expanded by default
-  })
+  const isEventDashboard = pathname?.includes("/event-dashboard/")
+  const isMainDashboard = pathname?.includes("/dashboard") && !isEventDashboard
 
-  const toggleSection = (section) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }))
-  }
-
-  const handleLogout = async () => {
-    await signOut({ redirect: false })
-    router.push("/")
-  }
-
-  const userNavItems = [
-    {
-      title: "Dashboard",
-      href: "/user-dashboard",
-      icon: LayoutDashboard,
-    },
-    {
-      section: "events",
-      title: "Events",
-      icon: Calendar,
-      expanded: expandedSections.events,
-      children: [
-        { title: "My Events", href: "/my-events" },
-        { title: "Explore Events", href: "/explore" },
-      ],
-    },
-    {
-      title: "Profile",
-      href: "/profile",
-      icon: User,
-    },
-    {
-      title: "Settings",
-      href: "/settings",
-      icon: Settings,
-    },
-  ]
-
-  const eventPlannerNavItems = [
+  const mainNavItems = [
     {
       title: "Dashboard",
       href: "/dashboard",
       icon: LayoutDashboard,
+      active: pathname === "/dashboard",
     },
     {
-      section: "events",
-      title: "Events",
+      title: "Analytics",
+      href: "/dashboard/analytics",
+      icon: BarChart3,
+      active: pathname === "/dashboard/analytics",
+    },
+    {
+      title: "My Events",
+      href: "/my-events",
       icon: Calendar,
-      expanded: expandedSections.events,
-      children: [
-        { title: "My Events", href: "/my-events" },
-        { title: "Create Event", href: "/dashboard/events/create" },
-        { title: "Explore Events", href: "/explore" },
-      ],
+      active: pathname === "/my-events",
     },
     {
-      title: "Profile",
-      href: "/profile",
-      icon: User,
+      title: "Create Event",
+      href: "/create-event",
+      icon: PlusCircle,
+      active: pathname === "/create-event",
     },
     {
-      title: "Settings",
-      href: "/settings",
-      icon: Settings,
-    },
-  ]
-
-  const superAdminNavItems = [
-    {
-      title: "Dashboard",
-      href: "/super-admin",
-      icon: LayoutDashboard,
-    },
-    {
-      section: "events",
-      title: "Events",
-      icon: Calendar,
-      expanded: expandedSections.events,
-      children: [
-        { title: "All Events", href: "/super-admin/events" },
-        { title: "Explore Events", href: "/explore" },
-        { title: "Categories", href: "/super-admin/events/categories" },
-      ],
-    },
-    {
-      title: "Users",
-      href: "/super-admin/users",
+      title: "Attendees",
+      href: "/dashboard/attendees",
       icon: Users,
+      active: pathname === "/dashboard/attendees",
     },
     {
-      title: "Profile",
-      href: "/profile",
-      icon: User,
+      title: "Templates",
+      href: "/dashboard/events/templates",
+      icon: FileText,
+      active: pathname === "/dashboard/events/templates",
     },
     {
       title: "Settings",
       href: "/settings",
       icon: Settings,
+      active: pathname === "/settings",
     },
   ]
 
-  let navItems = userNavItems
-
-  if (userRole === "event-planner") {
-    navItems = eventPlannerNavItems
-  } else if (userRole === "super-admin") {
-    navItems = superAdminNavItems
-  }
-
-  // Mobile navigation component
-  const MobileNav = () => (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden">
-          <Menu className="h-5 w-5" />
-          <span className="sr-only">Toggle menu</span>
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="left" className="w-[240px] sm:w-[300px] p-0">
-        <ScrollArea className="h-full py-6">
-          <div className="flex flex-col gap-4 py-2">
-            <div className="px-3 py-2">
-              <div className="grid gap-1">
-                {navItems.map((item, index) =>
-                  item.children ? (
-                    <div key={index} className="space-y-1">
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-between px-3"
-                        onClick={() => toggleSection(item.section)}
-                      >
-                        <span className="flex items-center gap-2">
-                          <item.icon className="h-4 w-4" />
-                          {item.title}
-                        </span>
-                        {item.expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                      </Button>
-
-                      {item.expanded && (
-                        <div className="pl-6 space-y-1">
-                          {item.children.map((child, childIndex) => (
-                            <Button
-                              key={childIndex}
-                              variant="ghost"
-                              asChild
-                              className={cn(
-                                "justify-start w-full px-3 py-1 h-8",
-                                pathname === child.href && "bg-accent text-accent-foreground",
-                              )}
-                            >
-                              <Link href={child.href}>{child.title}</Link>
-                            </Button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <Button
-                      key={index}
-                      variant="ghost"
-                      asChild
-                      className={cn(
-                        "justify-start gap-2 px-3",
-                        pathname === item.href && "bg-accent text-accent-foreground",
-                      )}
-                    >
-                      <Link href={item.href}>
-                        <item.icon className="h-4 w-4" />
-                        {item.title}
-                      </Link>
-                    </Button>
-                  ),
-                )}
-              </div>
-            </div>
-
-            {/* Spacer to push logout button to bottom */}
-            <div className="flex-1"></div>
-
-            {/* Logout button */}
-            <div className="px-3 py-2 mt-auto border-t border-border/50 pt-4">
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2 px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                onClick={handleLogout}
-              >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
-  )
+  const eventNavItems = eventId
+    ? [
+        {
+          title: "Overview",
+          href: `/event-dashboard/${eventId}`,
+          icon: Home,
+          active: pathname === `/event-dashboard/${eventId}`,
+        },
+        {
+          title: "Edit Event",
+          href: `/event-dashboard/${eventId}/edit`,
+          icon: Settings,
+          active: pathname === `/event-dashboard/${eventId}/edit`,
+        },
+        {
+          title: "Attendees",
+          href: `/event-dashboard/${eventId}/attendees`,
+          icon: Users,
+          active: pathname === `/event-dashboard/${eventId}/attendees`,
+        },
+        {
+          title: "Customize Attendee Form",
+          href: `/event-dashboard/${eventId}/attendees/customize`,
+          icon: CheckSquare,
+          active: pathname === `/event-dashboard/${eventId}/attendees/customize`,
+        },
+        {
+          title: "Volunteers",
+          href: `/event-dashboard/${eventId}/volunteers`,
+          icon: Users,
+          active: pathname === `/event-dashboard/${eventId}/volunteers`,
+        },
+        {
+          title: "Customize Volunteer Form",
+          href: `/event-dashboard/${eventId}/volunteers/customize`,
+          icon: CheckSquare,
+          active: pathname === `/event-dashboard/${eventId}/volunteers/customize`,
+        },
+        {
+          title: "Speakers",
+          href: `/event-dashboard/${eventId}/speakers`,
+          icon: Users,
+          active: pathname === `/event-dashboard/${eventId}/speakers`,
+        },
+        {
+          title: "Customize Speaker Form",
+          href: `/event-dashboard/${eventId}/speakers/customize`,
+          icon: CheckSquare,
+          active: pathname === `/event-dashboard/${eventId}/speakers/customize`,
+        },
+        {
+          title: "Forms Management",
+          href: `/event-dashboard/${eventId}/forms/customize`,
+          icon: FormInput,
+          active: pathname === `/event-dashboard/${eventId}/forms/customize`,
+        },
+      ]
+    : []
 
   return (
-    <>
-      {/* Mobile Navigation */}
-      <div className="block md:hidden absolute left-4 top-4 z-50">
-        <MobileNav />
-      </div>
-
-      {/* Desktop Sidebar */}
-      <div className="hidden border-r bg-muted/40 md:block">
-        <ScrollArea className="h-[calc(100vh-4rem)]">
-          <div className="flex w-[240px] flex-col gap-4 py-6">
-            <div className="px-3 py-2">
-              <div className="grid gap-1">
-                {navItems.map((item, index) =>
-                  item.children ? (
-                    <div key={index} className="space-y-1">
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-between px-3"
-                        onClick={() => toggleSection(item.section)}
-                      >
-                        <span className="flex items-center gap-2">
-                          <item.icon className="h-4 w-4" />
-                          {item.title}
-                        </span>
-                        {item.expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                      </Button>
-
-                      {item.expanded && (
-                        <div className="pl-6 space-y-1">
-                          {item.children.map((child, childIndex) => (
-                            <Button
-                              key={childIndex}
-                              variant="ghost"
-                              asChild
-                              className={cn(
-                                "justify-start w-full px-3 py-1 h-8",
-                                pathname === child.href && "bg-accent text-accent-foreground",
-                              )}
-                            >
-                              <Link href={child.href}>{child.title}</Link>
-                            </Button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <Button
-                      key={index}
-                      variant="ghost"
-                      asChild
-                      className={cn(
-                        "justify-start gap-2 px-3",
-                        pathname === item.href && "bg-accent text-accent-foreground",
-                      )}
-                    >
-                      <Link href={item.href}>
-                        <item.icon className="h-4 w-4" />
-                        {item.title}
-                      </Link>
-                    </Button>
-                  ),
-                )}
-              </div>
-            </div>
-
-            {/* Spacer to push logout button to bottom */}
-            <div className="flex-1"></div>
-
-            {/* Logout button */}
-            <div className="px-3 py-2 mt-auto border-t border-border/50 pt-4">
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2 px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                onClick={handleLogout}
-              >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </Button>
-            </div>
+    <div className={cn("pb-12", className)}>
+      <div className="space-y-4 py-4">
+        <div className="px-4 py-2">
+          <h2 className="mb-2 px-2 text-lg font-semibold tracking-tight">
+            {isEventDashboard ? "Event Dashboard" : "Main Dashboard"}
+          </h2>
+          <div className="space-y-1">
+            {isEventDashboard
+              ? eventNavItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center rounded-md px-2 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                      item.active ? "bg-accent text-accent-foreground" : "transparent",
+                    )}
+                  >
+                    <item.icon className="mr-2 h-4 w-4" />
+                    {item.title}
+                  </Link>
+                ))
+              : mainNavItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center rounded-md px-2 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                      item.active ? "bg-accent text-accent-foreground" : "transparent",
+                    )}
+                  >
+                    <item.icon className="mr-2 h-4 w-4" />
+                    {item.title}
+                  </Link>
+                ))}
           </div>
-        </ScrollArea>
+        </div>
       </div>
-    </>
+    </div>
   )
 }
