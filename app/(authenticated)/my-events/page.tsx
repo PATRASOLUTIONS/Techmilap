@@ -59,7 +59,25 @@ interface Event {
 export default function MyEventsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [events, setEvents] = useState<Event[]>([])
+  const [roleEvents, setRoleEvents] = useState<{
+    attending: Event[]
+    volunteering: Event[]
+    speaking: Event[]
+  }>({
+    attending: [],
+    volunteering: [],
+    speaking: [],
+  })
   const [loading, setLoading] = useState(true)
+  const [roleLoading, setRoleLoading] = useState<{
+    attending: boolean
+    volunteering: boolean
+    speaking: boolean
+  }>({
+    attending: false,
+    volunteering: false,
+    speaking: false,
+  })
   const [error, setError] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null)
@@ -83,7 +101,7 @@ export default function MyEventsPage() {
       try {
         setLoading(true)
         setError(null)
-        console.log("Fetching events for user...")
+        console.log("Fetching all events for user...")
 
         // Add a client-side timeout
         const controller = new AbortController()
@@ -153,8 +171,21 @@ export default function MyEventsPage() {
 
   // Function to fetch role-specific events
   const fetchRoleEvents = async (role: string) => {
+    // Map the tab value to the API role parameter
+    const roleMap = {
+      attending: "attendee",
+      volunteering: "volunteer",
+      speaking: "speaker",
+    }
+
+    const apiRole = roleMap[role] || role
+
     try {
-      setLoading(true)
+      // Set loading state for this specific role
+      setRoleLoading((prev) => ({
+        ...prev,
+        [role]: true,
+      }))
 
       // Show loading toast
       toast({
@@ -162,12 +193,50 @@ export default function MyEventsPage() {
         description: "Please wait while we fetch your events...",
       })
 
-      // Here you would make an API call to fetch the specific role events
-      // For example:
-      // const response = await fetch(`/api/events/my-events?role=${role}`);
+      console.log(`Fetching events for role: ${apiRole}`)
 
-      // For now, we'll simulate a delay and filter the existing events
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Make an API call to fetch the specific role events
+      const response = await fetch(`/api/events/my-events?role=${apiRole}`, {
+        cache: "no-store", // Prevent caching issues
+      })
+
+      if (!response.ok) {
+        let errorMessage = `Failed to fetch ${role} events`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+        } catch (e) {
+          console.error("Could not parse error response")
+        }
+        throw new Error(errorMessage)
+      }
+
+      const data = await response.json()
+      console.log(`Received ${data.events.length} ${role} events`)
+
+      // Validate and sanitize each event
+      const sanitizedEvents = Array.isArray(data.events)
+        ? data.events.map((event) => ({
+            _id: event._id || "",
+            title: event.title || "Untitled Event",
+            date: event.date || new Date().toISOString(),
+            location: event.location || "No location specified",
+            capacity: event.capacity || 0,
+            status: event.status || "draft",
+            attendees: Array.isArray(event.attendees) ? event.attendees : [],
+            customQuestions: event.customQuestions || {},
+            createdAt: event.createdAt || new Date().toISOString(),
+            updatedAt: event.updatedAt || new Date().toISOString(),
+            slug: event.slug || event._id || "",
+            userRole: event.userRole || apiRole,
+          }))
+        : []
+
+      // Update the role-specific events state
+      setRoleEvents((prev) => ({
+        ...prev,
+        [role]: sanitizedEvents,
+      }))
 
       // Mark this tab as loaded
       setLoadedTabs((prev) => ({
@@ -176,7 +245,7 @@ export default function MyEventsPage() {
       }))
 
       // If we had no events for this role, we could show a message
-      if (events.filter((event) => event.userRole === role).length === 0) {
+      if (sanitizedEvents.length === 0) {
         toast({
           title: "No events found",
           description: `You don't have any ${role} events.`,
@@ -186,11 +255,15 @@ export default function MyEventsPage() {
       console.error(`Error fetching ${role} events:`, error)
       toast({
         title: "Error",
-        description: `Failed to load your ${role} events. Please try again.`,
+        description: error instanceof Error ? error.message : `Failed to load your ${role} events. Please try again.`,
         variant: "destructive",
       })
     } finally {
-      setLoading(false)
+      // Clear loading state for this specific role
+      setRoleLoading((prev) => ({
+        ...prev,
+        [role]: false,
+      }))
     }
   }
 
@@ -209,6 +282,46 @@ export default function MyEventsPage() {
       event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       event.location.toLowerCase().includes(searchTerm.toLowerCase()),
   )
+
+  // Get the events for the current tab
+  const getCurrentTabEvents = () => {
+    switch (activeTab) {
+      case "attending":
+        return roleEvents.attending.filter(
+          (event) =>
+            event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            event.location.toLowerCase().includes(searchTerm.toLowerCase()),
+        )
+      case "volunteering":
+        return roleEvents.volunteering.filter(
+          (event) =>
+            event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            event.location.toLowerCase().includes(searchTerm.toLowerCase()),
+        )
+      case "speaking":
+        return roleEvents.speaking.filter(
+          (event) =>
+            event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            event.location.toLowerCase().includes(searchTerm.toLowerCase()),
+        )
+      default:
+        return filteredEvents
+    }
+  }
+
+  // Get loading state for the current tab
+  const isCurrentTabLoading = () => {
+    switch (activeTab) {
+      case "attending":
+        return roleLoading.attending
+      case "volunteering":
+        return roleLoading.volunteering
+      case "speaking":
+        return roleLoading.speaking
+      default:
+        return loading
+    }
+  }
 
   // Update the handleEventClick function to use the event slug if available
   const handleEventClick = (eventId: string, userRole: string, eventSlug?: string) => {
@@ -261,6 +374,13 @@ export default function MyEventsPage() {
 
       // Remove the deleted event from the state
       setEvents(events.filter((event) => event._id !== eventToDelete._id))
+
+      // Also remove from role-specific events if present
+      setRoleEvents({
+        attending: roleEvents.attending.filter((event) => event._id !== eventToDelete._id),
+        volunteering: roleEvents.volunteering.filter((event) => event._id !== eventToDelete._id),
+        speaking: roleEvents.speaking.filter((event) => event._id !== eventToDelete._id),
+      })
 
       toast({
         title: "Event deleted",
@@ -360,7 +480,7 @@ export default function MyEventsPage() {
         </TabsContent>
 
         <TabsContent value="attending" className="mt-6">
-          {loading ? (
+          {isCurrentTabLoading() ? (
             <EventsLoadingSkeleton />
           ) : !loadedTabs.attending ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -369,17 +489,15 @@ export default function MyEventsPage() {
               </Button>
               <p className="text-muted-foreground">Click to load events you're attending</p>
             </div>
-          ) : filteredEvents.filter((e) => e.userRole === "attendee").length > 0 ? (
+          ) : getCurrentTabEvents().length > 0 ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredEvents
-                .filter((event) => event.userRole === "attendee")
-                .map((event) => (
-                  <EventCard
-                    key={event._id}
-                    event={event}
-                    onClick={() => handleEventClick(event._id, "attendee", event.slug)}
-                  />
-                ))}
+              {getCurrentTabEvents().map((event) => (
+                <EventCard
+                  key={event._id}
+                  event={event}
+                  onClick={() => handleEventClick(event._id, "attendee", event.slug)}
+                />
+              ))}
             </div>
           ) : (
             <EmptyState role="attending" />
@@ -387,7 +505,7 @@ export default function MyEventsPage() {
         </TabsContent>
 
         <TabsContent value="volunteering" className="mt-6">
-          {loading ? (
+          {isCurrentTabLoading() ? (
             <EventsLoadingSkeleton />
           ) : !loadedTabs.volunteering ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -396,17 +514,15 @@ export default function MyEventsPage() {
               </Button>
               <p className="text-muted-foreground">Click to load events you're volunteering for</p>
             </div>
-          ) : filteredEvents.filter((e) => e.userRole === "volunteer").length > 0 ? (
+          ) : getCurrentTabEvents().length > 0 ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredEvents
-                .filter((event) => event.userRole === "volunteer")
-                .map((event) => (
-                  <EventCard
-                    key={event._id}
-                    event={event}
-                    onClick={() => handleEventClick(event._id, "volunteer", event.slug)}
-                  />
-                ))}
+              {getCurrentTabEvents().map((event) => (
+                <EventCard
+                  key={event._id}
+                  event={event}
+                  onClick={() => handleEventClick(event._id, "volunteer", event.slug)}
+                />
+              ))}
             </div>
           ) : (
             <EmptyState role="volunteering" />
@@ -414,7 +530,7 @@ export default function MyEventsPage() {
         </TabsContent>
 
         <TabsContent value="speaking" className="mt-6">
-          {loading ? (
+          {isCurrentTabLoading() ? (
             <EventsLoadingSkeleton />
           ) : !loadedTabs.speaking ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -423,17 +539,15 @@ export default function MyEventsPage() {
               </Button>
               <p className="text-muted-foreground">Click to load events you're speaking at</p>
             </div>
-          ) : filteredEvents.filter((e) => e.userRole === "speaker").length > 0 ? (
+          ) : getCurrentTabEvents().length > 0 ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredEvents
-                .filter((event) => event.userRole === "speaker")
-                .map((event) => (
-                  <EventCard
-                    key={event._id}
-                    event={event}
-                    onClick={() => handleEventClick(event._id, "speaker", event.slug)}
-                  />
-                ))}
+              {getCurrentTabEvents().map((event) => (
+                <EventCard
+                  key={event._id}
+                  event={event}
+                  onClick={() => handleEventClick(event._id, "speaker", event.slug)}
+                />
+              ))}
             </div>
           ) : (
             <EmptyState role="speaking" />

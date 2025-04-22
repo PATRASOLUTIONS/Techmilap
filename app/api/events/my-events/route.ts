@@ -13,6 +13,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Get role filter from query params
+    const url = new URL(req.url)
+    const roleFilter = url.searchParams.get("role")
+
     console.log("Connecting to database...")
     await connectToDatabase()
     console.log("Connected to database")
@@ -23,6 +27,7 @@ export async function GET(req: NextRequest) {
     }
 
     console.log(`Fetching events for user ID: ${session.user.id} and email: ${session.user.email}`)
+    console.log(`Role filter: ${roleFilter || "none"}`)
 
     // Convert string ID to MongoDB ObjectId
     let userId
@@ -34,38 +39,53 @@ export async function GET(req: NextRequest) {
     }
 
     // Find all events where the current user is the organizer
-    const organizedEvents = await Event.find({ organizer: userId }).sort({ createdAt: -1 }).lean().exec()
+    const organizedEvents =
+      roleFilter === "organizer" || !roleFilter
+        ? await Event.find({ organizer: userId }).sort({ createdAt: -1 }).lean().exec()
+        : []
+
     console.log(`Found ${organizedEvents.length} organized events`)
 
     // Get the database instance
     const db = await getDatabase()
 
     // Find all form submissions for this user using both ID and email
-    const formSubmissions = await db
-      .collection("formSubmissions")
-      .find({
-        $or: [
-          // Check for user ID in various formats
-          { userId: session.user.id },
-          { userId: userId.toString() },
-          { user: userId },
-          { user: session.user.id },
+    // If roleFilter is specified, only get submissions for that role
+    const formSubmissionsQuery = {
+      $or: [
+        // Check for user ID in various formats
+        { userId: session.user.id },
+        { userId: userId.toString() },
+        { user: userId },
+        { user: session.user.id },
 
-          // Check for user email in various formats
-          { userEmail: session.user.email },
-          { email: session.user.email },
-          { "user.email": session.user.email },
-          { "userData.email": session.user.email },
-          { "formData.email": session.user.email },
+        // Check for user email in various formats
+        { userEmail: session.user.email },
+        { email: session.user.email },
+        { "user.email": session.user.email },
+        { "userData.email": session.user.email },
+        { "formData.email": session.user.email },
 
-          // Check nested structures that might contain email
-          { formData: { $elemMatch: { value: session.user.email, field: "email" } } },
-          { answers: { $elemMatch: { value: session.user.email, question: /email/i } } },
-        ],
-      })
-      .toArray()
+        // Check nested structures that might contain email
+        { formData: { $elemMatch: { value: session.user.email, field: "email" } } },
+        { answers: { $elemMatch: { value: session.user.email, question: /email/i } } },
+      ],
+    }
 
-    console.log(`Found ${formSubmissions.length} form submissions for user`)
+    // Add role filter if specified
+    if (roleFilter && roleFilter !== "organizer") {
+      formSubmissionsQuery["$and"] = [
+        {
+          $or: [{ formType: roleFilter }, { type: roleFilter }, { "formData.type": roleFilter }],
+        },
+      ]
+    }
+
+    const formSubmissions = await db.collection("formSubmissions").find(formSubmissionsQuery).toArray()
+
+    console.log(
+      `Found ${formSubmissions.length} form submissions for user${roleFilter ? " with role " + roleFilter : ""}`,
+    )
 
     // Group submissions by event and type
     const eventSubmissions = new Map()
@@ -140,10 +160,16 @@ export async function GET(req: NextRequest) {
       }
     })
 
+    // Filter registered events by role if specified
+    const filteredRegisteredEvents =
+      roleFilter && roleFilter !== "organizer"
+        ? registeredEventsWithRole.filter((event) => event.userRole === roleFilter)
+        : registeredEventsWithRole
+
     // Combine all events and mark the user's role in each
     const allEvents = [
       ...organizedEvents.map((event) => ({ ...event, userRole: "organizer" })),
-      ...registeredEventsWithRole,
+      ...filteredRegisteredEvents,
     ]
 
     // Remove duplicates (if user has multiple roles in the same event, prioritize organizer > speaker > volunteer > attendee)
@@ -164,7 +190,7 @@ export async function GET(req: NextRequest) {
 
     const uniqueEvents = Array.from(eventMap.values())
 
-    console.log(`Found ${uniqueEvents.length} total events for user`)
+    console.log(`Found ${uniqueEvents.length} total events for user${roleFilter ? " with role " + roleFilter : ""}`)
 
     // Transform the events to ensure they have all required fields
     const safeEvents = uniqueEvents.map((event) => ({
