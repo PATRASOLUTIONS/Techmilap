@@ -54,31 +54,26 @@ export default function FormsCustomizePage() {
         const eventData = await eventResponse.json()
         setEvent(eventData.event)
 
-        // Fetch form questions for all form types
-        const formTypes = ["attendee", "volunteer", "speaker"]
-        const formDataObj = { attendee: [], volunteer: [], speaker: [] }
-        const formStatusObj = { attendee: "draft", volunteer: "draft", speaker: "draft" }
+        // Extract form data from the event
+        const customQuestions = eventData.event.customQuestions || {}
+        const formDataObj = {
+          attendee: Array.isArray(customQuestions.attendee) ? customQuestions.attendee : [],
+          volunteer: Array.isArray(customQuestions.volunteer) ? customQuestions.volunteer : [],
+          speaker: Array.isArray(customQuestions.speaker) ? customQuestions.speaker : [],
+        }
 
-        for (const formType of formTypes) {
-          try {
-            const formResponse = await fetch(`/api/events/${eventId}/forms/${formType}`, {
-              headers: {
-                "Cache-Control": "no-cache",
-              },
-            })
-
-            if (formResponse.ok) {
-              const formData = await formResponse.json()
-              formDataObj[formType] = formData.questions || []
-              formStatusObj[formType] = formData.status || "draft"
-            }
-          } catch (error) {
-            console.error(`Error fetching ${formType} form:`, error)
-          }
+        // Extract form status from the event
+        const formStatusObj = {
+          attendee: eventData.event.attendeeForm?.status || "draft",
+          volunteer: eventData.event.volunteerForm?.status || "draft",
+          speaker: eventData.event.speakerForm?.status || "draft",
         }
 
         setFormData(formDataObj)
         setFormStatus(formStatusObj)
+
+        console.log("Fetched form data:", formDataObj)
+        console.log("Fetched form status:", formStatusObj)
       } catch (error) {
         console.error("Error fetching data:", error)
         toast({
@@ -111,24 +106,23 @@ export default function FormsCustomizePage() {
     try {
       setSaving(true)
 
-      // Update all form types
-      const formTypes = ["attendee", "volunteer", "speaker"]
+      // Update the event with all form data and status
+      const response = await fetch(`/api/events/${eventId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          customQuestions: formData,
+          attendeeForm: { status: formStatus.attendee },
+          volunteerForm: { status: formStatus.volunteer },
+          speakerForm: { status: formStatus.speaker },
+        }),
+      })
 
-      for (const formType of formTypes) {
-        const response = await fetch(`/api/events/${eventId}/forms/${formType}/publish`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            status: formStatus[formType],
-            questions: formData[formType],
-          }),
-        })
-
-        if (!response.ok) {
-          throw new Error(`Failed to update ${formType} form`)
-        }
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update forms")
       }
 
       toast({

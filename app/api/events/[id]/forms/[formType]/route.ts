@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
+import mongoose from "mongoose"
+import Event from "@/models/Event"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
 
 // Get form questions for a specific form type
 export async function GET(request: Request, { params }: { params: { id: string; formType: string } }) {
   try {
     const eventId = params.id
     const formType = params.formType // attendee, volunteer, or speaker
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
     if (!["attendee", "volunteer", "speaker"].includes(formType)) {
       return NextResponse.json({ error: "Invalid form type" }, { status: 400 })
@@ -14,16 +22,28 @@ export async function GET(request: Request, { params }: { params: { id: string; 
 
     // Connect to database
     await connectToDatabase()
-    const client = await connectToDatabase()
-    const db = client.db()
 
-    // Get the event
-    const event = await db.collection("events").findOne({
-      _id: new ObjectId(eventId),
-    })
+    // Check if the ID is a valid MongoDB ObjectId
+    const isValidObjectId = mongoose.isValidObjectId(eventId)
+    let event = null
+
+    if (isValidObjectId) {
+      // If it's a valid ObjectId, try to find by ID first
+      event = await Event.findById(eventId).lean()
+    }
+
+    // If not found by ID or not a valid ObjectId, try to find by slug
+    if (!event && !isValidObjectId) {
+      event = await Event.findOne({ slug: eventId }).lean()
+    }
 
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
+    }
+
+    // Check if the user is the organizer or a super-admin
+    if (event.organizer.toString() !== session.user.id && session.user.role !== "super-admin") {
+      return NextResponse.json({ error: "Forbidden: You don't have permission to access this event" }, { status: 403 })
     }
 
     // Get the form status based on form type
@@ -46,6 +66,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     return NextResponse.json({
       questions: questions,
       status: formStatus,
+      eventSlug: event.slug,
     })
   } catch (error) {
     console.error(`Error fetching ${params.formType} form:`, error)
