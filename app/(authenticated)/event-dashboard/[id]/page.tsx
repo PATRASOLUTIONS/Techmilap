@@ -482,7 +482,7 @@ export default function EventDashboardPage() {
                 )}
 
                 <Button asChild className="w-full">
-                  <Link href={`/event-dashboard/${eventId}/forms/customize`}>
+                  <Link href={`/event-dashboard/${eventId}/attendees/customize`}>
                     <FileEdit className="mr-2 h-4 w-4" />
                     Customize Form
                   </Link>
@@ -553,7 +553,7 @@ export default function EventDashboardPage() {
                 )}
 
                 <Button asChild className="w-full">
-                  <Link href={`/event-dashboard/${eventId}/forms/customize`}>
+                  <Link href={`/event-dashboard/${eventId}/volunteers/customize`}>
                     <FileEdit className="mr-2 h-4 w-4" />
                     Customize Form
                   </Link>
@@ -624,7 +624,7 @@ export default function EventDashboardPage() {
                 )}
 
                 <Button asChild className="w-full">
-                  <Link href={`/event-dashboard/${eventId}/forms/customize`}>
+                  <Link href={`/event-dashboard/${eventId}/speakers/customize`}>
                     <FileEdit className="mr-2 h-4 w-4" />
                     Customize Form
                   </Link>

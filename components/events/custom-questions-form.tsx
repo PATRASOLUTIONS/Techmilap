@@ -275,14 +275,9 @@ export function CustomQuestionsForm({
         speaker: speakerData,
       })
 
-      // If we have form status information, update the publish status
-      if (data && updateFormStatus) {
-        // Check if we have status information in the data
-        if (data.attendeeStatus)
-          setPublishStatus((prev) => ({ ...prev, attendee: data.attendeeStatus === "published" }))
-        if (data.volunteerStatus)
-          setPublishStatus((prev) => ({ ...prev, volunteer: data.volunteerStatus === "published" }))
-        if (data.speakerStatus) setPublishStatus((prev) => ({ ...prev, speaker: data.speakerStatus === "published" }))
+      // Fetch form status if eventId exists
+      if (eventId) {
+        fetchFormStatus()
       }
     } catch (error) {
       console.error("Error initializing form data:", error)
@@ -295,7 +290,7 @@ export function CustomQuestionsForm({
       // Update parent with defaults
       updateData(defaultQuestions)
     }
-  }, [data, updateData, updateFormStatus])
+  }, [])
 
   // Fetch form publish status
   const fetchFormStatus = async () => {
