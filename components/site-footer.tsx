@@ -6,7 +6,7 @@ export function SiteFooter() {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <h3 className="font-bold text-lg mb-4">TechEventPlanner</h3>
+            <h3 className="font-bold text-lg mb-4">TechMilap</h3>
             <p className="text-gray-600">
               Your all-in-one platform for planning, managing, and hosting successful tech events of any size.
             </p>
@@ -67,15 +67,15 @@ export function SiteFooter() {
               <p>123 Tech Street</p>
               <p>San Francisco, CA 94105</p>
               <p className="mt-2">
-                <a href="mailto:info@techeventplanner.com" className="hover:text-gray-900">
-                  info@techeventplanner.com
+                <a href="mailto:info@techmilap.com" className="hover:text-gray-900">
+                  info@techmilap.com
                 </a>
               </p>
             </address>
           </div>
         </div>
         <div className="border-t border-gray-200 mt-8 pt-6 text-center text-gray-500 text-sm">
-          <p>&copy; {new Date().getFullYear()} TechEventPlanner. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} TechMilap. All rights reserved.</p>
         </div>
       </div>
     </footer>

@@ -1,5 +1,11 @@
 "use client"
 
+import { Calendar } from "@/components/ui/calendar"
+
+import { CardFooter } from "@/components/ui/card"
+
+import { Skeleton } from "@/components/ui/skeleton"
+
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -68,9 +74,9 @@ export default function EventDashboardPage() {
         const baseUrl = window.location.origin
         const eventSlug = data.event.slug || eventId
         setFormUrls({
-          attendee: `/events/${eventSlug}/register`,
-          volunteer: `/events/${eventSlug}/volunteer`,
-          speaker: `/events/${eventSlug}/speaker`,
+          attendee: `${baseUrl}/events/${eventSlug}/register`,
+          volunteer: `${baseUrl}/events/${eventSlug}/volunteer`,
+          speaker: `${baseUrl}/events/${eventSlug}/speaker`,
         })
 
         // Fetch submission counts
@@ -634,6 +640,54 @@ export default function EventDashboardPage() {
           </div>
         </TabsContent>
       </Tabs>
+    </div>
+  )
+}
+
+function EventsLoadingSkeleton() {
+  return (
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {[1, 2, 3].map((i) => (
+        <Card key={i}>
+          <CardHeader>
+            <div className="flex justify-between items-start">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-5 w-16" />
+            </div>
+            <div className="space-y-2 mt-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-40" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-5 w-24 mb-2" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-24" />
+          </CardFooter>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+      <h3 className="text-lg font-medium">No events found</h3>
+      <p className="text-muted-foreground mt-2 max-w-md">
+        You haven't created any events yet. Click the button below to create your first event.
+      </p>
+      <Button asChild className="mt-6">
+        <Link href="/dashboard/events/create">Create New Event</Link>
+      </Button>
     </div>
   )
 }
