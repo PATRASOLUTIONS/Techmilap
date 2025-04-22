@@ -21,7 +21,13 @@ export async function POST(req: NextRequest) {
 
     await connectToDatabase()
 
-    const requestData = await req.json()
+    let requestData
+    try {
+      requestData = await req.json()
+    } catch (error) {
+      console.error("Error parsing request JSON:", error)
+      return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 })
+    }
 
     // Validate that required data exists
     if (!requestData) {
@@ -71,12 +77,7 @@ export async function POST(req: NextRequest) {
       visibility: details.visibility || "Public",
       capacity: Array.isArray(tickets)
         ? tickets.reduce((total, ticket) => {
-            const quantity =
-              typeof ticket.quantity === "string"
-                ? Number.parseInt(ticket.quantity, 10)
-                : typeof ticket.quantity === "number"
-                  ? ticket.quantity
-                  : 0
+            const quantity = Number(ticket.quantity || 0)
             return isNaN(quantity) ? total : total + quantity
           }, 0)
         : 0,
@@ -86,8 +87,7 @@ export async function POST(req: NextRequest) {
               ...tickets
                 .filter((t) => t?.pricingModel === "Paid")
                 .map((t) => {
-                  const price =
-                    typeof t.price === "string" ? Number.parseFloat(t.price) : typeof t.price === "number" ? t.price : 0
+                  const price = Number(t.price || 0)
                   return isNaN(price) ? 0 : price
                 }),
             )
@@ -132,23 +132,16 @@ export async function POST(req: NextRequest) {
     if (Array.isArray(tickets) && tickets.length > 0) {
       const ticketPromises = tickets.map((ticket) => {
         // Ensure numeric values are properly parsed
-        const price =
-          ticket.pricingModel === "Paid"
-            ? typeof ticket.price === "string"
-              ? Number.parseFloat(ticket.price) || 0
-              : ticket.price || 0
-            : 0
-
-        const quantity =
-          typeof ticket.quantity === "string" ? Number.parseInt(ticket.quantity, 10) || 0 : ticket.quantity || 0
+        const price = Number(ticket.price || 0)
+        const quantity = Number(ticket.quantity || 0)
 
         return new Ticket({
           name: ticket.name || "General Admission",
           type: ticket.type || "Standard",
           description: ticket.description || "",
           pricingModel: ticket.pricingModel || "Free",
-          price: price,
-          quantity: quantity,
+          price: isNaN(price) ? 0 : price,
+          quantity: isNaN(quantity) ? 0 : quantity,
           saleStartDate: ticket.saleStartDate || event.date,
           saleEndDate: ticket.saleEndDate || event.date,
           feeStructure: ticket.feeStructure || "Organizer",

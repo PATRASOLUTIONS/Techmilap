@@ -12,8 +12,10 @@ import { EventCreationSuccess } from "@/components/events/event-creation-success
 import { motion, AnimatePresence } from "framer-motion"
 import { SectionHeading } from "@/components/ui/section-heading"
 import { DecorativeBlob } from "@/components/ui/decorative_blob"
-import { CheckCircle2, ChevronLeft, ChevronRight, Rocket, Save } from "lucide-react"
+import { CheckCircle2, ChevronLeft, ChevronRight, Rocket, Save, LinkIcon } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 
 export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   const router = useRouter()
@@ -51,6 +53,13 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   const [submittedEventId, setSubmittedEventId] = useState("")
   const [submittedEventSlug, setSubmittedEventSlug] = useState("")
   const [publishStatus, setPublishStatus] = useState("draft")
+  const [showUrlDialog, setShowUrlDialog] = useState(false)
+  const [publicUrls, setPublicUrls] = useState({
+    eventUrl: "",
+    registerUrl: "",
+    volunteerUrl: "",
+    speakerUrl: "",
+  })
 
   const [formStatus, setFormStatus] = useState({
     attendee: "draft",
@@ -167,9 +176,13 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   }
 
   const handleBack = () => {
-    if (activeTab === "tickets") setActiveTab("details")
-    else if (activeTab === "questions") setActiveTab("tickets")
-    else if (activeTab === "preview") setActiveTab("questions")
+    if (activeTab === "tickets") {
+      setActiveTab("details")
+    } else if (activeTab === "questions") {
+      setActiveTab("tickets")
+    } else if (activeTab === "preview") {
+      setActiveTab("questions")
+    }
   }
 
   const handleSubmit = async (status = "published") => {
@@ -181,6 +194,17 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       if (!formData.details.name) {
         throw new Error("Event name is required")
       }
+
+      // Generate a slug if one doesn't exist
+      const slug =
+        formData.details.slug ||
+        formData.details.name
+          .toLowerCase()
+          .replace(/[^\w\s-]/g, "")
+          .replace(/\s+/g, "-")
+          .replace(/-+/g, "-")
+          .trim() ||
+        `event-${Date.now()}`
 
       // Convert form data to the format expected by the API
       const apiData = {
@@ -197,19 +221,14 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
           type: formData.details.type,
           visibility: formData.details.visibility || "Public", // Default to Public if not specified
           coverImageUrl: formData.details.coverImageUrl,
-          slug:
-            formData.details.slug ||
-            formData.details.name
-              .toLowerCase()
-              .replace(/[^\w\s-]/g, "")
-              .replace(/\s+/g, "-"),
+          slug: slug,
         },
         tickets:
           formData.tickets.map((ticket) => ({
             ...ticket,
             // Ensure numeric values are properly formatted
-            price: ticket.price ? Number.parseFloat(ticket.price) : 0,
-            quantity: ticket.quantity ? Number.parseInt(ticket.quantity, 10) : 0,
+            price: ticket.price ? Number(ticket.price) : 0,
+            quantity: ticket.quantity ? Number(ticket.quantity) : 0,
           })) || [],
         customQuestions: {
           attendee: Array.isArray(formData.customQuestions.attendee) ? formData.customQuestions.attendee : [],
@@ -246,9 +265,27 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
 
       const data = await response.json()
 
-      setSubmittedEventId(data.event?.id || data.event?._id || "event-123") // Fallback ID for testing
-      setSubmittedEventSlug(data.event?.slug || formData.details.slug) // Store the slug for the success page
-      setIsSubmitted(true)
+      const eventId = data.event?.id || data.event?._id || "event-123" // Fallback ID for testing
+      const eventSlug = data.event?.slug || slug // Store the slug for the success page
+
+      setSubmittedEventId(eventId)
+      setSubmittedEventSlug(eventSlug)
+
+      // Generate public URLs
+      const baseUrl = window.location.origin
+      setPublicUrls({
+        eventUrl: `${baseUrl}/events/${eventSlug}`,
+        registerUrl: `${baseUrl}/events/${eventSlug}/register`,
+        volunteerUrl: `${baseUrl}/events/${eventSlug}/volunteer`,
+        speakerUrl: `${baseUrl}/events/${eventSlug}/speaker`,
+      })
+
+      // Show URL dialog if published
+      if (status === "published") {
+        setShowUrlDialog(true)
+      } else {
+        setIsSubmitted(true)
+      }
 
       toast({
         title: isEditing
@@ -302,6 +339,15 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
     }))
   }
 
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text)
+    toast({
+      title: "URL Copied",
+      description: "The URL has been copied to your clipboard.",
+      variant: "success",
+    })
+  }
+
   return (
     <div className="relative">
       <DecorativeBlob
@@ -312,6 +358,74 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
         className="absolute bottom-[-100px] left-[-100px] w-[300px] h-[300px] opacity-10 blur-3xl"
         color="var(--secondary)"
       />
+
+      {/* URL Dialog */}
+      <Dialog
+        open={showUrlDialog}
+        onOpenChange={(open) => {
+          setShowUrlDialog(open)
+          if (!open) setIsSubmitted(true)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Event Published Successfully!</DialogTitle>
+            <DialogDescription>Your event has been published. Share these links with your audience.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Event Page:</p>
+              <div className="flex items-center gap-2">
+                <Input value={publicUrls.eventUrl} readOnly className="flex-1" />
+                <Button size="sm" variant="outline" onClick={() => copyToClipboard(publicUrls.eventUrl)}>
+                  <LinkIcon className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Registration Form:</p>
+              <div className="flex items-center gap-2">
+                <Input value={publicUrls.registerUrl} readOnly className="flex-1" />
+                <Button size="sm" variant="outline" onClick={() => copyToClipboard(publicUrls.registerUrl)}>
+                  <LinkIcon className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            {formStatus.volunteer === "published" && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Volunteer Application:</p>
+                <div className="flex items-center gap-2">
+                  <Input value={publicUrls.volunteerUrl} readOnly className="flex-1" />
+                  <Button size="sm" variant="outline" onClick={() => copyToClipboard(publicUrls.volunteerUrl)}>
+                    <LinkIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            {formStatus.speaker === "published" && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Speaker Application:</p>
+                <div className="flex items-center gap-2">
+                  <Input value={publicUrls.speakerUrl} readOnly className="flex-1" />
+                  <Button size="sm" variant="outline" onClick={() => copyToClipboard(publicUrls.speakerUrl)}>
+                    <LinkIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end">
+            <Button
+              onClick={() => {
+                setShowUrlDialog(false)
+                setIsSubmitted(true)
+              }}
+            >
+              Continue
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {isSubmitted ? (
         <EventCreationSuccess
