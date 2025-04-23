@@ -5,6 +5,8 @@ import { EventCreationForm } from "@/components/events/event-creation-form"
 
 export default async function CreateEventPage() {
   const session = await getServerSession(authOptions)
+  console.log("CreateEventPage - authOptions:", authOptions)
+  console.log("CreateEventPage - session:", session)
 
   if (!session) {
     redirect("/login")
