@@ -55,267 +55,322 @@ export function CustomQuestionsForm({
     speaker: "draft",
   })
 
-  // Fetch form publish status
-  const fetchFormStatus = useCallback(async () => {
-    try {
-      if (eventId) {
-        const response = await fetch(`/api/events/${eventId}/forms/status`)
-        if (response.ok) {
-          const statusData = await response.json()
-
-          // Update publish status based on form status from database
-          setPublishStatus({
-            attendee: statusData.attendeeForm?.status === "published",
-            volunteer: statusData.volunteerForm?.status === "published",
-            speaker: statusData.speakerForm?.status === "published",
-          })
-
-          // Update the local form status state
-          setFormStatus({
-            attendee: statusData.attendeeForm?.status || "draft",
-            volunteer: statusData.volunteerForm?.status || "draft",
-            speaker: statusData.speakerForm?.status || "draft",
-          })
-
-          // If the parent component has an updateFormStatus function, call it
-          if (updateFormStatus) {
-            updateFormStatus("attendee", statusData.attendeeForm?.status || "draft")
-            updateFormStatus("volunteer", statusData.volunteerForm?.status || "draft")
-            updateFormStatus("speaker", statusData.speakerForm?.status || "draft")
-          }
-
-          // Get the event slug
-          const eventSlug = statusData.eventSlug || null
-
-          // Set published URLs if forms are published
-          if (statusData.attendeeForm?.status === "published") {
-            setPublishedUrls((prev) => ({
-              ...prev,
-              attendee: eventSlug
-                ? `${window.location.origin}/events/${eventSlug}/register`
-                : `${window.location.origin}/events/${eventId}/register`,
-            }))
-          }
-
-          if (statusData.volunteerForm?.status === "published") {
-            setPublishedUrls((prev) => ({
-              ...prev,
-              volunteer: eventSlug
-                ? `${window.location.origin}/events/${eventSlug}/volunteer`
-                : `${window.location.origin}/events/${eventId}/volunteer`,
-            }))
-          }
-
-          if (statusData.speakerForm?.status === "published") {
-            setPublishedUrls((prev) => ({
-              ...prev,
-              speaker: eventSlug
-                ? `${window.location.origin}/events/${eventSlug}/speaker`
-                : `${window.location.origin}/events/${eventId}/speaker`,
-            }))
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching form status:", error)
-    }
-  }, [eventId, updateFormStatus])
-
-  // Generate default questions for each form type
-  const generateDefaultQuestions = () => {
-    // Default attendee questions
+  const generateDefaultQuestions = useCallback(() => {
     const defaultAttendeeQuestions = [
       {
         id: `question_name_${Date.now()}`,
         type: "text",
-        label: "Full Name",
-        placeholder: "Enter your full name",
+        label: "Name",
+        placeholder: "Enter your name",
         required: true,
       },
       {
         id: `question_email_${Date.now() + 1}`,
         type: "email",
-        label: "Email Address",
+        label: "Email ID",
         placeholder: "Enter your email address",
         required: true,
       },
       {
-        id: `question_phone_${Date.now() + 2}`,
+        id: `question_corporateEmail_${Date.now() + 2}`,
+        type: "email",
+        label: "Corporate Email ID",
+        placeholder: "Enter your corporate email address",
+        required: true,
+      },
+      {
+        id: `question_designation_${Date.now() + 3}`,
+        type: "text",
+        label: "Designation",
+        placeholder: "Enter your designation",
+        required: true,
+      },
+      {
+        id: `question_linkedinId_${Date.now() + 4}`,
+        type: "text",
+        label: "LinkedIn ID",
+        placeholder: "Enter your LinkedIn profile URL",
+        required: true,
+      },
+      {
+        id: `question_githubId_${Date.now() + 5}`,
+        type: "text",
+        label: "GitHub ID",
+        placeholder: "Enter your GitHub profile URL",
+        required: true,
+      },
+      {
+        id: `question_otherSocialMediaId_${Date.now() + 6}`,
+        type: "text",
+        label: "Any other social Media ID",
+        placeholder: "Enter any other social media profile URL",
+        required: false,
+      },
+      {
+        id: `question_mobileNumber_${Date.now() + 7}`,
         type: "phone",
-        label: "Phone Number",
-        placeholder: "Enter your phone number",
+        label: "Mobile number",
+        placeholder: "Enter your mobile number",
         required: true,
       },
     ]
 
-    // Default volunteer questions
     const defaultVolunteerQuestions = [
       {
         id: `question_name_${Date.now() + 10}`,
         type: "text",
-        label: "Full Name",
-        placeholder: "Enter your full name",
+        label: "Name",
+        placeholder: "Enter your name",
         required: true,
       },
       {
         id: `question_email_${Date.now() + 11}`,
         type: "email",
-        label: "Email Address",
+        label: "Email ID",
         placeholder: "Enter your email address",
         required: true,
       },
       {
-        id: `question_phone_${Date.now() + 12}`,
-        type: "phone",
-        label: "Phone Number",
-        placeholder: "Enter your phone number",
+        id: `question_corporateEmail_${Date.now() + 12}`,
+        type: "email",
+        label: "Corporate Email ID",
+        placeholder: "Enter your corporate email address",
         required: true,
       },
       {
-        id: `question_role_${Date.now() + 13}`,
+        id: `question_designation_${Date.now() + 13}`,
+        type: "text",
+        label: "Designation",
+        placeholder: "Enter your designation",
+        required: true,
+      },
+      {
+        id: `question_eventOrganizer_${Date.now() + 14}`,
+        type: "text",
+        label: "Event Organizer",
+        placeholder: "Enter the event organizer",
+        required: true,
+      },
+      {
+        id: `question_isMicrosoftMVP_${Date.now() + 15}`,
+        type: "checkbox",
+        label: "Are you a Microsoft MVP?",
+        required: true,
+      },
+      {
+        id: `question_mvpId_${Date.now() + 16}`,
+        type: "text",
+        label: "MVP ID",
+        placeholder: "Enter your MVP ID",
+        required: false,
+      },
+      {
+        id: `question_mvpProfileLink_${Date.now() + 17}`,
+        type: "text",
+        label: "MVP Profile Link",
+        placeholder: "Enter your MVP profile link",
+        required: false,
+      },
+      {
+        id: `question_mvpCategory_${Date.now() + 18}`,
+        type: "text",
+        label: "MVP Category",
+        placeholder: "Enter your MVP category",
+        required: false,
+      },
+      {
+        id: `question_howManyEventsVolunteered_${Date.now() + 19}`,
         type: "select",
-        label: "Preferred Role",
-        placeholder: "Select your preferred role",
+        label: "How many events have you supported as a volunteer?",
+        placeholder: "Select the number of events",
         required: true,
         options: [
-          { id: "role_1", value: "Event Setup" },
-          { id: "role_2", value: "Registration Desk" },
-          { id: "role_3", value: "Technical Support" },
-          { id: "role_4", value: "Food Service" },
-          { id: "role_5", value: "Cleanup Crew" },
+          { id: "events_1", value: "1-5" },
+          { id: "events_2", value: "6-10" },
+          { id: "events_3", value: "11+" },
         ],
       },
       {
-        id: `question_availability_${Date.now() + 14}`,
-        type: "date",
-        label: "Availability",
-        placeholder: "Select dates you're available",
+        id: `question_meetupEventName_${Date.now() + 20}`,
+        type: "text",
+        label: "Meetup/Event Name",
+        placeholder: "Enter the meetup/event name",
         required: true,
       },
       {
-        id: `question_experience_${Date.now() + 15}`,
+        id: `question_eventDetails_${Date.now() + 21}`,
         type: "textarea",
-        label: "Previous Experience",
-        placeholder: "Describe your previous volunteer experience",
+        label: "Event Details",
+        placeholder: "Enter the event details",
         required: true,
       },
       {
-        id: `question_terms_${Date.now() + 16}`,
-        type: "checkbox",
-        label: "I agree to the volunteer terms and conditions",
+        id: `question_meetupPageDetails_${Date.now() + 22}`,
+        type: "text",
+        label: "Meetup page details",
+        placeholder: "Enter the meetup page details",
+        required: true,
+      },
+      {
+        id: `question_yourContribution_${Date.now() + 23}`,
+        type: "select",
+        label: "Your Contribution",
+        placeholder: "Select your contribution",
+        required: true,
+        options: [
+          { id: "contribution_1", value: "Content creator" },
+          { id: "contribution_2", value: "Social media" },
+          { id: "contribution_3", value: "Event planner" },
+          { id: "contribution_4", value: "Infographic designer" },
+          { id: "contribution_5", value: "Organizer" },
+        ],
+      },
+      {
+        id: `question_organizerName_${Date.now() + 24}`,
+        type: "text",
+        label: "Organizer Name/ LinkedIn ID",
+        placeholder: "Enter the organizer name/ LinkedIn ID",
+        required: true,
+      },
+      {
+        id: `question_linkedinId_${Date.now() + 25}`,
+        type: "text",
+        label: "LinkedIn ID",
+        placeholder: "Enter your LinkedIn profile URL",
+        required: true,
+      },
+      {
+        id: `question_githubId_${Date.now() + 26}`,
+        type: "text",
+        label: "GitHub ID",
+        placeholder: "Enter your GitHub profile URL",
+        required: true,
+      },
+      {
+        id: `question_otherSocialMediaId_${Date.now() + 27}`,
+        type: "text",
+        label: "Any other social Media ID",
+        placeholder: "Enter any other social media profile URL",
+        required: false,
+      },
+      {
+        id: `question_mobileNumber_${Date.now() + 28}`,
+        type: "phone",
+        label: "Mobile number",
+        placeholder: "Enter your mobile number",
         required: true,
       },
     ]
 
-    // Default speaker questions
     const defaultSpeakerQuestions = [
       {
-        id: `question_name_${Date.now() + 20}`,
+        id: `question_name_${Date.now() + 30}`,
         type: "text",
-        label: "Full Name",
-        placeholder: "Enter your full name",
+        label: "Name",
+        placeholder: "Enter your name",
         required: true,
       },
       {
-        id: `question_email_${Date.now() + 21}`,
+        id: `question_email_${Date.now() + 31}`,
         type: "email",
-        label: "Email Address",
+        label: "Email ID",
         placeholder: "Enter your email address",
         required: true,
       },
       {
-        id: `question_job_${Date.now() + 22}`,
+        id: `question_corporateEmail_${Date.now() + 32}`,
+        type: "email",
+        label: "Corporate Email ID",
+        placeholder: "Enter your corporate email address",
+        required: true,
+      },
+      {
+        id: `question_designation_${Date.now() + 33}`,
         type: "text",
-        label: "Job Title",
-        placeholder: "Enter your job title",
+        label: "Designation",
+        placeholder: "Enter your designation",
         required: true,
       },
       {
-        id: `question_company_${Date.now() + 23}`,
+        id: `question_eventOrganizer_${Date.now() + 34}`,
         type: "text",
-        label: "Company/Organization",
-        placeholder: "Enter your company or organization",
+        label: "Event Organizer",
+        placeholder: "Enter the event organizer",
         required: true,
       },
       {
-        id: `question_bio_${Date.now() + 24}`,
-        type: "textarea",
-        label: "Bio",
-        placeholder: "Enter a short biography",
+        id: `question_isMicrosoftMVP_${Date.now() + 35}`,
+        type: "checkbox",
+        label: "Are you a Microsoft MVP?",
         required: true,
       },
       {
-        id: `question_talk_title_${Date.now() + 25}`,
+        id: `question_mvpId_${Date.now() + 36}`,
         type: "text",
-        label: "Talk Title",
-        placeholder: "Enter the title of your talk",
-        required: true,
-      },
-      {
-        id: `question_talk_abstract_${Date.now() + 26}`,
-        type: "textarea",
-        label: "Talk Abstract",
-        placeholder: "Provide a brief abstract of your talk",
-        required: true,
-      },
-      {
-        id: `question_talk_duration_${Date.now() + 27}`,
-        type: "select",
-        label: "Talk Duration",
-        placeholder: "Select the duration of your talk",
-        required: true,
-        options: [
-          { id: "duration_1", value: "15 minutes" },
-          { id: "duration_2", value: "30 minutes" },
-          { id: "duration_3", value: "45 minutes" },
-          { id: "duration_4", value: "60 minutes" },
-        ],
-      },
-      {
-        id: `question_talk_level_${Date.now() + 28}`,
-        type: "select",
-        label: "Talk Level",
-        placeholder: "Select the level of your talk",
-        required: true,
-        options: [
-          { id: "level_1", value: "Beginner" },
-          { id: "level_2", value: "Intermediate" },
-          { id: "level_3", value: "Advanced" },
-        ],
-      },
-      {
-        id: `question_topics_${Date.now() + 29}`,
-        type: "select",
-        label: "Topics",
-        placeholder: "Select relevant topics",
-        required: true,
-        options: [
-          { id: "topic_1", value: "Technology" },
-          { id: "topic_2", value: "Business" },
-          { id: "topic_3", value: "Design" },
-          { id: "topic_4", value: "Marketing" },
-          { id: "topic_5", value: "Personal Development" },
-        ],
-      },
-      {
-        id: `question_photo_${Date.now() + 30}`,
-        type: "text",
-        label: "Profile Photo URL",
-        placeholder: "Enter URL to your profile photo",
+        label: "MVP ID",
+        placeholder: "Enter your MVP ID",
         required: false,
       },
       {
-        id: `question_speaking_exp_${Date.now() + 31}`,
-        type: "textarea",
-        label: "Previous Speaking Experience",
-        placeholder: "Describe your previous speaking experience",
+        id: `question_mvpProfileLink_${Date.now() + 37}`,
+        type: "text",
+        label: "MVP Profile Link",
+        placeholder: "Enter your MVP profile link",
+        required: false,
+      },
+      {
+        id: `question_mvpCategory_${Date.now() + 38}`,
+        type: "text",
+        label: "MVP Category",
+        placeholder: "Enter your MVP category",
+        required: false,
+      },
+      {
+        id: `question_areYouRunningMeetupGroup_${Date.now() + 39}`,
+        type: "checkbox",
+        label: "Are you running any meetup group?",
         required: true,
       },
       {
-        id: `question_social_${Date.now() + 32}`,
+        id: `question_meetupEventName_${Date.now() + 40}`,
         type: "text",
-        label: "Social Media Profiles",
-        placeholder: "Enter your social media profile links",
+        label: "Meetup/Event Name",
+        placeholder: "Enter the meetup/event name",
+        required: true,
+      },
+      {
+        id: `question_eventDetails_${Date.now() + 41}`,
+        type: "textarea",
+        label: "Event Details",
+        placeholder: "Enter the event details",
+        required: true,
+      },
+      {
+        id: `question_meetupPageDetails_${Date.now() + 42}`,
+        type: "text",
+        label: "Meetup page details",
+        placeholder: "Enter the meetup page details",
+        required: true,
+      },
+      {
+        id: `question_linkedinId_${Date.now() + 43}`,
+        type: "text",
+        label: "LinkedIn ID",
+        placeholder: "Enter your LinkedIn profile URL",
+        required: true,
+      },
+      {
+        id: `question_githubId_${Date.now() + 44}`,
+        type: "text",
+        label: "GitHub ID",
+        placeholder: "Enter your GitHub profile URL",
+        required: true,
+      },
+      {
+        id: `question_otherSocialMediaId_${Date.now() + 45}`,
+        type: "text",
+        label: "Any other social Media ID",
+        placeholder: "Enter any other social media profile URL",
         required: false,
       },
     ]
@@ -325,7 +380,40 @@ export function CustomQuestionsForm({
       volunteer: defaultVolunteerQuestions,
       speaker: defaultSpeakerQuestions,
     }
-  }
+  }, [])
+
+  const fetchFormStatus = useCallback(async () => {
+    if (!eventId) return
+
+    try {
+      const response = await fetch(`/api/events/${eventId}/forms/status`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch form status: ${response.status}`)
+      }
+      const data = await response.json()
+
+      setFormStatus(data)
+      setPublishStatus({
+        attendee: data.attendee === "published",
+        volunteer: data.volunteer === "published",
+        speaker: data.speaker === "published",
+      })
+
+      // Optionally, update the parent component as well
+      if (updateFormStatus) {
+        updateFormStatus("attendee", data.attendee)
+        updateFormStatus("volunteer", data.volunteer)
+        updateFormStatus("speaker", data.speaker)
+      }
+    } catch (error) {
+      console.error("Error fetching form status:", error)
+      toast({
+        title: "Error fetching form status",
+        description: error.message || "Failed to retrieve form status. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }, [eventId, updateFormStatus, toast])
 
   // Initialize with default questions or existing data
   useEffect(() => {
@@ -372,7 +460,7 @@ export function CustomQuestionsForm({
       // Update parent with defaults
       updateData(defaultQuestions)
     }
-  }, [data, updateData, eventId, fetchFormStatus])
+  }, [data, updateData, eventId, fetchFormStatus, generateDefaultQuestions])
 
   // Update parent component when questions change
   const updateQuestions = (type, questions) => {
