@@ -36,9 +36,9 @@ export function CustomQuestionsForm({
 
   // Form publish status
   const [publishStatus, setPublishStatus] = useState({
-    attendee: initialFormStatus?.attendee === "published",
-    volunteer: initialFormStatus?.volunteer === "published",
-    speaker: initialFormStatus?.speaker === "published",
+    attendee: false,
+    volunteer: false,
+    speaker: false,
   })
 
   // Add a new state for tracking the published URLs
@@ -474,17 +474,6 @@ export function CustomQuestionsForm({
     }
   }, [data, updateData, eventId, fetchFormStatus, generateDefaultQuestions])
 
-  useEffect(() => {
-    if (initialFormStatus) {
-      setFormStatus(initialFormStatus)
-      setPublishStatus({
-        attendee: initialFormStatus.attendee === "published",
-        volunteer: initialFormStatus.volunteer === "published",
-        speaker: initialFormStatus.speaker === "published",
-      })
-    }
-  }, [initialFormStatus])
-
   // Update parent component when questions change
   const updateQuestions = (type, questions) => {
     if (!Array.isArray(questions)) {
@@ -801,74 +790,64 @@ export function CustomQuestionsForm({
   }
 
   const renderQuestionFields = (question, type, index) => {
+    if (!question) return null
+
     return (
-      <div className="space-y-2">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label htmlFor={`label-${question.id}`}>Label</Label>
+            <Label htmlFor={`${question.id}-label`}>Question Label</Label>
             <Input
-              type="text"
-              id={`label-${question.id}`}
+              id={`${question.id}-label`}
               value={question.label || ""}
               onChange={(e) => updateQuestion(type, question.id, "label", e.target.value)}
-              placeholder="Question label"
+              placeholder="Enter question label"
             />
           </div>
           <div>
-            <Label htmlFor={`placeholder-${question.id}`}>Placeholder</Label>
-            <Input
-              type="text"
-              id={`placeholder-${question.id}`}
-              value={question.placeholder || ""}
-              onChange={(e) => updateQuestion(type, question.id, "placeholder", e.target.value)}
-              placeholder="Placeholder text"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor={`type-${question.id}`}>Type</Label>
-            <Select value={question.type} onValueChange={(value) => updateQuestion(type, question.id, "type", value)}>
-              <SelectTrigger id={`type-${question.id}`}>
-                <SelectValue placeholder="Select a type" />
+            <Label htmlFor={`${question.id}-type`}>Question Type</Label>
+            <Select
+              value={question.type || "text"}
+              onValueChange={(value) => updateQuestion(type, question.id, "type", value)}
+            >
+              <SelectTrigger id={`${question.id}-type`}>
+                <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="text">Text</SelectItem>
+                <SelectItem value="textarea">Text Area</SelectItem>
+                <SelectItem value="select">Dropdown</SelectItem>
+                <SelectItem value="radio">Radio Buttons</SelectItem>
+                <SelectItem value="checkbox">Checkboxes</SelectItem>
+                <SelectItem value="date">Date</SelectItem>
                 <SelectItem value="email">Email</SelectItem>
                 <SelectItem value="phone">Phone</SelectItem>
-                <SelectItem value="number">Number</SelectItem>
-                <SelectItem value="textarea">Textarea</SelectItem>
-                <SelectItem value="select">Select</SelectItem>
-                <SelectItem value="radio">Radio</SelectItem>
-                <SelectItem value="checkbox">Checkbox</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center space-x-2">
-            <Label htmlFor={`required-${question.id}`}>Required</Label>
-            <Switch
-              id={`required-${question.id}`}
-              checked={question.required || false}
-              onCheckedChange={(checked) => updateQuestion(type, question.id, "required", checked)}
-            />
-          </div>
         </div>
 
-        {/* Options for select, radio, checkbox */}
-        {question.type === "select" || question.type === "radio" || question.type === "checkbox" ? (
+        <div>
+          <Label htmlFor={`${question.id}-placeholder`}>Placeholder Text</Label>
+          <Input
+            id={`${question.id}-placeholder`}
+            value={question.placeholder || ""}
+            onChange={(e) => updateQuestion(type, question.id, "placeholder", e.target.value)}
+            placeholder="Enter placeholder text"
+          />
+        </div>
+
+        {["select", "radio", "checkbox"].includes(question.type) && (
           <div className="space-y-2">
             <Label>Options</Label>
-            <div className="space-y-1">
+            <div className="space-y-2">
               {Array.isArray(question.options) &&
-                question.options.map((option, optionIndex) => (
-                  <div key={option.id || `option-${optionIndex}`} className="flex items-center space-x-2">
+                question.options.map((option, optIndex) => (
+                  <div key={option.id || `option-${optIndex}`} className="flex items-center space-x-2">
                     <Input
-                      type="text"
                       value={option.value || ""}
                       onChange={(e) => updateOption(type, question.id, option.id, e.target.value)}
-                      placeholder="Option value"
-                      className="flex-1"
+                      placeholder={`Option ${optIndex + 1}`}
                     />
                     <Button
                       type="button"
@@ -880,17 +859,33 @@ export function CustomQuestionsForm({
                     </Button>
                   </div>
                 ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addOption(type, question.id)}
+                className="mt-2"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Option
+              </Button>
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={() => addOption(type, question.id)}>
-              Add Option
-            </Button>
           </div>
-        ) : null}
+        )}
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            id={`${question.id}-required`}
+            checked={question.required || false}
+            onCheckedChange={(checked) => updateQuestion(type, question.id, "required", checked)}
+          />
+          <Label htmlFor={`${question.id}-required`}>Required</Label>
+        </div>
       </div>
     )
   }
 
-  const renderFormCard = (type, title, description, questions, setQuestions) => {
+  const renderFormCard = (type, title, description, questions, setQuestions,formstatus) => {
     // Ensure questions is always an array
     const safeQuestions = Array.isArray(questions) ? questions : []
 
@@ -905,6 +900,7 @@ export function CustomQuestionsForm({
             <div className="flex items-center space-x-2">
               <Switch
                 id={`${type}-publish-toggle`}
+                value={formstatus}
                 checked={publishStatus[type]}
                 onCheckedChange={() => togglePublishStatus(type)}
               />
@@ -1026,6 +1022,7 @@ export function CustomQuestionsForm({
             "These questions will be shown to attendees when they register for your event.",
             attendeeQuestions,
             setAttendeeQuestions,
+            formStatus.attendee
           )}
         </TabsContent>
 
@@ -1036,6 +1033,7 @@ export function CustomQuestionsForm({
             "These questions will be shown to volunteers when they apply to help at your event.",
             volunteerQuestions,
             setVolunteerQuestions,
+            formStatus.volunteer
           )}
         </TabsContent>
 
@@ -1046,6 +1044,7 @@ export function CustomQuestionsForm({
             "These questions will be shown to speakers when they apply to speak at your event.",
             speakerQuestions,
             setSpeakerQuestions,
+            formStatus.speaker
           )}
         </TabsContent>
       </Tabs>
