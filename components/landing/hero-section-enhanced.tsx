@@ -121,7 +121,7 @@ export function HeroSection() {
           <div className="space-y-6">
             <motion.div variants={itemVariants}>
               <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl">
-                Powering the Future of{" "}
+                Plan & Host Amazing{" "}
                 <motion.span
                   className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
                   animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
@@ -132,8 +132,7 @@ export function HeroSection() {
               </h1>
             </motion.div>
             <motion.p variants={itemVariants} className="text-xl text-muted-foreground md:text-2xl max-w-[600px]">
-              Create engaging experiences, connect with your community, and drive innovation with our comprehensive
-              event management platform.
+              Your all-in-one platform for planning, managing, and hosting successful tech events of any size.
             </motion.p>
             <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4">
               <Button size="lg" asChild className="h-12 px-6 relative overflow-hidden group">
@@ -223,7 +222,7 @@ export function HeroSection() {
               >
                 <div className="relative aspect-[4/3] md:aspect-[16/10]">
                   <Image
-                    src="/tech-conference-hero.jpg"
+                    src="/bustling-tech-summit.png"
                     alt="Tech Event"
                     fill
                     sizes="(max-width: 768px) 100vw, 50vw"
@@ -236,15 +235,15 @@ export function HeroSection() {
                   whileHover={{ y: 0, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 300, damping: 20 }}
                 >
-                  <h3 className="text-xl font-bold">Innovate Tech Summit</h3>
+                  <h3 className="text-xl font-bold">Annual Developer Conference</h3>
                   <div className="mt-2 flex items-center gap-3">
                     <div className="flex items-center">
                       <Calendar className="mr-1 h-4 w-4" />
-                      <span className="text-sm">November 10-12, 2024</span>
+                      <span className="text-sm">June 15-17, 2023</span>
                     </div>
                     <div className="flex items-center">
                       <Users className="mr-1 h-4 w-4" />
-                      <span className="text-sm">800+ Attendees</span>
+                      <span className="text-sm">1,200+ Attendees</span>
                     </div>
                   </div>
                 </motion.div>

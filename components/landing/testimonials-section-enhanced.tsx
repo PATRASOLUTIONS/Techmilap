@@ -44,51 +44,51 @@ export function TestimonialsSection() {
 
   const testimonials = [
     {
-      name: "Anya Sharma",
-      role: "Conference Director, FutureTech Summit",
+      name: "Sarah Johnson",
+      role: "Event Manager at TechCorp",
       image: "/joyful-portrait.png",
       content:
-        "TechEventPlanner has been a game-changer for our annual FutureTech Summit. The platform's intuitive interface and powerful features have streamlined our event planning process, allowing us to focus on creating an exceptional experience for our attendees.",
+        "TechEventPlanner has transformed how we organize our annual developer conference. The platform is intuitive, powerful, and has saved us countless hours of manual work.",
       rating: 5,
     },
     {
-      name: "Kenji Tanaka",
-      role: "Lead Organizer, Tokyo DevCon",
+      name: "Michael Chen",
+      role: "CTO at StartupHub",
       image: "/confident-asian-professional.png",
       content:
-        "As a lead organizer for Tokyo DevCon, I'm always looking for ways to improve our event management. TechEventPlanner's attendee management and analytics tools have been invaluable in helping us understand our audience and optimize our event strategy.",
+        "We've tried several event management platforms, but TechEventPlanner stands out with its tech-focused features and excellent customer support. Highly recommended!",
       rating: 5,
     },
     {
-      name: "Isabella Rodriguez",
-      role: "Event Coordinator, Global AI Conference",
+      name: "Jessica Williams",
+      role: "Community Manager at DevNetwork",
       image: "/confident-leader.png",
       content:
-        "TechEventPlanner has transformed the way we manage our Global AI Conference. The platform's speaker management and ticketing features have saved us countless hours, and the support team is always there to help when we need it.",
+        "The analytics and attendee management features have given us valuable insights into our events. We've been able to grow our community events by 40% since using this platform.",
       rating: 4,
     },
     {
-      name: "Ethan Williams",
-      role: "Founder, CodeCamp",
+      name: "David Rodriguez",
+      role: "Marketing Director at InnovateX",
       image: "/joyful-latino-portrait.png",
       content:
-        "I've been using TechEventPlanner for my coding workshops for the past year, and I couldn't be happier. The platform is easy to use, customizable, and has all the features I need to run successful events.",
+        "The customization options allowed us to create a branded experience that perfectly matched our company's identity. Our attendees were impressed with the seamless registration process.",
       rating: 5,
     },
     {
-      name: "Priya Patel",
-      role: "Marketing Manager, InnovateX",
+      name: "Emma Thompson",
+      role: "Conference Organizer",
       image: "/confident-blonde-professional.png",
       content:
-        "TechEventPlanner has helped us elevate our brand and create a more engaging experience for our attendees. The platform's customization options and marketing tools have been instrumental in driving attendance and generating leads.",
+        "TechEventPlanner made it easy to manage multiple tracks and sessions for our conference. The scheduling features are particularly impressive and user-friendly.",
       rating: 4,
     },
     {
-      name: "Omar Hassan",
-      role: "CEO, StartupHub",
+      name: "Alex Patel",
+      role: "Founder of CodeCamp",
       image: "/confident-indian-professional.png",
       content:
-        "As a CEO of StartupHub, I'm always looking for ways to connect with the tech community. TechEventPlanner has made it easy for us to host meetups, workshops, and conferences that bring together the best and brightest minds in the industry.",
+        "As someone who runs coding workshops regularly, I needed a platform that understood the unique needs of tech events. This solution has exceeded my expectations in every way.",
       rating: 5,
     },
   ]
@@ -97,9 +97,9 @@ export function TestimonialsSection() {
     <section id="testimonials" className="py-20">
       <div className="container px-4 md:px-6">
         <SectionHeading
-          title="Trusted by Leading Tech Innovators"
+          title="What Our Customers Say"
           subtitle="Testimonials"
-          description="See why event organizers and tech leaders around the world rely on TechEventPlanner to power their events."
+          description="Don't just take our word for it. Here's what event organizers have to say about their experience with TechEventPlanner."
         />
 
         <motion.div

@@ -83,39 +83,6 @@ TechEventPlanner Team`
   return sendEmail({ to: email, subject, text, html })
 }
 
-// Function to send contact form submission
-export async function sendContactFormEmail({ name, email, message }) {
-  try {
-    const transporter = createTransporter()
-
-    const mailOptions = {
-      from: `"TechEventPlanner Contact Form" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_USER,
-      subject: "New Contact Form Submission",
-      text: `You have a new contact form submission:
-      Name: ${name}
-      Email: ${email}
-      Message: ${message}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>New Contact Form Submission</h2>
-          <p>You have a new contact form submission:</p>
-          <p><strong>Name:</strong> ${name}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Message:</strong> ${message}</p>
-        </div>
-      `,
-    }
-
-    await transporter.sendMail(mailOptions)
-    console.log(`Contact form email sent to ${process.env.EMAIL_USER}`)
-    return true
-  } catch (error) {
-    console.error(`Error sending contact form email to ${process.env.EMAIL_USER}:`, error)
-    return false
-  }
-}
-
 // Function to send form submission notification
 export async function sendFormSubmissionNotification({
   eventName,
@@ -125,41 +92,79 @@ export async function sendFormSubmissionNotification({
   recipientName,
   eventId,
   submissionId,
+}: {
+  eventName: string
+  formType: string
+  submissionData: any
+  recipientEmail: string
+  recipientName?: string
+  eventId: string
+  submissionId: string
 }) {
   try {
-    const transporter = createTransporter()
+    // Format the form type for display
+    const formTypeFormatted = formType.charAt(0).toUpperCase() + formType.slice(1)
 
-    // Format submission data for display in email
-    const submissionDetails = Object.entries(submissionData)
-      .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
-      .join("")
+    // Create a summary of the submission data
+    let submissionSummary = ""
+    if (submissionData && typeof submissionData === "object") {
+      // Extract key information for the email summary
+      const keyFields = ["name", "email", "phone", "message", "interests", "availability"]
 
-    const mailOptions = {
-      from: `"TechEventPlanner" <${process.env.EMAIL_USER}>`,
-      to: recipientEmail,
-      subject: `New ${formType} submission for ${eventName}`,
-      text: `You have a new ${formType} submission for ${eventName}.
-      Submission Details:
-      ${Object.entries(submissionData)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join("\n")}
-      View submission: ${process.env.NEXT_PUBLIC_APP_URL}/event-dashboard/${eventId}/submissions/${formType}/${submissionId}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>New ${formType} submission for ${eventName}</h2>
-          <p>You have a new ${formType} submission for ${eventName}.</p>
-          <h3>Submission Details:</h3>
-          ${submissionDetails}
-          <p><a href="${process.env.NEXT_PUBLIC_APP_URL}/event-dashboard/${eventId}/submissions/${formType}/${submissionId}">View submission</a></p>
-        </div>
-      `,
+      for (const key of Object.keys(submissionData)) {
+        if (keyFields.includes(key) && submissionData[key]) {
+          const value = Array.isArray(submissionData[key]) ? submissionData[key].join(", ") : submissionData[key]
+          submissionSummary += `<p><strong>${key.charAt(0).toUpperCase() + key.slice(1)}:</strong> ${value}</p>`
+        }
+      }
     }
 
-    await transporter.sendMail(mailOptions)
-    console.log(`Form submission notification sent to ${recipientEmail}`)
-    return true
+    if (!submissionSummary) {
+      submissionSummary = "<p>No detailed information available.</p>"
+    }
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const viewSubmissionUrl = `${appUrl}/event-dashboard/${eventId}/${formType}s`
+
+    const subject = `New ${formTypeFormatted} Submission for ${eventName}`
+    const text = `
+      Hello ${recipientName || "Event Organizer"},
+      
+      You have received a new ${formType} submission for your event "${eventName}".
+      
+      Submission ID: ${submissionId}
+      
+      To view all submissions, please visit: ${viewSubmissionUrl}
+      
+      Thank you for using TechEventPlanner!
+    `
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+        <h2 style="color: #4f46e5;">New ${formTypeFormatted} Submission</h2>
+        <p>Hello ${recipientName || "Event Organizer"},</p>
+        <p>You have received a new ${formType} submission for your event <strong>"${eventName}"</strong>.</p>
+        
+        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="margin-top: 0;">Submission Summary</h3>
+          ${submissionSummary}
+        </div>
+        
+        <p>
+          <a href="${viewSubmissionUrl}" style="background-color: #4f46e5; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block;">
+            View All Submissions
+          </a>
+        </p>
+        
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+          Thank you for using TechEventPlanner!
+        </p>
+      </div>
+    `
+
+    return sendEmail({ to: recipientEmail, subject, text, html })
   } catch (error) {
-    console.error(`Error sending form submission notification to ${recipientEmail}:`, error)
+    console.error("Error sending form submission notification:", error)
     return false
   }
 }

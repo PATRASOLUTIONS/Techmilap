@@ -17,11 +17,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 
-export function EventCreationForm({
-  existingEvent = null,
-  isEditing = false,
-  initialFormStatus = { attendee: "draft", volunteer: "draft", speaker: "draft" },
-}) {
+export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   const router = useRouter()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("details")
@@ -66,9 +62,9 @@ export function EventCreationForm({
   })
 
   const [formStatus, setFormStatus] = useState({
-    attendee: initialFormStatus?.attendee || "draft",
-    volunteer: initialFormStatus?.volunteer || "draft",
-    speaker: initialFormStatus?.speaker || "draft",
+    attendee: "draft",
+    volunteer: "draft",
+    speaker: "draft",
   })
 
   // Load existing event data if editing
@@ -112,9 +108,9 @@ export function EventCreationForm({
 
       // Set form status from existing event
       setFormStatus({
-        attendee: existingEvent.attendeeForm?.status || initialFormStatus.attendee || "draft",
-        volunteer: existingEvent.volunteerForm?.status || initialFormStatus.volunteer || "draft",
-        speaker: existingEvent.speakerForm?.status || initialFormStatus.speaker || "draft",
+        attendee: existingEvent.attendeeForm?.status || "draft",
+        volunteer: existingEvent.volunteerForm?.status || "draft",
+        speaker: existingEvent.speakerForm?.status || "draft",
       })
 
       // If editing, start on the tickets tab if requested
@@ -123,7 +119,7 @@ export function EventCreationForm({
         setActiveTab("tickets")
       }
     }
-  }, [existingEvent, initialFormStatus])
+  }, [existingEvent])
 
   const updateFormData = (section, data) => {
     setFormData((prev) => ({
@@ -550,7 +546,7 @@ export function EventCreationForm({
                       updateData={handleCustomQuestionsUpdate}
                       eventId={isEditing ? existingEvent._id : null}
                       updateFormStatus={updateFormStatus}
-                      initialFormStatus={formStatus}
+                      formStatus={formStatus}
                     />
                   )}
 
