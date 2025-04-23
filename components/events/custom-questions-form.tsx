@@ -305,77 +305,79 @@ export function CustomQuestionsForm({
     }
   }, [data, generateDefaultQuestions, updateData])
 
-  // Fetch form publish status
-  useEffect(() => {
-    const fetchFormStatus = async () => {
+  const fetchFormStatus = useCallback(async () => {
+    if (eventId) {
       try {
-        if (eventId) {
-          const response = await fetch(`/api/events/${eventId}/forms/status`)
-          if (response.ok) {
-            const statusData = await response.json()
+        const response = await fetch(`/api/events/${eventId}/forms/status`)
+        if (response.ok) {
+          const statusData = await response.json()
 
-            // Update publish status based on form status from database
-            setPublishStatus({
-              attendee: statusData.attendeeForm?.status === "published",
-              volunteer: statusData.volunteerForm?.status === "published",
-              speaker: statusData.speakerForm?.status === "published",
-            })
+          // Update publish status based on form status from database
+          setPublishStatus({
+            attendee: statusData.attendeeForm?.status === "published",
+            volunteer: statusData.volunteerForm?.status === "published",
+            speaker: statusData.speakerForm?.status === "published",
+          })
 
-            // Update the local form status state
-            setFormStatus({
-              attendee: statusData.attendeeForm?.status || "draft",
-              volunteer: statusData.volunteerForm?.status || "draft",
-              speaker: statusData.speakerForm?.status || "draft",
-            })
+          // Update the local form status state
+          setFormStatus({
+            attendee: statusData.attendeeForm?.status || "draft",
+            volunteer: statusData.volunteerForm?.status || "draft",
+            speaker: statusData.speakerForm?.status || "draft",
+          })
 
-            // If the parent component has an updateFormStatus function, call it
-            if (updateFormStatus) {
-              updateFormStatus("attendee", statusData.attendeeForm?.status || "draft")
-              updateFormStatus("volunteer", statusData.volunteerForm?.status || "draft")
-              updateFormStatus("speaker", statusData.speakerForm?.status || "draft")
-            }
+          // If the parent component has an updateFormStatus function, call it
+          if (updateFormStatus) {
+            updateFormStatus("attendee", statusData.attendeeForm?.status || "draft")
+            updateFormStatus("volunteer", statusData.volunteerForm?.status || "draft")
+            updateFormStatus("speaker", statusData.speakerForm?.status || "draft")
+          }
 
-            // Get the event slug
-            const eventSlug = statusData.eventSlug || null
+          // Get the event slug
+          const eventSlug = statusData.eventSlug || null
 
-            // Set published URLs if forms are published
-            if (statusData.attendeeForm?.status === "published") {
-              setPublishedUrls((prev) => ({
-                ...prev,
-                attendee: eventSlug
-                  ? `${window.location.origin}/events/${eventSlug}/register`
-                  : `${window.location.origin}/events/${eventId}/register`,
-              }))
-            }
+          // Set published URLs if forms are published
+          if (statusData.attendeeForm?.status === "published") {
+            setPublishedUrls((prev) => ({
+              ...prev,
+              attendee: eventSlug
+                ? `${window.location.origin}/events/${eventSlug}/register`
+                : `${window.location.origin}/events/${eventId}/register`,
+            }))
+          }
 
-            if (statusData.volunteerForm?.status === "published") {
-              setPublishedUrls((prev) => ({
-                ...prev,
-                volunteer: eventSlug
-                  ? `${window.location.origin}/events/${eventSlug}/volunteer`
-                  : `${window.location.origin}/events/${eventId}/volunteer`,
-              }))
-            }
+          if (statusData.volunteerForm?.status === "published") {
+            setPublishedUrls((prev) => ({
+              ...prev,
+              volunteer: eventSlug
+                ? `${window.location.origin}/events/${eventSlug}/volunteer`
+                : `${window.location.origin}/events/${eventId}/volunteer`,
+            }))
+          }
 
-            if (statusData.speakerForm?.status === "published") {
-              setPublishedUrls((prev) => ({
-                ...prev,
-                speaker: eventSlug
-                  ? `${window.location.origin}/events/${eventSlug}/speaker`
-                  : `${window.location.origin}/events/${eventId}/speaker`,
-              }))
-            }
+          if (statusData.speakerForm?.status === "published") {
+            setPublishedUrls((prev) => ({
+              ...prev,
+              speaker: eventSlug
+                ? `${window.location.origin}/events/${eventSlug}/speaker`
+                : `${window.location.origin}/events/${eventId}/speaker`,
+            }))
           }
         }
       } catch (error) {
         console.error("Error fetching form status:", error)
       }
     }
+  }, [eventId, updateFormStatus])
 
-    if (eventId) {
+  // Fetch form publish status
+  useEffect(() => {
+    try {
       fetchFormStatus()
+    } catch (error) {
+      console.error("Error in useEffect:", error)
     }
-  }, [eventId, updateFormStatus, generateDefaultQuestions])
+  }, [eventId, fetchFormStatus])
 
   // Update parent component when questions change
   const updateQuestions = useCallback(
@@ -456,9 +458,10 @@ export function CustomQuestionsForm({
           })
 
           if (!response.ok) {
+            let error
             const errorData = await response.json()
             console.error("Server response:", errorData)
-            const error = new Error(errorData.error || `Failed to ${newStatus ? "publish" : "update"} form`)
+            error = new Error(errorData.error || `Failed to ${newStatus ? "publish" : "update"} form`)
             throw error
           }
 
@@ -901,7 +904,6 @@ export function CustomQuestionsForm({
                         <GripVertical className="h-4 w-4 text-muted-foreground" />
                       </div>
                     </div>
-                    <div className="mb-2 font-medium">Question {index + 1}</div>
                     {renderQuestionFields(question, type, index)}
                   </div>
                 ))
@@ -916,7 +918,16 @@ export function CustomQuestionsForm({
         </Card>
       )
     },
-    [publishStatus, publishedUrls, eventId, toast, renderQuestionFields, togglePublishStatus],
+    [
+      publishStatus,
+      publishedUrls,
+      eventId,
+      toast,
+      renderQuestionFields,
+      togglePublishStatus,
+      addQuestion,
+      removeQuestion,
+    ],
   )
 
   return (
