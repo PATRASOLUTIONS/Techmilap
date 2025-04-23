@@ -562,10 +562,7 @@ export function CustomQuestionsForm({
         return
       }
 
-      console.log(
-        `${shouldPublish ? "Publishing" : "Setting to draft"} ${formType} form with questions:`,
-        questionsToSend,
-      )
+      console.log("Converting HTML to Markdown...")
 
       // If we have an eventId, send the request to the server
       const response = await fetch(`/api/events/${eventId}/forms/${formType}/publish`, {
@@ -613,7 +610,7 @@ export function CustomQuestionsForm({
         description: shouldPublish
           ? `The ${formType} form has been published and is now available to the public.`
           : `The ${formType} form has been set to draft and is no longer publicly accessible.`,
-        variant: "success",
+        variant: "default",
       })
     } catch (error) {
       console.error(`Error ${shouldPublish ? "publishing" : "updating"} form:`, error)
