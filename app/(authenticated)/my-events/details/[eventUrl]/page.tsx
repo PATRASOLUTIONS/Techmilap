@@ -1,194 +1,247 @@
 import { getServerSession } from "next-auth/next"
-import { notFound } from "next/navigation"
-import Image from "next/image"
-import { Calendar, Clock, MapPin, Users } from "lucide-react"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import Event from "@/models/Event"
-import FormSubmission from "@/models/FormSubmission"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { redirect } from "next/navigation"
+import { CalendarIcon, MapPinIcon, UsersIcon, ClockIcon } from "lucide-react"
+import { format } from "date-fns"
 import { Badge } from "@/components/ui/badge"
-import { formatDate } from "@/lib/utils"
-import { EventRegisterButton } from "@/components/events/event-register-button"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import Image from "next/image"
+import { EventUserRegistrationDialog } from "@/components/events/event-user-registration-dialog"
 import mongoose from "mongoose"
+import ReactMarkdown from "react-markdown"
 
-export default async function EventDetailPage({ params }: { params: { eventUrl: string } }) {
+// Import models
+const Event = mongoose.models.Event || mongoose.model("Event", require("@/models/Event").default.schema)
+const User = mongoose.models.User || mongoose.model("User", require("@/models/User").default.schema)
+
+export default async function EventDetailsPage({ params }: { params: { eventUrl: string } }) {
   const session = await getServerSession(authOptions)
 
   if (!session) {
-    return null
+    redirect("/login")
   }
 
   await connectToDatabase()
 
-  // Try to find the event by slug first
-  let event = await Event.findOne({ slug: params.eventUrl })
-    .populate("organizer", "firstName lastName email")
-    .populate("attendees", "firstName lastName")
+  // Check if the ID is a valid MongoDB ObjectId
+  const isValidObjectId = mongoose.isValidObjectId(params.eventUrl)
+  let event = null
 
-  // If not found by slug, check if the eventUrl is a valid ObjectId and try to find by ID
-  if (!event && mongoose.Types.ObjectId.isValid(params.eventUrl)) {
-    event = await Event.findById(params.eventUrl)
-      .populate("organizer", "firstName lastName email")
-      .populate("attendees", "firstName lastName")
+  if (isValidObjectId) {
+    // If it's a valid ObjectId, try to find by ID first
+    event = await Event.findById(params.eventUrl).populate("organizer", "firstName lastName email")
   }
 
-  if (!event || event.status !== "published") {
-    return notFound()
+  // If not found by ID or not a valid ObjectId, try to find by slug
+  if (!event && !isValidObjectId) {
+    event = await Event.findOne({ slug: params.eventUrl }).populate("organizer", "firstName lastName email")
   }
 
-  // Check if user is registered as an attendee
-  const isRegistered = event.attendees.some(
-    (attendee: any) =>
-      attendee._id.toString() === session.user.id ||
-      (attendee.userId && attendee.userId.toString() === session.user.id),
-  )
-
-  // Check if user has submitted forms for this event
-  const userSubmissions = await FormSubmission.find({
-    eventId: event._id,
-    $or: [{ userId: session.user.id }, { userEmail: session.user.email }],
-  }).lean()
-
-  // Determine user's role in this event
-  let userRole = "visitor"
-  if (event.organizer._id.toString() === session.user.id) {
-    userRole = "organizer"
-  } else if (isRegistered) {
-    userRole = "attendee"
-  }
-
-  // Check form submissions for other roles
-  for (const submission of userSubmissions) {
-    if (submission.formType === "speaker") {
-      userRole = "speaker"
-      break
-    } else if (submission.formType === "volunteer" && userRole !== "speaker") {
-      userRole = "volunteer"
-    } else if (submission.formType === "attendee" && userRole === "visitor") {
-      userRole = "attendee"
-    }
-  }
-
-  const isAtCapacity = event.attendees.length >= event.capacity
-
-  // Check if forms are published
-  const hasAttendeeForm = true // Attendee registration is always available
-  const hasVolunteerForm = event.volunteerForm?.status === "published"
-  const hasSpeakerForm = event.speakerForm?.status === "published"
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{event.title}</h1>
-          <p className="text-muted-foreground">
-            Organized by {event.organizer.firstName} {event.organizer.lastName}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-sm">
-            {event.category}
-          </Badge>
-          {userRole !== "visitor" && (
-            <Badge
-              className={`
-              ${userRole === "organizer" ? "bg-primary/20 text-primary border-primary/30" : ""}
-              ${userRole === "speaker" ? "bg-secondary/20 text-secondary border-secondary/30" : ""}
-              ${userRole === "volunteer" ? "bg-amber-500/20 text-amber-600 border-amber-500/30" : ""}
-              ${userRole === "attendee" ? "bg-emerald-500/20 text-emerald-600 border-emerald-500/30" : ""}
-            `}
-            >
-              {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
-            </Badge>
-          )}
-          <EventRegisterButton
-            eventId={event._id.toString()}
-            isRegistered={isRegistered}
-            isAtCapacity={isAtCapacity}
-            hasAttendeeForm={hasAttendeeForm}
-            hasVolunteerForm={hasVolunteerForm}
-            hasSpeakerForm={hasSpeakerForm}
-          />
+  if (!event) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <h2 className="text-xl font-bold text-red-700 mb-2">Event Not Found</h2>
+          <p className="text-red-600 mb-4">The event you're looking for could not be found.</p>
+          <Button asChild variant="outline">
+            <Link href="/my-events">Back to My Events</Link>
+          </Button>
         </div>
       </div>
+    )
+  }
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-          <div className="relative aspect-video overflow-hidden rounded-lg">
-            <Image src={event.image || "/community-celebration.png"} alt={event.title} fill className="object-cover" />
+  // Format date and time
+  const eventDate = event.date ? new Date(event.date) : null
+  const formattedDate = eventDate ? format(eventDate, "EEEE, MMMM d, yyyy") : "Date TBA"
+  const formattedTime = eventDate ? format(eventDate, "h:mm a") : "Time TBA"
+
+  // Calculate days remaining
+  const daysRemaining = eventDate ? Math.ceil((eventDate - new Date()) / (1000 * 60 * 60 * 24)) : null
+  const eventStatus =
+    daysRemaining > 0
+      ? `${daysRemaining} days remaining`
+      : eventDate && daysRemaining <= 0
+        ? "Event has ended"
+        : "Date TBA"
+
+  // Get organizer name
+  const organizerName = event.organizer
+    ? `${event.organizer.firstName} ${event.organizer.lastName}`
+    : "Unknown Organizer"
+
+  return (
+    <div className="container mx-auto py-8">
+      <div className="mb-6">
+        <Link href="/my-events" className="text-primary hover:underline flex items-center gap-1">
+          <span>← Back to My Events</span>
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column - Event Sidebar */}
+        <div className="lg:col-span-1">
+          <div className="sticky top-8 space-y-6">
+            {/* Event Image */}
+            <div className="relative w-full aspect-square rounded-xl overflow-hidden shadow-lg">
+              <Image
+                src={event.image || "/placeholder.svg?height=600&width=600&query=event"}
+                alt={event.title}
+                fill
+                className="object-cover"
+              />
+              {event.category && (
+                <div className="absolute top-4 left-4">
+                  <Badge className="bg-primary/90 hover:bg-primary text-white px-3 py-1 text-sm">
+                    {event.category}
+                  </Badge>
+                </div>
+              )}
+            </div>
+
+            {/* Event Actions */}
+            <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
+              {/* Event Status */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CalendarIcon className="h-5 w-5 text-primary" />
+                  <span className="font-medium">{eventStatus}</span>
+                </div>
+              </div>
+
+              {/* Registration Button */}
+              <div className="space-y-3">
+                <EventUserRegistrationDialog
+                  eventId={event._id.toString()}
+                  buttonText="Registration Options"
+                  className="w-full"
+                />
+
+                {session.user.id === event.organizer._id.toString() && (
+                  <Button asChild className="w-full" variant="outline">
+                    <Link href={`/event-dashboard/${event._id}`}>Manage Event</Link>
+                  </Button>
+                )}
+              </div>
+
+              {/* Key Event Details */}
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary/10 p-2 rounded-full">
+                    <CalendarIcon className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Date</p>
+                    <p className="font-medium">{formattedDate}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary/10 p-2 rounded-full">
+                    <ClockIcon className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Time</p>
+                    <p className="font-medium">{formattedTime}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary/10 p-2 rounded-full">
+                    <MapPinIcon className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Location</p>
+                    <p className="font-medium">{event.location || "Location TBA"}</p>
+                  </div>
+                </div>
+
+                {event.capacity && (
+                  <div className="flex items-center gap-3">
+                    <div className="bg-primary/10 p-2 rounded-full">
+                      <UsersIcon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Capacity</p>
+                      <p className="font-medium">
+                        {event.attendees?.length || 0} / {event.capacity} attendees
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Organizer Info */}
+              <div className="pt-2 border-t">
+                <p className="text-sm text-muted-foreground mb-3">Organized by</p>
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary/10 p-2 rounded-full">
+                    <span className="font-medium text-primary">
+                      {organizerName
+                        .split(" ")
+                        .map((name) => name[0])
+                        .join("")}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-medium">{organizerName}</p>
+                    <p className="text-sm text-muted-foreground">Event Organizer</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>About this event</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-line">{event.description}</p>
-            </CardContent>
-          </Card>
         </div>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Event Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-start">
-                <Calendar className="h-5 w-5 mr-3 mt-0.5 text-muted-foreground" />
-                <div>
-                  <h3 className="font-medium">Date</h3>
-                  <p>{formatDate(event.date)}</p>
-                </div>
-              </div>
-              <div className="flex items-start">
-                <Clock className="h-5 w-5 mr-3 mt-0.5 text-muted-foreground" />
-                <div>
-                  <h3 className="font-medium">Time</h3>
-                  <p>{new Date(event.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
-                </div>
-              </div>
-              <div className="flex items-start">
-                <MapPin className="h-5 w-5 mr-3 mt-0.5 text-muted-foreground" />
-                <div>
-                  <h3 className="font-medium">Location</h3>
-                  <p>{event.location}</p>
-                </div>
-              </div>
-              <div className="flex items-start">
-                <Users className="h-5 w-5 mr-3 mt-0.5 text-muted-foreground" />
-                <div>
-                  <h3 className="font-medium">Attendees</h3>
-                  <p>
-                    {event.attendees.length} / {event.capacity}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Right Column - Event Content */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Event Header */}
+          <div>
+            <h1 className="text-4xl font-bold mb-4">{event.title}</h1>
+            <div className="flex flex-wrap gap-2 mb-6">
+              {event.tags &&
+                event.tags.length > 0 &&
+                event.tags.map((tag: string, index: number) => (
+                  <Badge key={index} variant="secondary">
+                    {tag}
+                  </Badge>
+                ))}
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Organizer</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="font-medium text-primary">
-                    {event.organizer.firstName[0]}
-                    {event.organizer.lastName[0]}
-                  </span>
-                </div>
-                <div>
-                  <p className="font-medium">
-                    {event.organizer.firstName} {event.organizer.lastName}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{event.organizer.email}</p>
-                </div>
+          {/* Event Description */}
+          <div className="bg-white rounded-lg shadow-md p-8">
+            <h2 className="text-2xl font-semibold mb-4">About This Event</h2>
+            <div className="prose max-w-none">
+              {event.description ? (
+                <ReactMarkdown>{event.description}</ReactMarkdown>
+              ) : (
+                <p className="text-muted-foreground italic">No description available.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Event Schedule (if available) */}
+          {event.schedule && (
+            <div className="bg-white rounded-lg shadow-md p-8">
+              <h2 className="text-2xl font-semibold mb-4">Event Schedule</h2>
+              <div className="prose max-w-none">
+                <ReactMarkdown>{event.schedule}</ReactMarkdown>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
+
+          {/* Additional Details (if available) */}
+          {event.details && (
+            <div className="bg-white rounded-lg shadow-md p-8">
+              <h2 className="text-2xl font-semibold mb-4">Additional Information</h2>
+              <div className="prose max-w-none">
+                <ReactMarkdown>{event.details}</ReactMarkdown>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

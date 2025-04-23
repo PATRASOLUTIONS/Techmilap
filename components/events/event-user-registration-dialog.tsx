@@ -14,7 +14,7 @@ import {
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 
-interface EventRegistrationDialogProps {
+interface EventUserRegistrationDialogProps {
   eventId: string
   buttonText?: string
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" | null | undefined
@@ -22,13 +22,13 @@ interface EventRegistrationDialogProps {
   className?: string
 }
 
-export function EventRegistrationDialog({
+export function EventUserRegistrationDialog({
   eventId,
   buttonText = "Register",
   variant = "default",
   size = "default",
   className = "",
-}: EventRegistrationDialogProps) {
+}: EventUserRegistrationDialogProps) {
   const [open, setOpen] = useState(false)
   const [formStatus, setFormStatus] = useState<{
     attendeeForm?: { status: string }
@@ -36,27 +36,44 @@ export function EventRegistrationDialog({
     speakerForm?: { status: string }
     eventSlug?: string
   }>({})
+  const [userStatus, setUserStatus] = useState<{
+    isAttendee: boolean
+    isVolunteer: boolean
+    isSpeaker: boolean
+  }>({
+    isAttendee: false,
+    isVolunteer: false,
+    isSpeaker: false,
+  })
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
     if (open) {
-      const fetchFormStatus = async () => {
+      const fetchData = async () => {
         setIsLoading(true)
         try {
-          const response = await fetch(`/api/events/${eventId}/forms/status`)
-          if (response.ok) {
-            const data = await response.json()
-            setFormStatus(data)
+          // Fetch form status
+          const formResponse = await fetch(`/api/events/${eventId}/forms/status`)
+          if (formResponse.ok) {
+            const formData = await formResponse.json()
+            setFormStatus(formData)
+          }
+
+          // Fetch user registration status
+          const userResponse = await fetch(`/api/events/${eventId}/user-registration-status`)
+          if (userResponse.ok) {
+            const userData = await userResponse.json()
+            setUserStatus(userData)
           }
         } catch (error) {
-          console.error("Error fetching form status:", error)
+          console.error("Error fetching data:", error)
         } finally {
           setIsLoading(false)
         }
       }
 
-      fetchFormStatus()
+      fetchData()
     }
   }, [eventId, open])
 
@@ -86,29 +103,44 @@ export function EventRegistrationDialog({
           <div className="grid gap-4 py-4">
             <Button
               onClick={() => handleOptionClick("register")}
-              disabled={!formStatus.attendeeForm || formStatus.attendeeForm.status !== "published"}
+              disabled={
+                userStatus.isAttendee || !formStatus.attendeeForm || formStatus.attendeeForm.status !== "published"
+              }
               className="w-full"
             >
-              Register as Attendee
-              {formStatus.attendeeForm?.status !== "published" && " (Not Available)"}
+              {userStatus.isAttendee
+                ? "Already Registered as Attendee"
+                : formStatus.attendeeForm?.status !== "published"
+                  ? "Register as Attendee (Not Available)"
+                  : "Register as Attendee"}
             </Button>
             <Button
               onClick={() => handleOptionClick("volunteer")}
-              disabled={!formStatus.volunteerForm || formStatus.volunteerForm.status !== "published"}
+              disabled={
+                userStatus.isVolunteer || !formStatus.volunteerForm || formStatus.volunteerForm.status !== "published"
+              }
               variant="outline"
               className="w-full"
             >
-              Apply as Volunteer
-              {formStatus.volunteerForm?.status !== "published" && " (Not Available)"}
+              {userStatus.isVolunteer
+                ? "Already Applied as Volunteer"
+                : formStatus.volunteerForm?.status !== "published"
+                  ? "Apply as Volunteer (Not Available)"
+                  : "Apply as Volunteer"}
             </Button>
             <Button
               onClick={() => handleOptionClick("speaker")}
-              disabled={!formStatus.speakerForm || formStatus.speakerForm.status !== "published"}
+              disabled={
+                userStatus.isSpeaker || !formStatus.speakerForm || formStatus.speakerForm.status !== "published"
+              }
               variant="outline"
               className="w-full"
             >
-              Apply as Speaker
-              {formStatus.speakerForm?.status !== "published" && " (Not Available)"}
+              {userStatus.isSpeaker
+                ? "Already Applied as Speaker"
+                : formStatus.speakerForm?.status !== "published"
+                  ? "Apply as Speaker (Not Available)"
+                  : "Apply as Speaker"}
             </Button>
           </div>
         )}
