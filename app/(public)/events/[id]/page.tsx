@@ -228,7 +228,7 @@ export default function EventPage() {
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Price</p>
-                        <p className="font-medium">{event.price === 0 ? "Free" : `$${event.price}`}</p>
+                        <p className="font-medium">{event.price === 0 ? "Free" : `${event.price}`}</p>
                       </div>
                     </div>
                   )}
@@ -245,7 +245,7 @@ export default function EventPage() {
                       </Avatar>
                       <div>
                         <p className="font-medium">{event.organizer}</p>
-                        <p className="text-sm text-muted-foreground">Event Organizer</p>
+                        <p className="text-sm text-muted-foreground">{event.organizerEmail || "Event Organizer"}</p>
                       </div>
                     </div>
                   </div>

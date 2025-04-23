@@ -31,8 +31,8 @@ export function LandingHeader() {
     >
       <div className="container flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <div className="relative h-10 w-10">
-            <img src="/logo.png" alt="Tech Milap Logo" className="h-full w-full object-contain" />
+          <div className="relative h-10 w-10 rounded-full overflow-hidden">
+            <img src="/logo-circular.png" alt="Tech Milap Logo" className="h-full w-full object-contain" />
           </div>
           <span className="font-bold text-xl">TechMilap</span>
         </Link>
