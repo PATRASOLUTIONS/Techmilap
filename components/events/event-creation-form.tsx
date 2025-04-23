@@ -183,6 +183,19 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       }
       setActiveTab("questions")
     } else if (activeTab === "questions") {
+      // Check if at least one form is published
+      if (
+        formStatus.attendee !== "published" &&
+        formStatus.volunteer !== "published" &&
+        formStatus.speaker !== "published"
+      ) {
+        toast({
+          title: "No Form Published",
+          description: "Please publish at least one form (Attendee, Volunteer, or Speaker) before proceeding.",
+          variant: "destructive",
+        })
+        return
+      }
       setActiveTab("preview")
     }
   }
