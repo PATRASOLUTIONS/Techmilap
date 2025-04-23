@@ -14,7 +14,7 @@ export default async function ProfilePage() {
 
   await connectToDatabase()
 
-  const user = await User.findById(session.user.id).select("-password")
+  const user = await User.findById(session.user.id).select("-password").lean()
 
   if (!user) {
     return <div>User not found</div>
@@ -33,7 +33,7 @@ export default async function ProfilePage() {
           <CardDescription>Update your personal details and contact information.</CardDescription>
         </CardHeader>
         <CardContent>
-          <ProfileForm user={JSON.parse(JSON.stringify(user))} />
+          <ProfileForm user={user} />
         </CardContent>
       </Card>
     </div>

@@ -93,7 +93,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     await user.save()
 
     // Return updated user without password
-    const updatedUser = await User.findById(id).select("-password")
+    const updatedUser = await User.findById(id).select("-password").lean()
 
     return NextResponse.json({ success: true, user: updatedUser })
   } catch (error: any) {
