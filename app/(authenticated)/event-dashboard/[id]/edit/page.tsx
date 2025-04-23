@@ -22,7 +22,12 @@ export default function EditEventPage() {
         setLoading(true)
         setError(null)
 
-        const response = await fetch(`/api/events/${id}`)
+        // Fetch event data with tickets included
+        const response = await fetch(`/api/events/${id}?includeTickets=true`, {
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        })
 
         if (!response.ok) {
           throw new Error(`Failed to fetch event: ${response.status}`)
@@ -32,7 +37,18 @@ export default function EditEventPage() {
 
         if (data.event) {
           console.log("Event data loaded successfully:", data.event.title)
-          setEvent(data.event)
+          console.log(
+            "Ticket data:",
+            data.event.tickets ? `${data.event.tickets.length} tickets found` : "No tickets found",
+          )
+
+          // Ensure tickets array exists
+          const eventWithTickets = {
+            ...data.event,
+            tickets: data.event.tickets || [],
+          }
+
+          setEvent(eventWithTickets)
         } else {
           throw new Error("Event data not found in response")
         }

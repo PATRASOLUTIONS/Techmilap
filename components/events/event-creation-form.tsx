@@ -70,6 +70,12 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   // Load existing event data if editing
   useEffect(() => {
     if (existingEvent) {
+      console.log("Loading existing event data for editing:", existingEvent.title)
+      console.log(
+        "Ticket data:",
+        existingEvent.tickets ? `${existingEvent.tickets.length} tickets found` : "No tickets found",
+      )
+
       // Convert the existing event data to the format expected by the form
       const convertedData = {
         details: {
@@ -93,7 +99,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
           mobileCoverImage: null,
           slug: existingEvent.slug || "",
         },
-        tickets: existingEvent.tickets || [],
+        tickets: Array.isArray(existingEvent.tickets) ? existingEvent.tickets : [],
         customQuestions: existingEvent.customQuestions || { attendee: [], volunteer: [], speaker: [] },
         status: existingEvent.status || "draft",
       }
@@ -106,6 +112,12 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
         volunteer: existingEvent.volunteerForm?.status || "draft",
         speaker: existingEvent.speakerForm?.status || "draft",
       })
+
+      // If editing, start on the tickets tab if requested
+      const urlParams = new URLSearchParams(window.location.search)
+      if (urlParams.get("tab") === "tickets") {
+        setActiveTab("tickets")
+      }
     }
   }, [existingEvent])
 
