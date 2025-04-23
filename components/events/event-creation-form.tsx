@@ -66,9 +66,9 @@ export function EventCreationForm({
   })
 
   const [formStatus, setFormStatus] = useState({
-    attendee: "draft",
-    volunteer: "draft",
-    speaker: "draft",
+    attendee: initialFormStatus?.attendee || "draft",
+    volunteer: initialFormStatus?.volunteer || "draft",
+    speaker: initialFormStatus?.speaker || "draft",
   })
 
   // Load existing event data if editing
@@ -112,16 +112,10 @@ export function EventCreationForm({
 
       // Set form status from existing event
       setFormStatus({
-        attendee: existingEvent.attendeeForm?.status || "draft",
-        volunteer: existingEvent.volunteerForm?.status || "draft",
-        speaker: existingEvent.speakerForm?.status || "draft",
+        attendee: existingEvent.attendeeForm?.status || initialFormStatus.attendee || "draft",
+        volunteer: existingEvent.volunteerForm?.status || initialFormStatus.volunteer || "draft",
+        speaker: existingEvent.speakerForm?.status || initialFormStatus.speaker || "draft",
       })
-
-      // Add initialFormStatus to the formData
-      setFormData((prevData) => ({
-        ...prevData,
-        formStatus: initialFormStatus,
-      }))
 
       // If editing, start on the tickets tab if requested
       const urlParams = new URLSearchParams(window.location.search)
@@ -139,12 +133,10 @@ export function EventCreationForm({
   }
 
   const updateFormStatus = (formType, status) => {
-    setFormData((prev) => ({
+    console.log(`Updating form status: ${formType} -> ${status}`)
+    setFormStatus((prev) => ({
       ...prev,
-      formStatus: {
-        ...(prev.formStatus || {}),
-        [formType]: status,
-      },
+      [formType]: status,
     }))
   }
 
@@ -558,7 +550,7 @@ export function EventCreationForm({
                       updateData={handleCustomQuestionsUpdate}
                       eventId={isEditing ? existingEvent._id : null}
                       updateFormStatus={updateFormStatus}
-                      initialFormStatus={formData.formStatus || initialFormStatus}
+                      initialFormStatus={formStatus}
                     />
                   )}
 
