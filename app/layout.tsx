@@ -8,7 +8,7 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "TechEventPlanner - Plan & Host Amazing Tech Events",
+  title: "Tech Milap - Plan & Host Amazing Tech Events",
   description: "Your all-in-one platform for planning, managing, and hosting successful tech events of any size.",
     generator: 'v0.dev'
 }

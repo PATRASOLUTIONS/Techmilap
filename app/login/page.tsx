@@ -140,7 +140,7 @@ export default function LoginPage() {
           className="text-center mb-6"
         >
           <Link href="/">
-            <h1 className="text-3xl font-bold gradient-text">TechEventPlanner</h1>
+            <h1 className="text-3xl font-bold gradient-text">Tech Milap</h1>
             <p className="text-muted-foreground mt-2">Your complete event management solution</p>
           </Link>
         </motion.div>
@@ -390,7 +390,7 @@ export default function LoginPage() {
           className="text-center mt-8 text-sm text-muted-foreground"
         >
           <p>
-            &copy; {new Date().getFullYear()} TechEventPlanner. All rights reserved.{" "}
+            &copy; {new Date().getFullYear()} Tech Milap. All rights reserved.{" "}
             <Link href="/privacy" className="hover:underline">
               Privacy Policy
             </Link>{" "}

@@ -52,9 +52,9 @@ export function DashboardHeader() {
                 <div className="flex items-center border-b py-4">
                   <Link href="/" className="flex items-center gap-2 font-semibold">
                     <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">TE</span>
+                      <span className="text-white font-bold text-sm">TM</span>
                     </div>
-                    <span className="font-bold text-xl">TechEventPlanner</span>
+                    <span className="font-bold text-xl">Tech Milap</span>
                   </Link>
                   <Button variant="ghost" size="icon" className="ml-auto" onClick={() => setIsMobileMenuOpen(false)}>
                     <X className="h-5 w-5" />
@@ -118,14 +118,14 @@ export function DashboardHeader() {
           </Sheet>
           <Link href="/" className="flex items-center gap-2 font-semibold md:hidden">
             <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-              <span className="text-white font-bold text-sm">TE</span>
+              <span className="text-white font-bold text-sm">TM</span>
             </div>
           </Link>
           <Link href="/" className="hidden items-center gap-2 font-semibold md:flex">
             <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-              <span className="text-white font-bold text-sm">TE</span>
+              <span className="text-white font-bold text-sm">TM</span>
             </div>
-            <span className="font-bold text-xl">TechEventPlanner</span>
+            <span className="font-bold text-xl">Tech Milap</span>
           </Link>
         </div>
         <div className="flex items-center gap-2">
