@@ -1,5 +1,7 @@
 "use client"
 
+// app/verify-otp/page.tsx
+
 import { Label } from "@/components/ui/label"
 
 import type React from "react"
@@ -13,6 +15,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, CheckCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 export default function VerifyOTPPage() {
   const router = useRouter()
@@ -25,7 +28,7 @@ export default function VerifyOTPPage() {
 
   const { toast } = useToast()
 
-  const handleVerify = async (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
@@ -68,30 +71,32 @@ export default function VerifyOTPPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center p-4 bg-gray-100">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Verify Your Email</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Verify Your Email</CardTitle>
           <CardDescription>Enter the 6-digit code sent to {email}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && (
-            <Alert variant="destructive" className="flex items-center space-x-2">
+            <Alert variant="destructive" className="flex items-center space-x-2 mb-4">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
           {success && (
-            <Alert className="bg-green-50 border-green-200 text-green-800">
+            <Alert className="bg-green-50 border-green-200 text-green-800 flex items-center space-x-2">
               <CheckCircle className="h-4 w-4" />
               <AlertDescription>Email verified successfully! Redirecting...</AlertDescription>
             </Alert>
           )}
 
           <form onSubmit={handleVerify} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="otp">Verification Code</Label>
+            <div className="space-y-2 relative">
+              <Label htmlFor="otp" className="absolute top-0 left-0 -translate-y-1/2 bg-background px-1">
+                Verification Code
+              </Label>
               <Input
                 id="otp"
                 type="text"
@@ -99,6 +104,7 @@ export default function VerifyOTPPage() {
                 required
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
+                className={cn("pl-8 transition-all duration-200 focus:ring-2 focus:ring-primary/50")}
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
@@ -107,7 +113,7 @@ export default function VerifyOTPPage() {
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <Link href="/login" className="text-sm text-blue-600 hover:text-blue-800">
+          <Link href="/login" className="text-sm text-primary hover:underline">
             Back to login
           </Link>
         </CardFooter>
