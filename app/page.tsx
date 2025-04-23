@@ -1,3 +1,5 @@
+"use client"
+
 import { LandingHeader } from "@/components/landing/landing-header"
 import { SiteFooter } from "@/components/site-footer"
 import { HeroSection } from "@/components/landing/hero-section-enhanced"
@@ -7,10 +9,17 @@ import { CtaSection } from "@/components/landing/cta-section"
 import { StatsSectionWrapper } from "@/components/landing/stats-section-wrapper"
 import { PartnersSection } from "@/components/landing/partners-section"
 import { DecorativeBlob } from "@/components/ui/decorative-blob"
+import { motion } from "framer-motion"
 
 export default function LandingPage() {
   return (
-    <div className="relative overflow-hidden">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
+      className="relative overflow-hidden"
+    >
       {/* Decorative elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <DecorativeBlob
@@ -51,6 +60,6 @@ export default function LandingPage() {
           <SiteFooter />
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }

@@ -18,6 +18,7 @@ import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useSession } from "next-auth/react" // Add this import
+import { CardContent } from "@/components/ui/card"
 
 interface PublicEventRegistrationFormProps {
   eventId: string
@@ -201,90 +202,92 @@ export function PublicEventRegistrationForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="firstName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>First Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="John" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="lastName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Last Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Doe" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input type="email" placeholder="john.doe@example.com" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="phone"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Phone (optional)</FormLabel>
-              <FormControl>
-                <Input placeholder="+1 (555) 123-4567" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {/* Render custom questions */}
-        {questions.map((question) => {
-          const fieldName = `custom_${question.id}`
-
-          // Register the field if it doesn't exist
-          if (!form.getValues(fieldName)) {
-            form.register(fieldName)
-          }
-
-          return (
+        <CardContent className="space-y-6 pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
-              key={question.id}
               control={form.control}
-              name={fieldName}
+              name="firstName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    {question.label}
-                    {question.required && <span className="text-red-500 ml-1">*</span>}
-                  </FormLabel>
-                  <FormControl>{renderFormControl(question, field)}</FormControl>
+                  <FormLabel>First Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="John" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          )
-        })}
+            <FormField
+              control={form.control}
+              name="lastName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Last Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Doe" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                  <Input type="email" placeholder="john.doe@example.com" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Phone (optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="+1 (555) 123-4567" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Render custom questions */}
+          {questions.map((question) => {
+            const fieldName = `custom_${question.id}`
+
+            // Register the field if it doesn't exist
+            if (!form.getValues(fieldName)) {
+              form.register(fieldName)
+            }
+
+            return (
+              <FormField
+                key={question.id}
+                control={form.control}
+                name={fieldName}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {question.label}
+                      {question.required && <span className="text-red-500 ml-1">*</span>}
+                    </FormLabel>
+                    <FormControl>{renderFormControl(question, field)}</FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )
+          })}
+        </CardContent>
 
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? "Registering..." : "Register"}

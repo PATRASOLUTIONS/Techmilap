@@ -17,7 +17,7 @@ import { motion } from "framer-motion"
 import { Card } from "@/components/ui/card"
 import { MarkdownEditor } from "@/components/ui/markdown-editor"
 
-export function EventDetailsForm({ data, updateData }) {
+export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, formData, toast }) {
   const [startDate, setStartDate] = useState(data.startDate ? new Date(data.startDate) : null)
   const [endDate, setEndDate] = useState(data.endDate ? new Date(data.endDate) : null)
   const [imageUploadMethod, setImageUploadMethod] = useState("url")
@@ -149,6 +149,63 @@ export function EventDetailsForm({ data, updateData }) {
     show: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 24 } },
   }
 
+  // Add this function inside the EventDetailsForm component
+  const validateTimes = () => {
+    if (data.startTime && data.endTime) {
+      if (data.startTime > data.endTime && startDate?.getTime() === endDate?.getTime()) {
+        toast({
+          title: "Invalid Time Range",
+          description: "End time cannot be earlier than start time.",
+          variant: "destructive",
+        })
+        return false
+      }
+    }
+    return true
+  }
+
+  const validateDetailsForm = () => {
+    const missingFields = []
+    if (!data.name) missingFields.push("Event Name")
+    if (!data.displayName) missingFields.push("Event Display Name")
+    if (!data.slug) missingFields.push("Website URL Slug")
+    return missingFields
+  }
+
+  const handleNext = () => {
+    if (activeTab === "details") {
+      const missingFields = validateDetailsForm()
+
+      if (missingFields.length > 0) {
+        toast({
+          title: "Required Fields Missing",
+          description: `Please fill in the following fields: ${missingFields.join(", ")}`,
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (!validateTimes()) {
+        return
+      }
+
+      setActiveTab("tickets")
+    } else if (activeTab === "tickets") {
+      // Validate that at least one ticket exists
+      if (formData.tickets.length === 0) {
+        toast({
+          title: "Ticket Required",
+          description: "Please add at least one ticket type before proceeding.",
+          variant: "destructive",
+        })
+        return
+      }
+      setActiveTab("questions")
+    } else if (activeTab === "questions") {
+      setActiveTab("preview")
+    }
+  }
+
   return (
     <motion.div className="space-y-8" variants={container} initial="hidden" animate="show" id="event-details-form">
       <motion.div className="space-y-4" variants={item}>
@@ -156,7 +213,7 @@ export function EventDetailsForm({ data, updateData }) {
           Event Type & Visibility
         </h2>
         <div className="grid gap-6 md:grid-cols-2">
-          <Card className="p-4 space-y-3">
+          <Card className="p-4 space-y-3 pt-6">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <Globe className="h-4 w-4 text-primary" />
@@ -612,6 +669,7 @@ export function EventDetailsForm({ data, updateData }) {
           </Tabs>
         </Card>
       </motion.div>
+      <Button onClick={handleNext}>Next</Button>
     </motion.div>
   )
 }

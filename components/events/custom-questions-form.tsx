@@ -10,6 +10,8 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Trash2, Plus, GripVertical, EyeOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+// Add this import at the top of the file
+import { v4 as uuidv4 } from "uuid"
 
 interface CustomQuestionsFormProps {
   data: { attendee: any[]; volunteer: any[]; speaker: any[] }
@@ -306,7 +308,7 @@ export function CustomQuestionsForm({
       // Update parent with defaults
       updateData(defaultQuestions)
     }
-  }, [data])
+  }, [data, eventId, updateData])
 
   // Fetch form publish status
   const fetchFormStatus = async () => {
@@ -536,9 +538,10 @@ export function CustomQuestionsForm({
   }
 
   // Add a new question
+  // Modify the addQuestion function to use uuidv4 for generating unique IDs
   const addQuestion = (type) => {
     const newQuestion = {
-      id: `question_${Date.now()}`,
+      id: `question_${uuidv4()}`,
       type: "text",
       label: "",
       placeholder: "",
@@ -590,9 +593,10 @@ export function CustomQuestionsForm({
   }
 
   // Add an option to a select/radio/checkbox question
+  // Modify the addOption function to use uuidv4 for generating unique IDs
   const addOption = (type, questionId) => {
     const newOption = {
-      id: `option_${Date.now()}`,
+      id: `option_${uuidv4()}`,
       value: "",
     }
 
@@ -810,7 +814,7 @@ export function CustomQuestionsForm({
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4 pt-6">
           {/* Display the published URL if available */}
           {publishStatus[type] && (
             <div className="mb-4 p-3 bg-muted rounded-md">

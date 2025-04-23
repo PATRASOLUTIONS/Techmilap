@@ -239,7 +239,7 @@ export function TicketManagementForm({ data = [], updateData, eventId }: TicketM
 
         <motion.div variants={item} className="space-y-4">
           {selectedTicket ? (
-            <div className="space-y-6">
+            <Card className="p-4 space-y-3 pt-6">
               <h3 className="text-lg font-medium">Ticket Details</h3>
               <div className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
@@ -414,7 +414,7 @@ export function TicketManagementForm({ data = [], updateData, eventId }: TicketM
                   onSelectDesign={setSelectedDesign}
                 />
               </div>
-            </div>
+            </Card>
           ) : (
             <div className="flex flex-col items-center justify-center h-full p-8 border-2 border-dashed border-muted rounded-lg text-center">
               <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">

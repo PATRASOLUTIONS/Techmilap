@@ -75,7 +75,8 @@
     "crypto": "latest",
     "react-markdown": "latest",
     "@tailwindcss/typography": "latest",
-    "bcryptjs": "latest"
+    "bcryptjs": "latest",
+    "uuid": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
