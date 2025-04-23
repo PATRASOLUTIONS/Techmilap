@@ -5,6 +5,7 @@ import { Calendar, Clock, MapPin, Users } from "lucide-react"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import Event from "@/models/Event"
+import FormSubmission from "@/models/FormSubmission"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatDate } from "@/lib/utils"
@@ -36,7 +37,38 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
     return notFound()
   }
 
-  const isRegistered = event.attendees.some((attendee: any) => attendee._id.toString() === session.user.id)
+  // Check if user is registered as an attendee
+  const isRegistered = event.attendees.some(
+    (attendee: any) =>
+      attendee._id.toString() === session.user.id ||
+      (attendee.userId && attendee.userId.toString() === session.user.id),
+  )
+
+  // Check if user has submitted forms for this event
+  const userSubmissions = await FormSubmission.find({
+    eventId: event._id,
+    $or: [{ userId: session.user.id }, { userEmail: session.user.email }],
+  }).lean()
+
+  // Determine user's role in this event
+  let userRole = "visitor"
+  if (event.organizer._id.toString() === session.user.id) {
+    userRole = "organizer"
+  } else if (isRegistered) {
+    userRole = "attendee"
+  }
+
+  // Check form submissions for other roles
+  for (const submission of userSubmissions) {
+    if (submission.formType === "speaker") {
+      userRole = "speaker"
+      break
+    } else if (submission.formType === "volunteer" && userRole !== "speaker") {
+      userRole = "volunteer"
+    } else if (submission.formType === "attendee" && userRole === "visitor") {
+      userRole = "attendee"
+    }
+  }
 
   const isAtCapacity = event.attendees.length >= event.capacity
 
@@ -58,6 +90,18 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
           <Badge variant="outline" className="text-sm">
             {event.category}
           </Badge>
+          {userRole !== "visitor" && (
+            <Badge
+              className={`
+              ${userRole === "organizer" ? "bg-primary/20 text-primary border-primary/30" : ""}
+              ${userRole === "speaker" ? "bg-secondary/20 text-secondary border-secondary/30" : ""}
+              ${userRole === "volunteer" ? "bg-amber-500/20 text-amber-600 border-amber-500/30" : ""}
+              ${userRole === "attendee" ? "bg-emerald-500/20 text-emerald-600 border-emerald-500/30" : ""}
+            `}
+            >
+              {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+            </Badge>
+          )}
           <EventRegisterButton
             eventId={event._id.toString()}
             isRegistered={isRegistered}
