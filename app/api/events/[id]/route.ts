@@ -1,6 +1,7 @@
-import { NextResponse, type NextRequest } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import Event from "@/models/Event"
+import Ticket from "@/models/Ticket" // Import the Ticket model
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import mongoose from "mongoose"
@@ -63,14 +64,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     event.volunteerForm = event.volunteerForm || { status: "draft" }
     event.speakerForm = event.speakerForm || { status: "draft" }
 
-    // Ensure tickets array exists
-    event.tickets = event.tickets || []
+    // Fetch tickets for the event
+    const tickets = await Ticket.find({ event: event._id }).lean()
+
+    // Add tickets to the event object
+    event.tickets = tickets
 
     console.log(`Returning event data with form statuses:`, {
       attendee: event.attendeeForm.status,
       volunteer: event.volunteerForm.status,
       speaker: event.speakerForm.status,
-      ticketCount: event.tickets.length,
     })
 
     return NextResponse.json({ event })
@@ -135,11 +138,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     } else if (requestData.details?.visibility === "Public" && eventData.status === "draft") {
       // If making a draft event public, automatically publish it
       eventData.status = "published"
-    }
-
-    // Update tickets if provided
-    if (Array.isArray(requestData.tickets)) {
-      eventData.tickets = requestData.tickets
     }
 
     // Update custom questions if provided

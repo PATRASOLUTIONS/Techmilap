@@ -1,18 +1,12 @@
 "use client"
 
-import { Calendar } from "@/components/ui/calendar"
-
-import { CardFooter } from "@/components/ui/card"
-
-import { Skeleton } from "@/components/ui/skeleton"
-
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Edit, Users, FileEdit, Eye, Mic, HandHelping } from "lucide-react"
+import { ArrowLeft, Edit, Users, Eye, Mic, HandHelping } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 
@@ -481,12 +475,12 @@ export default function EventDashboardPage() {
                   </div>
                 )}
 
-                <Button asChild className="w-full">
+                {/* <Button asChild className="w-full">
                   <Link href={`/event-dashboard/${eventId}/attendees/customize`}>
                     <FileEdit className="mr-2 h-4 w-4" />
                     Customize Form
                   </Link>
-                </Button>
+                </Button> */}
                 {attendeeFormStatus === "published" && (
                   <div className="flex items-center gap-2 mt-2">
                     <Eye className="h-4 w-4 text-green-500" />
@@ -552,12 +546,12 @@ export default function EventDashboardPage() {
                   </div>
                 )}
 
-                <Button asChild className="w-full">
+                {/* <Button asChild className="w-full">
                   <Link href={`/event-dashboard/${eventId}/volunteers/customize`}>
                     <FileEdit className="mr-2 h-4 w-4" />
                     Customize Form
                   </Link>
-                </Button>
+                </Button> */}
                 {volunteerFormStatus === "published" && (
                   <div className="flex items-center gap-2 mt-2">
                     <Eye className="h-4 w-4 text-green-500" />
@@ -623,12 +617,12 @@ export default function EventDashboardPage() {
                   </div>
                 )}
 
-                <Button asChild className="w-full">
+                {/* <Button asChild className="w-full">
                   <Link href={`/event-dashboard/${eventId}/speakers/customize`}>
                     <FileEdit className="mr-2 h-4 w-4" />
                     Customize Form
                   </Link>
-                </Button>
+                </Button> */}
                 {speakerFormStatus === "published" && (
                   <div className="flex items-center gap-2 mt-2">
                     <Eye className="h-4 w-4 text-green-500" />
@@ -640,54 +634,6 @@ export default function EventDashboardPage() {
           </div>
         </TabsContent>
       </Tabs>
-    </div>
-  )
-}
-
-function EventsLoadingSkeleton() {
-  return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {[1, 2, 3].map((i) => (
-        <Card key={i}>
-          <CardHeader>
-            <div className="flex justify-between items-start">
-              <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-5 w-16" />
-            </div>
-            <div className="space-y-2 mt-2">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-4 w-40" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-5 w-24 mb-2" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            <Skeleton className="h-9 w-24" />
-            <Skeleton className="h-9 w-24" />
-          </CardFooter>
-        </Card>
-      ))}
-    </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-      <h3 className="text-lg font-medium">No events found</h3>
-      <p className="text-muted-foreground mt-2 max-w-md">
-        You haven't created any events yet. Click the button below to create your first event.
-      </p>
-      <Button asChild className="mt-6">
-        <Link href="/dashboard/events/create">Create New Event</Link>
-      </Button>
     </div>
   )
 }
