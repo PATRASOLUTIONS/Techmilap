@@ -1,6 +1,5 @@
 import type React from "react"
 import { LandingHeader } from "@/components/landing/landing-header"
-import { SiteFooter } from "@/components/site-footer"
 
 export default function EventsLayout({ children }: { children: React.ReactNode }) {
   return (
