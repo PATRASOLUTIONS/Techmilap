@@ -52,7 +52,7 @@ export default function EventPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8 pt-24 flex items-center justify-center min-h-[60vh]">
+      <div className="container mx-auto py-8 flex items-center justify-center min-h-[60vh]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <span className="ml-2">Loading event details...</span>
       </div>
@@ -61,7 +61,7 @@ export default function EventPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto py-8 pt-24 max-w-3xl">
+      <div className="container mx-auto py-8 max-w-3xl">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
           <h2 className="text-xl font-bold text-red-700 mb-2">Error</h2>
           <p className="text-red-600 mb-4">{error}</p>
@@ -75,7 +75,7 @@ export default function EventPage() {
 
   if (!event) {
     return (
-      <div className="container mx-auto py-8 pt-24 max-w-3xl">
+      <div className="container mx-auto py-8 max-w-3xl">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
           <h2 className="text-xl font-bold text-yellow-700 mb-2">Event Not Found</h2>
           <p className="text-yellow-600 mb-4">The event you're looking for could not be found.</p>
@@ -107,7 +107,7 @@ export default function EventPage() {
         : "Date TBA"
 
   return (
-    <div className="container mx-auto py-12 pt-24 px-4">
+    <div className="container mx-auto py-12 px-4">
       <div className="mb-6">
         <Link href="/events" className="text-primary hover:underline flex items-center gap-1">
           <span>← Back to Events</span>
@@ -117,7 +117,7 @@ export default function EventPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column - Event Sidebar */}
         <div className="lg:col-span-1">
-          <div className="sticky top-24 space-y-6">
+          <div className="sticky top-8 space-y-6">
             {/* Event Image */}
             <div className="relative w-full aspect-square rounded-xl overflow-hidden shadow-lg">
               <Image

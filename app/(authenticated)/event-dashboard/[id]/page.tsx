@@ -188,8 +188,8 @@ export default function EventDashboardPage() {
 
   const handleEditEvent = () => {
     if (!eventId) return
-    // Redirect to the event creation page with the event ID as a query parameter
-    router.push(`/create-event?edit=${eventId}`)
+    // Redirect to the dedicated edit page for this event
+    router.push(`/event-dashboard/${eventId}/edit`)
   }
 
   if (loading) {
