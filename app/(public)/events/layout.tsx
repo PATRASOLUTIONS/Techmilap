@@ -7,7 +7,6 @@ export default function EventsLayout({ children }: { children: React.ReactNode }
     <>
       <LandingHeader />
       <main className="min-h-screen">{children}</main>
-      <SiteFooter />
     </>
   )
 }
