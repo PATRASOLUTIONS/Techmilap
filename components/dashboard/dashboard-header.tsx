@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useSession, signOut } from "next-auth/react"
 import { usePathname, useRouter } from "next/navigation"
 import { Calendar, LogOut, Menu, Settings, User, X, Bell } from "lucide-react"
@@ -51,9 +52,7 @@ export function DashboardHeader() {
               <div className="flex h-full flex-col">
                 <div className="flex items-center border-b py-4">
                   <Link href="/" className="flex items-center gap-2 font-semibold">
-                    <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">TM</span>
-                    </div>
+                    <Image src="/logo-circular.png" alt="Tech Milap" width={32} height={32} className="rounded-full" />
                     <span className="font-bold text-xl">Tech Milap</span>
                   </Link>
                   <Button variant="ghost" size="icon" className="ml-auto" onClick={() => setIsMobileMenuOpen(false)}>
@@ -117,14 +116,10 @@ export function DashboardHeader() {
             </SheetContent>
           </Sheet>
           <Link href="/" className="flex items-center gap-2 font-semibold md:hidden">
-            <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-              <span className="text-white font-bold text-sm">TM</span>
-            </div>
+            <Image src="/logo-circular.png" alt="Tech Milap" width={32} height={32} className="rounded-full" />
           </Link>
           <Link href="/" className="hidden items-center gap-2 font-semibold md:flex">
-            <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-              <span className="text-white font-bold text-sm">TM</span>
-            </div>
+            <Image src="/logo-circular.png" alt="Tech Milap" width={32} height={32} className="rounded-full" />
             <span className="font-bold text-xl">Tech Milap</span>
           </Link>
         </div>
@@ -140,7 +135,7 @@ export function DashboardHeader() {
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src="/avatars/01.png" alt={session?.user?.name || "User"} />
-                  <AvatarFallback>{session?.user?.name?.charAt(0) || "U"}</AvatarFallback>
+                  <AvatarFallback>{userInitials}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
