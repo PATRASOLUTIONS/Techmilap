@@ -10,6 +10,9 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Tech Milap - Plan & Host Amazing Tech Events",
   description: "Your all-in-one platform for planning, managing, and hosting successful tech events of any size.",
+  icons: {
+    icon: "/favicon.ico",
+  },
     generator: 'v0.dev'
 }
 

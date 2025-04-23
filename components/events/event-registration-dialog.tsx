@@ -1,6 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
+import { Calendar, Clock, MapPin, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -9,112 +12,96 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
-import { useRouter } from "next/navigation"
-import { Loader2 } from "lucide-react"
+import { formatDate } from "@/lib/utils"
 
 interface EventRegistrationDialogProps {
-  eventId: string
-  buttonText?: string
-  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" | null | undefined
-  size?: "default" | "sm" | "lg" | "icon" | null | undefined
-  className?: string
+  event: any
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
-export function EventRegistrationDialog({
-  eventId,
-  buttonText = "Register",
-  variant = "default",
-  size = "default",
-  className = "",
-}: EventRegistrationDialogProps) {
-  const [open, setOpen] = useState(false)
-  const [formStatus, setFormStatus] = useState<{
-    attendeeForm?: { status: string }
-    volunteerForm?: { status: string }
-    speakerForm?: { status: string }
-    eventSlug?: string
-  }>({})
-  const [isLoading, setIsLoading] = useState(true)
+export function EventRegistrationDialog({ event, open, onOpenChange }: EventRegistrationDialogProps) {
   const router = useRouter()
+  const { data: session } = useSession()
+  const [isRegistering, setIsRegistering] = useState(false)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState(false)
 
-  useEffect(() => {
-    if (open) {
-      const fetchFormStatus = async () => {
-        setIsLoading(true)
-        try {
-          const response = await fetch(`/api/events/${eventId}/forms/status`)
-          if (response.ok) {
-            const data = await response.json()
-            setFormStatus(data)
-          }
-        } catch (error) {
-          console.error("Error fetching form status:", error)
-        } finally {
-          setIsLoading(false)
-        }
+  const handleRegister = async () => {
+    if (!session) {
+      router.push("/login")
+      return
+    }
+
+    setIsRegistering(true)
+    setError("")
+
+    try {
+      const response = await fetch(`/api/events/${event._id}/register`, {
+        method: "POST",
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to register for event")
       }
 
-      fetchFormStatus()
+      setSuccess(true)
+      setTimeout(() => {
+        onOpenChange(false)
+        router.refresh()
+      }, 2000)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsRegistering(false)
     }
-  }, [eventId, open])
-
-  const handleOptionClick = (formType: string) => {
-    setOpen(false)
-    const slug = formStatus.eventSlug || eventId
-    router.push(`/events/${slug}/${formType}`)
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant={variant} size={size} className={className}>
-          {buttonText}
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Registration Options</DialogTitle>
-          <DialogDescription>Choose how you would like to participate in this event.</DialogDescription>
+          <DialogTitle>Register for Event</DialogTitle>
+          <DialogDescription>You are about to register for the following event:</DialogDescription>
         </DialogHeader>
-        {isLoading ? (
-          <div className="flex justify-center py-4">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <div className="space-y-4 py-4">
+          <h3 className="font-semibold text-lg">{event.title}</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center">
+              <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+              <span>{formatDate(event.date)}</span>
+            </div>
+            <div className="flex items-center">
+              <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+              <span>{new Date(event.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+            </div>
+            <div className="flex items-center">
+              <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
+              <span>{event.location}</span>
+            </div>
+            <div className="flex items-center">
+              <Users className="h-4 w-4 mr-2 text-muted-foreground" />
+              <span>
+                {event.attendees?.length || 0} / {event.capacity} attendees
+              </span>
+            </div>
           </div>
-        ) : (
-          <div className="grid gap-4 py-4">
-            <Button
-              onClick={() => handleOptionClick("register")}
-              disabled={!formStatus.attendeeForm || formStatus.attendeeForm.status !== "published"}
-              className="w-full"
-            >
-              Register as Attendee
-              {formStatus.attendeeForm?.status !== "published" && " (Not Available)"}
-            </Button>
-            <Button
-              onClick={() => handleOptionClick("volunteer")}
-              disabled={!formStatus.volunteerForm || formStatus.volunteerForm.status !== "published"}
-              variant="outline"
-              className="w-full"
-            >
-              Apply as Volunteer
-              {formStatus.volunteerForm?.status !== "published" && " (Not Available)"}
-            </Button>
-            <Button
-              onClick={() => handleOptionClick("speaker")}
-              disabled={!formStatus.speakerForm || formStatus.speakerForm.status !== "published"}
-              variant="outline"
-              className="w-full"
-            >
-              Apply as Speaker
-              {formStatus.speakerForm?.status !== "published" && " (Not Available)"}
-            </Button>
-          </div>
-        )}
+          {error && <div className="text-sm text-red-500 mt-2">{error}</div>}
+          {success && (
+            <div className="text-sm text-green-500 mt-2">
+              Registration successful! You are now registered for this event.
+            </div>
+          )}
+        </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
+          </Button>
+          <Button onClick={handleRegister} disabled={isRegistering || success}>
+            {isRegistering ? "Registering..." : "Confirm Registration"}
           </Button>
         </DialogFooter>
       </DialogContent>
