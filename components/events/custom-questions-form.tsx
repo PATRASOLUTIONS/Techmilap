@@ -36,9 +36,9 @@ export function CustomQuestionsForm({
 
   // Form publish status
   const [publishStatus, setPublishStatus] = useState({
-    attendee: true,
-    volunteer: true,
-    speaker: true,
+    attendee: false,
+    volunteer: false,
+    speaker: false,
   })
 
   // Add a new state for tracking the published URLs
