@@ -1,13 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { motion, useAnimation } from "framer-motion"
+import { motion, useAnimation, useInView } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Calendar, Users, CheckCircle } from "lucide-react"
-import { useInView } from "framer-motion"
-import { useRef } from "react"
 
 export function HeroSection() {
   const [isHovered, setIsHovered] = useState(false)
@@ -223,7 +221,13 @@ export function HeroSection() {
                 className="overflow-hidden rounded-2xl border shadow-xl transition-all"
               >
                 <div className="relative aspect-[4/3] md:aspect-[16/10]">
-                  <Image src="/bustling-tech-summit.png" alt="Tech Event" fill className="object-cover" />
+                  <Image
+                    src="/bustling-tech-summit.png"
+                    alt="Tech Event"
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="object-cover"
+                  />
                 </div>
                 <motion.div
                   className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6 text-white"
