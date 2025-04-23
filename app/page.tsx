@@ -1,3 +1,5 @@
+"use client"
+
 import { LandingHeader } from "@/components/landing/landing-header"
 import { SiteFooter } from "@/components/site-footer"
 import { HeroSection } from "@/components/landing/hero-section-enhanced"
@@ -7,6 +9,7 @@ import { CtaSection } from "@/components/landing/cta-section"
 import { StatsSectionWrapper } from "@/components/landing/stats-section-wrapper"
 import { PartnersSection } from "@/components/landing/partners-section"
 import { DecorativeBlob } from "@/components/ui/decorative-blob"
+import { motion } from "framer-motion"
 
 export default function LandingPage() {
   return (
@@ -20,6 +23,33 @@ export default function LandingPage() {
         <DecorativeBlob
           className="absolute bottom-[20%] left-[-10%] w-[40%] h-[40%] opacity-10 blur-3xl"
           color="var(--secondary)"
+        />
+        {/* Add more decorative dots */}
+        <motion.div
+          className="absolute top-[10%] left-[10%] w-4 h-4 rounded-full bg-primary/30 blur-sm"
+          animate={{
+            x: [0, 20, 0],
+            y: [0, 10, 0],
+          }}
+          transition={{
+            duration: 6,
+            repeat: Number.POSITIVE_INFINITY,
+            repeatType: "reverse",
+            ease: "easeInOut",
+          }}
+        />
+        <motion.div
+          className="absolute bottom-[10%] right-[10%] w-6 h-6 rounded-full bg-secondary/30 blur-sm"
+          animate={{
+            x: [0, -15, 0],
+            y: [0, 5, 0],
+          }}
+          transition={{
+            duration: 8,
+            repeat: Number.POSITIVE_INFINITY,
+            repeatType: "reverse",
+            ease: "easeInOut",
+          }}
         />
       </div>
 

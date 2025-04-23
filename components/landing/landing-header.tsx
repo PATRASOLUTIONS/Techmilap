@@ -48,8 +48,8 @@ export function LandingHeader() {
           <Link href="/pricing" className="text-foreground/80 hover:text-foreground transition-colors">
             Pricing
           </Link>
-          <Link href="/about" className="text-foreground/80 hover:text-foreground transition-colors">
-            About
+          <Link href="/about-us" className="text-foreground/80 hover:text-foreground transition-colors">
+            About Us
           </Link>
         </nav>
 
@@ -117,11 +117,11 @@ export function LandingHeader() {
               Pricing
             </Link>
             <Link
-              href="/about"
+              href="/about-us"
               className="px-4 py-2 hover:bg-muted rounded-md"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              About
+              About Us
             </Link>
 
             <div className="border-t pt-4 mt-2 space-y-2">
