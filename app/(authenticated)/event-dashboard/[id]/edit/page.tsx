@@ -23,7 +23,7 @@ export default function EditEventPage() {
         setError(null)
 
         // Fetch event data with tickets included
-        const response = await fetch(`/api/events/${id}?includeTickets=true`, {
+        const response = await fetch(`/api/events/${id}`, {
           headers: {
             "Cache-Control": "no-cache",
           },
@@ -46,6 +46,7 @@ export default function EditEventPage() {
           const eventWithTickets = {
             ...data.event,
             tickets: data.event.tickets || [],
+            customQuestions: data.event.customQuestions || { attendee: [], volunteer: [], speaker: [] }, // Ensure customQuestions exists
           }
 
           setEvent(eventWithTickets)
@@ -77,8 +78,8 @@ export default function EditEventPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="sm" onClick={handleBack}>
+        <div className="flex items-center space-x-2 mb-6">
+          <Button variant="outline" size="sm" onClick={handleBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Event
           </Button>
@@ -113,8 +114,8 @@ export default function EditEventPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-2">
-        <Button variant="ghost" size="sm" onClick={handleBack}>
+      <div className="flex items-center space-x-2 mb-6">
+        <Button variant="outline" size="sm" onClick={handleBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Event
         </Button>

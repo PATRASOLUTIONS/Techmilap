@@ -76,7 +76,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       speaker: event.speakerForm.status,
     })
 
-    return NextResponse.json({ event })
+    // Fetch custom questions
+    const customQuestions = event.customQuestions || { attendee: [], volunteer: [], speaker: [] }
+
+    return NextResponse.json({ event: { ...event, customQuestions } })
   } catch (error: any) {
     console.error("Error fetching event:", error)
     return NextResponse.json({ error: error.message || "An error occurred while fetching the event" }, { status: 500 })
