@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Trash2, Plus, GripVertical, EyeOff } from "lucide-react"
+import { Trash2, Plus, GripVertical } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface CustomQuestionsFormProps {
@@ -394,16 +394,16 @@ export function CustomQuestionsForm({
 
       setFormStatus(data)
       setPublishStatus({
-        attendee: data.attendee === "published",
-        volunteer: data.volunteer === "published",
-        speaker: data.speaker === "published",
+        attendee: data.attendeeForm?.status === "published",
+        volunteer: data.volunteerForm?.status === "published",
+        speaker: data.speakerForm?.status === "published",
       })
 
       // Optionally, update the parent component as well
       if (updateFormStatus) {
-        updateFormStatus("attendee", data.attendee)
-        updateFormStatus("volunteer", data.volunteer)
-        updateFormStatus("speaker", data.speaker)
+        updateFormStatus("attendee", data.attendeeForm?.status || "draft")
+        updateFormStatus("volunteer", data.volunteerForm?.status || "draft")
+        updateFormStatus("speaker", data.speakerForm?.status || "draft")
       }
     } catch (error) {
       console.error("Error fetching form status:", error)
@@ -954,17 +954,6 @@ export function CustomQuestionsForm({
                   </svg>
                 </Button>
               </div>
-            </div>
-          )}
-
-          {/* Display draft notice if not published */}
-          {!publishStatus[type] && (
-            <div className="mb-4 p-3 bg-muted rounded-md flex items-center gap-2">
-              <EyeOff className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                This form is currently in draft mode and not accessible to the public. Toggle the switch above to
-                publish it.
-              </p>
             </div>
           )}
 

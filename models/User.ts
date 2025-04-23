@@ -20,6 +20,21 @@ export interface IUser extends Document {
   resetPasswordOTPExpiry?: Date
   resetPasswordToken?: string
   resetPasswordTokenExpiry?: Date
+  corporateEmail?: string // New field
+  designation?: string // New field
+  eventOrganizer?: string // New field
+  isMicrosoftMVP?: boolean // New field
+  mvpId?: string // New field
+  mvpProfileLink?: string // New field
+  mvpCategory?: string // New field
+  isMeetupGroupRunning?: boolean // New field
+  meetupEventName?: string // New field
+  eventDetails?: string // New field
+  meetupPageDetails?: string // New field
+  linkedinId?: string // New field
+  githubId?: string // New field
+  otherSocialMediaId?: string // New field
+  mobileNumber?: string // New field
   createdAt: Date
   updatedAt: Date
   comparePassword(candidatePassword: string): Promise<boolean>
@@ -76,6 +91,67 @@ const UserSchema = new Schema<IUser>(
     },
     resetPasswordTokenExpiry: {
       type: Date,
+    },
+    corporateEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+    },
+    designation: {
+      type: String,
+      trim: true,
+    },
+    eventOrganizer: {
+      type: String,
+      trim: true,
+    },
+    isMicrosoftMVP: {
+      type: Boolean,
+      default: false,
+    },
+    mvpId: {
+      type: String,
+      trim: true,
+    },
+    mvpProfileLink: {
+      type: String,
+      trim: true,
+    },
+    mvpCategory: {
+      type: String,
+      trim: true,
+    },
+    isMeetupGroupRunning: {
+      type: Boolean,
+      default: false,
+    },
+    meetupEventName: {
+      type: String,
+      trim: true,
+    },
+    eventDetails: {
+      type: String,
+      trim: true,
+    },
+    meetupPageDetails: {
+      type: String,
+      trim: true,
+    },
+    linkedinId: {
+      type: String,
+      trim: true,
+    },
+    githubId: {
+      type: String,
+      trim: true,
+    },
+    otherSocialMediaId: {
+      type: String,
+      trim: true,
+    },
+    mobileNumber: {
+      type: String,
+      trim: true,
     },
   },
   {

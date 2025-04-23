@@ -21,6 +21,24 @@ const profileFormSchema = z.object({
   email: z.string().email({
     message: "Please enter a valid email address.",
   }),
+  corporateEmail: z
+    .string()
+    .email({
+      message: "Please enter a valid corporate email address.",
+    })
+    .optional(),
+  designation: z.string().optional(),
+  eventOrganizer: z.string().optional(),
+  mvpId: z.string().optional(),
+  mvpProfileLink: z.string().optional(),
+  mvpCategory: z.string().optional(),
+  meetupEventName: z.string().optional(),
+  eventDetails: z.string().optional(),
+  meetupPageDetails: z.string().optional(),
+  linkedinId: z.string().optional(),
+  githubId: z.string().optional(),
+  otherSocialMediaId: z.string().optional(),
+  mobileNumber: z.string().optional(),
 })
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>
@@ -32,6 +50,19 @@ interface ProfileFormProps {
     lastName: string
     email: string
     role: string
+    corporateEmail?: string
+    designation?: string
+    eventOrganizer?: string
+    mvpId?: string
+    mvpProfileLink?: string
+    mvpCategory?: string
+    meetupEventName?: string
+    eventDetails?: string
+    meetupPageDetails?: string
+    linkedinId?: string
+    githubId?: string
+    otherSocialMediaId?: string
+    mobileNumber?: string
   }
 }
 
@@ -47,6 +78,19 @@ export function ProfileForm({ user }: ProfileFormProps) {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
+      corporateEmail: user.corporateEmail || "",
+      designation: user.designation || "",
+      eventOrganizer: user.eventOrganizer || "",
+      mvpId: user.mvpId || "",
+      mvpProfileLink: user.mvpProfileLink || "",
+      mvpCategory: user.mvpCategory || "",
+      meetupEventName: user.meetupEventName || "",
+      eventDetails: user.eventDetails || "",
+      meetupPageDetails: user.meetupPageDetails || "",
+      linkedinId: user.linkedinId || "",
+      githubId: user.githubId || "",
+      otherSocialMediaId: user.otherSocialMediaId || "",
+      mobileNumber: user.mobileNumber || "",
     },
   })
 
@@ -132,7 +176,189 @@ export function ProfileForm({ user }: ProfileFormProps) {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input {...field} type="email" />
+                <Input type="email" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="corporateEmail"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Corporate Email</FormLabel>
+              <FormControl>
+                <Input type="email" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="designation"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Designation</FormLabel>
+              <FormControl>
+                <Input type="text" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="eventOrganizer"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Event Organizer</FormLabel>
+              <FormControl>
+                <Input type="text" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="mvpId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>MVP ID</FormLabel>
+              <FormControl>
+                <Input type="text" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="mvpProfileLink"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>MVP Profile Link</FormLabel>
+              <FormControl>
+                <Input type="text" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="mvpCategory"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>MVP Category</FormLabel>
+              <FormControl>
+                <Input type="text" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="meetupEventName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Meetup Event Name</FormLabel>
+              <FormControl>
+                <Input type="text" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="eventDetails"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Event Details</FormLabel>
+              <FormControl>
+                <Input type="text" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="meetupPageDetails"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Meetup Page Details</FormLabel>
+              <FormControl>
+                <Input type="text" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="linkedinId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>LinkedIn ID</FormLabel>
+              <FormControl>
+                <Input type="text" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="githubId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>GitHub ID</FormLabel>
+              <FormControl>
+                <Input type="text" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="otherSocialMediaId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Other Social Media ID</FormLabel>
+              <FormControl>
+                <Input type="text" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="mobileNumber"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Mobile Number</FormLabel>
+              <FormControl>
+                <Input type="text" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -40,6 +40,21 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: `${user.firstName} ${user.lastName}`,
           role: user.role,
+          corporateEmail: user.corporateEmail,
+          designation: user.designation,
+          eventOrganizer: user.eventOrganizer,
+          isMicrosoftMVP: user.isMicrosoftMVP,
+          mvpId: user.mvpId,
+          mvpProfileLink: user.mvpProfileLink,
+          mvpCategory: user.mvpCategory,
+          isMeetupGroupRunning: user.isMeetupGroupRunning,
+          meetupEventName: user.meetupEventName,
+          eventDetails: user.eventDetails,
+          meetupPageDetails: user.meetupPageDetails,
+          linkedinId: user.linkedinId,
+          githubId: user.githubId,
+          otherSocialMediaId: user.otherSocialMediaId,
+          mobileNumber: user.mobileNumber,
         }
       },
     }),
@@ -49,6 +64,21 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.role = user.role
+        token.corporateEmail = user.corporateEmail
+        token.designation = user.designation
+        token.eventOrganizer = user.eventOrganizer
+        token.isMicrosoftMVP = user.isMicrosoftMVP
+        token.mvpId = user.mvpId
+        token.mvpProfileLink = user.mvpProfileLink
+        token.mvpCategory = user.mvpCategory
+        token.isMeetupGroupRunning = user.isMeetupGroupRunning
+        token.meetupEventName = user.meetupEventName
+        token.eventDetails = user.eventDetails
+        token.meetupPageDetails = user.meetupPageDetails
+        token.linkedinId = user.linkedinId
+        token.githubId = user.githubId
+        token.otherSocialMediaId = user.otherSocialMediaId
+        token.mobileNumber = user.mobileNumber
       }
       return token
     },
@@ -56,6 +86,21 @@ export const authOptions: NextAuthOptions = {
       if (token) {
         session.user.id = token.id as string
         session.user.role = token.role as string
+        session.user.corporateEmail = token.corporateEmail as string
+        session.user.designation = token.designation as string
+        session.user.eventOrganizer = token.eventOrganizer as string
+        session.user.isMicrosoftMVP = token.isMicrosoftMVP as boolean
+        session.user.mvpId = token.mvpId as string
+        session.user.mvpProfileLink = token.mvpProfileLink as string
+        session.user.mvpCategory = token.mvpCategory as string
+        session.user.isMeetupGroupRunning = token.isMeetupGroupRunning as boolean
+        session.user.meetupEventName = token.meetupEventName as string
+        session.user.eventDetails = token.eventDetails as string
+        session.user.meetupPageDetails = token.meetupPageDetails as string
+        session.user.linkedinId = token.linkedinId as string
+        session.user.githubId = token.githubId as string
+        session.user.otherSocialMediaId = token.otherSocialMediaId as string
+        session.user.mobileNumber = token.mobileNumber as string
       }
       return session
     },

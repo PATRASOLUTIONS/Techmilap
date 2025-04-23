@@ -10,7 +10,28 @@ function generateOTP(): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { firstName, lastName, email, password, role = UserRole.USER } = await req.json()
+    const {
+      firstName,
+      lastName,
+      email,
+      password,
+      role = UserRole.USER,
+      corporateEmail,
+      designation,
+      eventOrganizer,
+      isMicrosoftMVP,
+      mvpId,
+      mvpProfileLink,
+      mvpCategory,
+      isMeetupGroupRunning,
+      meetupEventName,
+      eventDetails,
+      meetupPageDetails,
+      linkedinId,
+      githubId,
+      otherSocialMediaId,
+      mobileNumber,
+    } = await req.json()
     console.log("Received role:", role)
 
     // Validate input
@@ -41,6 +62,21 @@ export async function POST(req: NextRequest) {
       verificationCode,
       verificationCodeExpires,
       isVerified: false,
+      corporateEmail,
+      designation,
+      eventOrganizer,
+      isMicrosoftMVP,
+      mvpId,
+      mvpProfileLink,
+      mvpCategory,
+      isMeetupGroupRunning,
+      meetupEventName,
+      eventDetails,
+      meetupPageDetails,
+      linkedinId,
+      githubId,
+      otherSocialMediaId,
+      mobileNumber,
     })
 
     await user.save()
