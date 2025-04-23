@@ -885,7 +885,7 @@ export function CustomQuestionsForm({
     )
   }
 
-  const renderFormCard = (type, title, description, questions, setQuestions,formstatus) => {
+  const renderFormCard = (type, title, description, questions, setQuestions) => {
     // Ensure questions is always an array
     const safeQuestions = Array.isArray(questions) ? questions : []
 
@@ -900,7 +900,6 @@ export function CustomQuestionsForm({
             <div className="flex items-center space-x-2">
               <Switch
                 id={`${type}-publish-toggle`}
-                value={formstatus}
                 checked={publishStatus[type]}
                 onCheckedChange={() => togglePublishStatus(type)}
               />
@@ -1022,7 +1021,6 @@ export function CustomQuestionsForm({
             "These questions will be shown to attendees when they register for your event.",
             attendeeQuestions,
             setAttendeeQuestions,
-            formStatus.attendee
           )}
         </TabsContent>
 
@@ -1033,7 +1031,6 @@ export function CustomQuestionsForm({
             "These questions will be shown to volunteers when they apply to help at your event.",
             volunteerQuestions,
             setVolunteerQuestions,
-            formStatus.volunteer
           )}
         </TabsContent>
 
@@ -1044,7 +1041,6 @@ export function CustomQuestionsForm({
             "These questions will be shown to speakers when they apply to speak at your event.",
             speakerQuestions,
             setSpeakerQuestions,
-            formStatus.speaker
           )}
         </TabsContent>
       </Tabs>
