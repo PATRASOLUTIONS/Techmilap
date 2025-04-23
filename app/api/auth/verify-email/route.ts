@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     // Send congratulations email
     try {
-      await sendCongratulationsEmail(user.email, user.firstName, user.role)
+      await sendCongratulationsEmail(email, user.firstName, user.role)
     } catch (emailError) {
       console.error("Error sending congratulations email:", emailError)
       // Continue with the verification process even if email fails

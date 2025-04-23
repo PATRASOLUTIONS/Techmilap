@@ -58,10 +58,31 @@ export default function SignupPage() {
     role: "user",
   })
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+
+    // Clear error when user types
+    if (error) setError("")
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
+
+    // Validate form
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
+      setError("All fields are required")
+      setIsLoading(false)
+      return
+    }
+
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters long")
+      setIsLoading(false)
+      return
+    }
 
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match")
@@ -71,17 +92,17 @@ export default function SignupPage() {
 
     try {
       // Simulate signup process
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // await new Promise((resolve) => setTimeout(resolve, 2000))
 
       // Show success message
-      toast({
-        variant: "success",
-        title: "Signup Successful",
-        description: "Please check your email for verification.",
-      })
+      // toast({
+      //   variant: "success",
+      //   title: "Signup Successful",
+      //   description: "Please check your email for verification.",
+      // })
 
       // Redirect to login page
-      router.push("/login?registered=true")
+      router.push(`/verify-otp?email=${formData.email}`)
     } catch (err) {
       console.error("Signup error:", err)
       setError("An error occurred during signup")
@@ -254,38 +275,6 @@ export default function SignupPage() {
                           <AlertDescription>
                             Registration successful! Please check your email for verification.
                           </AlertDescription>
-                        </Alert>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <AnimatePresence mode="wait">
-                    {verifiedSuccess && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <Alert className="bg-green-50 border-green-200 text-green-800 flex items-center space-x-2">
-                          <Info className="h-4 w-4" />
-                          <AlertDescription>Email verified successfully! You can now log in.</AlertDescription>
-                        </Alert>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <AnimatePresence mode="wait">
-                    {showSuccessMessage && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <Alert className="bg-primary/10 border-primary/20 text-primary flex items-center space-x-2">
-                          <Info className="h-4 w-4" />
-                          <AlertDescription>Login successful! Redirecting...</AlertDescription>
                         </Alert>
                       </motion.div>
                     )}
