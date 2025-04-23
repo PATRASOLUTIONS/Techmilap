@@ -31,6 +31,7 @@ export default function SignupPage() {
   const [registeredSuccess, setRegisteredSuccess] = useState(false)
   const [verifiedSuccess, setVerifiedSuccess] = useState(false)
   const { toast } = useToast()
+  const [signupSuccess, setSignupSuccess] = useState(false)
 
   // New state variables for event planner fields
   const [corporateEmail, setCorporateEmail] = useState("")
@@ -71,19 +72,6 @@ export default function SignupPage() {
     setIsLoading(true)
     setError("")
 
-    // Validate form
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
-      setError("All fields are required")
-      setIsLoading(false)
-      return
-    }
-
-    if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters long")
-      setIsLoading(false)
-      return
-    }
-
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match")
       setIsLoading(false)
@@ -91,18 +79,25 @@ export default function SignupPage() {
     }
 
     try {
-      // Simulate signup process
-      // await new Promise((resolve) => setTimeout(resolve, 2000))
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      })
 
-      // Show success message
-      // toast({
-      //   variant: "success",
-      //   title: "Signup Successful",
-      //   description: "Please check your email for verification.",
-      // })
+      const data = await response.json()
 
-      // Redirect to login page
-      router.push(`/verify-otp?email=${formData.email}`)
+      if (!response.ok) {
+        setError(data.error || "An error occurred during signup")
+        setIsLoading(false)
+        return
+      }
+
+      // Redirect to OTP verification page with email
+      router.push(`/verify-otp?email=${data.email}`)
+      setSignupSuccess(true)
     } catch (err) {
       console.error("Signup error:", err)
       setError("An error occurred during signup")
@@ -279,6 +274,21 @@ export default function SignupPage() {
                       </motion.div>
                     )}
                   </AnimatePresence>
+                  {signupSuccess && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Alert className="bg-green-50 border-green-200 text-green-800 flex items-center space-x-2">
+                        <Info className="h-4 w-4" />
+                        <AlertDescription>
+                          Registration successful! Please check your email for verification.
+                        </AlertDescription>
+                      </Alert>
+                    </motion.div>
+                  )}
 
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">

@@ -93,15 +93,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        user: {
-          id: user._id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          role: user.role,
-          isVerified: user.isVerified,
-        },
         message: "User created successfully. Please check your email for verification code.",
+        email: email, // Pass the email to the verify-otp page
       },
       { status: 201 },
     )
