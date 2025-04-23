@@ -112,12 +112,6 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
         volunteer: existingEvent.volunteerForm?.status || "draft",
         speaker: existingEvent.speakerForm?.status || "draft",
       })
-
-      // If editing, start on the tickets tab if requested
-      const urlParams = new URLSearchParams(window.location.search)
-      if (urlParams.get("tab") === "tickets") {
-        setActiveTab("tickets")
-      }
     }
   }, [existingEvent])
 

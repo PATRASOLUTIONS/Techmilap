@@ -36,9 +36,9 @@ export function CustomQuestionsForm({
 
   // Form publish status
   const [publishStatus, setPublishStatus] = useState({
-    attendee: false,
-    volunteer: false,
-    speaker: false,
+    attendee: initialFormStatus?.attendee === "published",
+    volunteer: initialFormStatus?.volunteer === "published",
+    speaker: initialFormStatus?.speaker === "published",
   })
 
   // Add a new state for tracking the published URLs
@@ -474,6 +474,17 @@ export function CustomQuestionsForm({
     }
   }, [data, updateData, eventId, fetchFormStatus, generateDefaultQuestions])
 
+  useEffect(() => {
+    if (initialFormStatus) {
+      setFormStatus(initialFormStatus)
+      setPublishStatus({
+        attendee: initialFormStatus.attendee === "published",
+        volunteer: initialFormStatus.volunteer === "published",
+        speaker: initialFormStatus.speaker === "published",
+      })
+    }
+  }, [initialFormStatus])
+
   // Update parent component when questions change
   const updateQuestions = (type, questions) => {
     if (!Array.isArray(questions)) {
@@ -496,7 +507,6 @@ export function CustomQuestionsForm({
     })
   }
 
-  // Toggle form publish status
   const togglePublishStatus = (formType) => {
     const newStatus = !publishStatus[formType]
 
@@ -634,7 +644,6 @@ export function CustomQuestionsForm({
     }
   }
 
-  // Add a new question
   const addQuestion = (type) => {
     const newQuestion = {
       id: `question_${Date.now()}`,
@@ -654,7 +663,6 @@ export function CustomQuestionsForm({
     }
   }
 
-  // Remove a question
   const removeQuestion = (type, id) => {
     if (type === "attendee") {
       updateQuestions(
@@ -674,7 +682,6 @@ export function CustomQuestionsForm({
     }
   }
 
-  // Update a question
   const updateQuestion = (type, id, field, value) => {
     if (type === "attendee") {
       const updatedQuestions = attendeeQuestions.map((q) => (q.id === id ? { ...q, [field]: value } : q))
@@ -688,7 +695,6 @@ export function CustomQuestionsForm({
     }
   }
 
-  // Add an option to a select/radio/checkbox question
   const addOption = (type, questionId) => {
     const newOption = {
       id: `option_${Date.now()}`,
@@ -722,7 +728,6 @@ export function CustomQuestionsForm({
     }
   }
 
-  // Remove an option
   const removeOption = (type, questionId, optionId) => {
     if (type === "attendee") {
       const updatedQuestions = attendeeQuestions.map((q) => {
@@ -751,7 +756,6 @@ export function CustomQuestionsForm({
     }
   }
 
-  // Update an option
   const updateOption = (type, questionId, optionId, value) => {
     if (type === "attendee") {
       const updatedQuestions = attendeeQuestions.map((q) => {
@@ -793,8 +797,8 @@ export function CustomQuestionsForm({
     if (!question) return null
 
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label htmlFor={`${question.id}-label`}>Question Label</Label>
             <Input
@@ -840,14 +844,15 @@ export function CustomQuestionsForm({
         {["select", "radio", "checkbox"].includes(question.type) && (
           <div className="space-y-2">
             <Label>Options</Label>
-            <div className="space-y-2">
+            <div className="space-y-1">
               {Array.isArray(question.options) &&
-                question.options.map((option, optIndex) => (
-                  <div key={option.id || `option-${optIndex}`} className="flex items-center space-x-2">
+                question.options.map((option, optionIndex) => (
+                  <div key={option.id || `option-${optionIndex}`} className="flex items-center space-x-2">
                     <Input
                       value={option.value || ""}
                       onChange={(e) => updateOption(type, question.id, option.id, e.target.value)}
-                      placeholder={`Option ${optIndex + 1}`}
+                      placeholder={`Option ${optionIndex + 1}`}
+                      className="flex-1"
                     />
                     <Button
                       type="button"
@@ -859,17 +864,11 @@ export function CustomQuestionsForm({
                     </Button>
                   </div>
                 ))}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addOption(type, question.id)}
-                className="mt-2"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Option
-              </Button>
             </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => addOption(type, question.id)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Option
+            </Button>
           </div>
         )}
 
