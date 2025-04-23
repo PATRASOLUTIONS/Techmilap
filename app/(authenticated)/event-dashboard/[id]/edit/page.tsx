@@ -5,42 +5,40 @@ import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
-import { EventDetailsForm } from "@/components/events/event-details-form"
+import { EventCreationForm } from "@/components/events/event-creation-form"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function EditEventPage() {
   const { id } = useParams()
   const [event, setEvent] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const { toast } = useToast()
   const router = useRouter()
-  const [formStatus, setFormStatus] = useState({
-    attendee: "draft",
-    volunteer: "draft",
-    speaker: "draft",
-  })
 
   useEffect(() => {
     const fetchEvent = async () => {
       try {
         setLoading(true)
+        setError(null)
+
         const response = await fetch(`/api/events/${id}`)
 
         if (!response.ok) {
-          throw new Error("Failed to fetch event")
+          throw new Error(`Failed to fetch event: ${response.status}`)
         }
 
         const data = await response.json()
-        if (data.event) {
-          setEvent(data.event)
 
-          setFormStatus({
-            attendee: data.event.attendeeForm?.status || "draft",
-            volunteer: data.event.volunteerForm?.status || "draft",
-            speaker: data.event.speakerForm?.status || "draft",
-          })
+        if (data.event) {
+          console.log("Event data loaded successfully:", data.event.title)
+          setEvent(data.event)
+        } else {
+          throw new Error("Event data not found in response")
         }
       } catch (error) {
         console.error("Error fetching event:", error)
+        setError(error.message || "Failed to load event details")
         toast({
           title: "Error",
           description: "Failed to load event details. Please try again later.",
@@ -60,50 +58,6 @@ export default function EditEventPage() {
     router.push(`/event-dashboard/${id}`)
   }
 
-  const updateFormStatus = (formType, status) => {
-    setFormStatus((prev) => ({
-      ...prev,
-      [formType]: status,
-    }))
-  }
-
-  const handleSubmit = async (formData) => {
-    try {
-      const eventData = {
-        ...formData,
-        attendeeForm: { status: formStatus.attendee },
-        volunteerForm: { status: formStatus.volunteer },
-        speakerForm: { status: formStatus.speaker },
-      }
-
-      const response = await fetch(`/api/events/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(eventData),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to update event")
-      }
-
-      toast({
-        title: "Success",
-        description: "Event updated successfully",
-      })
-
-      router.push(`/event-dashboard/${id}`)
-    } catch (error) {
-      console.error("Error updating event:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update event. Please try again later.",
-        variant: "destructive",
-      })
-    }
-  }
-
   if (loading) {
     return (
       <div className="space-y-6">
@@ -113,18 +67,26 @@ export default function EditEventPage() {
             Back to Event
           </Button>
         </div>
-        <div className="h-8 w-64 bg-muted animate-pulse rounded-md"></div>
-        <div className="h-96 bg-muted animate-pulse rounded-lg"></div>
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-48 w-full" />
+        </div>
       </div>
     )
   }
 
-  if (!event) {
+  if (error || !event) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <h3 className="text-lg font-medium">Event not found</h3>
         <p className="text-muted-foreground mt-2 max-w-md">
-          The event you're looking for doesn't exist or you don't have permission to edit it.
+          {error || "The event you're looking for doesn't exist or you don't have permission to edit it."}
         </p>
         <Button asChild className="mt-6">
           <a href="/my-events">Back to My Events</a>
@@ -147,7 +109,7 @@ export default function EditEventPage() {
         <p className="text-muted-foreground mt-2">Update your event details and settings</p>
       </div>
 
-      <EventDetailsForm initialData={event} onSubmit={handleSubmit} submitButtonText="Update Event" />
+      <EventCreationForm existingEvent={event} isEditing={true} />
     </div>
   )
 }
