@@ -107,7 +107,7 @@ export default function EventPage() {
         : "Date TBA"
 
   return (
-    <div className="container mx-auto py-12 px-4">
+<div className="container mx-auto pt-16 pb-12 px-4">
       <div className="mb-6">
         <Link href="/events" className="text-primary hover:underline flex items-center gap-1">
           <span>← Back to Events</span>
