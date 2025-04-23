@@ -546,6 +546,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                       updateData={handleCustomQuestionsUpdate}
                       eventId={isEditing ? existingEvent._id : null}
                       updateFormStatus={updateFormStatus}
+                      formStatus={formStatus}
                     />
                   )}
 

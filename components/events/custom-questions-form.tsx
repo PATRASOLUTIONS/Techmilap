@@ -8,22 +8,41 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Trash2, Plus, GripVertical, EyeOff } from "lucide-react"
+import { Trash2, Plus, GripVertical } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+
+interface CustomQuestionsFormProps {
+  data: { attendee: any[]; volunteer: any[]; speaker: any[] }
+  updateData: (data: any) => void
+  eventId: string | null
+  updateFormStatus: ((formType: string, status: string) => void) | null
+  formStatus?: { attendee: string; volunteer: string; speaker: string }
+}
 
 export function CustomQuestionsForm({
   data = { attendee: [], volunteer: [], speaker: [] },
   updateData,
   eventId = null,
   updateFormStatus = null,
+  formStatus = { attendee: "draft", volunteer: "draft", speaker: "draft" },
 }) {
   const [activeTab, setActiveTab] = useState("attendee")
   const { toast } = useToast()
 
   // Initialize questions state with empty arrays
-  const [attendeeQuestions, setAttendeeQuestions] = useState([])
-  const [volunteerQuestions, setVolunteerQuestions] = useState([])
-  const [speakerQuestions, setSpeakerQuestions] = useState([])
+  const [attendeeQuestions, setAttendeeQuestions] = useState(data.attendee)
+  const [volunteerQuestions, setVolunteerQuestions] = useState(data.volunteer)
+  const [speakerQuestions, setSpeakerQuestions] = useState(data.speaker)
+
+  useEffect(() => {
+    setAttendeeQuestions(data.attendee)
+    setVolunteerQuestions(data.volunteer)
+    setSpeakerQuestions(data.speaker)
+  }, [data])
+
+  useEffect(() => {
+    console.log("CustomQuestionsForm - formStatus prop:", formStatus)
+  }, [formStatus])
 
   // Form publish status
   const [publishStatus, setPublishStatus] = useState({
@@ -763,10 +782,7 @@ export function CustomQuestionsForm({
     )
   }
 
-  const renderFormCard = (type, title, description, questions, setQuestions) => {
-    // Ensure questions is always an array
-    const safeQuestions = Array.isArray(questions) ? questions : []
-
+  const renderFormCard = (type, title, description, questions) => {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -774,94 +790,15 @@ export function CustomQuestionsForm({
             <CardTitle>{title}</CardTitle>
             <CardDescription>{description}</CardDescription>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id={`${type}-publish-toggle`}
-                checked={publishStatus[type]}
-                onCheckedChange={() => togglePublishStatus(type)}
-              />
-              <Label htmlFor={`${type}-publish-toggle`} className="font-medium">
-                {publishStatus[type] ? "Published" : "Draft"}
-              </Label>
-            </div>
-          </div>
         </CardHeader>
         <CardContent>
-          {/* Display the published URL if available */}
-          {publishStatus[type] && (
-            <div className="mb-4 p-3 bg-muted rounded-md">
-              <p className="text-sm font-medium mb-1">Public URL:</p>
-              <div className="flex items-center gap-2">
-                <code className="text-xs bg-background p-1 rounded flex-1 overflow-x-auto">
-                  {publishedUrls[type] ||
-                    (eventId
-                      ? `${window.location.origin}/events/${eventId}/${type === "attendee" ? "register" : type}`
-                      : "URL will be available after saving the event")}
-                </code>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    const url =
-                      publishedUrls[type] ||
-                      (eventId
-                        ? `${window.location.origin}/events/${eventId}/${type === "attendee" ? "register" : type}`
-                        : null)
-
-                    if (url) {
-                      navigator.clipboard.writeText(url)
-                      toast({
-                        title: "URL Copied",
-                        description: "The public URL has been copied to your clipboard.",
-                      })
-                    } else {
-                      toast({
-                        title: "URL Not Available",
-                        description: "Save the event first to generate a public URL.",
-                        variant: "destructive",
-                      })
-                    }
-                  }}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-copy"
-                  >
-                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-                  </svg>
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Display draft notice if not published */}
-          {!publishStatus[type] && (
-            <div className="mb-4 p-3 bg-muted rounded-md flex items-center gap-2">
-              <EyeOff className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                This form is currently in draft mode and not accessible to the public. Toggle the switch above to
-                publish it.
-              </p>
-            </div>
-          )}
-
           <div className="space-y-6">
-            {safeQuestions.length === 0 ? (
+            {questions.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No questions added yet. Add your first question below.
               </div>
             ) : (
-              safeQuestions.map((question, index) => (
+              questions.map((question, index) => (
                 <div key={question.id || `question-${index}`} className="border rounded-lg p-4 relative">
                   <div className="absolute right-2 top-2 flex space-x-1">
                     <Button type="button" variant="ghost" size="icon" onClick={() => removeQuestion(type, question.id)}>
@@ -909,7 +846,6 @@ export function CustomQuestionsForm({
             "Attendee Registration Questions",
             "These questions will be shown to attendees when they register for your event.",
             attendeeQuestions,
-            setAttendeeQuestions,
           )}
         </TabsContent>
 
@@ -919,7 +855,6 @@ export function CustomQuestionsForm({
             "Volunteer Application Questions",
             "These questions will be shown to volunteers when they apply to help at your event.",
             volunteerQuestions,
-            setVolunteerQuestions,
           )}
         </TabsContent>
 
@@ -929,7 +864,6 @@ export function CustomQuestionsForm({
             "Speaker Application Questions",
             "These questions will be shown to speakers when they apply to speak at your event.",
             speakerQuestions,
-            setSpeakerQuestions,
           )}
         </TabsContent>
       </Tabs>
