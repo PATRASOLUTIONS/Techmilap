@@ -34,11 +34,11 @@ export function CustomQuestionsForm({
   const [volunteerQuestions, setVolunteerQuestions] = useState([])
   const [speakerQuestions, setSpeakerQuestions] = useState([])
 
-  // Form publish status
+  // Form publish status - Set all to true by default
   const [publishStatus, setPublishStatus] = useState({
-    attendee: false,
-    volunteer: false,
-    speaker: false,
+    attendee: true,
+    volunteer: true,
+    speaker: true,
   })
 
   // Add a new state for tracking the published URLs
@@ -48,7 +48,7 @@ export function CustomQuestionsForm({
     speaker: "",
   })
 
-  // Form status state
+  // Form status state - Set all to published by default
   const [formStatus, setFormStatus] = useState({
     attendee: "published",
     volunteer: "published",
@@ -392,18 +392,21 @@ export function CustomQuestionsForm({
       }
       const data = await response.json()
 
-      setFormStatus(data)
-      setPublishStatus({
-        attendee: data.attendeeForm?.status === "published",
-        volunteer: data.volunteerForm?.status === "published",
-        speaker: data.speakerForm?.status === "published",
-      })
+      // If we have data from the server, use it; otherwise keep our default published state
+      if (data) {
+        setFormStatus(data)
+        setPublishStatus({
+          attendee: data.attendeeForm?.status === "published",
+          volunteer: data.volunteerForm?.status === "published",
+          speaker: data.speakerForm?.status === "published",
+        })
 
-      // Optionally, update the parent component as well
-      if (updateFormStatus) {
-        updateFormStatus("attendee", data.attendeeForm?.status || "draft")
-        updateFormStatus("volunteer", data.volunteerForm?.status || "draft")
-        updateFormStatus("speaker", data.speakerForm?.status || "draft")
+        // Optionally, update the parent component as well
+        if (updateFormStatus) {
+          updateFormStatus("attendee", data.attendeeForm?.status || "published")
+          updateFormStatus("volunteer", data.volunteerForm?.status || "published")
+          updateFormStatus("speaker", data.speakerForm?.status || "published")
+        }
       }
     } catch (error) {
       console.error("Error fetching form status:", error)
@@ -458,6 +461,20 @@ export function CustomQuestionsForm({
       // Fetch form status if eventId exists
       if (eventId) {
         fetchFormStatus()
+      } else {
+        // If no eventId (new event), notify parent that all forms are published by default
+        if (updateFormStatus) {
+          updateFormStatus("attendee", "published")
+          updateFormStatus("volunteer", "published")
+          updateFormStatus("speaker", "published")
+        }
+
+        // Set placeholder URLs for new events
+        setPublishedUrls({
+          attendee: "URL will be available after saving the event",
+          volunteer: "URL will be available after saving the event",
+          speaker: "URL will be available after saving the event",
+        })
       }
     } catch (error) {
       console.error("Error initializing form data:", error)
@@ -472,7 +489,7 @@ export function CustomQuestionsForm({
         updateData(defaultQuestions)
       }
     }
-  }, [data, updateData, eventId, fetchFormStatus, generateDefaultQuestions])
+  }, [data, updateData, eventId, fetchFormStatus, generateDefaultQuestions, updateFormStatus])
 
   // Update parent component when questions change
   const updateQuestions = (type, questions) => {
@@ -574,7 +591,7 @@ export function CustomQuestionsForm({
         return
       }
 
-      console.log("Converting HTML to Markdown...")
+      console.log("Processing form data...")
 
       // If we have an eventId, send the request to the server
       const response = await fetch(`/api/events/${eventId}/forms/${formType}/publish`, {
