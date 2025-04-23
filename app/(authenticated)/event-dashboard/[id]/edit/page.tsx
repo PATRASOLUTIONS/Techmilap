@@ -13,40 +13,72 @@ export default function EditEventPage() {
   const [event, setEvent] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  // Add a new state variable for form status
+  const [formStatus, setFormStatus] = useState({
+    attendee: "draft",
+    volunteer: "draft",
+    speaker: "draft",
+  })
   const { toast } = useToast()
   const router = useRouter()
 
   useEffect(() => {
-    const fetchEvent = async () => {
+    const fetchEventAndFormStatus = async () => {
       try {
         setLoading(true)
         setError(null)
 
         // Fetch event data with tickets included
-        const response = await fetch(`/api/events/${id}`, {
+        const eventResponse = await fetch(`/api/events/${id}`, {
           headers: {
             "Cache-Control": "no-cache",
           },
         })
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch event: ${response.status}`)
+        if (!eventResponse.ok) {
+          throw new Error(`Failed to fetch event: ${eventResponse.status}`)
         }
 
-        const data = await response.json()
+        const eventData = await eventResponse.json()
 
-        if (data.event) {
-          console.log("Event data loaded successfully:", data.event.title)
+        // Fetch form status data
+        const formStatusResponse = await fetch(`/api/events/${id}/forms/status`, {
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        })
+
+        if (!formStatusResponse.ok) {
+          console.warn("Failed to fetch form status, using defaults")
+        } else {
+          const formStatusData = await formStatusResponse.json()
+
+          // Update form status state
+          setFormStatus({
+            attendee: formStatusData.attendeeForm?.status || "draft",
+            volunteer: formStatusData.volunteerForm?.status || "draft",
+            speaker: formStatusData.speakerForm?.status || "draft",
+          })
+
+          console.log("Form status loaded:", {
+            attendee: formStatusData.attendeeForm?.status || "draft",
+            volunteer: formStatusData.volunteerForm?.status || "draft",
+            speaker: formStatusData.speakerForm?.status || "draft",
+          })
+        }
+
+        if (eventData.event) {
+          console.log("Event data loaded successfully:", eventData.event.title)
           console.log(
             "Ticket data:",
-            data.event.tickets ? `${data.event.tickets.length} tickets found` : "No tickets found",
+            eventData.event.tickets ? `${eventData.event.tickets.length} tickets found` : "No tickets found",
           )
 
           // Ensure tickets array exists
           const eventWithTickets = {
-            ...data.event,
-            tickets: data.event.tickets || [],
-            customQuestions: data.event.customQuestions || { attendee: [], volunteer: [], speaker: [] }, // Ensure customQuestions exists
+            ...eventData.event,
+            tickets: eventData.event.tickets || [],
+            customQuestions: eventData.event.customQuestions || { attendee: [], volunteer: [], speaker: [] }, // Ensure customQuestions exists
           }
 
           setEvent(eventWithTickets)
@@ -67,7 +99,7 @@ export default function EditEventPage() {
     }
 
     if (id) {
-      fetchEvent()
+      fetchEventAndFormStatus()
     }
   }, [id, toast])
 
@@ -126,7 +158,7 @@ export default function EditEventPage() {
         <p className="text-muted-foreground mt-2">Update your event details and settings</p>
       </div>
 
-      <EventCreationForm existingEvent={event} isEditing={true} />
+      <EventCreationForm existingEvent={event} isEditing={true} initialFormStatus={formStatus} />
     </div>
   )
 }

@@ -11,21 +11,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Trash2, Plus, GripVertical, EyeOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
-interface CustomQuestionsFormProps {
-  data: { attendee: any[]; volunteer: any[]; speaker: any[] }
-  updateData: (data: any) => void
-  eventId?: string
-  updateFormStatus?: (formType: string, status: string) => void
-  formStatus?: { attendee: string; volunteer: string; speaker: string }
-}
-
 export function CustomQuestionsForm({
   data = { attendee: [], volunteer: [], speaker: [] },
   updateData,
   eventId = null,
-  updateFormStatus,
-  formStatus: initialFormStatus,
-}: CustomQuestionsFormProps) {
+  updateFormStatus = null,
+  initialFormStatus = { attendee: "draft", volunteer: "draft", speaker: "draft" },
+}) {
   const [activeTab, setActiveTab] = useState("attendee")
   const { toast } = useToast()
 
@@ -34,11 +26,11 @@ export function CustomQuestionsForm({
   const [volunteerQuestions, setVolunteerQuestions] = useState([])
   const [speakerQuestions, setSpeakerQuestions] = useState([])
 
-  // Form publish status
+  // Form publish status - initialize with initialFormStatus
   const [publishStatus, setPublishStatus] = useState({
-    attendee: false,
-    volunteer: false,
-    speaker: false,
+    attendee: initialFormStatus?.attendee === "published",
+    volunteer: initialFormStatus?.volunteer === "published",
+    speaker: initialFormStatus?.speaker === "published",
   })
 
   // Add a new state for tracking the published URLs
@@ -46,13 +38,6 @@ export function CustomQuestionsForm({
     attendee: "",
     volunteer: "",
     speaker: "",
-  })
-
-  // Form status state
-  const [formStatus, setFormStatus] = useState({
-    attendee: "draft",
-    volunteer: "draft",
-    speaker: "draft",
   })
 
   // Generate default questions for each form type
@@ -294,6 +279,12 @@ export function CustomQuestionsForm({
       // Fetch form status if eventId exists
       if (eventId) {
         fetchFormStatus()
+      } else if (updateFormStatus) {
+        // If we have updateFormStatus but no eventId, we're in creation mode with initial status
+        // Check if the parent passed initial form status through updateFormStatus
+        updateFormStatus("attendee", "draft")
+        updateFormStatus("volunteer", "draft")
+        updateFormStatus("speaker", "draft")
       }
     } catch (error) {
       console.error("Error initializing form data:", error)
@@ -306,7 +297,7 @@ export function CustomQuestionsForm({
       // Update parent with defaults
       updateData(defaultQuestions)
     }
-  }, [data])
+  }, [])
 
   // Fetch form publish status
   const fetchFormStatus = async () => {
@@ -315,18 +306,14 @@ export function CustomQuestionsForm({
       if (response.ok) {
         const statusData = await response.json()
 
+        // Get the event slug
+        const eventSlug = statusData.eventSlug || null
+
         // Update publish status based on form status from database
         setPublishStatus({
           attendee: statusData.attendeeForm?.status === "published",
           volunteer: statusData.volunteerForm?.status === "published",
           speaker: statusData.speakerForm?.status === "published",
-        })
-
-        // Update the local form status state
-        setFormStatus({
-          attendee: statusData.attendeeForm?.status || "draft",
-          volunteer: statusData.volunteerForm?.status || "draft",
-          speaker: statusData.speakerForm?.status || "draft",
         })
 
         // If the parent component has an updateFormStatus function, call it
@@ -335,9 +322,6 @@ export function CustomQuestionsForm({
           updateFormStatus("volunteer", statusData.volunteerForm?.status || "draft")
           updateFormStatus("speaker", statusData.speakerForm?.status || "draft")
         }
-
-        // Get the event slug
-        const eventSlug = statusData.eventSlug || null
 
         // Set published URLs if forms are published
         if (statusData.attendeeForm?.status === "published") {

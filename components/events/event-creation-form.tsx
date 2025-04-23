@@ -17,7 +17,11 @@ import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 
-export function EventCreationForm({ existingEvent = null, isEditing = false }) {
+export function EventCreationForm({
+  existingEvent = null,
+  isEditing = false,
+  initialFormStatus = { attendee: "draft", volunteer: "draft", speaker: "draft" },
+}) {
   const router = useRouter()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("details")
@@ -113,13 +117,19 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
         speaker: existingEvent.speakerForm?.status || "draft",
       })
 
+      // Add initialFormStatus to the formData
+      setFormData((prevData) => ({
+        ...prevData,
+        formStatus: initialFormStatus,
+      }))
+
       // If editing, start on the tickets tab if requested
       const urlParams = new URLSearchParams(window.location.search)
       if (urlParams.get("tab") === "tickets") {
         setActiveTab("tickets")
       }
     }
-  }, [existingEvent])
+  }, [existingEvent, initialFormStatus])
 
   const updateFormData = (section, data) => {
     setFormData((prev) => ({
@@ -129,10 +139,12 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   }
 
   const updateFormStatus = (formType, status) => {
-    console.log(`Updating form status: ${formType} -> ${status}`)
-    setFormStatus((prev) => ({
+    setFormData((prev) => ({
       ...prev,
-      [formType]: status,
+      formStatus: {
+        ...(prev.formStatus || {}),
+        [formType]: status,
+      },
     }))
   }
 
@@ -546,7 +558,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                       updateData={handleCustomQuestionsUpdate}
                       eventId={isEditing ? existingEvent._id : null}
                       updateFormStatus={updateFormStatus}
-                      formStatus={formStatus}
+                      initialFormStatus={formData.formStatus || initialFormStatus}
                     />
                   )}
 
