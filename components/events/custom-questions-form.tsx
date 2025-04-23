@@ -50,9 +50,9 @@ export function CustomQuestionsForm({
 
   // Form status state
   const [formStatus, setFormStatus] = useState({
-    attendee: "published",
-    volunteer: "published",
-    speaker: "published",
+    attendee: "draft",
+    volunteer: "draft",
+    speaker: "draft",
   })
 
   const generateDefaultQuestions = useCallback(() => {
