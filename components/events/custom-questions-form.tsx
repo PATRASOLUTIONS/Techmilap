@@ -36,9 +36,9 @@ export function CustomQuestionsForm({
 
   // Form publish status
   const [publishStatus, setPublishStatus] = useState({
-    attendee: false,
-    volunteer: false,
-    speaker: false,
+    attendee: true,
+    volunteer: true,
+    speaker: true,
   })
 
   // Add a new state for tracking the published URLs
@@ -438,12 +438,22 @@ export function CustomQuestionsForm({
       setVolunteerQuestions(volunteerData)
       setSpeakerQuestions(speakerData)
 
-      // Update parent component with processed data
-      updateData({
-        attendee: attendeeData,
-        volunteer: volunteerData,
-        speaker: speakerData,
-      })
+      // IMPORTANT: Only update parent component on initial load or when data changes
+      // This was causing the infinite loop
+      if (
+        JSON.stringify(data) !==
+        JSON.stringify({
+          attendee: attendeeData,
+          volunteer: volunteerData,
+          speaker: speakerData,
+        })
+      ) {
+        updateData({
+          attendee: attendeeData,
+          volunteer: volunteerData,
+          speaker: speakerData,
+        })
+      }
 
       // Fetch form status if eventId exists
       if (eventId) {
@@ -457,10 +467,12 @@ export function CustomQuestionsForm({
       setVolunteerQuestions(defaultQuestions.volunteer)
       setSpeakerQuestions(defaultQuestions.speaker)
 
-      // Update parent with defaults
-      updateData(defaultQuestions)
+      // Update parent with defaults - only if needed
+      if (!data || Object.keys(data).length === 0) {
+        updateData(defaultQuestions)
+      }
     }
-  }, [eventId, fetchFormStatus, generateDefaultQuestions])
+  }, [data, updateData, eventId, fetchFormStatus, generateDefaultQuestions])
 
   // Update parent component when questions change
   const updateQuestions = (type, questions) => {
@@ -488,22 +500,21 @@ export function CustomQuestionsForm({
   const togglePublishStatus = (formType) => {
     const newStatus = !publishStatus[formType]
 
+    // Update local state
+    setPublishStatus((prev) => ({
+      ...prev,
+      [formType]: newStatus,
+    }))
+
+    // Update parent component if needed
+    if (updateFormStatus) {
+      updateFormStatus(formType, newStatus ? "published" : "draft")
+    }
+
     // If we have an eventId, update the database
     if (eventId) {
-      // Don't update state here, let publishForm handle it
       publishForm(formType, newStatus)
     } else {
-      // Update local state only if we don't have an eventId
-      setPublishStatus((prev) => ({
-        ...prev,
-        [formType]: newStatus,
-      }))
-
-      // Update parent component if needed
-      if (updateFormStatus) {
-        updateFormStatus(formType, newStatus ? "published" : "draft")
-      }
-
       // Just show a toast for feedback
       toast({
         title: newStatus ? "Form marked for publishing" : "Form set to draft",
@@ -563,7 +574,7 @@ export function CustomQuestionsForm({
         return
       }
 
-      console.log(`${shouldPublish ? "Publishing" : "Setting to draft"} ${formType} form...`)
+      console.log("Converting HTML to Markdown...")
 
       // If we have an eventId, send the request to the server
       const response = await fetch(`/api/events/${eventId}/forms/${formType}/publish`, {
