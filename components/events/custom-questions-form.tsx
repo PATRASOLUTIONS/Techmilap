@@ -460,7 +460,7 @@ export function CustomQuestionsForm({
       // Update parent with defaults
       updateData(defaultQuestions)
     }
-  }, [data, updateData, eventId, fetchFormStatus, generateDefaultQuestions])
+  }, [eventId, fetchFormStatus, generateDefaultQuestions])
 
   // Update parent component when questions change
   const updateQuestions = (type, questions) => {
@@ -488,21 +488,22 @@ export function CustomQuestionsForm({
   const togglePublishStatus = (formType) => {
     const newStatus = !publishStatus[formType]
 
-    // Update local state
-    setPublishStatus((prev) => ({
-      ...prev,
-      [formType]: newStatus,
-    }))
-
-    // Update parent component if needed
-    if (updateFormStatus) {
-      updateFormStatus(formType, newStatus ? "published" : "draft")
-    }
-
     // If we have an eventId, update the database
     if (eventId) {
+      // Don't update state here, let publishForm handle it
       publishForm(formType, newStatus)
     } else {
+      // Update local state only if we don't have an eventId
+      setPublishStatus((prev) => ({
+        ...prev,
+        [formType]: newStatus,
+      }))
+
+      // Update parent component if needed
+      if (updateFormStatus) {
+        updateFormStatus(formType, newStatus ? "published" : "draft")
+      }
+
       // Just show a toast for feedback
       toast({
         title: newStatus ? "Form marked for publishing" : "Form set to draft",
@@ -562,7 +563,7 @@ export function CustomQuestionsForm({
         return
       }
 
-      console.log("Converting HTML to Markdown...")
+      console.log(`${shouldPublish ? "Publishing" : "Setting to draft"} ${formType} form...`)
 
       // If we have an eventId, send the request to the server
       const response = await fetch(`/api/events/${eventId}/forms/${formType}/publish`, {
