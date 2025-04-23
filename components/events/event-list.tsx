@@ -14,9 +14,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 interface EventListProps {
   events: any[]
   showRegisterButton?: boolean
+  showUserRole?: boolean
 }
 
-export function EventList({ events, showRegisterButton = false }: EventListProps) {
+export function EventList({ events, showRegisterButton = false, showUserRole = false }: EventListProps) {
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null)
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false)
 
@@ -30,16 +31,35 @@ export function EventList({ events, showRegisterButton = false }: EventListProps
     return event.slug || event._id.toString()
   }
 
+  // Helper function to get role badge if available
+  const getRoleBadge = (event: any) => {
+    if (!showUserRole || !event.userRole) return null
+
+    switch (event.userRole) {
+      case "organizer":
+        return <Badge className="bg-primary/20 text-primary border-primary/30">Organizer</Badge>
+      case "speaker":
+        return <Badge className="bg-secondary/20 text-secondary border-secondary/30">Speaker</Badge>
+      case "volunteer":
+        return <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30">Volunteer</Badge>
+      case "attendee":
+        return <Badge className="bg-emerald-500/20 text-emerald-600 border-emerald-500/30">Attendee</Badge>
+      default:
+        return null
+    }
+  }
+
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {events.map((event) => (
         <Card key={event._id} className="overflow-hidden flex flex-col h-full">
           <div className="relative h-48 w-full">
             <Image src={event.image || "/community-celebration.png"} alt={event.title} fill className="object-cover" />
-            <div className="absolute top-2 right-2">
+            <div className="absolute top-2 right-2 flex gap-2">
               <Badge variant="secondary" className="bg-background/80 backdrop-blur-sm">
                 {event.category}
               </Badge>
+              {getRoleBadge(event)}
             </div>
           </div>
           <CardHeader className="pb-2">

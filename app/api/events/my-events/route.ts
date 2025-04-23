@@ -67,12 +67,12 @@ export async function GET(req: NextRequest) {
             { "user.email": session.user.email },
             { "userData.email": session.user.email },
             { "formData.email": session.user.email },
-          ],
-        },
-        {
-          $or: [
-            { "data.email": session.user.email }, // Check if the email in myevent.formsubmissions.youremail matches the logged-in user's email
-            { userEmail: session.user.email }, // Also check the userEmail field
+            { "data.email": session.user.email },
+
+            // Check nested structures that might contain email
+            { formData: { $elemMatch: { value: session.user.email, field: "email" } } },
+            { answers: { $elemMatch: { value: session.user.email, question: /email/i } } },
+            { "data.email": session.user.email },
           ],
         },
       ],
@@ -81,9 +81,16 @@ export async function GET(req: NextRequest) {
     // Add role filter if specified
     if (roleFilter && roleFilter !== "organizer") {
       formSubmissionsQuery["$and"].push({
-        $or: [{ formType: roleFilter }, { type: roleFilter }, { "formData.type": roleFilter }],
+        $or: [
+          { formType: roleFilter },
+          { type: roleFilter },
+          { "formData.type": roleFilter },
+          { "data.formType": roleFilter },
+        ],
       })
     }
+
+    console.log("Form submissions query:", JSON.stringify(formSubmissionsQuery, null, 2))
 
     const formSubmissions = await db.collection("formSubmissions").find(formSubmissionsQuery).toArray()
 
@@ -91,7 +98,7 @@ export async function GET(req: NextRequest) {
       `Found ${formSubmissions.length} form submissions for user${roleFilter ? " with role " + roleFilter : ""}`,
     )
 
-    // Group submissions by event and type
+    // Group submissions by event and type with improved logging
     const eventSubmissions = new Map()
 
     for (const submission of formSubmissions) {
@@ -101,22 +108,30 @@ export async function GET(req: NextRequest) {
         submission.event ||
         submission.eventID ||
         (submission.eventData && submission.eventData._id) ||
+        (submission.data && submission.data.eventId) ||
         null
 
       // Try to get the form type from various possible fields
       const formType =
-        submission.formType || submission.type || (submission.formData && submission.formData.type) || "attendee"
+        submission.formType ||
+        submission.type ||
+        (submission.formData && submission.formData.type) ||
+        (submission.data && submission.data.formType) ||
+        "attendee"
 
       if (!eventId) {
         console.log("Submission missing eventId:", submission)
         continue
       }
 
-      if (!eventSubmissions.has(eventId)) {
-        eventSubmissions.set(eventId, { roles: new Set() })
+      const eventIdStr = eventId.toString()
+
+      if (!eventSubmissions.has(eventIdStr)) {
+        eventSubmissions.set(eventIdStr, { roles: new Set() })
       }
 
-      eventSubmissions.get(eventId).roles.add(formType)
+      eventSubmissions.get(eventIdStr).roles.add(formType)
+      console.log(`Added role ${formType} for event ${eventIdStr}`)
     }
 
     console.log(`Grouped submissions for ${eventSubmissions.size} events`)

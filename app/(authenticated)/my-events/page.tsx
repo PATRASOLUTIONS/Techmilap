@@ -17,6 +17,7 @@ import {
   Trash2,
   AlertCircle,
   User,
+  MapPin,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -150,6 +151,25 @@ export default function MyEventsPage() {
         }))
 
         setEvents(sanitizedEvents)
+
+        // Pre-populate role-specific event lists based on userRole
+        const attending = sanitizedEvents.filter((event) => event.userRole === "attendee")
+        const volunteering = sanitizedEvents.filter((event) => event.userRole === "volunteer")
+        const speaking = sanitizedEvents.filter((event) => event.userRole === "speaker")
+
+        setRoleEvents({
+          attending,
+          volunteering,
+          speaking,
+        })
+
+        // Mark tabs as loaded if we already have data for them
+        setLoadedTabs({
+          all: true,
+          attending: attending.length > 0,
+          volunteering: volunteering.length > 0,
+          speaking: speaking.length > 0,
+        })
       } catch (error) {
         console.error("Error fetching events:", error)
         const errorMessage =
@@ -655,12 +675,66 @@ function EventCard({ event, onClick, onManageClick, onDeleteClick }) {
     }
   }
 
+  // Get status badge based on event status
+  const getStatusBadge = () => {
+    if (!event.status) return null
+
+    switch (event.status.toLowerCase()) {
+      case "published":
+      case "active":
+        return (
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+            Active
+          </Badge>
+        )
+      case "draft":
+        return (
+          <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
+            Draft
+          </Badge>
+        )
+      case "cancelled":
+        return (
+          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+            Cancelled
+          </Badge>
+        )
+      case "completed":
+        return (
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+            Completed
+          </Badge>
+        )
+      default:
+        return null
+    }
+  }
+
+  // Format participation status message
+  const getParticipationStatus = () => {
+    switch (event.userRole) {
+      case "organizer":
+        return "You're organizing this event"
+      case "speaker":
+        return "You're speaking at this event"
+      case "volunteer":
+        return "You're volunteering at this event"
+      case "attendee":
+        return "You're attending this event"
+      default:
+        return "You're registered for this event"
+    }
+  }
+
   return (
     <Card className={`cursor-pointer transition-all hover:shadow-md border-2 ${getRoleStyles()}`} onClick={onClick}>
       <CardHeader>
         <div className="flex justify-between items-start">
           <CardTitle className="text-xl">{event.title}</CardTitle>
-          {getRoleBadge()}
+          <div className="flex gap-2">
+            {getStatusBadge()}
+            {getRoleBadge()}
+          </div>
         </div>
         <CardDescription>
           <div className="flex items-center gap-1">
@@ -668,19 +742,21 @@ function EventCard({ event, onClick, onManageClick, onDeleteClick }) {
             <span>{formattedDate}</span>
           </div>
           <div className="flex items-center gap-1 mt-1">
+            <MapPin className="h-3.5 w-3.5" />
+            <span className="truncate">{event.location}</span>
+          </div>
+          <div className="flex items-center gap-1 mt-1">
             <Users className="h-3.5 w-3.5" />
-            <span>{attendeesCount} attendees</span>
+            <span>
+              {attendeesCount} / {event.capacity || "∞"} attendees
+            </span>
           </div>
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-3 p-2 bg-muted/50 rounded-md">
           {getRoleIcon()}
-          <span className="font-medium capitalize">
-            {event.userRole === "organizer"
-              ? "You're organizing"
-              : `You're ${event.userRole === "attendee" ? "attending" : event.userRole === "volunteer" ? "volunteering" : "speaking"}`}
-          </span>
+          <span className="font-medium">{getParticipationStatus()}</span>
         </div>
 
         {event.userRole === "organizer" && (
@@ -752,7 +828,7 @@ function EventCard({ event, onClick, onManageClick, onDeleteClick }) {
           </>
         ) : (
           <Button size="sm" className="w-full" asChild>
-            <Link href={`/events/${event._id}`}>View Details</Link>
+            <Link href={`/my-events/details/${event.slug || event._id}`}>View Details</Link>
           </Button>
         )}
       </CardFooter>
@@ -763,19 +839,26 @@ function EventCard({ event, onClick, onManageClick, onDeleteClick }) {
 function EmptyState({ role = "any" }) {
   let message = "You haven't registered for any events yet."
   let icon = <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+  let actionText = "Explore Events"
+  let actionLink = "/explore"
 
   switch (role) {
     case "attending":
-      message = "You haven't registered as an attendee for any events yet."
+      message =
+        "You haven't registered as an attendee for any events yet. Browse our event listings to find events to attend."
       icon = <User className="h-12 w-12 text-emerald-500/70 mb-4" />
       break
     case "volunteering":
-      message = "You haven't signed up as a volunteer for any events yet."
+      message = "You haven't signed up as a volunteer for any events yet. Check out events that need volunteers."
       icon = <HandHelping className="h-12 w-12 text-amber-500/70 mb-4" />
       break
     case "speaking":
-      message = "You haven't registered as a speaker for any events yet."
+      message = "You haven't registered as a speaker for any events yet. Find events looking for speakers."
       icon = <Mic className="h-12 w-12 text-secondary/70 mb-4" />
+      break
+    default:
+      actionText = "Create an Event"
+      actionLink = "/dashboard/events/create"
       break
   }
 
@@ -784,9 +867,16 @@ function EmptyState({ role = "any" }) {
       {icon}
       <h3 className="text-lg font-medium">No events found</h3>
       <p className="text-muted-foreground mt-2 max-w-md">{message}</p>
-      <Button asChild className="mt-6">
-        <Link href="/explore">Explore Events</Link>
-      </Button>
+      <div className="flex gap-4 mt-6">
+        <Button asChild variant="outline">
+          <Link href="/explore">Explore Events</Link>
+        </Button>
+        {role === "any" && (
+          <Button asChild>
+            <Link href="/dashboard/events/create">Create an Event</Link>
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

@@ -18,6 +18,7 @@ const FormSubmissionSchema = new Schema(
     },
     userEmail: {
       type: String,
+      required: true, // Email is required for all submissions
     },
     formType: {
       type: String,
@@ -33,11 +34,25 @@ const FormSubmissionSchema = new Schema(
       type: Schema.Types.Mixed,
       required: true,
     },
+    // Add additional fields to make querying easier
+    eventSlug: {
+      type: String,
+    },
+    eventTitle: {
+      type: String,
+    },
   },
   {
     timestamps: true,
   },
 )
+
+// Add indexes to improve query performance
+FormSubmissionSchema.index({ eventId: 1 })
+FormSubmissionSchema.index({ userId: 1 })
+FormSubmissionSchema.index({ userEmail: 1 })
+FormSubmissionSchema.index({ formType: 1 })
+FormSubmissionSchema.index({ "data.email": 1 })
 
 // Check if the model already exists to prevent OverwriteModelError
 const FormSubmission = mongoose.models.FormSubmission || mongoose.model("FormSubmission", FormSubmissionSchema)
