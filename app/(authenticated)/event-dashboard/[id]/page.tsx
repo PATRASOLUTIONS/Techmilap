@@ -271,10 +271,7 @@ export default function EventDashboardPage() {
             </div>
           </div>
         </div>
-        <Button onClick={handleEditEvent}>
-          <Edit className="mr-2 h-4 w-4" />
-          Edit Event
-        </Button>
+      
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
