@@ -24,12 +24,12 @@ export function PartnersSection() {
   }
 
   const partners = [
-    { name: "TechCorp", logo: "/placeholder.svg?height=40&width=120&query=techcorp%20logo" },
-    { name: "InnovateX", logo: "/placeholder.svg?height=40&width=120&query=innovatex%20logo" },
-    { name: "DevNetwork", logo: "/placeholder.svg?height=40&width=120&query=devnetwork%20logo" },
-    { name: "StartupHub", logo: "/placeholder.svg?height=40&width=120&query=startuphub%20logo" },
-    { name: "CodeCamp", logo: "/placeholder.svg?height=40&width=120&query=codecamp%20logo" },
-    { name: "FutureTech", logo: "/placeholder.svg?height=40&width=120&query=futuretech%20logo" },
+    { name: "Google", logo: "/colorful-search-bar.png" },
+    { name: "Microsoft", logo: "/four-squares-logo.png" },
+    { name: "Amazon", logo: "/smiling-arrow.png" },
+    { name: "Apple", logo: "/stylized-fruit-logo.png" },
+    { name: "Meta", logo: "/interconnected-infinity.png" },
+    { name: "Salesforce", logo: "/placeholder.svg?height=40&width=120&query=Salesforce%20logo" },
   ]
 
   return (

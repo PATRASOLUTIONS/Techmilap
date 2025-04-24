@@ -44,7 +44,6 @@ export default clientPromise
 let isConnected = false
 
 export async function connectToDatabase() {
-  console.log("Attempting to connect to MongoDB...") // Add this line
   if (isConnected) {
     console.log("Using existing MongoDB connection")
     return mongoose.connection
@@ -53,7 +52,6 @@ export async function connectToDatabase() {
   try {
     // For Mongoose
     if (mongoose.connection.readyState !== 1) {
-      console.log("Creating new MongoDB connection...") // Add this line
       await mongoose.connect(uri, {
         serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
         socketTimeoutMS: 45000,
