@@ -284,39 +284,42 @@ export function RegistrationsTable({ eventId, title, description }: Registration
       {
         id: "actions",
         header: "",
-        cell: ({ row }) => (
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => handleViewSubmission(row.original)}>
-              <Eye className="h-4 w-4 mr-1" />
-              View
-            </Button>
-            {row.original.status === "pending" && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-green-600 hover:text-green-700"
-                  onClick={() => handleUpdateStatus(row.original.id, "approved")}
-                >
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  Approve
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-red-600 hover:text-red-700"
-                  onClick={() => handleUpdateStatus(row.original.id, "rejected")}
-                >
-                  <XCircle className="h-4 w-4 mr-1" />
-                  Reject
-                </Button>
-              </>
-            )}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const submission = row.original
+          return (
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => handleViewSubmission(submission)}>
+                <Eye className="h-4 w-4 mr-1" />
+                View
+              </Button>
+              {submission.status === "pending" && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-green-600 hover:text-green-700"
+                    onClick={() => handleUpdateStatus(submission.id, "approved")}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Approve
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700"
+                    onClick={() => handleUpdateStatus(submission.id, "rejected")}
+                  >
+                    <XCircle className="h-4 w-4 mr-1" />
+                    Reject
+                  </Button>
+                </>
+              )}
+            </div>
+          )
+        },
       },
     ],
-    [customQuestions, selectedSubmissions, toggleSelectAll],
+    [customQuestions, selectedSubmissions],
   )
 
   const table = useReactTable({
