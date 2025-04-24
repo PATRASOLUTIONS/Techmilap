@@ -1,3 +1,4 @@
+import NextAuth from "next-auth"
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { connectToDatabase } from "@/lib/mongodb"
@@ -76,7 +77,7 @@ export const authOptions: NextAuthOptions = {
         token.eventDetails = user.eventDetails
         token.meetupPageDetails = user.meetupPageDetails
         token.linkedinId = user.linkedinId
-        token.githubId = user.githubId
+        token.githubId = token.githubId
         token.otherSocialMediaId = user.otherSocialMediaId
         token.mobileNumber = user.mobileNumber
       }
@@ -116,3 +117,5 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
 }
+
+export const { getServerSession } = NextAuth(authOptions)

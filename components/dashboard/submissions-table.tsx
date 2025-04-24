@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface SubmissionsTableProps {
   eventId: string
@@ -27,6 +28,7 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
   const [dialogOpen, setDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const { toast } = useToast()
+  const [selectedSubmissions, setSelectedSubmissions] = useState<string[]>([])
 
   useEffect(() => {
     const fetchSubmissions = async () => {
@@ -120,6 +122,40 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
     }
   }
 
+  const handleBulkApprove = async () => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/submissions/${formType}/bulk-approve`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ submissionIds: selectedSubmissions }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to bulk approve submissions")
+      }
+
+      // Update the submission in the local state
+      setSubmissions(
+        submissions.map((sub: any) => (selectedSubmissions.includes(sub._id) ? { ...sub, status: "approved" } : sub)),
+      )
+      setSelectedSubmissions([])
+
+      toast({
+        title: "Submissions Approved",
+        description: `${selectedSubmissions.length} submissions approved successfully.`,
+      })
+    } catch (error) {
+      console.error("Error bulk approving submissions:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to bulk approve submissions",
+        variant: "destructive",
+      })
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "approved":
@@ -143,6 +179,26 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
       .replace(/^\w/, (c) => c.toUpperCase()) // Capitalize first letter
 
     return formattedKey
+  }
+
+  const toggleSubmission = (submissionId: string) => {
+    setSelectedSubmissions((prev) => {
+      if (prev.includes(submissionId)) {
+        return prev.filter((id) => id !== submissionId)
+      } else {
+        return [...prev, submissionId]
+      }
+    })
+  }
+
+  const allSelected = submissions.length > 0 && selectedSubmissions.length === submissions.length
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedSubmissions([])
+    } else {
+      setSelectedSubmissions(submissions.map((sub: any) => sub._id))
+    }
   }
 
   if (loading) {
@@ -178,17 +234,25 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-        <div className="mt-2 relative">
-          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by name or email..."
-            className="pl-8"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleBulkApprove} disabled={selectedSubmissions.length === 0}>
+            <CheckCircle className="h-4 w-4 mr-1" />
+            Bulk Approve
+          </Button>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or email..."
+              className="pl-8 max-w-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -201,6 +265,9 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>
+                    <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
+                  </TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Submitted</TableHead>
@@ -211,6 +278,12 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
               <TableBody>
                 {submissions.map((submission: any) => (
                   <TableRow key={submission._id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedSubmissions.includes(submission._id)}
+                        onCheckedChange={() => toggleSubmission(submission._id)}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">
                       {submission.data?.firstName || submission.data?.name || "Anonymous"}
                     </TableCell>
