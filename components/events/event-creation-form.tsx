@@ -487,6 +487,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                         animate={{
                           scale: step === getStepNumber() ? 1.1 : 1,
                           backgroundColor: step <= getStepNumber() ? "var(--primary)" : "hsl(var(--muted))",
+                          color: step <= getStepNumber() ? "white" : "hsl(var(--muted-foreground))",
                         }}
                         transition={{ duration: 0.3 }}
                         onClick={() => {

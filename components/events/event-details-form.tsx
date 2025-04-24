@@ -536,7 +536,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
             <div className="grid gap-4">
               <div className="space-y-2">
                 <Label htmlFor="venue" className="text-sm font-medium">
-                  Google Map Location
+                  Venue Name
                 </Label>
                 <Input
                   id="venue"
@@ -546,37 +546,6 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                   placeholder="Convention Center"
                   className="transition-all focus:ring-2 focus:ring-primary/50"
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="address" className="text-sm font-medium">
-                  Google Map Location
-                </Label>
-                <Input
-                  id="address"
-                  name="address"
-                  value={data.address}
-                  onChange={handleChange}
-                  placeholder="Paste Google Maps URL here"
-                  className="transition-all focus:ring-2 focus:ring-primary/50"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Paste a Google Maps URL to show a preview of the location
-                </p>
-
-                {data.address && data.address.includes("google.com/maps") && (
-                  <div className="mt-3 border rounded-md overflow-hidden">
-                    <div className="aspect-square w-full max-w-md mx-auto">
-                      <iframe
-                        src={`https://maps.google.com/maps?q=${encodeURIComponent(data.address)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
-                        className="w-full h-full border-0"
-                        loading="lazy"
-                        title="Google Maps Location"
-                        allowFullScreen
-                      ></iframe>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </Card>
