@@ -8,18 +8,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
-import { CalendarIcon, MapPin, Globe, Users, Clock, Edit } from "lucide-react"
-import { format } from "date-fns"
+import { CalendarIcon, MapPin, Globe, Users, Edit } from "lucide-react"
+import { format, addDays } from "date-fns"
 import { cn } from "@/lib/utils"
 import { motion } from "framer-motion"
 import { Card } from "@/components/ui/card"
 import { MarkdownEditor } from "@/components/ui/markdown-editor"
+import type { DateRange } from "react-day-picker"
 
 export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, formData, toast }) {
-  const [startDate, setStartDate] = useState(data.startDate ? new Date(data.startDate) : null)
-  const [endDate, setEndDate] = useState(data.endDate ? new Date(data.endDate) : null)
-  // Remove this line
-  // const [imageUploadMethod, setImageUploadMethod] = useState("url")
+  const [startDate, setStartDate] = useState(data.startDate ? new Date(data.startDate) : undefined)
+  const [endDate, setEndDate] = useState(data.endDate ? new Date(data.endDate) : undefined)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(
+    startDate && endDate
+      ? {
+          from: startDate,
+          to: endDate,
+        }
+      : undefined,
+  )
   const [isEditingSlug, setIsEditingSlug] = useState(false)
 
   // Generate slug when name changes
@@ -39,6 +46,19 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
     }
     if (data.endDate) {
       setEndDate(new Date(data.endDate))
+    }
+
+    // Update date range when start or end date changes
+    if (data.startDate && data.endDate) {
+      setDateRange({
+        from: new Date(data.startDate),
+        to: new Date(data.endDate),
+      })
+    } else if (data.startDate) {
+      setDateRange({
+        from: new Date(data.startDate),
+        to: undefined,
+      })
     }
   }, [data.startDate, data.endDate])
 
@@ -76,18 +96,29 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
     })
   }
 
-  const handleDateChange = (date, field) => {
-    if (field === "startDate") {
-      setStartDate(date)
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    if (range?.from) {
+      setDateRange(range)
+      setStartDate(range.from)
       updateData({
         ...data,
-        startDate: date ? date.toISOString() : "",
+        startDate: range.from.toISOString(),
+        endDate: range.to ? range.to.toISOString() : range.from.toISOString(),
       })
+
+      if (range.to) {
+        setEndDate(range.to)
+      } else {
+        setEndDate(range.from)
+      }
     } else {
-      setEndDate(date)
+      setDateRange(undefined)
+      setStartDate(undefined)
+      setEndDate(undefined)
       updateData({
         ...data,
-        endDate: date ? date.toISOString() : "",
+        startDate: "",
+        endDate: "",
       })
     }
   }
@@ -111,18 +142,6 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
       ...data,
       [field]: value,
     })
-  }
-
-  const handleImageUpload = (e, field) => {
-    const file = e.target.files[0]
-    if (file) {
-      // In a real app, you would upload this to a storage service
-      // For now, we'll just store the file object
-      updateData({
-        ...data,
-        [field]: file,
-      })
-    }
   }
 
   const handleImageUrlChange = (e) => {
@@ -356,7 +375,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
         <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
           Event Schedule
         </h2>
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6">
           <Card className="p-4 space-y-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -364,138 +383,138 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
               </div>
               <h3 className="font-medium">Event Dates</h3>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Start Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-                        !startDate && "text-muted-foreground",
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {startDate ? format(startDate, "PPP") : "Select date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={startDate}
-                      onSelect={(date) => handleDateChange(date, "startDate")}
-                      initialFocus
-                      disabled={(date) => {
-                        // Disable dates in the past
-                        const today = new Date()
-                        today.setHours(0, 0, 0, 0)
 
-                        // Disable dates more than 1 year in the future
-                        const oneYearFromNow = new Date()
-                        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
+            {/* New Date Range Picker */}
+            <div className="grid gap-4">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="date"
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+                      !dateRange && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (
+                      dateRange.to ? (
+                        <>
+                          {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                        </>
+                      ) : (
+                        format(dateRange.from, "LLL dd, y")
+                      )
+                    ) : (
+                      <span>Select event date(s)</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={handleDateRangeChange}
+                    numberOfMonths={2}
+                    disabled={(date) => {
+                      // Disable dates in the past
+                      const today = new Date()
+                      today.setHours(0, 0, 0, 0)
 
-                        return date < today || date > oneYearFromNow
-                      }}
-                      className="rounded-md border shadow-md"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">End Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-                        !endDate && "text-muted-foreground",
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {endDate ? format(endDate, "PPP") : "Select date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={endDate}
-                      onSelect={(date) => handleDateChange(date, "endDate")}
-                      initialFocus
-                      disabled={(date) => {
-                        // Disable dates before the start date
-                        const today = new Date()
-                        today.setHours(0, 0, 0, 0)
+                      // Disable dates more than 1 year in the future
+                      const oneYearFromNow = new Date()
+                      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
 
-                        // Disable dates more than 1 year in the future
-                        const oneYearFromNow = new Date()
-                        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
+                      return date < today || date > oneYearFromNow
+                    }}
+                    className="rounded-md border shadow-md p-3"
+                  />
+                  <div className="p-3 border-t border-border">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">Select a date range for your event</div>
+                      <div className="space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const today = new Date()
+                            const nextWeek = addDays(today, 7)
+                            handleDateRangeChange({
+                              from: today,
+                              to: nextWeek,
+                            })
+                          }}
+                        >
+                          Next 7 days
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const today = new Date()
+                            handleDateRangeChange({
+                              from: today,
+                              to: today,
+                            })
+                          }}
+                        >
+                          Today
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
-                        // If start date is selected, don't allow end date before start date
-                        return (startDate ? date < startDate : date < today) || date > oneYearFromNow
-                      }}
-                      className="rounded-md border shadow-md"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center">
-                <Clock className="h-4 w-4 text-secondary" />
-              </div>
-              <h3 className="font-medium">Event Times</h3>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Start Time</Label>
-                <Select value={data.startTime} onValueChange={(value) => handleTimeChange(value, "startTime")}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 13 }).map((_, hourOffset) => {
-                      const hour = hourOffset + 9 // Start from 9:00
-                      return Array.from({ length: 4 }).map((_, minute) => {
-                        const h = hour.toString().padStart(2, "0")
-                        const m = (minute * 15).toString().padStart(2, "0")
-                        const time = `${h}:${m}`
-                        return (
-                          <SelectItem key={time} value={time}>
-                            {time}
-                          </SelectItem>
-                        )
-                      })
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">End Time</Label>
-                <Select value={data.endTime} onValueChange={(value) => handleTimeChange(value, "endTime")}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 13 }).map((_, hourOffset) => {
-                      const hour = hourOffset + 9 // Start from 9:00
-                      return Array.from({ length: 4 }).map((_, minute) => {
-                        const h = hour.toString().padStart(2, "0")
-                        const m = (minute * 15).toString().padStart(2, "0")
-                        const time = `${h}:${m}`
-                        return (
-                          <SelectItem key={time} value={time}>
-                            {time}
-                          </SelectItem>
-                        )
-                      })
-                    })}
-                  </SelectContent>
-                </Select>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Start Time</Label>
+                  <Select value={data.startTime} onValueChange={(value) => handleTimeChange(value, "startTime")}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 13 }).map((_, hourOffset) => {
+                        const hour = hourOffset + 9 // Start from 9:00
+                        return Array.from({ length: 4 }).map((_, minute) => {
+                          const h = hour.toString().padStart(2, "0")
+                          const m = (minute * 15).toString().padStart(2, "0")
+                          const time = `${h}:${m}`
+                          return (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          )
+                        })
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">End Time</Label>
+                  <Select value={data.endTime} onValueChange={(value) => handleTimeChange(value, "endTime")}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 13 }).map((_, hourOffset) => {
+                        const hour = hourOffset + 9 // Start from 9:00
+                        return Array.from({ length: 4 }).map((_, minute) => {
+                          const h = hour.toString().padStart(2, "0")
+                          const m = (minute * 15).toString().padStart(2, "0")
+                          const time = `${h}:${m}`
+                          return (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          )
+                        })
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </Card>
@@ -575,20 +594,6 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
           Event Cover Image
         </h2>
         <Card className="p-4 space-y-4">
-          {/* Tabs component commented out - only using URL option */}
-          {/* <Tabs defaultValue={imageUploadMethod} onValueChange={setImageUploadMethod}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="url" className="flex items-center gap-2">
-                <Link className="h-4 w-4" />
-                Image URL
-              </TabsTrigger>
-              <TabsTrigger value="upload" className="flex items-center gap-2">
-                <Upload className="h-4 w-4" />
-                Upload Image
-              </TabsTrigger>
-            </TabsList> */}
-
-          {/* Only showing URL option */}
           <div className="space-y-4 mt-4">
             <div className="space-y-2">
               <Label htmlFor="coverImageUrl">Image URL</Label>
@@ -616,68 +621,6 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
               </div>
             )}
           </div>
-
-          {/* Comment out TabsContent for upload */}
-          {/* <TabsContent value="upload" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label>Desktop Cover Image</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="desktopCoverImage"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleImageUpload(e, "desktopCoverImage")}
-                  className="hidden"
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => document.getElementById("desktopCoverImage").click()}
-                  className="w-full button-hover"
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload Desktop Image
-                </Button>
-              </div>
-              {data.desktopCoverImage && (
-                <p className="text-sm text-muted-foreground mt-2">Selected: {data.desktopCoverImage.name}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Mobile Cover Image</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="mobileCoverImage"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleImageUpload(e, "mobileCoverImage")}
-                  className="hidden"
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => document.getElementById("mobileCoverImage").click()}
-                  className="w-full button-hover"
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload Mobile Image
-                </Button>
-              </div>
-              {data.mobileCoverImage && (
-                <p className="text-sm text-muted-foreground mt-2">Selected: {data.mobileCoverImage.name}</p>
-              )}
-            </div>
-
-            <div className="mt-4 border-2 border-dashed border-muted rounded-md p-8 flex flex-col items-center justify-center text-center">
-              <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-                <ImageIcon className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {data.desktopCoverImage || data.mobileCoverImage
-                  ? "Images selected and ready to upload"
-                  : "Drag and drop your images here, or click the upload buttons above"}
-              </p>
-            </div>
-          </TabsContent> */}
         </Card>
       </motion.div>
       <Button onClick={handleNext}>Next</Button>
