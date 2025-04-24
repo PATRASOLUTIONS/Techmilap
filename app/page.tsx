@@ -42,7 +42,7 @@ export default function LandingPage() {
           <HeroSection />
 
           {/* Partners Section */}
-          <PartnersSection />
+          
 
           {/* Stats Section - Using the client component wrapper */}
           <StatsSectionWrapper />
@@ -51,7 +51,7 @@ export default function LandingPage() {
           <FeaturesSection />
 
           {/* Enhanced Testimonials Section */}
-          <TestimonialsSection />
+          
 
           {/* CTA Section */}
           <CtaSection />
