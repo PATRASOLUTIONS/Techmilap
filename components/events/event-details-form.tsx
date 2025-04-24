@@ -550,7 +550,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
 
               <div className="space-y-2">
                 <Label htmlFor="address" className="text-sm font-medium">
-                  Google Map Location
+                  Venue Name
                 </Label>
                 <Input
                   id="address"
