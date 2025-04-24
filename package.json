@@ -75,7 +75,8 @@
     "crypto": "latest",
     "react-markdown": "latest",
     "@tailwindcss/typography": "latest",
-    "bcryptjs": "latest"
+    "bcryptjs": "latest",
+    "@tanstack/react-table": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

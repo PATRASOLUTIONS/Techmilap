@@ -11,6 +11,7 @@ import { formatDistanceToNow } from "date-fns"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
+import type { ColumnDef } from "@tanstack/react-table"
 
 interface SubmissionsTableProps {
   eventId: string
@@ -29,6 +30,7 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
   const [searchQuery, setSearchQuery] = useState("")
   const { toast } = useToast()
   const [selectedSubmissions, setSelectedSubmissions] = useState<string[]>([])
+  const [customQuestions, setCustomQuestions] = useState<any[]>([])
 
   useEffect(() => {
     const fetchSubmissions = async () => {
@@ -83,7 +85,29 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
       }
     }
 
+    const fetchCustomQuestions = async () => {
+      try {
+        const response = await fetch(`/api/events/${eventId}/forms/${formType}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+          },
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          setCustomQuestions(data.questions || [])
+        } else {
+          console.error("Failed to fetch custom questions")
+        }
+      } catch (error) {
+        console.error("Error fetching custom questions:", error)
+      }
+    }
+
     fetchSubmissions()
+    fetchCustomQuestions()
   }, [eventId, formType, filterStatus, searchQuery, toast])
 
   const handleViewSubmission = (submission: any) => {
@@ -201,6 +225,83 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
     }
   }
 
+  const columns: ColumnDef<any>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox checked={allSelected} onCheckedChange={() => toggleSelectAll()} aria-label="Select all" />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={selectedSubmissions.includes(row.original._id)}
+          onCheckedChange={() => toggleSubmission(row.original._id)}
+          aria-label="Select row"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      accessorKey: "data.name",
+      header: "Name",
+      cell: ({ row }) => <div>{row.original.data?.name || row.original.data?.firstName || "Anonymous"}</div>,
+    },
+    {
+      accessorKey: "data.email",
+      header: "Email",
+      cell: ({ row }) => <div>{row.original.data?.email || "N/A"}</div>,
+    },
+    ...customQuestions.map((question) => ({
+      accessorKey: `data.custom_${question.id}`,
+      header: formatFieldName(question.label),
+      cell: ({ row }) => <div>{row.original.data[`custom_${question.id}`] || "N/A"}</div>,
+    })),
+    {
+      accessorKey: "createdAt",
+      header: "Submitted",
+      cell: ({ row }) => <div>{formatDistanceToNow(new Date(row.original.createdAt), { addSuffix: true })}</div>,
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => <div>{getStatusBadge(row.original.status)}</div>,
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => handleViewSubmission(row.original)}>
+            <Eye className="h-4 w-4 mr-1" />
+            View
+          </Button>
+          {row.original.status === "pending" && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-green-600 hover:text-green-700"
+                onClick={() => handleUpdateStatus(row.original._id, "approved")}
+              >
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Approve
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 hover:text-red-700"
+                onClick={() => handleUpdateStatus(row.original._id, "rejected")}
+              >
+                <XCircle className="h-4 w-4 mr-1" />
+                Reject
+              </Button>
+            </>
+          )}
+        </div>
+      ),
+    },
+  ]
+
   if (loading) {
     return (
       <Card>
@@ -265,63 +366,19 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>
-                    <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
-                  </TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Submitted</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  {columns.map((column) => (
+                    <TableHead key={column.id}>{column.header}</TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {submissions.map((submission: any) => (
                   <TableRow key={submission._id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedSubmissions.includes(submission._id)}
-                        onCheckedChange={() => toggleSubmission(submission._id)}
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {submission.data?.firstName || submission.data?.name || "Anonymous"}
-                    </TableCell>
-                    <TableCell>{submission.data?.email || "N/A"}</TableCell>
-                    <TableCell>
-                      {submission.createdAt && formatDistanceToNow(new Date(submission.createdAt), { addSuffix: true })}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(submission.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleViewSubmission(submission)}>
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                        {submission.status === "pending" && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-green-600 hover:text-green-700"
-                              onClick={() => handleUpdateStatus(submission._id, "approved")}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => handleUpdateStatus(submission._id, "rejected")}
-                            >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
+                    {columns.map((column) => (
+                      <TableCell key={`${submission._id}-${column.id}`}>
+                        {column.cell({ row: { original: submission } })}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>
