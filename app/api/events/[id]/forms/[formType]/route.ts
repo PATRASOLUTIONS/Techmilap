@@ -13,7 +13,6 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     }
 
     // Connect to database
-    await connectToDatabase()
     const client = await connectToDatabase()
     const db = client.db()
 

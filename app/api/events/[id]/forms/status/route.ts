@@ -7,7 +7,9 @@ export async function GET(request, { params }) {
     const { id } = params
 
     // Connect to the database
-    await connectToDatabase()
+    await connectToDatabase({
+      cache: "no-store",
+    })
 
     // Find the event
     const event = await Event.findById(id)

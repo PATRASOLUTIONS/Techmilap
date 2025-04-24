@@ -386,7 +386,9 @@ export function CustomQuestionsForm({
     if (!eventId) return
 
     try {
-      const response = await fetch(`/api/events/${eventId}/forms/status`)
+      const response = await fetch(`/api/events/${eventId}/forms/status`, {
+        cache: "no-store",
+      })
       if (!response.ok) {
         throw new Error(`Failed to fetch form status: ${response.status}`)
       }
@@ -846,12 +848,12 @@ export function CustomQuestionsForm({
             <Label>Options</Label>
             <div className="space-y-1">
               {Array.isArray(question.options) &&
-                question.options.map((option, optionIndex) => (
-                  <div key={option.id || `option-${optionIndex}`} className="flex items-center space-x-2">
+                question.options.map((option, optIndex) => (
+                  <div key={option.id || `option-${optIndex}`} className="flex items-center space-x-2">
                     <Input
                       value={option.value || ""}
                       onChange={(e) => updateOption(type, question.id, option.id, e.target.value)}
-                      placeholder={`Option ${optionIndex + 1}`}
+                      placeholder={`Option ${optIndex + 1}`}
                       className="flex-1"
                     />
                     <Button
@@ -865,7 +867,13 @@ export function CustomQuestionsForm({
                   </div>
                 ))}
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={() => addOption(type, question.id)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => addOption(type, question.id)}
+              className="mt-2"
+            >
               <Plus className="h-4 w-4 mr-2" />
               Add Option
             </Button>
