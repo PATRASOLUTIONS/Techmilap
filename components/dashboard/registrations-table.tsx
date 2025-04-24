@@ -283,7 +283,7 @@ export function RegistrationsTable({ eventId, title, description }: Registration
       },
       {
         id: "actions",
-        header: "",
+        header: "Actions",
         cell: ({ row }) => {
           const submission = row.original
           return (
