@@ -1,15 +1,17 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, CheckCircle, XCircle, Download, Search } from "lucide-react"
+import { Loader2, Eye, CheckCircle, XCircle, Search } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface RegistrationsTableProps {
   eventId: string
@@ -19,16 +21,17 @@ interface RegistrationsTableProps {
 
 export function RegistrationsTable({ eventId, title, description }: RegistrationsTableProps) {
   const [registrations, setRegistrations] = useState<any[]>([])
-  const [filteredRegistrations, setFilteredRegistrations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedRegistration, setSelectedRegistration] = useState<any>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const { toast } = useToast()
+  const [selectedSubmissions, setSelectedSubmissions] = useState<string[]>([])
+  const [customQuestions, setCustomQuestions] = useState<any[]>([])
 
   useEffect(() => {
-    const fetchRegistrations = async () => {
+    const fetchSubmissions = async () => {
       if (!eventId) {
         setLoading(false)
         setError("Event ID is missing")
@@ -60,10 +63,8 @@ export function RegistrationsTable({ eventId, title, description }: Registration
         if (!data.registrations) {
           console.warn("No registrations array in response:", data)
           setRegistrations([])
-          setFilteredRegistrations([])
         } else {
           setRegistrations(data.registrations)
-          setFilteredRegistrations(data.registrations)
         }
       } catch (error) {
         console.error(`Error fetching registrations:`, error)
@@ -78,35 +79,39 @@ export function RegistrationsTable({ eventId, title, description }: Registration
       }
     }
 
-    fetchRegistrations()
+    const fetchCustomQuestions = async () => {
+      try {
+        const response = await fetch(`/api/events/${eventId}/forms/attendee`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+          },
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          setCustomQuestions(data.questions || [])
+        } else {
+          console.error("Failed to fetch custom questions")
+        }
+      } catch (error) {
+        console.error("Error fetching custom questions:", error)
+      }
+    }
+
+    fetchSubmissions()
+    fetchCustomQuestions()
   }, [eventId, toast])
 
-  useEffect(() => {
-    if (searchTerm.trim() === "") {
-      setFilteredRegistrations(registrations)
-    } else {
-      const lowercasedSearch = searchTerm.toLowerCase()
-      const filtered = registrations.filter((registration) => {
-        // Safely access nested properties
-        const name = registration.name || ""
-        const email = registration.email || ""
-
-        return name.toLowerCase().includes(lowercasedSearch) || email.toLowerCase().includes(lowercasedSearch)
-      })
-      setFilteredRegistrations(filtered)
-    }
-  }, [searchTerm, registrations])
-
-  const handleViewRegistration = (registration: any) => {
-    setSelectedRegistration(registration)
+  const handleViewSubmission = (submission: any) => {
+    setSelectedRegistration(submission)
     setDialogOpen(true)
   }
 
-  const handleUpdateStatus = async (registrationId: string, newStatus: string) => {
-    if (!eventId || !registrationId) return
-
+  const handleUpdateStatus = async (submissionId: string, newStatus: string) => {
     try {
-      const response = await fetch(`/api/events/${eventId}/registrations/${registrationId}`, {
+      const response = await fetch(`/api/events/${eventId}/registrations/${submissionId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -115,73 +120,55 @@ export function RegistrationsTable({ eventId, title, description }: Registration
       })
 
       if (!response.ok) {
-        throw new Error("Failed to update registration status")
+        throw new Error("Failed to update submission status")
       }
 
-      // Update the registration in the local state
-      setRegistrations(registrations.map((reg) => (reg.id === registrationId ? { ...reg, status: newStatus } : reg)))
-      setFilteredRegistrations(
-        filteredRegistrations.map((reg) => (reg.id === registrationId ? { ...reg, status: newStatus } : reg)),
-      )
+      // Update the submission in the local state
+      setRegistrations(registrations.map((sub: any) => (sub.id === submissionId ? { ...sub, status: newStatus } : sub)))
 
       toast({
         title: "Status Updated",
-        description: `Registration status updated to ${newStatus}`,
+        description: `Submission status updated to ${newStatus}`,
       })
     } catch (error) {
-      console.error("Error updating registration status:", error)
+      console.error("Error updating submission status:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update registration status",
+        description: error instanceof Error ? error.message : "Failed to update submission status",
         variant: "destructive",
       })
     }
   }
 
-  const exportToCSV = () => {
+  const handleBulkApprove = async () => {
     try {
-      if (filteredRegistrations.length === 0) {
-        toast({
-          title: "No data to export",
-          description: "There are no registrations to export",
-          variant: "destructive",
-        })
-        return
+      const response = await fetch(`/api/events/${eventId}/submissions/attendee/bulk-approve`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ submissionIds: selectedSubmissions }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to bulk approve submissions")
       }
 
-      // Create CSV header
-      let csvContent = "Name,Email,Status,Registered Date\n"
-
-      // Add data rows
-      filteredRegistrations.forEach((registration) => {
-        const name = (registration.name || "Anonymous").replace(/,/g, " ")
-        const email = (registration.email || "N/A").replace(/,/g, " ")
-        const status = registration.status || "pending"
-        const date = registration.registeredAt ? new Date(registration.registeredAt).toLocaleDateString() : "Unknown"
-
-        csvContent += `${name},${email},${status},${date}\n`
-      })
-
-      // Create download link
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.setAttribute("href", url)
-      link.setAttribute("download", `event-registrations-${eventId}.csv`)
-      link.style.visibility = "hidden"
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      // Update the submission in the local state
+      setRegistrations(
+        registrations.map((sub: any) => (selectedSubmissions.includes(sub.id) ? { ...sub, status: "approved" } : sub)),
+      )
+      setSelectedSubmissions([])
 
       toast({
-        title: "Export Successful",
-        description: "Registrations exported to CSV",
+        title: "Submissions Approved",
+        description: `${selectedSubmissions.length} submissions approved successfully.`,
       })
     } catch (error) {
-      console.error("Error exporting to CSV:", error)
+      console.error("Error bulk approving submissions:", error)
       toast({
-        title: "Export Failed",
-        description: "Failed to export registrations",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to bulk approve submissions",
         variant: "destructive",
       })
     }
@@ -202,6 +189,124 @@ export function RegistrationsTable({ eventId, title, description }: Registration
         return <Badge variant="outline">Pending</Badge>
     }
   }
+
+  const formatFieldName = (key: string) => {
+    // Remove question_ prefix and _numbers suffix
+    let formattedKey = key.replace(/^question_/, "").replace(/_\d+$/, "")
+
+    // Convert camelCase or snake_case to Title Case
+    formattedKey = formattedKey
+      .replace(/([A-Z])/g, " $1") // Add space before capital letters
+      .replace(/_/g, " ") // Replace underscores with spaces
+      .replace(/^\w/, (c) => c.toUpperCase()) // Capitalize first letter
+
+    return formattedKey
+  }
+
+  const toggleSubmission = (submissionId: string) => {
+    setSelectedSubmissions((prev) => {
+      if (prev.includes(submissionId)) {
+        return prev.filter((id) => id !== submissionId)
+      } else {
+        return [...prev, submissionId]
+      }
+    })
+  }
+
+  const allSelected = registrations.length > 0 && selectedSubmissions.length === registrations.length
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedSubmissions([])
+    } else {
+      setSelectedSubmissions(registrations.map((sub: any) => sub.id))
+    }
+  }
+
+  const columns: ColumnDef<any>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox checked={allSelected} onCheckedChange={() => toggleSelectAll()} aria-label="Select all" />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={selectedSubmissions.includes(row.original.id)}
+          onCheckedChange={() => toggleSubmission(row.original.id)}
+          aria-label="Select row"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => <div>{row.original.name || "Anonymous"}</div>,
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+      cell: ({ row }) => <div>{row.original.email || "N/A"}</div>,
+    },
+    ...customQuestions.map((question) => ({
+      accessorKey: `data.custom_${question.id}`,
+      header: formatFieldName(question.label),
+      cell: ({ row }) => <div>{row.original.data[`custom_${question.id}`] || "N/A"}</div>,
+    })),
+    {
+      accessorKey: "registeredAt",
+      header: "Registered",
+      cell: ({ row }) => (
+        <div>{row.registeredAt ? formatDistanceToNow(new Date(row.registeredAt), { addSuffix: true }) : "Unknown"}</div>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => <div>{getStatusBadge(row.status)}</div>,
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => handleViewSubmission(row.original)}>
+            <Eye className="h-4 w-4 mr-1" />
+            View
+          </Button>
+          {row.original.status === "pending" && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-green-600 hover:text-green-700"
+                onClick={() => handleUpdateStatus(row.original.id, "approved")}
+              >
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Approve
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 hover:text-red-700"
+                onClick={() => handleUpdateStatus(row.original.id, "rejected")}
+              >
+                <XCircle className="h-4 w-4 mr-1" />
+                Reject
+              </Button>
+            </>
+          )}
+        </div>
+      ),
+    },
+  ]
+
+  const table = useReactTable({
+    data: registrations,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  })
 
   if (loading) {
     return (
@@ -241,13 +346,11 @@ export function RegistrationsTable({ eventId, title, description }: Registration
           <CardTitle>{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </div>
-        <Button variant="outline" onClick={exportToCSV} disabled={filteredRegistrations.length === 0}>
-          <Download className="h-4 w-4 mr-2" />
-          Export to CSV
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <div className="mb-4">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleBulkApprove} disabled={selectedSubmissions.length === 0}>
+            <CheckCircle className="h-4 w-4 mr-1" />
+            Bulk Approve
+          </Button>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -258,8 +361,9 @@ export function RegistrationsTable({ eventId, title, description }: Registration
             />
           </div>
         </div>
-
-        {filteredRegistrations.length === 0 ? (
+      </CardHeader>
+      <CardContent>
+        {registrations.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <p>No registrations yet.</p>
           </div>
@@ -267,55 +371,26 @@ export function RegistrationsTable({ eventId, title, description }: Registration
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Registered</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => {
+                      return (
+                        <TableHead key={header.id}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </TableHead>
+                      )
+                    })}
+                  </TableRow>
+                ))}
               </TableHeader>
               <TableBody>
-                {filteredRegistrations.map((registration: any) => (
-                  <TableRow key={registration.id}>
-                    <TableCell className="font-medium">{registration.name || "Anonymous"}</TableCell>
-                    <TableCell>{registration.email || "N/A"}</TableCell>
-                    <TableCell>
-                      {registration.registeredAt
-                        ? formatDistanceToNow(new Date(registration.registeredAt), { addSuffix: true })
-                        : "Unknown"}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(registration.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleViewRegistration(registration)}>
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                        {registration.status === "pending" && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-green-600 hover:text-green-700"
-                              onClick={() => handleUpdateStatus(registration.id, "approved")}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => handleUpdateStatus(registration.id, "rejected")}
-                            >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
+                {table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>
@@ -324,11 +399,11 @@ export function RegistrationsTable({ eventId, title, description }: Registration
         )}
       </CardContent>
 
-      {/* Registration Detail Dialog */}
+      {/* Submission Detail Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Registration Details</DialogTitle>
+            <DialogTitle>Submission Details</DialogTitle>
             <DialogDescription>
               Submitted{" "}
               {selectedRegistration &&
@@ -362,11 +437,9 @@ export function RegistrationsTable({ eventId, title, description }: Registration
                 <h3 className="font-medium mb-2">Form Responses</h3>
                 <div className="space-y-3">
                   {selectedRegistration.data &&
-                    Object.entries(selectedRegistration.data || {}).map(([key, value]) => (
+                    Object.entries(selectedRegistration.data).map(([key, value]) => (
                       <div key={key} className="grid grid-cols-3 gap-2">
-                        <div className="font-medium text-sm">
-                          {key.startsWith("question_") ? key.split("_").slice(1, -1).join(" ") : key}
-                        </div>
+                        <div className="font-medium text-sm">{formatFieldName(key)}</div>
                         <div className="col-span-2">{String(value)}</div>
                       </div>
                     ))}
