@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +12,16 @@ export function EventCreationSuccess({ eventId, eventName, eventSlug, isEditing 
   const router = useRouter()
   const { toast } = useToast()
   const [copied, setCopied] = useState(false)
+
+  // Add this useEffect hook to show a toast when the component mounts
+  useEffect(() => {
+    toast({
+      title: isEditing ? "Event updated successfully!" : "Event created successfully!",
+      description: isPublished
+        ? "Your event is now live and ready to be shared."
+        : "Your event has been saved as a draft.",
+    })
+  }, [toast, isEditing, isPublished])
 
   const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
   const eventUrl = `${baseUrl}/events/${eventSlug || eventId}`

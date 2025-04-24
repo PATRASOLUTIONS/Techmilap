@@ -171,7 +171,13 @@ export async function POST(req: NextRequest) {
     )
   } catch (error: any) {
     console.error("Error creating event:", error)
-    return NextResponse.json({ error: error.message || "An error occurred while creating the event" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: error.message || "An error occurred while creating the event",
+        details: error.stack ? error.stack.split("\n")[0] : undefined,
+      },
+      { status: 500 },
+    )
   }
 }
 
