@@ -534,6 +534,19 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
               <h3 className="font-medium">Location Information</h3>
             </div>
             <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="venue" className="text-sm font-medium">
+                  Google Map Location
+                </Label>
+                <Input
+                  id="venue"
+                  name="venue"
+                  value={data.venue}
+                  onChange={handleChange}
+                  placeholder="Convention Center"
+                  className="transition-all focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="address" className="text-sm font-medium">
