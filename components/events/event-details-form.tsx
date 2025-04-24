@@ -553,7 +553,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
 
                 {data.address && data.address.includes("google.com/maps") && (
                   <div className="mt-3 border rounded-md overflow-hidden">
-                    <div className="aspect-video w-full">
+                    <div className="aspect-square w-full max-w-md mx-auto">
                       <iframe
                         src={`https://maps.google.com/maps?q=${encodeURIComponent(data.address)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
                         className="w-full h-full border-0"
