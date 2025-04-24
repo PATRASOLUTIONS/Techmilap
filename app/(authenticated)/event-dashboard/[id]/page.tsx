@@ -6,9 +6,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Edit, Users, Eye, Mic, HandHelping } from "lucide-react"
+import { ArrowLeft, Users, Eye, Mic, HandHelping } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { MarkdownEditor } from "@/components/ui/markdown-editor"
 
 export default function EventDashboardPage() {
   const { id } = useParams() || {}
@@ -271,7 +272,6 @@ export default function EventDashboardPage() {
             </div>
           </div>
         </div>
-      
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
@@ -348,7 +348,9 @@ export default function EventDashboardPage() {
               </div>
               <div className="md:col-span-2">
                 <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
-                <p className="font-medium">{eventDescription}</p>
+                <div className="font-medium">
+                  <MarkdownEditor value={eventDescription} readOnly={true} preview="preview" />
+                </div>
               </div>
             </CardContent>
           </Card>
