@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, Users, Eye, Mic, HandHelping } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
-import { MarkdownEditor } from "@/components/ui/markdown-editor"
+import ReactMarkdown from "react-markdown"
 
 export default function EventDashboardPage() {
   const { id } = useParams() || {}
@@ -348,8 +348,8 @@ export default function EventDashboardPage() {
               </div>
               <div className="md:col-span-2">
                 <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
-                <div className="font-medium">
-                  <MarkdownEditor value={eventDescription} readOnly={true} preview="preview" />
+                <div className="font-medium mt-2 prose prose-sm max-w-none">
+                  <ReactMarkdown>{eventDescription}</ReactMarkdown>
                 </div>
               </div>
             </CardContent>
