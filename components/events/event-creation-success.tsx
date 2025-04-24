@@ -138,15 +138,6 @@ export function EventCreationSuccess({ eventId, eventName, eventSlug, isEditing 
             </div>
           </div>
 
-          {!isPublished && (
-            <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
-              <h4 className="text-amber-800 font-medium">Your event is saved as a draft</h4>
-              <p className="text-amber-700 text-sm mt-1">
-                You can publish it later from the event dashboard when you're ready.
-              </p>
-            </div>
-          )}
-
           <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
             <h4 className="text-blue-800 font-medium">What's next?</h4>
             <ul className="text-blue-700 text-sm mt-2 space-y-1 list-disc pl-5">

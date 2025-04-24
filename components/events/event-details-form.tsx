@@ -545,7 +545,6 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                   onChange={handleChange}
                   placeholder="Paste Google Maps URL here"
                   className="transition-all focus:ring-2 focus:ring-primary/50"
-                  required
                 />
                 <p className="text-xs text-muted-foreground">
                   Paste a Google Maps URL to show a preview of the location
