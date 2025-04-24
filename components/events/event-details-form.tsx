@@ -8,8 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CalendarIcon, Upload, MapPin, Globe, Users, Clock, Link, ImageIcon, Edit } from "lucide-react"
+import { CalendarIcon, MapPin, Globe, Users, Clock, Edit } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { motion } from "framer-motion"
@@ -19,7 +18,8 @@ import { MarkdownEditor } from "@/components/ui/markdown-editor"
 export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, formData, toast }) {
   const [startDate, setStartDate] = useState(data.startDate ? new Date(data.startDate) : null)
   const [endDate, setEndDate] = useState(data.endDate ? new Date(data.endDate) : null)
-  const [imageUploadMethod, setImageUploadMethod] = useState("url")
+  // Remove this line
+  // const [imageUploadMethod, setImageUploadMethod] = useState("url")
   const [isEditingSlug, setIsEditingSlug] = useState(false)
 
   // Generate slug when name changes
@@ -516,20 +516,6 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
             </div>
             <div className="grid gap-4">
               <div className="space-y-2">
-                <Label htmlFor="venue" className="text-sm font-medium">
-                  Venue Name
-                </Label>
-                <Input
-                  id="venue"
-                  name="venue"
-                  value={data.venue}
-                  onChange={handleChange}
-                  placeholder="Convention Center"
-                  className="transition-all focus:ring-2 focus:ring-primary/50"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="address" className="text-sm font-medium">
                   Google Map Location
                 </Label>
@@ -589,7 +575,8 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
           Event Cover Image
         </h2>
         <Card className="p-4 space-y-4">
-          <Tabs defaultValue={imageUploadMethod} onValueChange={setImageUploadMethod}>
+          {/* Tabs component commented out - only using URL option */}
+          {/* <Tabs defaultValue={imageUploadMethod} onValueChange={setImageUploadMethod}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="url" className="flex items-center gap-2">
                 <Link className="h-4 w-4" />
@@ -599,95 +586,98 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                 <Upload className="h-4 w-4" />
                 Upload Image
               </TabsTrigger>
-            </TabsList>
-            <TabsContent value="url" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="coverImageUrl">Image URL</Label>
-                <Input
-                  id="coverImageUrl"
-                  name="coverImageUrl"
-                  value={data.coverImageUrl}
-                  onChange={handleImageUrlChange}
-                  placeholder="https://example.com/image.jpg"
-                  className="transition-all focus:ring-2 focus:ring-primary/50"
-                  required={imageUploadMethod === "url"}
+            </TabsList> */}
+
+          {/* Only showing URL option */}
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="coverImageUrl">Image URL</Label>
+              <Input
+                id="coverImageUrl"
+                name="coverImageUrl"
+                value={data.coverImageUrl}
+                onChange={handleImageUrlChange}
+                placeholder="https://example.com/image.jpg"
+                className="transition-all focus:ring-2 focus:ring-primary/50"
+                required
+              />
+            </div>
+            {data.coverImageUrl && (
+              <div className="mt-4 border rounded-md overflow-hidden">
+                <img
+                  src={data.coverImageUrl || "/placeholder.svg"}
+                  alt="Event cover preview"
+                  className="w-full h-48 object-cover"
+                  onError={(e) => {
+                    e.target.src = "/placeholder.svg?key=8ogq3"
+                    e.target.alt = "Failed to load image"
+                  }}
                 />
               </div>
-              {data.coverImageUrl && (
-                <div className="mt-4 border rounded-md overflow-hidden">
-                  <img
-                    src={data.coverImageUrl || "/placeholder.svg"}
-                    alt="Event cover preview"
-                    className="w-full h-48 object-cover"
-                    onError={(e) => {
-                      e.target.src = "/placeholder.svg?key=8ogq3"
-                      e.target.alt = "Failed to load image"
-                    }}
-                  />
-                </div>
+            )}
+          </div>
+
+          {/* Comment out TabsContent for upload */}
+          {/* <TabsContent value="upload" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>Desktop Cover Image</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="desktopCoverImage"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e, "desktopCoverImage")}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => document.getElementById("desktopCoverImage").click()}
+                  className="w-full button-hover"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload Desktop Image
+                </Button>
+              </div>
+              {data.desktopCoverImage && (
+                <p className="text-sm text-muted-foreground mt-2">Selected: {data.desktopCoverImage.name}</p>
               )}
-            </TabsContent>
-            <TabsContent value="upload" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label>Desktop Cover Image</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="desktopCoverImage"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageUpload(e, "desktopCoverImage")}
-                    className="hidden"
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => document.getElementById("desktopCoverImage").click()}
-                    className="w-full button-hover"
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    Upload Desktop Image
-                  </Button>
-                </div>
-                {data.desktopCoverImage && (
-                  <p className="text-sm text-muted-foreground mt-2">Selected: {data.desktopCoverImage.name}</p>
-                )}
-              </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label>Mobile Cover Image</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="mobileCoverImage"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageUpload(e, "mobileCoverImage")}
-                    className="hidden"
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => document.getElementById("mobileCoverImage").click()}
-                    className="w-full button-hover"
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    Upload Mobile Image
-                  </Button>
-                </div>
-                {data.mobileCoverImage && (
-                  <p className="text-sm text-muted-foreground mt-2">Selected: {data.mobileCoverImage.name}</p>
-                )}
+            <div className="space-y-2">
+              <Label>Mobile Cover Image</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="mobileCoverImage"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e, "mobileCoverImage")}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => document.getElementById("mobileCoverImage").click()}
+                  className="w-full button-hover"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload Mobile Image
+                </Button>
               </div>
+              {data.mobileCoverImage && (
+                <p className="text-sm text-muted-foreground mt-2">Selected: {data.mobileCoverImage.name}</p>
+              )}
+            </div>
 
-              <div className="mt-4 border-2 border-dashed border-muted rounded-md p-8 flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-                  <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {data.desktopCoverImage || data.mobileCoverImage
-                    ? "Images selected and ready to upload"
-                    : "Drag and drop your images here, or click the upload buttons above"}
-                </p>
+            <div className="mt-4 border-2 border-dashed border-muted rounded-md p-8 flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                <ImageIcon className="h-6 w-6 text-muted-foreground" />
               </div>
-            </TabsContent>
-          </Tabs>
+              <p className="text-sm text-muted-foreground">
+                {data.desktopCoverImage || data.mobileCoverImage
+                  ? "Images selected and ready to upload"
+                  : "Drag and drop your images here, or click the upload buttons above"}
+              </p>
+            </div>
+          </TabsContent> */}
         </Card>
       </motion.div>
       <Button onClick={handleNext}>Next</Button>
