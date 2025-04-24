@@ -1,7 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table"
+import { useState, useEffect, useMemo } from "react"
+import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+  getFilteredRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
+  getFacetedMinMaxValues,
+} from "@tanstack/react-table"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -223,89 +232,107 @@ export function RegistrationsTable({ eventId, title, description }: Registration
     }
   }
 
-  const columns: ColumnDef<any>[] = [
-    {
-      id: "select",
-      header: ({ table }) => (
-        <Checkbox checked={allSelected} onCheckedChange={() => toggleSelectAll()} aria-label="Select all" />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={selectedSubmissions.includes(row.original.id)}
-          onCheckedChange={() => toggleSubmission(row.original.id)}
-          aria-label="Select row"
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
-      accessorKey: "name",
-      header: "Name",
-      cell: ({ row }) => <div>{row.original.name || "Anonymous"}</div>,
-    },
-    {
-      accessorKey: "email",
-      header: "Email",
-      cell: ({ row }) => <div>{row.original.email || "N/A"}</div>,
-    },
-    ...customQuestions.map((question) => ({
-      accessorKey: `data.custom_${question.id}`,
-      header: formatFieldName(question.label),
-      cell: ({ row }) => <div>{row.original.data[`custom_${question.id}`] || "N/A"}</div>,
-    })),
-    {
-      accessorKey: "registeredAt",
-      header: "Registered",
-      cell: ({ row }) => (
-        <div>{row.registeredAt ? formatDistanceToNow(new Date(row.registeredAt), { addSuffix: true }) : "Unknown"}</div>
-      ),
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => <div>{getStatusBadge(row.status)}</div>,
-    },
-    {
-      id: "actions",
-      header: "",
-      cell: ({ row }) => (
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleViewSubmission(row.original)}>
-            <Eye className="h-4 w-4 mr-1" />
-            View
-          </Button>
-          {row.original.status === "pending" && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-green-600 hover:text-green-700"
-                onClick={() => handleUpdateStatus(row.original.id, "approved")}
-              >
-                <CheckCircle className="h-4 w-4 mr-1" />
-                Approve
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-red-600 hover:text-red-700"
-                onClick={() => handleUpdateStatus(row.original.id, "rejected")}
-              >
-                <XCircle className="h-4 w-4 mr-1" />
-                Reject
-              </Button>
-            </>
-          )}
-        </div>
-      ),
-    },
-  ]
+  const columns: ColumnDef<any>[] = useMemo(
+    () => [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox checked={allSelected} onCheckedChange={() => toggleSelectAll()} aria-label="Select all" />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={selectedSubmissions.includes(row.original.id)}
+            onCheckedChange={() => toggleSubmission(row.original.id)}
+            aria-label="Select row"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: ({ row }) => <div>{row.original.name || "Anonymous"}</div>,
+      },
+      {
+        accessorKey: "email",
+        header: "Email",
+        cell: ({ row }) => <div>{row.original.email || "N/A"}</div>,
+      },
+      ...customQuestions.map((question) => ({
+        accessorKey: `data.custom_${question.id}`,
+        header: formatFieldName(question.label),
+        cell: ({ row }) => <div>{row.original.data[`custom_${question.id}`] || "N/A"}</div>,
+        filterFn: (row, id, value) => {
+          return value.length === 0 || row.getValue(id).toLowerCase().includes(value.toLowerCase())
+        },
+      })),
+      {
+        accessorKey: "registeredAt",
+        header: "Registered",
+        cell: ({ row }) => (
+          <div>
+            {row.registeredAt ? formatDistanceToNow(new Date(row.registeredAt), { addSuffix: true }) : "Unknown"}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => <div>{getStatusBadge(row.status)}</div>,
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => (
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => handleViewSubmission(row.original)}>
+              <Eye className="h-4 w-4 mr-1" />
+              View
+            </Button>
+            {row.original.status === "pending" && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-green-600 hover:text-green-700"
+                  onClick={() => handleUpdateStatus(row.original.id, "approved")}
+                >
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Approve
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700"
+                  onClick={() => handleUpdateStatus(row.original.id, "rejected")}
+                >
+                  <XCircle className="h-4 w-4 mr-1" />
+                  Reject
+                </Button>
+              </>
+            )}
+          </div>
+        ),
+      },
+    ],
+    [customQuestions, selectedSubmissions, toggleSelectAll],
+  )
 
   const table = useReactTable({
     data: registrations,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
+    getFacetedMinMaxValues: getFacetedMinMaxValues(),
+    initialState: {
+      columnVisibility: {
+        "data.name": true,
+        "data.email": true,
+      },
+    },
   })
 
   if (loading) {

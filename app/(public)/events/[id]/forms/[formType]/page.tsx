@@ -335,7 +335,7 @@ export default function EventFormPage() {
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-24">
           <DynamicForm
             formFields={formConfig.fields || []}
             formTitle={formConfig.title || formTypeConfig[formType].title}
