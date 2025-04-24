@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
@@ -373,7 +372,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                     <Button
                       variant="outline"
                       className={cn(
-                        "w-full justify-start text-left font-normal",
+                        "w-full justify-start text-left font-normal border border-input bg-background hover:bg-accent hover:text-accent-foreground",
                         !startDate && "text-muted-foreground",
                       )}
                     >
@@ -381,7 +380,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                       {startDate ? format(startDate, "PPP") : "Select date"}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
+                  <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
                       selected={startDate}
@@ -398,6 +397,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
 
                         return date < today || date > oneYearFromNow
                       }}
+                      className="rounded-md border shadow-md"
                     />
                   </PopoverContent>
                 </Popover>
@@ -408,13 +408,16 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className={cn("w-full justify-start text-left font-normal", !endDate && "text-muted-foreground")}
+                      className={cn(
+                        "w-full justify-start text-left font-normal border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+                        !endDate && "text-muted-foreground",
+                      )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {endDate ? format(endDate, "PPP") : "Select date"}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
+                  <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
                       selected={endDate}
@@ -432,6 +435,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                         // If start date is selected, don't allow end date before start date
                         return (startDate ? date < startDate : date < today) || date > oneYearFromNow
                       }}
+                      className="rounded-md border shadow-md"
                     />
                   </PopoverContent>
                 </Popover>
@@ -527,17 +531,34 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
               </div>
               <div className="space-y-2">
                 <Label htmlFor="address" className="text-sm font-medium">
-                  Address
+                  Google Map Location
                 </Label>
-                <Textarea
+                <Input
                   id="address"
                   name="address"
                   value={data.address}
                   onChange={handleChange}
-                  placeholder="123 Main St, City, State, Zip"
-                  className="min-h-[100px] transition-all focus:ring-2 focus:ring-primary/50"
+                  placeholder="Paste Google Maps URL here"
+                  className="transition-all focus:ring-2 focus:ring-primary/50"
                   required
                 />
+                <p className="text-xs text-muted-foreground">
+                  Paste a Google Maps URL to show a preview of the location
+                </p>
+
+                {data.address && data.address.includes("google.com/maps") && (
+                  <div className="mt-3 border rounded-md overflow-hidden">
+                    <div className="aspect-video w-full">
+                      <iframe
+                        src={`https://maps.google.com/maps?q=${encodeURIComponent(data.address)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                        className="w-full h-full border-0"
+                        loading="lazy"
+                        title="Google Maps Location"
+                        allowFullScreen
+                      ></iframe>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </Card>
