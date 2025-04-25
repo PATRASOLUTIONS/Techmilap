@@ -24,7 +24,11 @@ export default async function ExplorePage({ searchParams }: { searchParams: { ca
   }
 
   // Find published events with form status information
-  const events = await Event.find(query).populate("organizer", "firstName lastName").sort({ date: 1 })
+  let events = await Event.find(query).populate("organizer", "firstName lastName").sort({ date: 1 })
+
+  // Client-side filtering to remove past events
+  const currentDate = new Date()
+  events = events.filter((event) => new Date(event.date) >= currentDate)
 
   // Get all unique categories for the filter
   const categories = await Event.distinct("category", { status: "published" })

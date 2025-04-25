@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     console.log(`Events matching query: ${total}`)
 
     const events = await Event.find(query)
-      .sort({ createdAt: -1 }) // Most recent first for testing
+      .sort({ date: -1 }) // Most recent first for testing
       .skip(skip)
       .limit(limit)
       .lean()
