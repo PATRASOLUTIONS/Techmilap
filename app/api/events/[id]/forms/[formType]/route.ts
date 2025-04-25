@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
+import { generateDefaultQuestions } from "@/lib/form-utils"
 
 // Get form questions for a specific form type
 export async function GET(request: Request, { params }: { params: { id: string; formType: string } }) {
@@ -44,6 +45,9 @@ export async function GET(request: Request, { params }: { params: { id: string; 
 
     console.log(`Found event: ${event.title}`)
 
+    // Log the structure of customQuestions to debug
+    console.log("customQuestions structure:", JSON.stringify(event.customQuestions || {}))
+
     // Get the form status based on form type
     let formStatus = "published" // Default to published
     if (formType === "attendee" && event.attendeeForm && event.attendeeForm.status) {
@@ -54,43 +58,25 @@ export async function GET(request: Request, { params }: { params: { id: string; 
       formStatus = event.speakerForm.status
     }
 
-    // Create default questions based on form type
-    let defaultQuestions = []
+    // Get custom questions from the database
+    let questions = []
 
-    if (formType === "attendee") {
-      defaultQuestions = [
-        { id: "firstName", type: "text", label: "First Name", required: true },
-        { id: "lastName", type: "text", label: "Last Name", required: true },
-        { id: "email", type: "email", label: "Email", required: true },
-      ]
-    } else if (formType === "volunteer") {
-      defaultQuestions = [
-        { id: "name", type: "text", label: "Full Name", required: true },
-        { id: "email", type: "email", label: "Email", required: true },
-        { id: "phone", type: "text", label: "Phone Number", required: false },
-        { id: "availability", type: "textarea", label: "Availability", required: true },
-      ]
-    } else if (formType === "speaker") {
-      defaultQuestions = [
-        { id: "name", type: "text", label: "Full Name", required: true },
-        { id: "email", type: "email", label: "Email", required: true },
-        { id: "topic", type: "text", label: "Presentation Topic", required: true },
-        { id: "bio", type: "textarea", label: "Speaker Bio", required: true },
-      ]
+    // First check if customQuestions exists and has the form type
+    if (event.customQuestions && event.customQuestions[formType]) {
+      console.log(`Found ${formType} questions in customQuestions:`, JSON.stringify(event.customQuestions[formType]))
+
+      if (Array.isArray(event.customQuestions[formType])) {
+        questions = event.customQuestions[formType]
+      }
     }
 
-    // Safely get custom questions
-    let customQuestions = []
-    if (event.customQuestions && Array.isArray(event.customQuestions[formType])) {
-      customQuestions = event.customQuestions[formType]
+    // If no custom questions found, generate default questions
+    if (questions.length === 0) {
+      console.log(`No custom questions found for ${formType}, generating defaults`)
+      questions = generateDefaultQuestions(formType)
     }
 
-    // Combine default questions with custom questions
-    const questions = [...defaultQuestions, ...customQuestions]
-
-    console.log(
-      `Form status: ${formStatus}, Questions found: ${questions.length} (${defaultQuestions.length} default, ${customQuestions.length} custom)`,
-    )
+    console.log(`Form status: ${formStatus}, Questions found: ${questions.length}`)
 
     // Return the questions and status
     return NextResponse.json({

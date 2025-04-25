@@ -121,6 +121,7 @@ export default function EventFormPage() {
           headers: {
             "x-public-request": "true",
           },
+          cache: "no-store",
         })
 
         if (!formResponse.ok) {
@@ -170,6 +171,7 @@ export default function EventFormPage() {
         }
 
         const formData = await formResponse.json()
+        console.log("Form data received:", formData)
 
         // Ensure form has valid fields
         const form = formData.form || {}
