@@ -342,10 +342,6 @@ function EventCard({ event, onClick }: { event: Event; onClick: () => void }) {
           <MapPin className="h-4 w-4 text-muted-foreground" />
           <span>{event.location}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-muted-foreground" />
-          <span>{event.attendees?.length || 0} Attendees</span>
-        </div>
       </CardContent>
       <CardFooter className="text-xs text-muted-foreground justify-between">
         <span>{event.userRole ? `Your Role: ${event.userRole}` : "No Role Assigned"}</span>
