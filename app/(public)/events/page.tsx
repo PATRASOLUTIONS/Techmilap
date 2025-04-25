@@ -1,12 +1,13 @@
 import { Suspense } from "react"
 import { PublicEventList } from "@/components/events/public-event-list"
+import { PastEventsSection } from "@/components/events/past-events-section"
 import { Loader2, Search, Filter } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // This function runs on the server
-async function getPublicEvents(searchParams?: { search?: string; category?: string }) {
+async function getPublicEvents(searchParams?: { search?: string; category?: string; past?: boolean }) {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
     let url = `${baseUrl}/api/events/public`
@@ -15,6 +16,7 @@ async function getPublicEvents(searchParams?: { search?: string; category?: stri
     const params = new URLSearchParams()
     if (searchParams?.search) params.append("search", searchParams.search)
     if (searchParams?.category && searchParams.category !== "all") params.append("category", searchParams.category)
+    if (searchParams?.past) params.append("past", searchParams.past.toString())
 
     // Add debug parameter for development
     if (process.env.NODE_ENV === "development") {
@@ -63,9 +65,10 @@ async function getCategories() {
 export default async function PublicEventsPage({
   searchParams,
 }: {
-  searchParams?: { search?: string; category?: string }
+  searchParams?: { search?: string; category?: string; past?: boolean }
 }) {
-  const events = await getPublicEvents(searchParams)
+  const upcomingEvents = await getPublicEvents({ ...searchParams, past: false })
+  const pastEvents = await getPublicEvents({ ...searchParams, past: true })
   const categories = await getCategories().catch(() => ["Conference", "Workshop", "Meetup", "Webinar", "Other"])
 
   return (
@@ -116,7 +119,7 @@ export default async function PublicEventsPage({
         </div>
 
         <Suspense fallback={<EventsLoading />}>
-          {events.length === 0 ? (
+          {upcomingEvents.length === 0 ? (
             <div className="text-center py-12">
               <h3 className="text-xl font-semibold mb-2">
                 {searchParams?.search || searchParams?.category ? "No matching events found" : "No upcoming events"}
@@ -133,8 +136,12 @@ export default async function PublicEventsPage({
               )}
             </div>
           ) : (
-            <PublicEventList events={events} />
+            <PublicEventList events={upcomingEvents} />
           )}
+        </Suspense>
+
+        <Suspense fallback={<EventsLoading />}>
+          {pastEvents.length > 0 && <PastEventsSection events={pastEvents} />}
         </Suspense>
       </div>
     </div>
