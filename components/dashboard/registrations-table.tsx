@@ -297,16 +297,16 @@ export function RegistrationsTable({ eventId, title, description }: Registration
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-green-600 hover:text-green-700"
+                    className="bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 border-green-200"
                     onClick={() => handleUpdateStatus(submission.id, "approved")}
                   >
                     <CheckCircle className="h-4 w-4 mr-1" />
-                    Approve
+                    Accept
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-red-600 hover:text-red-700"
+                    className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200"
                     onClick={() => handleUpdateStatus(submission.id, "rejected")}
                   >
                     <XCircle className="h-4 w-4 mr-1" />
