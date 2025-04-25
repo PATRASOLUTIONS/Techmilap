@@ -30,15 +30,14 @@ export async function GET(req: NextRequest) {
     }
 
     // Filter for upcoming and ongoing events
-    const currentDate = new Date()
-    query.$or = [
-      { endDate: { $gte: currentDate } }, // Upcoming events
-      {
-        endDate: { $exists: true, $gte: currentDate },
-        date: { $lte: currentDate },
-      }, // Ongoing events
-      { endDate: { $exists: false }, date: { $gte: currentDate } }, // Events with no end date and date is today or future
-    ]
+    const now = new Date()
+    const upcomingQuery = { ...query, date: { $gte: now } }
+    const runningQuery = {
+      ...query,
+      date: { $lte: now },
+      endDate: { $gte: now },
+    }
+    const pastQuery = { ...query, endDate: { $lt: now } }
 
     console.log("Public events query:", JSON.stringify(query))
 
@@ -50,7 +49,9 @@ export async function GET(req: NextRequest) {
     const totalEvents = await Event.countDocuments({})
     console.log(`Total events in database: ${totalEvents}`)
 
-    // Get total count for pagination with our filters
+    const upcomingEvents = await Event.find(upcomingQuery).sort({ date: 1 }).lean()
+    const runningEvents = await Event.find(runningQuery).sort({ date: 1 }).lean()
+    const pastEvents = await Event.find(pastQuery).sort({ date: -1 }).lean()
     const total = await Event.countDocuments(query)
     console.log(`Events matching query: ${total}`)
 

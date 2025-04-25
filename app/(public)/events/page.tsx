@@ -70,11 +70,14 @@ export default async function PublicEventsPage({
   const upcomingEvents = await getPublicEvents({ ...searchParams, past: false })
   const pastEvents = await getPublicEvents({ ...searchParams, past: true })
   const categories = await getCategories().catch(() => ["Conference", "Workshop", "Meetup", "Webinar", "Other"])
+  const runningEvents = await getPublicEvents({ ...searchParams, past: false })
+
+  const now = new Date()
 
   return (
     <div className="pt-16">
       <div className="container mx-auto py-8 px-4 md:px-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 ">
           <div>
             <h1 className="text-3xl font-bold">Discover Events</h1>
             <p className="text-muted-foreground mt-2">Find and join exciting events in your area</p>
@@ -118,25 +121,25 @@ export default async function PublicEventsPage({
           </div>
         </div>
 
+        {/* Upcoming Events Section */}
+        <h2 className="text-2xl font-bold mt-8">Upcoming Events</h2>
         <Suspense fallback={<EventsLoading />}>
-          {upcomingEvents.length === 0 ? (
-            <div className="text-center py-12">
-              <h3 className="text-xl font-semibold mb-2">
-                {searchParams?.search || searchParams?.category ? "No matching events found" : "No upcoming events"}
-              </h3>
-              <p className="text-muted-foreground">
-                {searchParams?.search || searchParams?.category
-                  ? "Try adjusting your search or filters"
-                  : "Check back later for new events"}
-              </p>
-              {(searchParams?.search || searchParams?.category) && (
-                <Button asChild className="mt-4">
-                  <a href="/events">Clear Filters</a>
-                </Button>
-              )}
-            </div>
+          {upcomingEvents.length > 0 ? (
+            <PublicEventList events={upcomingEvents.filter((event) => new Date(event.date) > now)} />
           ) : (
-            <PublicEventList events={upcomingEvents} />
+            <div className="text-center py-12">No upcoming events found.</div>
+          )}
+        </Suspense>
+
+        {/* Running Events Section */}
+        <h2 className="text-2xl font-bold mt-8">Running Events</h2>
+        <Suspense fallback={<EventsLoading />}>
+          {runningEvents.length > 0 ? (
+            <PublicEventList
+              events={runningEvents.filter((event) => new Date(event.date) <= now && new Date(event.endDate) >= now)}
+            />
+          ) : (
+            <div className="text-center py-12">No running events found.</div>
           )}
         </Suspense>
 
