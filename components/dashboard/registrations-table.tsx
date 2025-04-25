@@ -120,6 +120,7 @@ export function RegistrationsTable({ eventId, title, description }: Registration
 
   const handleUpdateStatus = async (submissionId: string, newStatus: string) => {
     try {
+      console.log(`Updating submission ${submissionId} to status ${newStatus}`)
       const response = await fetch(`/api/events/${eventId}/registrations/${submissionId}`, {
         method: "PATCH",
         headers: {
@@ -303,7 +304,10 @@ export function RegistrationsTable({ eventId, title, description }: Registration
                     variant="ghost"
                     size="sm"
                     className="text-green-600 hover:text-green-700 flex items-center"
-                    onClick={() => handleUpdateStatus(submission.id, "approved")}
+                    onClick={() => {
+                      console.log(`Approve button clicked for submission ID: ${submission.id}`)
+                      handleUpdateStatus(submission.id, "approved")
+                    }}
                   >
                     <CheckCircle className="h-4 w-4 mr-1" />
                     Approve
