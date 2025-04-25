@@ -96,7 +96,7 @@ export async function PATCH(
         if (status === "approved") {
           const recipientEmail = submission.userEmail
           const recipientName = submission.userName || submission.data.name || "Participant"
-          const eventDate = event.startDate ? format(new Date(event.startDate), "MMMM dd, yyyy 'at' h:mm a") : "TBD"
+          const eventDate = event.date ? format(new Date(event.date), "MMMM dd, yyyy 'at' h:mm a") : "TBD"
           const eventLocation = event.location || "TBD"
 
           try {

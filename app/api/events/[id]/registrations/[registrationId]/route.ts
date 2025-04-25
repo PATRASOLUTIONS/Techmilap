@@ -51,14 +51,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const organizerEmail = organizer ? organizer.email : session.user.email
 
     // Find the registration in the event.registrations array
-    const registration = event.registrations?.find((reg) => reg.id === params.registrationId)
+    const registrationIndex = event.registrations?.findIndex((reg) => reg.id === params.registrationId)
 
-    if (!registration) {
+    if (registrationIndex === -1) {
       return NextResponse.json({ error: "Registration not found" }, { status: 404 })
     }
 
     // Update the status
-    registration.status = status
+    event.registrations[registrationIndex].status = status
     await event.save()
 
     // If the status is approved, send an approval email
@@ -77,7 +77,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           }
         }
 
-        const eventDate = event.startDate ? format(new Date(event.startDate), "MMMM dd, yyyy 'at' h:mm a") : "TBD"
+        const eventDate = event.date ? format(new Date(event.date), "MMMM dd, yyyy 'at' h:mm a") : "TBD"
         const eventLocation = event.location || "TBD"
 
         await sendAttendeeApprovalEmail({
