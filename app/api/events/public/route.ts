@@ -29,9 +29,16 @@ export async function GET(req: NextRequest) {
       query.category = category
     }
 
-    // Filter out past events
+    // Filter for upcoming and ongoing events
     const currentDate = new Date()
-    query.$or = [{ endDate: { $gte: currentDate } }, { endDate: { $exists: false }, date: { $gte: currentDate } }]
+    query.$or = [
+      { endDate: { $gte: currentDate } }, // Upcoming events
+      {
+        endDate: { $exists: true, $gte: currentDate },
+        date: { $lte: currentDate },
+      }, // Ongoing events
+      { endDate: { $exists: false }, date: { $gte: currentDate } }, // Events with no end date and date is today or future
+    ]
 
     console.log("Public events query:", JSON.stringify(query))
 
