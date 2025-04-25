@@ -262,84 +262,6 @@ export default function PastEventsPage() {
   )
 }
 
-function EventCard({ event, onClick }) {
-  // Safely format the date with fallback
-  const formattedDate = event.date
-    ? new Date(event.date).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    : "Date not specified"
-
-  // Safely get attendees count
-  const attendeesCount = event.attendees && Array.isArray(event.attendees) ? event.attendees.length : 0
-
-  // Get status badge based on event status
-  const getStatusBadge = () => {
-    if (!event.status) return null
-
-    switch (event.status.toLowerCase()) {
-      case "completed":
-        return (
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-            Completed
-          </Badge>
-        )
-      case "cancelled":
-        return (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-            Cancelled
-          </Badge>
-        )
-      default:
-        return (
-          <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
-            Past
-          </Badge>
-        )
-    }
-  }
-
-  return (
-    <Card className="cursor-pointer transition-all hover:shadow-md" onClick={onClick}>
-      <CardHeader>
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-xl">{event.title}</CardTitle>
-          {getStatusBadge()}
-        </div>
-        <CardDescription>
-          <div className="flex items-center gap-1">
-            <Calendar className="h-3.5 w-3.5" />
-            <span>{formattedDate}</span>
-          </div>
-          <div className="flex items-center gap-1 mt-1">
-            <MapPin className="h-3.5 w-3.5" />
-            <span className="truncate">{event.location}</span>
-          </div>
-          <div className="flex items-center gap-1 mt-1">
-            <Users className="h-3.5 w-3.5" />
-            <span>
-              {attendeesCount} / {event.capacity || "∞"} attendees
-            </span>
-          </div>
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center gap-2 mb-3 p-2 bg-muted/50 rounded-md">
-          <History className="h-4 w-4" />
-          <span className="font-medium">Past Event</span>
-        </div>
-      </CardContent>
-      <CardFooter>
-        <Button size="sm" className="w-full">
-          View Details
-        </Button>
-      </CardFooter>
-    </Card>
-  )
-}
-
 function EventsLoadingSkeleton() {
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -364,5 +286,64 @@ function EventsLoadingSkeleton() {
         </Card>
       ))}
     </div>
+  )
+}
+
+function EventCard({ event, onClick }: { event: Event; onClick: () => void }) {
+  const startDate = new Date(event.date)
+  const endDate = event.endDate ? new Date(event.endDate) : null
+  const formattedStartDate = startDate.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
+
+  const formattedEndDate = endDate?.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
+
+  return (
+    <Card className="cursor-pointer" onClick={onClick}>
+      <CardHeader>
+        <div className="flex justify-between items-start">
+          <CardTitle>{event.title}</CardTitle>
+          <Badge
+            variant="secondary"
+            className={
+              event.status === "cancelled"
+                ? "bg-red-500 text-white"
+                : event.status === "completed"
+                  ? "bg-green-500 text-white"
+                  : "bg-gray-300 text-gray-700"
+            }
+          >
+            {event.status}
+          </Badge>
+        </div>
+        <CardDescription>
+          {formattedStartDate}
+          {formattedEndDate && ` - ${formattedEndDate}`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-muted-foreground" />
+          <span>{event.location}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          <span>{event.attendees?.length || 0} Attendees</span>
+        </div>
+      </CardContent>
+      <CardFooter className="text-xs text-muted-foreground justify-between">
+        <span>{event.userRole ? `Your Role: ${event.userRole}` : "No Role Assigned"}</span>
+        <span>
+          <Calendar className="mr-1 inline-block h-4 w-4" />
+          {formattedStartDate}
+        </span>
+      </CardFooter>
+    </Card>
   )
 }
