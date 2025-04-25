@@ -1,25 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "@/lib/auth"
 import { authOptions } from "@/lib/auth"
+import { sendAttendeeApprovalEmail } from "@/lib/email-service"
+import { format } from "date-fns"
 
 // Import models
 const Event = mongoose.models.Event || mongoose.model("Event", require("@/models/Event").default.schema)
-const FormSubmission =
-  mongoose.models.FormSubmission ||
-  mongoose.model(
-    "FormSubmission",
-    new mongoose.Schema({
-      eventId: { type: mongoose.Schema.Types.ObjectId, ref: "Event", required: true },
-      userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-      formType: { type: String, required: true, enum: ["attendee", "volunteer", "speaker"] },
-      status: { type: String, default: "pending", enum: ["pending", "approved", "rejected"] },
-      data: { type: mongoose.Schema.Types.Mixed, required: true },
-      createdAt: { type: Date, default: Date.now },
-      updatedAt: { type: Date, default: Date.now },
-    }),
-  )
+const User = mongoose.models.User || mongoose.model("User", require("@/models/User").default.schema)
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string; registrationId: string } }) {
   try {
@@ -51,57 +40,66 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     // Check if the user is the organizer or a super-admin
     if (event.organizer.toString() !== session.user.id && session.user.role !== "super-admin") {
-      return NextResponse.json({ error: "Forbidden: You don't have permission to update this event" }, { status: 403 })
+      return NextResponse.json({ error: "Forbidden: You don't have permission to access this event" }, { status: 403 })
     }
 
     const { status } = await req.json()
 
-    // Check if this is a form submission ID
-    if (mongoose.isValidObjectId(params.registrationId)) {
-      // Try to update the form submission
-      const submission = await FormSubmission.findOneAndUpdate(
-        { _id: params.registrationId, eventId: event._id },
-        { status, updatedAt: new Date() },
-        { new: true },
-      )
+    // Find the organizer's details
+    const organizer = await User.findById(event.organizer)
+    const organizerName = organizer ? `${organizer.firstName} ${organizer.lastName}` : "Event Organizer"
+    const organizerEmail = organizer ? organizer.email : session.user.email
 
-      if (submission) {
-        // If it's an attendee submission, also update the event registration status
-        if (submission.formType === "attendee" && submission.userId) {
-          // Find the registration in the event.registrations array
-          const registrationIndex = event.registrations?.findIndex(
-            (reg) => reg.userId && reg.userId.toString() === submission.userId.toString(),
-          )
+    // Find the registration in the event.registrations array
+    const registration = event.registrations?.find((reg) => reg.id === params.registrationId)
 
-          if (registrationIndex >= 0) {
-            // Update the status
-            event.registrations[registrationIndex].status = status === "approved" ? "confirmed" : status
-            await event.save()
+    if (!registration) {
+      return NextResponse.json({ error: "Registration not found" }, { status: 404 })
+    }
+
+    // Update the status
+    registration.status = status
+    await event.save()
+
+    // If the status is approved, send an approval email
+    if (status === "approved") {
+      try {
+        // Find the attendee's details
+        let attendeeName = registration.name
+        let attendeeEmail = registration.email
+
+        // If there's a userId, try to get more details
+        if (registration.userId) {
+          const attendee = await User.findById(registration.userId)
+          if (attendee) {
+            attendeeName = `${attendee.firstName} ${attendee.lastName}` || attendeeName
+            attendeeEmail = attendee.email || attendeeEmail
           }
         }
 
-        return NextResponse.json({ success: true, submission })
+        const eventDate = event.startDate ? format(new Date(event.startDate), "MMMM dd, yyyy 'at' h:mm a") : "TBD"
+        const eventLocation = event.location || "TBD"
+
+        await sendAttendeeApprovalEmail({
+          eventName: event.title,
+          eventDate,
+          eventLocation,
+          recipientEmail: attendeeEmail,
+          recipientName: attendeeName,
+          eventId: event._id.toString(),
+          eventSlug: event.slug || "",
+          organizerName,
+          organizerEmail,
+          ticketId: `TICKET-${registration.id.substring(0, 8).toUpperCase()}`,
+          additionalInfo: "Don't forget to bring your ID for check-in.",
+        })
+        console.log(`Approval email sent to ${attendeeEmail} for event registration`)
+      } catch (emailError) {
+        console.error(`Error sending approval email:`, emailError)
       }
     }
 
-    // If not a form submission or not found, check if it's an event registration
-    // Extract the actual ID from the registration ID (which might be prefixed)
-    const regIdParts = params.registrationId.split("_")
-    const userId = regIdParts.length > 1 ? regIdParts[1] : null
-
-    if (userId) {
-      // Find the registration in the event.registrations array
-      const registrationIndex = event.registrations?.findIndex((reg) => reg.userId && reg.userId.toString() === userId)
-
-      if (registrationIndex >= 0) {
-        // Update the status
-        event.registrations[registrationIndex].status = status
-        await event.save()
-        return NextResponse.json({ success: true })
-      }
-    }
-
-    return NextResponse.json({ error: "Registration not found" }, { status: 404 })
+    return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error("Error updating registration status:", error)
     return NextResponse.json(

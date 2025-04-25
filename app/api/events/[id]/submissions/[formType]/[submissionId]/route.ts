@@ -3,7 +3,13 @@ import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
 import { getServerSession } from "@/lib/auth"
 import { authOptions } from "@/lib/auth"
-import { sendEmail } from "@/lib/email-service"
+import {
+  sendEmail,
+  sendVolunteerApprovalEmail,
+  sendSpeakerApprovalEmail,
+  sendAttendeeApprovalEmail,
+} from "@/lib/email-service"
+import { format } from "date-fns"
 
 // Import models
 const Event = mongoose.models.Event || mongoose.model("Event", require("@/models/Event").default.schema)
@@ -23,6 +29,8 @@ const FormSubmission =
       updatedAt: { type: Date, default: Date.now },
     }),
   )
+
+const User = mongoose.models.User || mongoose.model("User", require("@/models/User").default.schema)
 
 export async function PATCH(
   req: NextRequest,
@@ -62,8 +70,13 @@ export async function PATCH(
 
     const { status } = await req.json()
 
+    // Find the organizer's details
+    const organizer = await User.findById(event.organizer)
+    const organizerName = organizer ? `${organizer.firstName} ${organizer.lastName}` : "Event Organizer"
+    const organizerEmail = organizer ? organizer.email : session.user.email
+
     // Check if this is a form submission ID
-    if (mongoose.isValidObjectId(params.registrationId)) {
+    if (mongoose.isValidObjectId(params.submissionId)) {
       // Try to update the form submission
       const submission = await FormSubmission.findOneAndUpdate(
         {
@@ -79,29 +92,87 @@ export async function PATCH(
       )
 
       if (submission) {
-        // Send email to the user confirming submission status update
-        try {
-          const userEmail = submission.userEmail
-          const userName = submission.userName
-          const eventName = event.title
+        // If the status is approved, send an approval email based on the form type
+        if (status === "approved") {
+          const recipientEmail = submission.userEmail
+          const recipientName = submission.userName || submission.data.name || "Participant"
+          const eventDate = event.startDate ? format(new Date(event.startDate), "MMMM dd, yyyy 'at' h:mm a") : "TBD"
+          const eventLocation = event.location || "TBD"
 
-          await sendEmail({
-            to: userEmail,
-            subject: `[TechEventPlanner] ${eventName} - ${params.formType} Submission Status Updated`,
-            text: `Dear ${userName},
+          try {
+            if (params.formType === "volunteer") {
+              await sendVolunteerApprovalEmail({
+                eventName: event.title,
+                eventDate,
+                eventLocation,
+                recipientEmail,
+                recipientName,
+                eventId: event._id.toString(),
+                eventSlug: event.slug || "",
+                organizerName,
+                organizerEmail,
+                volunteerRole: submission.data.role || submission.data.interests || "Volunteer",
+                additionalInfo: "Please arrive 30 minutes before the event starts for orientation.",
+              })
+            } else if (params.formType === "speaker") {
+              await sendSpeakerApprovalEmail({
+                eventName: event.title,
+                eventDate,
+                eventLocation,
+                recipientEmail,
+                recipientName,
+                eventId: event._id.toString(),
+                eventSlug: event.slug || "",
+                organizerName,
+                organizerEmail,
+                presentationTitle: submission.data.topic || submission.data.title || "Your presentation",
+                additionalInfo:
+                  "Please prepare your presentation materials and arrive 45 minutes before your scheduled time.",
+              })
+            } else if (params.formType === "attendee") {
+              await sendAttendeeApprovalEmail({
+                eventName: event.title,
+                eventDate,
+                eventLocation,
+                recipientEmail,
+                recipientName,
+                eventId: event._id.toString(),
+                eventSlug: event.slug || "",
+                organizerName,
+                organizerEmail,
+                ticketId: `TICKET-${submission._id.toString().substring(0, 8).toUpperCase()}`,
+                additionalInfo: "Don't forget to bring your ID for check-in.",
+              })
+            }
+            console.log(`Approval email sent to ${recipientEmail} for ${params.formType} submission`)
+          } catch (emailError) {
+            console.error(`Error sending approval email to ${recipientEmail}:`, emailError)
+          }
+        } else {
+          // Send email to the user confirming submission status update
+          try {
+            const userEmail = submission.userEmail
+            const userName = submission.userName
+            const eventName = event.title
+
+            await sendEmail({
+              to: userEmail,
+              subject: `[TechEventPlanner] ${eventName} - ${params.formType} Submission Status Updated`,
+              text: `Dear ${userName},
 
 Your ${params.formType} submission for ${eventName} has been updated to ${status}.`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2>${eventName} - ${params.formType} Submission Status Updated</h2>
-                <p>Dear ${userName},</p>
-                <p>Your ${params.formType} submission for ${eventName} has been updated to ${status}.</p>
-              </div>
-            `,
-          })
-          console.log(`Status update email sent to user ${userEmail}`)
-        } catch (userEmailError) {
-          console.error("Error sending status update email to user:", userEmailError)
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2>${eventName} - ${params.formType} Submission Status Updated</h2>
+                  <p>Dear ${userName},</p>
+                  <p>Your ${params.formType} submission for ${eventName} has been updated to ${status}.</p>
+                </div>
+              `,
+            })
+            console.log(`Status update email sent to user ${userEmail}`)
+          } catch (userEmailError) {
+            console.error("Error sending status update email to user:", userEmailError)
+          }
         }
 
         // If it's an attendee submission, also update the event registration status
@@ -124,7 +195,7 @@ Your ${params.formType} submission for ${eventName} has been updated to ${status
 
     // If not a form submission or not found, check if it's an event registration
     // Extract the actual ID from the registration ID (which might be prefixed)
-    const regIdParts = params.registrationId.split("_")
+    const regIdParts = params.submissionId.split("_")
     const userId = regIdParts.length > 1 ? regIdParts[1] : null
 
     if (userId) {

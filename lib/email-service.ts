@@ -168,3 +168,320 @@ export async function sendFormSubmissionNotification({
     return false
   }
 }
+
+// Function to send approval notification to volunteers
+export async function sendVolunteerApprovalEmail({
+  eventName,
+  eventDate,
+  eventLocation,
+  recipientEmail,
+  recipientName,
+  eventId,
+  eventSlug,
+  organizerName,
+  organizerEmail,
+  volunteerRole,
+  additionalInfo,
+}: {
+  eventName: string
+  eventDate: string
+  eventLocation: string
+  recipientEmail: string
+  recipientName: string
+  eventId: string
+  eventSlug: string
+  organizerName: string
+  organizerEmail: string
+  volunteerRole?: string
+  additionalInfo?: string
+}) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  const eventUrl = `${appUrl}/events/${eventSlug || eventId}`
+
+  const subject = `Good News! You've Been Approved as a Volunteer for ${eventName}`
+
+  const text = `
+    Hello ${recipientName},
+    
+    Great news! Your application to volunteer at "${eventName}" has been approved.
+    
+    Event Details:
+    - Name: ${eventName}
+    - Date: ${eventDate}
+    - Location: ${eventLocation}
+    ${volunteerRole ? `- Your Role: ${volunteerRole}` : ""}
+    
+    ${additionalInfo ? `Additional Information: ${additionalInfo}` : ""}
+    
+    Please visit ${eventUrl} for more details about the event.
+    
+    If you have any questions, please contact the event organizer at ${organizerEmail}.
+    
+    Thank you for volunteering!
+    
+    Best regards,
+    ${organizerName}
+    Event Organizer
+  `
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+      <h2 style="color: #4f46e5;">You're Approved as a Volunteer!</h2>
+      
+      <p>Hello ${recipientName},</p>
+      
+      <p>Great news! Your application to volunteer at <strong>"${eventName}"</strong> has been approved.</p>
+      
+      <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <h3 style="margin-top: 0;">Event Details</h3>
+        <p><strong>Name:</strong> ${eventName}</p>
+        <p><strong>Date:</strong> ${eventDate}</p>
+        <p><strong>Location:</strong> ${eventLocation}</p>
+        ${volunteerRole ? `<p><strong>Your Role:</strong> ${volunteerRole}</p>` : ""}
+      </div>
+      
+      ${
+        additionalInfo
+          ? `
+      <div style="margin: 20px 0;">
+        <h3>Additional Information</h3>
+        <p>${additionalInfo}</p>
+      </div>
+      `
+          : ""
+      }
+      
+      <p>
+        <a href="${eventUrl}" style="background-color: #4f46e5; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block;">
+          View Event Details
+        </a>
+      </p>
+      
+      <p>If you have any questions, please contact the event organizer at <a href="mailto:${organizerEmail}">${organizerEmail}</a>.</p>
+      
+      <p>Thank you for volunteering!</p>
+      
+      <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+        Best regards,<br>
+        ${organizerName}<br>
+        Event Organizer
+      </p>
+    </div>
+  `
+
+  return sendEmail({ to: recipientEmail, subject, text, html })
+}
+
+// Function to send approval notification to speakers
+export async function sendSpeakerApprovalEmail({
+  eventName,
+  eventDate,
+  eventLocation,
+  recipientEmail,
+  recipientName,
+  eventId,
+  eventSlug,
+  organizerName,
+  organizerEmail,
+  presentationTitle,
+  presentationTime,
+  additionalInfo,
+}: {
+  eventName: string
+  eventDate: string
+  eventLocation: string
+  recipientEmail: string
+  recipientName: string
+  eventId: string
+  eventSlug: string
+  organizerName: string
+  organizerEmail: string
+  presentationTitle?: string
+  presentationTime?: string
+  additionalInfo?: string
+}) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  const eventUrl = `${appUrl}/events/${eventSlug || eventId}`
+
+  const subject = `Congratulations! You're Confirmed as a Speaker for ${eventName}`
+
+  const text = `
+    Hello ${recipientName},
+    
+    Congratulations! Your application to speak at "${eventName}" has been approved.
+    
+    Event Details:
+    - Name: ${eventName}
+    - Date: ${eventDate}
+    - Location: ${eventLocation}
+    ${presentationTitle ? `- Your Presentation: ${presentationTitle}` : ""}
+    ${presentationTime ? `- Scheduled Time: ${presentationTime}` : ""}
+    
+    ${additionalInfo ? `Additional Information: ${additionalInfo}` : ""}
+    
+    Please visit ${eventUrl} for more details about the event.
+    
+    If you have any questions, please contact the event organizer at ${organizerEmail}.
+    
+    We're looking forward to your presentation!
+    
+    Best regards,
+    ${organizerName}
+    Event Organizer
+  `
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+      <h2 style="color: #4f46e5;">You're Confirmed as a Speaker!</h2>
+      
+      <p>Hello ${recipientName},</p>
+      
+      <p>Congratulations! Your application to speak at <strong>"${eventName}"</strong> has been approved.</p>
+      
+      <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <h3 style="margin-top: 0;">Event Details</h3>
+        <p><strong>Name:</strong> ${eventName}</p>
+        <p><strong>Date:</strong> ${eventDate}</p>
+        <p><strong>Location:</strong> ${eventLocation}</p>
+        ${presentationTitle ? `<p><strong>Your Presentation:</strong> ${presentationTitle}</p>` : ""}
+        ${presentationTime ? `<p><strong>Scheduled Time:</strong> ${presentationTime}</p>` : ""}
+      </div>
+      
+      ${
+        additionalInfo
+          ? `
+      <div style="margin: 20px 0;">
+        <h3>Additional Information</h3>
+        <p>${additionalInfo}</p>
+      </div>
+      `
+          : ""
+      }
+      
+      <p>
+        <a href="${eventUrl}" style="background-color: #4f46e5; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block;">
+          View Event Details
+        </a>
+      </p>
+      
+      <p>If you have any questions, please contact the event organizer at <a href="mailto:${organizerEmail}">${organizerEmail}</a>.</p>
+      
+      <p>We're looking forward to your presentation!</p>
+      
+      <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+        Best regards,<br>
+        ${organizerName}<br>
+        Event Organizer
+      </p>
+    </div>
+  `
+
+  return sendEmail({ to: recipientEmail, subject, text, html })
+}
+
+// Function to send approval notification to attendees
+export async function sendAttendeeApprovalEmail({
+  eventName,
+  eventDate,
+  eventLocation,
+  recipientEmail,
+  recipientName,
+  eventId,
+  eventSlug,
+  organizerName,
+  organizerEmail,
+  ticketType,
+  ticketId,
+  additionalInfo,
+}: {
+  eventName: string
+  eventDate: string
+  eventLocation: string
+  recipientEmail: string
+  recipientName: string
+  eventId: string
+  eventSlug: string
+  organizerName: string
+  organizerEmail: string
+  ticketType?: string
+  ticketId?: string
+  additionalInfo?: string
+}) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  const eventUrl = `${appUrl}/events/${eventSlug || eventId}`
+
+  const subject = `Registration Confirmed for ${eventName}`
+
+  const text = `
+    Hello ${recipientName},
+    
+    Your registration for "${eventName}" has been confirmed!
+    
+    Event Details:
+    - Name: ${eventName}
+    - Date: ${eventDate}
+    - Location: ${eventLocation}
+    ${ticketType ? `- Ticket Type: ${ticketType}` : ""}
+    ${ticketId ? `- Ticket ID: ${ticketId}` : ""}
+    
+    ${additionalInfo ? `Additional Information: ${additionalInfo}` : ""}
+    
+    Please visit ${eventUrl} for more details about the event.
+    
+    If you have any questions, please contact the event organizer at ${organizerEmail}.
+    
+    We look forward to seeing you at the event!
+    
+    Best regards,
+    ${organizerName}
+    Event Organizer
+  `
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+      <h2 style="color: #4f46e5;">Your Registration is Confirmed!</h2>
+      
+      <p>Hello ${recipientName},</p>
+      
+      <p>Your registration for <strong>"${eventName}"</strong> has been confirmed!</p>
+      
+      <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <h3 style="margin-top: 0;">Event Details</h3>
+        <p><strong>Name:</strong> ${eventName}</p>
+        <p><strong>Date:</strong> ${eventDate}</p>
+        <p><strong>Location:</strong> ${eventLocation}</p>
+        ${ticketType ? `<p><strong>Ticket Type:</strong> ${ticketType}</p>` : ""}
+        ${ticketId ? `<p><strong>Ticket ID:</strong> ${ticketId}</p>` : ""}
+      </div>
+      
+      ${
+        additionalInfo
+          ? `
+      <div style="margin: 20px 0;">
+        <h3>Additional Information</h3>
+        <p>${additionalInfo}</p>
+      </div>
+      `
+          : ""
+      }
+      
+      <p>
+        <a href="${eventUrl}" style="background-color: #4f46e5; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block;">
+          View Event Details
+        </a>
+      </p>
+      
+      <p>If you have any questions, please contact the event organizer at <a href="mailto:${organizerEmail}">${organizerEmail}</a>.</p>
+      
+      <p>We look forward to seeing you at the event!</p>
+      
+      <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+        Best regards,<br>
+        ${organizerName}<br>
+        Event Organizer
+      </p>
+    </div>
+  `
+
+  return sendEmail({ to: recipientEmail, subject, text, html })
+}

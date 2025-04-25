@@ -157,7 +157,7 @@ importers:
         version: 6.3.0
       mongoose:
         specifier: latest
-        version: 8.13.3(@aws-sdk/credential-providers@3.796.0)(@mongodb-js/zstd@2.0.1)(gcp-metadata@6.1.1)(kerberos@2.2.2)(mongodb-client-encryption@6.3.0)(snappy@7.2.2)(socks@2.8.4)
+        version: 8.14.0(@aws-sdk/credential-providers@3.796.0)(@mongodb-js/zstd@2.0.1)(gcp-metadata@6.1.1)(kerberos@2.2.2)(mongodb-client-encryption@6.3.0)(snappy@7.2.2)(socks@2.8.4)
       next:
         specifier: 15.2.4
         version: 15.2.4(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -2532,33 +2532,6 @@ packages:
   mongodb-connection-string-url@3.0.2:
     resolution: {integrity: sha512-rMO7CGo/9BFwyZABcKAWL8UJwH/Kc2x0g72uhDWzG48URRax5TCIcJ7Rc3RZqffZzO/Gwff/jyKwCU9TN8gehA==}
 
-  mongodb@6.15.0:
-    resolution: {integrity: sha512-ifBhQ0rRzHDzqp9jAQP6OwHSH7dbYIQjD3SbJs9YYk9AikKEettW/9s/tbSFDTpXcRbF+u1aLrhHxDFaYtZpFQ==}
-    engines: {node: '>=16.20.1'}
-    peerDependencies:
-      '@aws-sdk/credential-providers': ^3.188.0
-      '@mongodb-js/zstd': ^1.1.0 || ^2.0.0
-      gcp-metadata: ^5.2.0
-      kerberos: ^2.0.1
-      mongodb-client-encryption: '>=6.0.0 <7'
-      snappy: ^7.2.2
-      socks: ^2.7.1
-    peerDependenciesMeta:
-      '@aws-sdk/credential-providers':
-        optional: true
-      '@mongodb-js/zstd':
-        optional: true
-      gcp-metadata:
-        optional: true
-      kerberos:
-        optional: true
-      mongodb-client-encryption:
-        optional: true
-      snappy:
-        optional: true
-      socks:
-        optional: true
-
   mongodb@6.16.0:
     resolution: {integrity: sha512-D1PNcdT0y4Grhou5Zi/qgipZOYeWrhLEpk33n3nm6LGtz61jvO88WlrWCK/bigMjpnOdAUKKQwsGIl0NtWMyYw==}
     engines: {node: '>=16.20.1'}
@@ -2586,8 +2559,8 @@ packages:
       socks:
         optional: true
 
-  mongoose@8.13.3:
-    resolution: {integrity: sha512-85S6AOABJcgn77ZKFZKOQkWID69vvtv0YFOk+mMOUrq/7+ziIyybWGZSGQRxN9M41Ehe6a9ug41nV13uJFB9Pw==}
+  mongoose@8.14.0:
+    resolution: {integrity: sha512-IxDxIUu42apE7oEknJK535xkQ6Gd7GKx/gNrNHY+vP4+ucVU2TOCWjVVW14Vc79y9DEEElzHDlTOuVNM8glUFA==}
     engines: {node: '>=16.20.1'}
 
   motion-dom@12.9.1:
@@ -5951,20 +5924,6 @@ snapshots:
       '@types/whatwg-url': 11.0.5
       whatwg-url: 14.2.0
 
-  mongodb@6.15.0(@aws-sdk/credential-providers@3.796.0)(@mongodb-js/zstd@2.0.1)(gcp-metadata@6.1.1)(kerberos@2.2.2)(mongodb-client-encryption@6.3.0)(snappy@7.2.2)(socks@2.8.4):
-    dependencies:
-      '@mongodb-js/saslprep': 1.2.2
-      bson: 6.10.3
-      mongodb-connection-string-url: 3.0.2
-    optionalDependencies:
-      '@aws-sdk/credential-providers': 3.796.0
-      '@mongodb-js/zstd': 2.0.1
-      gcp-metadata: 6.1.1
-      kerberos: 2.2.2
-      mongodb-client-encryption: 6.3.0
-      snappy: 7.2.2
-      socks: 2.8.4
-
   mongodb@6.16.0(@aws-sdk/credential-providers@3.796.0)(@mongodb-js/zstd@2.0.1)(gcp-metadata@6.1.1)(kerberos@2.2.2)(mongodb-client-encryption@6.3.0)(snappy@7.2.2)(socks@2.8.4):
     dependencies:
       '@mongodb-js/saslprep': 1.2.2
@@ -5979,11 +5938,11 @@ snapshots:
       snappy: 7.2.2
       socks: 2.8.4
 
-  mongoose@8.13.3(@aws-sdk/credential-providers@3.796.0)(@mongodb-js/zstd@2.0.1)(gcp-metadata@6.1.1)(kerberos@2.2.2)(mongodb-client-encryption@6.3.0)(snappy@7.2.2)(socks@2.8.4):
+  mongoose@8.14.0(@aws-sdk/credential-providers@3.796.0)(@mongodb-js/zstd@2.0.1)(gcp-metadata@6.1.1)(kerberos@2.2.2)(mongodb-client-encryption@6.3.0)(snappy@7.2.2)(socks@2.8.4):
     dependencies:
       bson: 6.10.3
       kareem: 2.6.3
-      mongodb: 6.15.0(@aws-sdk/credential-providers@3.796.0)(@mongodb-js/zstd@2.0.1)(gcp-metadata@6.1.1)(kerberos@2.2.2)(mongodb-client-encryption@6.3.0)(snappy@7.2.2)(socks@2.8.4)
+      mongodb: 6.16.0(@aws-sdk/credential-providers@3.796.0)(@mongodb-js/zstd@2.0.1)(gcp-metadata@6.1.1)(kerberos@2.2.2)(mongodb-client-encryption@6.3.0)(snappy@7.2.2)(socks@2.8.4)
       mpath: 0.9.0
       mquery: 5.0.0
       ms: 2.1.3
