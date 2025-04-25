@@ -288,25 +288,30 @@ export function RegistrationsTable({ eventId, title, description }: Registration
           const submission = row.original
           return (
             <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => handleViewSubmission(submission)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleViewSubmission(submission)}
+                className="flex items-center"
+              >
                 <Eye className="h-4 w-4 mr-1" />
                 View
               </Button>
               {submission.status === "pending" && (
                 <>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 border-green-200"
+                    className="text-green-600 hover:text-green-700 flex items-center"
                     onClick={() => handleUpdateStatus(submission.id, "approved")}
                   >
                     <CheckCircle className="h-4 w-4 mr-1" />
-                    Accept
+                    Approve
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200"
+                    className="text-red-600 hover:text-red-700 flex items-center"
                     onClick={() => handleUpdateStatus(submission.id, "rejected")}
                   >
                     <XCircle className="h-4 w-4 mr-1" />
@@ -479,8 +484,8 @@ export function RegistrationsTable({ eventId, title, description }: Registration
               {selectedRegistration.status === "pending" && (
                 <div className="flex justify-end gap-2 pt-4">
                   <Button
-                    variant="outline"
-                    className="text-green-600 hover:text-green-700"
+                    variant="ghost"
+                    className="text-green-600 hover:text-green-700 flex items-center"
                     onClick={() => {
                       handleUpdateStatus(selectedRegistration.id, "approved")
                       setDialogOpen(false)
@@ -490,8 +495,8 @@ export function RegistrationsTable({ eventId, title, description }: Registration
                     Approve
                   </Button>
                   <Button
-                    variant="outline"
-                    className="text-red-600 hover:text-red-700"
+                    variant="ghost"
+                    className="text-red-600 hover:text-red-700 flex items-center"
                     onClick={() => {
                       handleUpdateStatus(selectedRegistration.id, "rejected")
                       setDialogOpen(false)
