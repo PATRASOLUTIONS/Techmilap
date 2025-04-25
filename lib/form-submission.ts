@@ -1,6 +1,7 @@
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { sendFormSubmissionNotification } from "@/lib/email-service"
+import { sendEmail } from "@/lib/email-service"
 
 /**
  * Handles form submissions for events (attendee, volunteer, speaker)
@@ -105,6 +106,32 @@ export async function handleFormSubmission(
       throw new Error("Failed to save submission to database")
     }
 
+    // Send email to the user confirming submission
+    try {
+      const userEmail = formData.email
+      const userName =
+        formData.name || `${formData.firstName || ""} ${formData.lastName || ""}`.trim() || "Event Participant"
+      const eventName = event.title
+
+      await sendEmail({
+        to: userEmail,
+        subject: `[TechEventPlanner] ${eventName} - ${formType} Submission Received`,
+        text: `Dear ${userName},
+
+Thank you for your ${formType} submission for ${eventName}. Your submission is currently under review. We will notify you of the status soon.`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>${eventName} - ${formType} Submission Received</h2>
+            <p>Dear ${userName},</p>
+            <p>Thank you for your ${formType} submission for ${eventName}. Your submission is currently under review. We will notify you of the status soon.</p>
+          </div>
+        `,
+      })
+      console.log(`Confirmation email sent to user ${userEmail}`)
+    } catch (userEmailError) {
+      console.error("Error sending confirmation email to user:", userEmailError)
+    }
+
     // Get organizer information for email notification
     try {
       const organizer = await db.collection("users").findOne({ _id: new ObjectId(event.organizer) })
@@ -136,7 +163,7 @@ export async function handleFormSubmission(
         console.warn("No organizer found for event, skipping notification")
       }
     } catch (emailError) {
-      console.error("Error sending email notification:", emailError)
+      console.error("Error sending form submission notification:", emailError)
       // Continue with the response even if email fails
     }
 
