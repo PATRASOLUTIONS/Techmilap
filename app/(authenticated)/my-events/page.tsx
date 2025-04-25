@@ -70,6 +70,7 @@ export default function MyEventsPage() {
   const searchParams = useSearchParams()
   const roleParam = searchParams.get("role")
   const [activeTab, setActiveTab] = useState(roleParam || "all")
+  const filterPast = searchParams.get("filter") === "past"
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -82,7 +83,7 @@ export default function MyEventsPage() {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
-        const response = await fetch("/api/events/my-events", {
+        const response = await fetch(`/api/events/my-events${filterPast ? "?past=true" : ""}`, {
           signal: controller.signal,
           cache: "no-store", // Prevent caching issues
         })
@@ -142,7 +143,7 @@ export default function MyEventsPage() {
     }
 
     fetchEvents()
-  }, [toast])
+  }, [toast, filterPast])
 
   // Handle tab change
   const handleTabChange = (value: string) => {
@@ -277,8 +278,28 @@ export default function MyEventsPage() {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold tracking-tight">{filterPast ? "Past Events" : "My Events"}</h1>
+        <div className="flex gap-2">
+          <Link
+            href="/my-events"
+            className={`${
+              !filterPast ? "bg-primary text-primary-foreground" : "bg-secondary/20"
+            } px-4 py-2 rounded-md text-sm font-medium`}
+          >
+            Upcoming
+          </Link>
+          <Link
+            href="/my-events?filter=past"
+            className={`${
+              filterPast ? "bg-primary text-primary-foreground" : "bg-secondary/20"
+            } px-4 py-2 rounded-md text-sm font-medium`}
+          >
+            Past
+          </Link>
+        </div>
+      </div>
       <div className="flex flex-col space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">My Events</h1>
         <p className="text-muted-foreground">
           View events you've registered for as an attendee, volunteer, or speaker.
         </p>

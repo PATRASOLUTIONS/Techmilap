@@ -5,7 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { useSession, signOut } from "next-auth/react"
 import { usePathname, useRouter } from "next/navigation"
-import { Calendar, LogOut, Menu, Settings, User, X, Bell } from "lucide-react"
+import { Calendar, LogOut, Menu, Settings, User, X, Bell, History } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,12 +65,23 @@ export function DashboardHeader() {
                     href="/my-events"
                     className={cn(
                       "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent",
-                      pathname.startsWith("/my-events") && "bg-accent",
+                      pathname === "/my-events" && "bg-accent",
                     )}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <Calendar className="h-5 w-5" />
                     My Events
+                  </Link>
+                  <Link
+                    href="/past-events"
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent",
+                      pathname === "/past-events" && "bg-accent",
+                    )}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <History className="h-5 w-5" />
+                    Past Events
                   </Link>
                   <Link
                     href="/explore"
@@ -123,6 +134,35 @@ export function DashboardHeader() {
             <span className="font-bold text-xl">Tech Milap</span>
           </Link>
         </div>
+        <nav className="hidden md:flex items-center gap-6">
+          <Link
+            href="/my-events"
+            className={cn(
+              "text-sm font-medium transition-colors hover:text-primary",
+              pathname === "/my-events" ? "text-primary" : "text-muted-foreground",
+            )}
+          >
+            My Events
+          </Link>
+          <Link
+            href="/past-events"
+            className={cn(
+              "text-sm font-medium transition-colors hover:text-primary",
+              pathname === "/past-events" ? "text-primary" : "text-muted-foreground",
+            )}
+          >
+            Past Events
+          </Link>
+          <Link
+            href="/explore"
+            className={cn(
+              "text-sm font-medium transition-colors hover:text-primary",
+              pathname.startsWith("/explore") ? "text-primary" : "text-muted-foreground",
+            )}
+          >
+            Explore
+          </Link>
+        </nav>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5" />

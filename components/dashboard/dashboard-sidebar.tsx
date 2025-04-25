@@ -46,6 +46,7 @@ export function DashboardSidebar() {
       expanded: expandedSections.events,
       children: [
         { title: "My Events", href: "/my-events" },
+        { title: "Past Events", href: "/past-events" },
         { title: "Explore Events", href: "/explore" },
       ],
     },
@@ -74,6 +75,7 @@ export function DashboardSidebar() {
       expanded: expandedSections.events,
       children: [
         { title: "My Events", href: "/my-events" },
+        { title: "Past Events", href: "/past-events" },
         { title: "Create Event", href: "/dashboard/events/create" },
         { title: "Explore Events", href: "/explore" },
       ],
@@ -103,6 +105,7 @@ export function DashboardSidebar() {
       expanded: expandedSections.events,
       children: [
         { title: "All Events", href: "/super-admin/events" },
+        { title: "Past Events", href: "/past-events" },
         { title: "Explore Events", href: "/explore" },
         { title: "Categories", href: "/super-admin/events/categories" },
       ],
