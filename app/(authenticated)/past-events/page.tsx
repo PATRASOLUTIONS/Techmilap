@@ -71,7 +71,17 @@ export default function PastEventsPage() {
           setPagination(data.pagination)
         }
 
-        setEvents(eventsList)
+        // Filter out events with end dates in the future
+        const currentDate = new Date()
+        const pastEvents = eventsList.filter((event) => {
+          if (event.endDate) {
+            return new Date(event.endDate) < currentDate
+          }
+          // If no end date, consider it a past event if the start date is in the past
+          return new Date(event.date) < currentDate
+        })
+
+        setEvents(pastEvents)
       } catch (error) {
         console.error("Error fetching past events:", error)
         const errorMessage =

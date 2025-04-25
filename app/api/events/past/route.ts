@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
     // Find events with dates before the current date
     const pastEvents = await Event.find({
-      date: { $lt: currentDate },
+      endDate: { $lt: currentDate },
     })
       .sort({ date: -1 }) // Sort by date descending (most recent first)
       .skip(skip)
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
     // Get total count for pagination
     const total = await Event.countDocuments({
-      date: { $lt: currentDate },
+      endDate: { $lt: currentDate },
     })
 
     return NextResponse.json({

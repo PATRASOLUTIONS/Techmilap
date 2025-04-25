@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
     // Filter out past events
     const currentDate = new Date()
-    query.date = { $gte: currentDate }
+    query.$or = [{ endDate: { $gte: currentDate } }, { endDate: { $exists: false }, date: { $gte: currentDate } }]
 
     console.log("Public events query:", JSON.stringify(query))
 
