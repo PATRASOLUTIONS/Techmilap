@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { Calendar, MapPin, Users } from "lucide-react"
+import { Calendar, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -59,12 +59,6 @@ export function EventCard({ event, onClick }: EventCardProps) {
           <div className="flex items-center">
             <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
             <span className="line-clamp-1">{event.location}</span>
-          </div>
-          <div className="flex items-center">
-            <Users className="h-4 w-4 mr-2 text-muted-foreground" />
-            <span>
-              {event.attendees?.length || 0} / {event.capacity || 0} attendees
-            </span>
           </div>
         </div>
         <p className="mt-3 text-sm line-clamp-2">{event.description}</p>
