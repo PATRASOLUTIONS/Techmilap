@@ -90,6 +90,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
+    // Check if the event date has passed
+    if (new Date(event.date) < new Date()) {
+      console.log("Event date has passed, volunteer applications are not allowed")
+      return NextResponse.json({ error: "This event has already occurred" }, { status: 400 })
+    }
+
     // Check if the volunteer form is published
     if (!event.volunteerForm || event.volunteerForm.formSettings?.status !== "published") {
       return NextResponse.json({ error: "Volunteer form is not published" }, { status: 400 })

@@ -42,6 +42,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string; 
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
+    // Check if the event date has passed
+    if (new Date(event.date) < new Date()) {
+      console.log("Event date has passed, forms are not available")
+      return NextResponse.json({ error: "This event has already occurred" }, { status: 400 })
+    }
+
     // For authenticated requests, check permissions
     if (!isPublicRequest && session) {
       // Check if the user is the organizer or a super-admin
