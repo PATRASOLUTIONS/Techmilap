@@ -5,141 +5,119 @@ import { ObjectId } from "mongodb"
 export async function GET(request: Request, { params }: { params: { id: string; formType: string } }) {
   try {
     const eventId = params.id
-    const formType = params.formType // register, volunteer, or speaker
+    const formType = params.formType // attendee, volunteer, or speaker
 
-    // Map "register" to "attendee" for API consistency
-    const apiFormType = formType === "register" ? "attendee" : formType
+    console.log(`Fetching form config for eventId: ${eventId}, formType: ${formType}`)
 
-    if (!["register", "volunteer", "speaker"].includes(formType)) {
+    if (!["attendee", "volunteer", "speaker"].includes(formType)) {
+      console.warn(`Invalid form type: ${formType}`)
       return NextResponse.json({ error: "Invalid form type" }, { status: 400 })
     }
 
     // Connect to database
+    console.log("Connecting to database...")
     const client = await connectToDatabase()
     const db = client.db()
+    console.log("Connected to database")
 
-    // Try to find the event by ObjectId first
+    // Get the event
+    console.log(`Fetching event with ID: ${eventId}`)
     let event
+
     try {
       event = await db.collection("events").findOne({
         _id: new ObjectId(eventId),
       })
     } catch (error) {
-      // If not a valid ObjectId, try to find by slug
+      console.error(`Error parsing ObjectId: ${eventId}`, error)
+      // Try to find by slug if ObjectId parsing fails
       event = await db.collection("events").findOne({
         slug: eventId,
       })
     }
 
     if (!event) {
+      console.warn(`Event not found with ID/slug: ${eventId}`)
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
-    // Get the form status based on form type
-    let formStatus = "draft"
-    let formTitle = ""
-    let formDescription = ""
-    let formFields = []
+    console.log(`Found event: ${event.title}`)
 
-    // Check if the form exists and is published
-    if (apiFormType === "attendee" && event.attendeeForm) {
-      formStatus = event.attendeeForm.status || "draft"
-      formTitle = event.attendeeForm.title || `Register for ${event.title}`
-      formDescription = event.attendeeForm.description || "Please fill out this form to register for the event"
-    } else if (apiFormType === "volunteer" && event.volunteerForm) {
-      formStatus = event.volunteerForm.status || "draft"
-      formTitle = event.volunteerForm.title || `Volunteer for ${event.title}`
-      formDescription = event.volunteerForm.description || "Apply to volunteer for this event"
-    } else if (apiFormType === "speaker" && event.speakerForm) {
-      formStatus = event.speakerForm.status || "draft"
-      formTitle = event.speakerForm.title || `Speak at ${event.title}`
-      formDescription = event.speakerForm.description || "Apply to speak at this event"
+    // Create default form structure if not present
+    const defaultForm = {
+      title: `${formType.charAt(0).toUpperCase() + formType.slice(1)} Form`,
+      description: `Please fill out this form to ${formType === "attendee" ? "register" : "apply"} for this event.`,
+      fields: [],
+      status: "published",
     }
 
-    // Get the form fields
-    if (event.customQuestions && Array.isArray(event.customQuestions[apiFormType])) {
-      formFields = event.customQuestions[apiFormType]
-    }
+    // Get form configuration based on form type
+    let formConfig = defaultForm
 
-    // Add default fields if they don't exist
-    if (apiFormType === "attendee") {
-      // Check if firstName and lastName fields exist
-      const hasFirstName = formFields.some((field) => field.id === "firstName")
-      const hasLastName = formFields.some((field) => field.id === "lastName")
-      const hasEmail = formFields.some((field) => field.id === "email")
-
-      if (!hasFirstName) {
-        formFields.unshift({
-          id: "firstName",
-          type: "text",
-          label: "First Name",
-          required: true,
-          placeholder: "Enter your first name",
-        })
+    if (formType === "attendee" && event.attendeeForm) {
+      formConfig = {
+        ...defaultForm,
+        ...event.attendeeForm,
+        status: event.attendeeForm.status || "published",
       }
-
-      if (!hasLastName) {
-        formFields.push({
-          id: "lastName",
-          type: "text",
-          label: "Last Name",
-          required: true,
-          placeholder: "Enter your last name",
-        })
+    } else if (formType === "volunteer" && event.volunteerForm) {
+      formConfig = {
+        ...defaultForm,
+        ...event.volunteerForm,
+        status: event.volunteerForm.status || "published",
       }
-
-      if (!hasEmail) {
-        formFields.push({
-          id: "email",
-          type: "email",
-          label: "Email",
-          required: true,
-          placeholder: "Enter your email address",
-        })
-      }
-    } else {
-      // For volunteer and speaker forms
-      const hasName = formFields.some((field) => field.id === "name")
-      const hasEmail = formFields.some((field) => field.id === "email")
-
-      if (!hasName) {
-        formFields.unshift({
-          id: "name",
-          type: "text",
-          label: "Full Name",
-          required: true,
-          placeholder: "Enter your full name",
-        })
-      }
-
-      if (!hasEmail) {
-        formFields.push({
-          id: "email",
-          type: "email",
-          label: "Email",
-          required: true,
-          placeholder: "Enter your email address",
-        })
+    } else if (formType === "speaker" && event.speakerForm) {
+      formConfig = {
+        ...defaultForm,
+        ...event.speakerForm,
+        status: event.speakerForm.status || "published",
       }
     }
 
-    // Return the form configuration
-    return NextResponse.json({
-      form: {
-        title: formTitle,
-        description: formDescription,
-        status: formStatus,
-        fields: formFields,
-      },
-      event: {
-        title: event.title,
-        date: event.date,
-        location: event.location,
-        slug: event.slug || eventId,
-      },
-    })
-  } catch (error) {
-    console.error(`Error fetching ${params.formType} form config:`, error)
+    // Create default fields based on form type
+    const defaultFields = []
+
+    if (formType === "attendee") {
+      defaultFields.push(
+        { id: "firstName", type: "text", label: "First Name", required: true },
+        { id: "lastName", type: "text", label: "Last Name", required: true },
+        { id: "email", type: "email", label: "Email", required: true },
+      )
+    } else if (formType === "volunteer") {
+      defaultFields.push(
+        { id: "name", type: "text", label: "Full Name", required: true },
+        { id: "email", type: "email", label: "Email", required: true },
+        { id: "phone", type: "text", label: "Phone Number", required: false },
+        { id: "availability", type: "textarea", label: "Availability", required: true },
+      )
+    } else if (formType === "speaker") {
+      defaultFields.push(
+        { id: "name", type: "text", label: "Full Name", required: true },
+        { id: "email", type: "email", label: "Email", required: true },
+        { id: "topic", type: "text", label: "Presentation Topic", required: true },
+        { id: "bio", type: "textarea", label: "Speaker Bio", required: true },
+      )
+    }
+
+    // Get custom questions if they exist
+    let customQuestions = []
+    if (event.customQuestions && Array.isArray(event.customQuestions[formType])) {
+      customQuestions = event.customQuestions[formType]
+    }
+
+    // Combine default fields with custom questions
+    const fields = [...defaultFields, ...customQuestions]
+
+    // Update form config with fields
+    formConfig.fields = fields
+
+    console.log(
+      `Form config prepared with ${fields.length} fields (${defaultFields.length} default, ${customQuestions.length} custom)`,
+    )
+
+    return NextResponse.json({ form: formConfig })
+  } catch (error: any) {
+    console.error(`Error fetching form config:`, error)
     return NextResponse.json({ error: "Failed to fetch form configuration" }, { status: 500 })
   }
 }
