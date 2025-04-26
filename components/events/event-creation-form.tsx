@@ -32,7 +32,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       endTime: "",
       endDate: "",
       venue: "",
-      address: "",
+      
       description: "",
       coverImageUrl: "",
       desktopCoverImage: null,
@@ -92,7 +92,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
               ? new Date(existingEvent.date).toISOString().split("T")[0]
               : "",
           venue: existingEvent.venue || "",
-          address: existingEvent.location || "",
+          
           description: existingEvent.description || "",
           coverImageUrl: existingEvent.image || "",
           desktopCoverImage: null,
@@ -145,7 +145,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
     // Check venue details for offline or hybrid events
     if (details.type === "Offline" || details.type === "Hybrid") {
       if (!details.venue) missingFields.push("Venue Name")
-      if (!details.address) missingFields.push("Venue Address")
+      
     }
 
     return missingFields
@@ -224,7 +224,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
           startTime: formData.details.startTime,
           endTime: formData.details.endTime,
           endDate: formData.details.endDate,
-          address: formData.details.address,
+          
           venue: formData.details.venue,
           type: formData.details.type,
           visibility: formData.details.visibility || "Public", // Default to Public if not specified
@@ -562,9 +562,9 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                 </motion.div>
               </AnimatePresence>
 
-              <div className="flex justify-between mt-8">
+              <div className="flex justify-between mt-8"> 
                 {activeTab !== "details" ? (
-                  <Button variant="outline" onClick={handleBack} className="button-hover">
+                  <Button variant="default" onClick={handleBack} className="button-hover" style={{ zIndex: 9999}}>
                     <ChevronLeft className="mr-2 h-4 w-4" />
                     Back
                   </Button>
