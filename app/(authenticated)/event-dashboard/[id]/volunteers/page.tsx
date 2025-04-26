@@ -28,7 +28,7 @@ export default async function EventVolunteersPage({ params }: { params: { id: st
         eventId={eventId}
         formType="volunteer"
         title="Volunteer Applications"
-        description="Review and manage volunteer applications for your event."
+        description="Review and manage volunteer applications for your event. Use filters to find specific volunteers based on their application information."
       />
     </div>
   )

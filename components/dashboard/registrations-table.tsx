@@ -1,58 +1,75 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import {
-  type ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-  getFilteredRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFacetedMinMaxValues,
-} from "@tanstack/react-table"
+import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, CheckCircle, XCircle, Search } from "lucide-react"
+import { Loader2, Eye, CheckCircle, XCircle, Search, Filter, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface RegistrationsTableProps {
   eventId: string
   title: string
   description: string
+  filterStatus?: "pending" | "approved" | "rejected"
 }
 
-export function RegistrationsTable({ eventId, title, description }: RegistrationsTableProps) {
-  const [registrations, setRegistrations] = useState<any[]>([])
+interface FilterState {
+  [key: string]: string | boolean | null
+}
+
+export function RegistrationsTable({ eventId, title, description, filterStatus }: RegistrationsTableProps) {
+  const [registrations, setRegistrations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedRegistration, setSelectedRegistration] = useState<any>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
+  const [searchQuery, setSearchQuery] = useState("")
   const { toast } = useToast()
-  const [selectedSubmissions, setSelectedSubmissions] = useState<string[]>([])
+  const [selectedRegistrations, setSelectedRegistrations] = useState<string[]>([])
   const [customQuestions, setCustomQuestions] = useState<any[]>([])
+  const [filters, setFilters] = useState<FilterState>({})
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<string[]>([])
+  const [fieldOptions, setFieldOptions] = useState<{ [key: string]: Set<string> }>({})
 
   useEffect(() => {
-    const fetchSubmissions = async () => {
-      if (!eventId) {
-        setLoading(false)
-        setError("Event ID is missing")
-        return
-      }
-
+    const fetchRegistrations = async () => {
       try {
         setLoading(true)
         console.log(`Fetching registrations for event: ${eventId}`)
 
-        // Use the correct API endpoint for attendee registrations
-        const response = await fetch(`/api/events/${eventId}/registrations`, {
+        // Build the query URL with filters
+        let url = `/api/events/${eventId}/registrations`
+        const params = new URLSearchParams()
+
+        if (filterStatus) {
+          params.append("status", filterStatus)
+        }
+
+        if (searchQuery) {
+          params.append("search", searchQuery)
+        }
+
+        // Add custom filters to the query
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== null && value !== undefined && value !== "") {
+            params.append(`filter_${key}`, String(value))
+          }
+        })
+
+        if (params.toString()) {
+          url += `?${params.toString()}`
+        }
+
+        const response = await fetch(url, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -67,14 +84,27 @@ export function RegistrationsTable({ eventId, title, description }: Registration
         }
 
         const data = await response.json()
-        console.log("Registrations data:", data)
+        console.log(`Registrations data:`, data)
 
-        if (!data.registrations) {
-          console.warn("No registrations array in response:", data)
-          setRegistrations([])
-        } else {
-          setRegistrations(data.registrations)
-        }
+        setRegistrations(data.registrations || [])
+
+        // Extract unique values for each field for filtering
+        const options: { [key: string]: Set<string> } = {}
+
+        data.registrations?.forEach((registration: any) => {
+          if (registration.data) {
+            Object.entries(registration.data).forEach(([key, value]) => {
+              if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+                if (!options[key]) {
+                  options[key] = new Set()
+                }
+                options[key].add(String(value))
+              }
+            })
+          }
+        })
+
+        setFieldOptions(options)
       } catch (error) {
         console.error(`Error fetching registrations:`, error)
         setError(error instanceof Error ? error.message : `Failed to load registrations`)
@@ -109,18 +139,18 @@ export function RegistrationsTable({ eventId, title, description }: Registration
       }
     }
 
-    fetchSubmissions()
+    fetchRegistrations()
     fetchCustomQuestions()
-  }, [eventId, toast])
+  }, [eventId, filterStatus, searchQuery, filters, toast])
 
-  const handleViewSubmission = (submission: any) => {
-    setSelectedRegistration(submission)
+  const handleViewRegistration = (registration: any) => {
+    setSelectedRegistration(registration)
     setDialogOpen(true)
   }
 
-  const handleUpdateStatus = async (submissionId: string, newStatus: string) => {
+  const handleUpdateStatus = async (registrationId: string, newStatus: string) => {
     try {
-      const response = await fetch(`/api/events/${eventId}/registrations/${submissionId}`, {
+      const response = await fetch(`/api/events/${eventId}/registrations/${registrationId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -129,74 +159,62 @@ export function RegistrationsTable({ eventId, title, description }: Registration
       })
 
       if (!response.ok) {
-        throw new Error("Failed to update submission status")
+        throw new Error("Failed to update registration status")
       }
 
-      // Update the submission in the local state
-      setRegistrations(registrations.map((sub: any) => (sub.id === submissionId ? { ...sub, status: newStatus } : sub)))
+      // Update the registration in the local state
+      setRegistrations(
+        registrations.map((reg: any) => (reg._id === registrationId ? { ...reg, status: newStatus } : reg)),
+      )
 
       toast({
         title: "Status Updated",
-        description: `Submission status updated to ${newStatus}`,
+        description: `Registration status updated to ${newStatus}`,
       })
     } catch (error) {
-      console.error("Error updating submission status:", error)
+      console.error("Error updating registration status:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update submission status",
+        description: error instanceof Error ? error.message : "Failed to update registration status",
         variant: "destructive",
       })
     }
   }
 
-  const handleBulkApprove = async () => {
-    try {
-      const response = await fetch(`/api/events/${eventId}/submissions/attendee/bulk-approve`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ submissionIds: selectedSubmissions }),
-      })
+  const handleFilterChange = (field: string, value: string | boolean | null) => {
+    setFilters((prev) => {
+      const newFilters = { ...prev, [field]: value }
 
-      if (!response.ok) {
-        throw new Error("Failed to bulk approve submissions")
-      }
+      // Update active filters list
+      const activeFiltersList = Object.entries(newFilters)
+        .filter(([_, val]) => val !== null && val !== undefined && val !== "")
+        .map(([key, _]) => key)
 
-      // Update the submission in the local state
-      setRegistrations(
-        registrations.map((sub: any) => (selectedSubmissions.includes(sub.id) ? { ...sub, status: "approved" } : sub)),
-      )
-      setSelectedSubmissions([])
+      setActiveFilters(activeFiltersList)
 
-      toast({
-        title: "Submissions Approved",
-        description: `${selectedSubmissions.length} submissions approved successfully.`,
-      })
-    } catch (error) {
-      console.error("Error bulk approving submissions:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to bulk approve submissions",
-        variant: "destructive",
-      })
-    }
+      return newFilters
+    })
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "approved":
-        return (
-          <Badge variant="outline" className="bg-green-500 text-white border-green-500">
-            Approved
-          </Badge>
-        )
-      case "rejected":
-        return <Badge variant="destructive">Rejected</Badge>
-      case "pending":
-      default:
-        return <Badge variant="outline">Pending</Badge>
-    }
+  const clearFilter = (field: string) => {
+    setFilters((prev) => {
+      const newFilters = { ...prev }
+      delete newFilters[field]
+
+      // Update active filters list
+      const activeFiltersList = Object.entries(newFilters)
+        .filter(([_, val]) => val !== null && val !== undefined && val !== "")
+        .map(([key, _]) => key)
+
+      setActiveFilters(activeFiltersList)
+
+      return newFilters
+    })
+  }
+
+  const clearAllFilters = () => {
+    setFilters({})
+    setActiveFilters([])
   }
 
   const formatFieldName = (key: string) => {
@@ -212,131 +230,103 @@ export function RegistrationsTable({ eventId, title, description }: Registration
     return formattedKey
   }
 
-  const toggleSubmission = (submissionId: string) => {
-    setSelectedSubmissions((prev) => {
-      if (prev.includes(submissionId)) {
-        return prev.filter((id) => id !== submissionId)
+  const renderFilterOptions = (question: any) => {
+    const fieldName = question.id || question.label
+    const fieldKey = `custom_${fieldName}`
+
+    // Get unique values for this field
+    const options = fieldOptions[fieldKey] || new Set()
+
+    switch (question.type) {
+      case "checkbox":
+        return (
+          <div key={fieldName} className="mb-4">
+            <label className="text-sm font-medium mb-1 block">{formatFieldName(question.label)}</label>
+            <Select
+              value={filters[fieldKey]?.toString() || ""}
+              onValueChange={(value) => handleFilterChange(fieldKey, value === "" ? null : value === "true")}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select option" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="true">Yes</SelectItem>
+                <SelectItem value="false">No</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )
+
+      case "select":
+      case "radio":
+        return (
+          <div key={fieldName} className="mb-4">
+            <label className="text-sm font-medium mb-1 block">{formatFieldName(question.label)}</label>
+            <Select
+              value={filters[fieldKey]?.toString() || ""}
+              onValueChange={(value) => handleFilterChange(fieldKey, value === "" ? null : value)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select option" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {Array.from(options).map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )
+
+      default:
+        return (
+          <div key={fieldName} className="mb-4">
+            <label className="text-sm font-medium mb-1 block">{formatFieldName(question.label)}</label>
+            <Input
+              placeholder={`Filter by ${formatFieldName(question.label)}`}
+              value={filters[fieldKey]?.toString() || ""}
+              onChange={(e) => handleFilterChange(fieldKey, e.target.value || null)}
+            />
+          </div>
+        )
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "approved":
+        return <Badge className="bg-green-500 text-white border-green-500">Approved</Badge>
+      case "rejected":
+        return <Badge variant="destructive">Rejected</Badge>
+      case "pending":
+      default:
+        return <Badge variant="outline">Pending</Badge>
+    }
+  }
+
+  const toggleRegistration = (registrationId: string) => {
+    setSelectedRegistrations((prev) => {
+      if (prev.includes(registrationId)) {
+        return prev.filter((id) => id !== registrationId)
       } else {
-        return [...prev, submissionId]
+        return [...prev, registrationId]
       }
     })
   }
 
-  const allSelected = registrations.length > 0 && selectedSubmissions.length === registrations.length
+  const allSelected = registrations.length > 0 && selectedRegistrations.length === registrations.length
 
   const toggleSelectAll = () => {
     if (allSelected) {
-      setSelectedSubmissions([])
+      setSelectedRegistrations([])
     } else {
-      setSelectedSubmissions(registrations.map((sub: any) => sub.id))
+      setSelectedRegistrations(registrations.map((reg: any) => reg._id))
     }
   }
-
-  const columns: ColumnDef<any>[] = useMemo(
-    () => [
-      {
-        id: "select",
-        header: ({ table }) => (
-          <Checkbox checked={allSelected} onCheckedChange={() => toggleSelectAll()} aria-label="Select all" />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={selectedSubmissions.includes(row.original.id)}
-            onCheckedChange={() => toggleSubmission(row.original.id)}
-            aria-label="Select row"
-          />
-        ),
-        enableSorting: false,
-        enableHiding: false,
-      },
-      {
-        accessorKey: "name",
-        header: "Name",
-        cell: ({ row }) => <div>{row.original.name || "Anonymous"}</div>,
-      },
-      {
-        accessorKey: "email",
-        header: "Email",
-        cell: ({ row }) => <div>{row.original.email || "N/A"}</div>,
-      },
-      ...customQuestions.map((question) => ({
-        accessorKey: `data.custom_${question.id}`,
-        header: formatFieldName(question.label),
-        cell: ({ row }) => <div>{row.original.data[`custom_${question.id}`] || "N/A"}</div>,
-        filterFn: (row, id, value) => {
-          return value.length === 0 || row.getValue(id).toLowerCase().includes(value.toLowerCase())
-        },
-      })),
-      {
-        accessorKey: "registeredAt",
-        header: "Registered",
-        cell: ({ row }) => (
-          <div>
-            {row.registeredAt ? formatDistanceToNow(new Date(row.registeredAt), { addSuffix: true }) : "Unknown"}
-          </div>
-        ),
-      },
-      {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => <div>{getStatusBadge(row.status)}</div>,
-      },
-      {
-        id: "actions",
-        header: "Actions",
-        cell: ({ row }) => {
-          const submission = row.original
-          return (
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => handleViewSubmission(submission)}>
-                <Eye className="h-4 w-4 mr-1" />
-                View
-              </Button>
-              {submission.status === "pending" && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-green-600 hover:text-green-700"
-                    onClick={() => handleUpdateStatus(submission.id, "approved")}
-                  >
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Approve
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-red-600 hover:text-red-700"
-                    onClick={() => handleUpdateStatus(submission.id, "rejected")}
-                  >
-                    <XCircle className="h-4 w-4 mr-1" />
-                    Reject
-                  </Button>
-                </>
-              )}
-            </div>
-          )
-        },
-      },
-    ],
-    [customQuestions, selectedSubmissions],
-  )
-
-  const table = useReactTable({
-    data: registrations,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-    getFacetedMinMaxValues: getFacetedMinMaxValues(),
-    initialState: {
-      columnVisibility: {
-        "data.name": true,
-        "data.email": true,
-      },
-    },
-  })
 
   if (loading) {
     return (
@@ -376,18 +366,76 @@ export function RegistrationsTable({ eventId, title, description }: Registration
           <CardTitle>{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleBulkApprove} disabled={selectedSubmissions.length === 0}>
-            <CheckCircle className="h-4 w-4 mr-1" />
-            Bulk Approve
-          </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" className="relative">
+                <Filter className="h-4 w-4 mr-1" />
+                Filters
+                {activeFilters.length > 0 && (
+                  <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full">
+                    {activeFilters.length}
+                  </Badge>
+                )}
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="w-[300px] sm:w-[400px] overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>Filter Registrations</SheetTitle>
+                <SheetDescription>Filter registrations based on form responses</SheetDescription>
+              </SheetHeader>
+              <div className="py-4">
+                {activeFilters.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-medium">Active Filters</h3>
+                      <Button variant="ghost" size="sm" onClick={clearAllFilters}>
+                        Clear All
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {activeFilters.map((field) => (
+                        <Badge key={field} variant="secondary" className="flex items-center gap-1">
+                          {formatFieldName(field.replace("custom_", ""))}
+                          <X className="h-3 w-3 cursor-pointer" onClick={() => clearFilter(field)} />
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <div className="mb-4">
+                    <label className="text-sm font-medium mb-1 block">Status</label>
+                    <Select
+                      value={filters.status?.toString() || ""}
+                      onValueChange={(value) => handleFilterChange("status", value === "" ? null : value)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="approved">Approved</SelectItem>
+                        <SelectItem value="rejected">Rejected</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {customQuestions.map((question) => renderFilterOptions(question))}
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-8 max-w-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
         </div>
@@ -395,32 +443,67 @@ export function RegistrationsTable({ eventId, title, description }: Registration
       <CardContent>
         {registrations.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            <p>No registrations yet.</p>
+            <p>No registrations found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => {
-                      return (
-                        <TableHead key={header.id}>
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(header.column.columnDef.header, header.getContext())}
-                        </TableHead>
-                      )
-                    })}
-                  </TableRow>
-                ))}
+                <TableRow>
+                  <TableHead>
+                    <Checkbox checked={allSelected} onCheckedChange={() => toggleSelectAll()} aria-label="Select all" />
+                  </TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Registered</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
               </TableHeader>
               <TableBody>
-                {table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-                    ))}
+                {registrations.map((registration: any) => (
+                  <TableRow key={registration._id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedRegistrations.includes(registration._id)}
+                        onCheckedChange={() => toggleRegistration(registration._id)}
+                        aria-label="Select row"
+                      />
+                    </TableCell>
+                    <TableCell>{registration.data?.name || registration.data?.firstName || "Anonymous"}</TableCell>
+                    <TableCell>{registration.data?.email || "N/A"}</TableCell>
+                    <TableCell>{formatDistanceToNow(new Date(registration.createdAt), { addSuffix: true })}</TableCell>
+                    <TableCell>{getStatusBadge(registration.status)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleViewRegistration(registration)}>
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                        {registration.status === "pending" && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-green-600 hover:text-green-700"
+                              onClick={() => handleUpdateStatus(registration._id, "approved")}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => handleUpdateStatus(registration._id, "rejected")}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -429,16 +512,16 @@ export function RegistrationsTable({ eventId, title, description }: Registration
         )}
       </CardContent>
 
-      {/* Submission Detail Dialog */}
+      {/* Registration Detail Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Submission Details</DialogTitle>
+            <DialogTitle>Registration Details</DialogTitle>
             <DialogDescription>
               Submitted{" "}
               {selectedRegistration &&
-                selectedRegistration.registeredAt &&
-                formatDistanceToNow(new Date(selectedRegistration.registeredAt), { addSuffix: true })}
+                selectedRegistration.createdAt &&
+                formatDistanceToNow(new Date(selectedRegistration.createdAt), { addSuffix: true })}
             </DialogDescription>
           </DialogHeader>
 
@@ -447,11 +530,11 @@ export function RegistrationsTable({ eventId, title, description }: Registration
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Name</h3>
-                  <p>{selectedRegistration.name || "Anonymous"}</p>
+                  <p>{selectedRegistration.data?.firstName || selectedRegistration.data?.name || "Anonymous"}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Email</h3>
-                  <p>{selectedRegistration.email || "N/A"}</p>
+                  <p>{selectedRegistration.data?.email || "N/A"}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
@@ -459,7 +542,7 @@ export function RegistrationsTable({ eventId, title, description }: Registration
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Registration ID</h3>
-                  <p className="text-xs">{selectedRegistration.id}</p>
+                  <p className="text-xs">{selectedRegistration._id}</p>
                 </div>
               </div>
 
@@ -482,7 +565,7 @@ export function RegistrationsTable({ eventId, title, description }: Registration
                     variant="outline"
                     className="text-green-600 hover:text-green-700"
                     onClick={() => {
-                      handleUpdateStatus(selectedRegistration.id, "approved")
+                      handleUpdateStatus(selectedRegistration._id, "approved")
                       setDialogOpen(false)
                     }}
                   >
@@ -493,7 +576,7 @@ export function RegistrationsTable({ eventId, title, description }: Registration
                     variant="outline"
                     className="text-red-600 hover:text-red-700"
                     onClick={() => {
-                      handleUpdateStatus(selectedRegistration.id, "rejected")
+                      handleUpdateStatus(selectedRegistration._id, "rejected")
                       setDialogOpen(false)
                     }}
                   >

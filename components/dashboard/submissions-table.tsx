@@ -5,13 +5,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, CheckCircle, XCircle, Search } from "lucide-react"
+import { Loader2, Eye, CheckCircle, XCircle, Search, Filter, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { ColumnDef } from "@tanstack/react-table"
+
+// Add interface for filters
+interface FilterState {
+  [key: string]: string | boolean | null
+}
 
 interface SubmissionsTableProps {
   eventId: string
@@ -21,6 +28,7 @@ interface SubmissionsTableProps {
   filterStatus?: "pending" | "approved" | "rejected"
 }
 
+// Update the SubmissionsTable component to include filters
 export function SubmissionsTable({ eventId, formType, title, description, filterStatus }: SubmissionsTableProps) {
   const [submissions, setSubmissions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -31,6 +39,116 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
   const { toast } = useToast()
   const [selectedSubmissions, setSelectedSubmissions] = useState<string[]>([])
   const [customQuestions, setCustomQuestions] = useState<any[]>([])
+  const [filters, setFilters] = useState<FilterState>({})
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<string[]>([])
+
+  // Add a function to extract unique values for each field for filtering
+  const [fieldOptions, setFieldOptions] = useState<{ [key: string]: Set<string> }>({})
+
+  // Add filter handling functions
+  const handleFilterChange = (field: string, value: string | boolean | null) => {
+    setFilters((prev) => {
+      const newFilters = { ...prev, [field]: value }
+
+      // Update active filters list
+      const activeFiltersList = Object.entries(newFilters)
+        .filter(([_, val]) => val !== null && val !== undefined && val !== "")
+        .map(([key, _]) => key)
+
+      setActiveFilters(activeFiltersList)
+
+      return newFilters
+    })
+  }
+
+  const clearFilter = (field: string) => {
+    setFilters((prev) => {
+      const newFilters = { ...prev }
+      delete newFilters[field]
+
+      // Update active filters list
+      const activeFiltersList = Object.entries(newFilters)
+        .filter(([_, val]) => val !== null && val !== undefined && val !== "")
+        .map(([key, _]) => key)
+
+      setActiveFilters(activeFiltersList)
+
+      return newFilters
+    })
+  }
+
+  const clearAllFilters = () => {
+    setFilters({})
+    setActiveFilters([])
+  }
+
+  // Create a function to render filter options based on question type
+  const renderFilterOptions = (question: any) => {
+    const fieldName = question.id || question.label
+    const fieldKey = `custom_${fieldName}`
+
+    // Get unique values for this field
+    const options = fieldOptions[fieldKey] || new Set()
+
+    switch (question.type) {
+      case "checkbox":
+        return (
+          <div key={fieldName} className="mb-4">
+            <label className="text-sm font-medium mb-1 block">{formatFieldName(question.label)}</label>
+            <Select
+              value={filters[fieldKey]?.toString() || ""}
+              onValueChange={(value) => handleFilterChange(fieldKey, value === "" ? null : value === "true")}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select option" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="true">Yes</SelectItem>
+                <SelectItem value="false">No</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )
+
+      case "select":
+      case "radio":
+        return (
+          <div key={fieldName} className="mb-4">
+            <label className="text-sm font-medium mb-1 block">{formatFieldName(question.label)}</label>
+            <Select
+              value={filters[fieldKey]?.toString() || ""}
+              onValueChange={(value) => handleFilterChange(fieldKey, value === "" ? null : value)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select option" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {Array.from(options).map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )
+
+      default:
+        return (
+          <div key={fieldName} className="mb-4">
+            <label className="text-sm font-medium mb-1 block">{formatFieldName(question.label)}</label>
+            <Input
+              placeholder={`Filter by ${formatFieldName(question.label)}`}
+              value={filters[fieldKey]?.toString() || ""}
+              onChange={(e) => handleFilterChange(fieldKey, e.target.value || null)}
+            />
+          </div>
+        )
+    }
+  }
 
   useEffect(() => {
     const fetchSubmissions = async () => {
@@ -49,6 +167,13 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
         if (searchQuery) {
           params.append("search", searchQuery)
         }
+
+        // Add custom filters to the query
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== null && value !== undefined && value !== "") {
+            params.append(`filter_${key}`, String(value))
+          }
+        })
 
         if (params.toString()) {
           url += `?${params.toString()}`
@@ -72,6 +197,24 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
         console.log(`${formType} submissions data:`, data)
 
         setSubmissions(data.submissions || [])
+
+        // Extract unique values for each field for filtering
+        const options: { [key: string]: Set<string> } = {}
+
+        data.submissions?.forEach((submission: any) => {
+          if (submission.data) {
+            Object.entries(submission.data).forEach(([key, value]) => {
+              if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+                if (!options[key]) {
+                  options[key] = new Set()
+                }
+                options[key].add(String(value))
+              }
+            })
+          }
+        })
+
+        setFieldOptions(options)
       } catch (error) {
         console.error(`Error fetching ${formType} submissions:`, error)
         setError(error instanceof Error ? error.message : `Failed to load ${formType} submissions`)
@@ -108,7 +251,7 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
 
     fetchSubmissions()
     fetchCustomQuestions()
-  }, [eventId, formType, filterStatus, searchQuery, toast])
+  }, [eventId, formType, filterStatus, searchQuery, filters, toast])
 
   const handleViewSubmission = (submission: any) => {
     setSelectedSubmission(submission)
@@ -340,11 +483,74 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
           <CardTitle>{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" onClick={handleBulkApprove} disabled={selectedSubmissions.length === 0}>
             <CheckCircle className="h-4 w-4 mr-1" />
             Bulk Approve
           </Button>
+
+          <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" className="relative">
+                <Filter className="h-4 w-4 mr-1" />
+                Filters
+                {activeFilters.length > 0 && (
+                  <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full">
+                    {activeFilters.length}
+                  </Badge>
+                )}
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="w-[300px] sm:w-[400px] overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>Filter Submissions</SheetTitle>
+                <SheetDescription>Filter submissions based on form responses</SheetDescription>
+              </SheetHeader>
+              <div className="py-4">
+                {activeFilters.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-medium">Active Filters</h3>
+                      <Button variant="ghost" size="sm" onClick={clearAllFilters}>
+                        Clear All
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {activeFilters.map((field) => (
+                        <Badge key={field} variant="secondary" className="flex items-center gap-1">
+                          {formatFieldName(field.replace("custom_", ""))}
+                          <X className="h-3 w-3 cursor-pointer" onClick={() => clearFilter(field)} />
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <div className="mb-4">
+                    <label className="text-sm font-medium mb-1 block">Status</label>
+                    <Select
+                      value={filters.status?.toString() || ""}
+                      onValueChange={(value) => handleFilterChange("status", value === "" ? null : value)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">All</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="approved">Approved</SelectItem>
+                        <SelectItem value="rejected">Rejected</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {customQuestions.map((question) => renderFilterOptions(question))}
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input

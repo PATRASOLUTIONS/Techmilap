@@ -28,7 +28,7 @@ export default async function EventSpeakersPage({ params }: { params: { id: stri
         eventId={eventId}
         formType="speaker"
         title="Speaker Applications"
-        description="Review and manage speaker applications for your event."
+        description="Review and manage speaker applications for your event. Use filters to find specific speakers based on their application information."
       />
     </div>
   )

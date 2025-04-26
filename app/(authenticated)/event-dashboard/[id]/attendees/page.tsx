@@ -24,7 +24,11 @@ export default async function EventAttendeesPage({ params }: { params: { id: str
         <p className="text-muted-foreground">Manage attendees for your event.</p>
       </div>
 
-      <RegistrationsTable eventId={eventId} title="Event Attendees" description="Manage your event attendees" />
+      <RegistrationsTable
+        eventId={eventId}
+        title="Event Attendees"
+        description="Manage your event attendees. Use filters to find specific attendees based on their registration information."
+      />
     </div>
   )
 }

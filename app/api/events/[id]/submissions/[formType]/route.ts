@@ -87,6 +87,24 @@ export async function GET(req: NextRequest, { params }: { params: { id: string; 
       ]
     }
 
+    // Handle custom field filters
+    // Look for parameters that start with filter_
+    for (const [key, value] of url.searchParams.entries()) {
+      if (key.startsWith("filter_")) {
+        const fieldName = key.replace("filter_", "")
+
+        // Handle boolean values
+        if (value === "true") {
+          query[`data.${fieldName}`] = true
+        } else if (value === "false") {
+          query[`data.${fieldName}`] = false
+        } else {
+          // For text fields, use regex for partial matching
+          query[`data.${fieldName}`] = { $regex: value, $options: "i" }
+        }
+      }
+    }
+
     // Get total count for pagination
     const total = await FormSubmission.countDocuments(query)
 
