@@ -5,6 +5,6 @@ export default function EventsLayout({
   children: React.ReactNode
 }) {
   // This layout will be used for all routes under /events
-  // For the forms pages, it will be overridden by the forms layout
+  // We're removing any header or footer references
   return <>{children}</>
 }
