@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, CheckCircle, XCircle, Search, Filter, X } from "lucide-react"
+import { Loader2, Eye, CheckCircle, XCircle, Search, Filter, X, Calendar } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -13,11 +13,15 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { Slider } from "@/components/ui/slider"
 import type { ColumnDef } from "@tanstack/react-table"
 
 // Add interface for filters
 interface FilterState {
-  [key: string]: string | boolean | null
+  [key: string]: string | boolean | null | number[] | Date
 }
 
 interface SubmissionsTableProps {
@@ -42,12 +46,14 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
   const [filters, setFilters] = useState<FilterState>({})
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
   const [activeFilters, setActiveFilters] = useState<string[]>([])
+  const [date, setDate] = useState<Date | undefined>(undefined)
 
   // Add a function to extract unique values for each field for filtering
   const [fieldOptions, setFieldOptions] = useState<{ [key: string]: Set<string> }>({})
+  const [fieldStats, setFieldStats] = useState<{ [key: string]: { min: number; max: number } }>({})
 
   // Add filter handling functions
-  const handleFilterChange = (field: string, value: string | boolean | null) => {
+  const handleFilterChange = (field: string, value: string | boolean | null | number[] | Date) => {
     setFilters((prev) => {
       const newFilters = { ...prev }
 
@@ -96,6 +102,7 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
 
     // Get unique values for this field
     const options = fieldOptions[fieldKey] || new Set()
+    const stats = fieldStats[fieldKey] || { min: 0, max: 100 }
 
     switch (question.type) {
       case "checkbox":
@@ -154,6 +161,56 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
           </div>
         )
 
+      case "date":
+        return (
+          <div key={fieldName} className="mb-4">
+            <label className="text-sm font-medium mb-1 block">{formatFieldName(question.label)}</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-start text-left font-normal">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  {filters[fieldKey] ? format(filters[fieldKey] as Date, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <CalendarComponent
+                  mode="single"
+                  selected={filters[fieldKey] as Date}
+                  onSelect={(date) => {
+                    if (date) {
+                      handleFilterChange(fieldKey, date)
+                    } else {
+                      handleFilterChange(fieldKey, null)
+                    }
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        )
+
+      case "number":
+        return (
+          <div key={fieldName} className="mb-4">
+            <label className="text-sm font-medium mb-1 block">{formatFieldName(question.label)}</label>
+            <div className="pt-4 pb-2">
+              <Slider
+                defaultValue={[stats.min, stats.max]}
+                min={stats.min}
+                max={stats.max}
+                step={1}
+                value={(filters[fieldKey] as number[]) || [stats.min, stats.max]}
+                onValueChange={(value) => handleFilterChange(fieldKey, value)}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{filters[fieldKey] ? (filters[fieldKey] as number[])[0] : stats.min}</span>
+              <span>{filters[fieldKey] ? (filters[fieldKey] as number[])[1] : stats.max}</span>
+            </div>
+          </div>
+        )
+
       default:
         return (
           <div key={fieldName} className="mb-4">
@@ -189,7 +246,15 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
         // Add custom filters to the query
         Object.entries(filters).forEach(([key, value]) => {
           if (value !== null && value !== undefined && value !== "") {
-            params.append(`filter_${key}`, String(value))
+            if (Array.isArray(value)) {
+              // Handle range filters
+              params.append(`filter_${key}`, `range:${value[0]}-${value[1]}`)
+            } else if (value instanceof Date) {
+              // Handle date filters
+              params.append(`filter_${key}`, `date:${format(value, "yyyy-MM-dd")}`)
+            } else {
+              params.append(`filter_${key}`, String(value))
+            }
           }
         })
 
@@ -218,21 +283,31 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
 
         // Extract unique values for each field for filtering
         const options: { [key: string]: Set<string> } = {}
+        const stats: { [key: string]: { min: number; max: number } } = {}
 
         data.submissions?.forEach((submission: any) => {
           if (submission.data) {
             Object.entries(submission.data).forEach(([key, value]) => {
-              if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+              // Handle different types of values
+              if (typeof value === "string" || typeof value === "boolean") {
                 if (!options[key]) {
                   options[key] = new Set()
                 }
                 options[key].add(String(value))
+              } else if (typeof value === "number") {
+                if (!stats[key]) {
+                  stats[key] = { min: value, max: value }
+                } else {
+                  stats[key].min = Math.min(stats[key].min, value)
+                  stats[key].max = Math.max(stats[key].max, value)
+                }
               }
             })
           }
         })
 
         setFieldOptions(options)
+        setFieldStats(stats)
       } catch (error) {
         console.error(`Error fetching ${formType} submissions:`, error)
         setError(error instanceof Error ? error.message : `Failed to load ${formType} submissions`)
@@ -415,7 +490,13 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
     ...customQuestions.map((question) => ({
       accessorKey: `data.custom_${question.id}`,
       header: formatFieldName(question.label),
-      cell: ({ row }) => <div>{row.original.data[`custom_${question.id}`] || "N/A"}</div>,
+      cell: ({ row }) => {
+        const value = row.original.data[`custom_${question.id}`]
+        if (typeof value === "boolean") {
+          return <div>{value ? "Yes" : "No"}</div>
+        }
+        return <div>{value || "N/A"}</div>
+      },
     })),
     {
       accessorKey: "createdAt",

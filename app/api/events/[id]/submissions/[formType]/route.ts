@@ -64,7 +64,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string; 
     const status = url.searchParams.get("status")
     const search = url.searchParams.get("search")
     const page = Number.parseInt(url.searchParams.get("page") || "1")
-    const limit = Number.parseInt(url.searchParams.get("limit") || "10")
+    const limit = Number.parseInt(url.searchParams.get("limit") || "100")
 
     // Build the query
     const query: any = {
@@ -87,23 +87,45 @@ export async function GET(req: NextRequest, { params }: { params: { id: string; 
       ]
     }
 
-    // Handle custom field filters
+    // Enhanced filtering for custom fields
     // Look for parameters that start with filter_
     for (const [key, value] of url.searchParams.entries()) {
       if (key.startsWith("filter_")) {
         const fieldName = key.replace("filter_", "")
 
-        // Handle boolean values
+        // Handle different types of filters
         if (value === "true") {
+          // Boolean true
           query[`data.${fieldName}`] = true
         } else if (value === "false") {
+          // Boolean false
           query[`data.${fieldName}`] = false
+        } else if (value.startsWith("range:")) {
+          // Range filter (e.g., range:10-20)
+          const [min, max] = value.replace("range:", "").split("-").map(Number)
+          query[`data.${fieldName}`] = { $gte: min, $lte: max }
+        } else if (value.startsWith("date:")) {
+          // Date filter (e.g., date:2023-01-01)
+          const dateValue = value.replace("date:", "")
+          const startDate = new Date(dateValue)
+          startDate.setHours(0, 0, 0, 0)
+
+          const endDate = new Date(dateValue)
+          endDate.setHours(23, 59, 59, 999)
+
+          query[`data.${fieldName}`] = { $gte: startDate, $lte: endDate }
+        } else if (value.startsWith("in:")) {
+          // Multiple values (e.g., in:value1,value2,value3)
+          const values = value.replace("in:", "").split(",")
+          query[`data.${fieldName}`] = { $in: values }
         } else {
           // For text fields, use regex for partial matching
           query[`data.${fieldName}`] = { $regex: value, $options: "i" }
         }
       }
     }
+
+    console.log("Query:", JSON.stringify(query, null, 2))
 
     // Get total count for pagination
     const total = await FormSubmission.countDocuments(query)

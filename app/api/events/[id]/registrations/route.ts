@@ -58,23 +58,114 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "Forbidden: You don't have permission to access this event" }, { status: 403 })
     }
 
+    // Get query parameters for filtering
+    const url = new URL(req.url)
+    const status = url.searchParams.get("status")
+    const search = url.searchParams.get("search")
+
     // Get attendee submissions for this event
-    const attendeeSubmissions = await FormSubmission.find({
+    const submissionQuery: any = {
       eventId: event._id,
       formType: "attendee",
-    }).sort({ createdAt: -1 })
+    }
+
+    if (status) {
+      submissionQuery.status = status
+    }
+
+    if (search) {
+      submissionQuery.$or = [
+        { "data.name": { $regex: search, $options: "i" } },
+        { "data.firstName": { $regex: search, $options: "i" } },
+        { "data.lastName": { $regex: search, $options: "i" } },
+        { "data.email": { $regex: search, $options: "i" } },
+        { userName: { $regex: search, $options: "i" } },
+        { userEmail: { $regex: search, $options: "i" } },
+      ]
+    }
+
+    // Enhanced filtering for custom fields
+    for (const [key, value] of url.searchParams.entries()) {
+      if (key.startsWith("filter_")) {
+        const fieldName = key.replace("filter_", "")
+
+        // Handle different types of filters
+        if (value === "true") {
+          // Boolean true
+          submissionQuery[`data.${fieldName}`] = true
+        } else if (value === "false") {
+          // Boolean false
+          submissionQuery[`data.${fieldName}`] = false
+        } else if (value.startsWith("range:")) {
+          // Range filter (e.g., range:10-20)
+          const [min, max] = value.replace("range:", "").split("-").map(Number)
+          submissionQuery[`data.${fieldName}`] = { $gte: min, $lte: max }
+        } else if (value.startsWith("date:")) {
+          // Date filter (e.g., date:2023-01-01)
+          const dateValue = value.replace("date:", "")
+          const startDate = new Date(dateValue)
+          startDate.setHours(0, 0, 0, 0)
+
+          const endDate = new Date(dateValue)
+          endDate.setHours(23, 59, 59, 999)
+
+          submissionQuery[`data.${fieldName}`] = { $gte: startDate, $lte: endDate }
+        } else if (value.startsWith("in:")) {
+          // Multiple values (e.g., in:value1,value2,value3)
+          const values = value.replace("in:", "").split(",")
+          submissionQuery[`data.${fieldName}`] = { $in: values }
+        } else {
+          // For text fields, use regex for partial matching
+          submissionQuery[`data.${fieldName}`] = { $regex: value, $options: "i" }
+        }
+      }
+    }
+
+    const attendeeSubmissions = await FormSubmission.find(submissionQuery).sort({ createdAt: -1 })
 
     // Get event registrations from the event model
     const eventRegistrations = event.registrations || []
 
+    // Filter event registrations if needed
+    let filteredEventRegistrations = eventRegistrations
+
+    if (status) {
+      filteredEventRegistrations = filteredEventRegistrations.filter((reg: any) => reg.status === status)
+    }
+
+    if (search) {
+      // We'll need to get user details to filter by name/email
+      // This is a simplified approach - in a real app, you might want to optimize this
+      const userIds = filteredEventRegistrations.map((reg: any) => reg.userId).filter(Boolean)
+      const users = userIds.length > 0 ? await User.find({ _id: { $in: userIds } }).lean() : []
+
+      const userMap = users.reduce((map: any, user: any) => {
+        map[user._id.toString()] = user
+        return map
+      }, {})
+
+      filteredEventRegistrations = filteredEventRegistrations.filter((reg: any) => {
+        if (!reg.userId) return false
+        const user = userMap[reg.userId.toString()]
+        if (!user) return false
+
+        const fullName = `${user.firstName} ${user.lastName}`.toLowerCase()
+        const searchTerm = search.toLowerCase()
+
+        return fullName.includes(searchTerm) || user.email.toLowerCase().includes(searchTerm)
+      })
+    }
+
     // Get user details for registrations that have userId
-    const userIds = eventRegistrations.map((reg) => reg.userId).filter((id) => id && mongoose.isValidObjectId(id))
+    const userIds = filteredEventRegistrations
+      .map((reg: any) => reg.userId)
+      .filter((id) => id && mongoose.isValidObjectId(id))
 
     const users =
       userIds.length > 0 ? await User.find({ _id: { $in: userIds } }, "firstName lastName email").lean() : []
 
     // Create a map of user details by ID for quick lookup
-    const userMap = users.reduce((map, user) => {
+    const userMap = users.reduce((map: any, user: any) => {
       map[user._id.toString()] = {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
@@ -85,38 +176,78 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // Combine data from both sources
     const combinedRegistrations = [
       // Include form submissions
-      ...attendeeSubmissions.map((submission) => ({
+      ...attendeeSubmissions.map((submission: any) => ({
         id: submission._id.toString(),
+        _id: submission._id.toString(),
         source: "formSubmission",
         name: submission.userName || "Anonymous",
         email: submission.userEmail || "N/A",
         status: submission.status,
         registeredAt: submission.createdAt,
+        createdAt: submission.createdAt,
         data: submission.data,
         userId: submission.userId ? submission.userId.toString() : null,
       })),
 
       // Include event registrations
-      ...eventRegistrations.map((reg) => {
+      ...filteredEventRegistrations.map((reg: any) => {
         const userId = reg.userId ? reg.userId.toString() : null
         const user = userId && userMap[userId]
 
         return {
           id: `reg_${userId || Math.random().toString(36).substring(7)}`,
+          _id: `reg_${userId || Math.random().toString(36).substring(7)}`,
           source: "eventRegistration",
           name: user ? user.name : "Unknown User",
           email: user ? user.email : "N/A",
           status: reg.status,
           registeredAt: reg.registeredAt,
+          createdAt: reg.registeredAt,
           data: reg.customResponses ? Object.fromEntries(reg.customResponses) : {},
           userId: userId,
         }
       }),
     ]
 
+    // Apply custom field filtering to the combined results
+    let filteredRegistrations = combinedRegistrations
+
+    // Apply custom field filters to the combined results
+    for (const [key, value] of url.searchParams.entries()) {
+      if (key.startsWith("filter_")) {
+        const fieldName = key.replace("filter_", "")
+
+        filteredRegistrations = filteredRegistrations.filter((reg: any) => {
+          const fieldValue = reg.data[fieldName]
+          if (fieldValue === undefined) return false
+
+          if (value === "true") {
+            return fieldValue === true
+          } else if (value === "false") {
+            return fieldValue === false
+          } else if (value.startsWith("range:")) {
+            const [min, max] = value.replace("range:", "").split("-").map(Number)
+            const numValue = Number(fieldValue)
+            return numValue >= min && numValue <= max
+          } else if (value.startsWith("date:")) {
+            const dateValue = value.replace("date:", "")
+            const targetDate = new Date(dateValue)
+            const fieldDate = new Date(fieldValue)
+
+            return fieldDate.toDateString() === targetDate.toDateString()
+          } else if (value.startsWith("in:")) {
+            const values = value.replace("in:", "").split(",")
+            return values.includes(String(fieldValue))
+          } else {
+            return String(fieldValue).toLowerCase().includes(value.toLowerCase())
+          }
+        })
+      }
+    }
+
     // Remove duplicates (if a user appears in both sources)
     const seen = new Set()
-    const uniqueRegistrations = combinedRegistrations.filter((reg) => {
+    const uniqueRegistrations = filteredRegistrations.filter((reg: any) => {
       if (reg.userId && reg.userId !== "null" && reg.userId !== null) {
         if (seen.has(reg.userId)) {
           return false
@@ -127,7 +258,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     })
 
     // Sort by registration date (newest first)
-    uniqueRegistrations.sort((a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime())
+    uniqueRegistrations.sort(
+      (a: any, b: any) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime(),
+    )
 
     return NextResponse.json({
       registrations: uniqueRegistrations,
