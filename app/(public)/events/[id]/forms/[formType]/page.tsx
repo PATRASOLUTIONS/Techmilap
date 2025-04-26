@@ -344,7 +344,7 @@ export default function EventFormPage() {
 
   if (isEventExpired) {
     return (
-      <div className="container mx-auto pt-10 py-8 max-w-3xl">
+      <div className="container mx-auto py-8 max-w-3xl">
         <div className="flex items-center mb-6">
           <Button variant="outline" size="icon" asChild className="mr-2">
             <Link href={`/events/${eventIdOrSlug}`}>
@@ -360,7 +360,7 @@ export default function EventFormPage() {
 
   if (isFormNotPublished) {
     return (
-      <div className="container mx-auto pt-10 py-8 max-w-3xl">
+      <div className="container mx-auto py-8 max-w-3xl">
         <div className="flex items-center mb-6">
           <Button variant="outline" size="icon" asChild className="mr-2">
             <Link href={`/events/${eventIdOrSlug}`}>
@@ -387,7 +387,7 @@ export default function EventFormPage() {
         : `Speak at ${event?.title || "Event"}`
 
   return (
-    <div className="container mx-auto pt-24 py-8 max-w-3xl">
+    <div className="container mx-auto py-8 max-w-3xl">
       <div className="flex items-center mb-6">
         <Button variant="outline" size="icon" asChild className="mr-2">
           <Link href={`/events/${eventIdOrSlug}`}>

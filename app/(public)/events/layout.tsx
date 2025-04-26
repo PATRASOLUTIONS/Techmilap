@@ -1,11 +1,10 @@
 import type React from "react"
-import { LandingHeader } from "@/components/landing/landing-header"
-
-export default function EventsLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <LandingHeader />
-      <main className="min-h-screen">{children}</main>
-    </>
-  )
+export default function EventsLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  // This layout will be used for all routes under /events
+  // For the forms pages, it will be overridden by the forms layout
+  return <>{children}</>
 }
