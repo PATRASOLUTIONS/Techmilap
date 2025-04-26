@@ -156,7 +156,15 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
                   <p>{event.location}</p>
                 </div>
               </div>
-             
+              <div className="flex items-start">
+                <Users className="h-5 w-5 mr-3 mt-0.5 text-muted-foreground" />
+                <div>
+                  <h3 className="font-medium">Attendees</h3>
+                  <p>
+                    {event.attendees.length} / {event.capacity}
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 

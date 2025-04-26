@@ -66,12 +66,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
-    // Check if the event date has passed
-    if (new Date(event.date) < new Date()) {
-      console.log("Event date has passed, registration is not allowed")
-      return NextResponse.json({ error: "This event has already occurred" }, { status: 400 })
-    }
-
     try {
       // Create a direct submission to the database as a fallback
       if (!event.useCustomForms) {

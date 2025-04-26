@@ -64,14 +64,9 @@ interface ProfileFormProps {
     otherSocialMediaId?: string
     mobileNumber?: string
   }
-  pointsData?: {
-    totalEvents: number
-    totalAttendees: number
-    pointsEarned: number
-  } | null
 }
 
-export function ProfileForm({ user, pointsData }: ProfileFormProps) {
+export function ProfileForm({ user }: ProfileFormProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
@@ -143,27 +138,6 @@ export function ProfileForm({ user, pointsData }: ProfileFormProps) {
             <CheckCircle className="h-4 w-4" />
             <AlertDescription>Profile updated successfully!</AlertDescription>
           </Alert>
-        )}
-
-        {/* Display points data for event planners */}
-        {user.role === "event-planner" && pointsData && (
-          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
-            <h3 className="text-lg font-medium text-blue-800 mb-2">Event Planner Stats</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-blue-600">{pointsData.totalEvents}</p>
-                <p className="text-sm text-blue-700">Events Organized</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-blue-600">{pointsData.totalAttendees}</p>
-                <p className="text-sm text-blue-700">Total Attendees</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-blue-600">{pointsData.pointsEarned}</p>
-                <p className="text-sm text-blue-700">Points Earned</p>
-              </div>
-            </div>
-          </div>
         )}
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">

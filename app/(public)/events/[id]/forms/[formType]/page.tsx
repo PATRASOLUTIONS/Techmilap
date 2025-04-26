@@ -16,7 +16,7 @@ const formTypeConfig = {
   register: {
     title: "Registration Form",
     description: "Please fill out this form to register for the event",
-    successTitle: "Registration Submitted!",
+    successTitle: "Registration Successful!",
     successMessage: "Thank you for registering for this event. You will receive a confirmation email shortly.",
     submitText: "Register for Event",
     apiEndpoint: "attendee", // The API uses "attendee" instead of "register"
@@ -67,7 +67,6 @@ export default function EventFormPage() {
   const [successMessage, setSuccessMessage] = useState(formTypeConfig[formType]?.successMessage || "")
   const [submitText, setSubmitText] = useState(formTypeConfig[formType]?.submitText || "")
   const [submitting, setSubmitting] = useState(false)
-  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
     if (formTypeConfig[formType]) {
@@ -121,57 +120,15 @@ export default function EventFormPage() {
           headers: {
             "x-public-request": "true",
           },
-          cache: "no-store",
         })
 
         if (!formResponse.ok) {
           const errorText = await formResponse.text()
           console.error(`Form fetch failed: ${formResponse.status}`, errorText)
-
-          // If the form is not found, create default fields
-          if (formResponse.status === 400 || formResponse.status === 404) {
-            // Create default form fields based on form type
-            const defaultFields = []
-
-            if (apiEndpoint === "attendee") {
-              defaultFields.push(
-                { id: "firstName", type: "text", label: "First Name", required: true },
-                { id: "lastName", type: "text", label: "Last Name", required: true },
-                { id: "email", type: "email", label: "Email", required: true },
-              )
-            } else {
-              defaultFields.push(
-                { id: "name", type: "text", label: "Full Name", required: true },
-                { id: "email", type: "email", label: "Email", required: true },
-              )
-
-              if (apiEndpoint === "volunteer") {
-                defaultFields.push(
-                  { id: "phone", type: "text", label: "Phone Number", required: false },
-                  { id: "availability", type: "textarea", label: "Availability", required: true },
-                )
-              } else if (apiEndpoint === "speaker") {
-                defaultFields.push(
-                  { id: "topic", type: "text", label: "Presentation Topic", required: true },
-                  { id: "bio", type: "textarea", label: "Speaker Bio", required: true },
-                )
-              }
-            }
-
-            setFormConfig({
-              title: formTypeConfig[formType].title,
-              description: formTypeConfig[formType].description,
-              fields: defaultFields,
-              status: "published", // Assume published to allow submissions
-            })
-            return
-          }
-
           throw new Error(`Form not available (${formResponse.status})`)
         }
 
         const formData = await formResponse.json()
-        console.log("Form data received:", formData)
 
         // Ensure form has valid fields
         const form = formData.form || {}
@@ -181,18 +138,11 @@ export default function EventFormPage() {
       } catch (error) {
         console.error("Error fetching data:", error)
         setError(error.message || `Failed to load ${formType} form`)
-
-        // If we've retried less than 3 times and it's a 400 error, retry
-        if (retryCount < 3) {
-          setRetryCount(retryCount + 1)
-          setTimeout(() => fetchData(), 1000) // Retry after 1 second
-        } else {
-          toast({
-            title: "Error",
-            description: error.message || `Failed to load ${formType} form`,
-            variant: "destructive",
-          })
-        }
+        toast({
+          title: "Error",
+          description: error.message || `Failed to load ${formType} form`,
+          variant: "destructive",
+        })
       } finally {
         setIsLoading(false)
       }
@@ -201,7 +151,7 @@ export default function EventFormPage() {
     if (eventIdOrSlug && apiEndpoint) {
       fetchData()
     }
-  }, [eventIdOrSlug, apiEndpoint, formType, toast, retryCount])
+  }, [eventIdOrSlug, apiEndpoint, formType, toast])
 
   const handleSubmit = async (data) => {
     try {
@@ -263,27 +213,13 @@ export default function EventFormPage() {
         throw new Error(errorMessage)
       }
 
-      const responseData = await response.json()
-      const status = responseData.status || "pending"
-
-      // Customize success message based on status
-      let statusMessage = ""
-      if (status === "approved") {
-        statusMessage =
-          formType === "register"
-            ? "Your registration has been approved!"
-            : `Your ${formType} application has been approved!`
-      } else {
-        statusMessage =
-          formType === "register"
-            ? "Your registration is pending approval. We'll notify you once it's reviewed."
-            : `Your ${formType} application is pending review. We'll notify you once it's reviewed.`
-      }
-
       // Success! Show toast and redirect
       toast({
-        title: formType === "register" ? "Registration Submitted" : "Application Submitted",
-        description: statusMessage,
+        title: formType === "register" ? "Registration Successful" : "Application Submitted",
+        description:
+          formType === "register"
+            ? "You have successfully registered for this event"
+            : `Your ${formType} application has been submitted successfully`,
       })
 
       router.push(`/events/${eventIdOrSlug}/forms/${formType}?success=true`)
@@ -352,7 +288,7 @@ export default function EventFormPage() {
     )
   }
 
-  if (error && retryCount >= 3) {
+  if (error) {
     return (
       <div className="container mx-auto py-8 max-w-3xl">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
@@ -399,7 +335,7 @@ export default function EventFormPage() {
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-24">
           <DynamicForm
             formFields={formConfig.fields || []}
             formTitle={formConfig.title || formTypeConfig[formType].title}

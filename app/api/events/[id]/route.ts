@@ -20,7 +20,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const idOrSlug = params.id
 
     // Check if the ID is a valid MongoDB ObjectId
-    console.log(`Checking if ${idOrSlug} is a valid ObjectId`)
     const isValidObjectId = mongoose.isValidObjectId(idOrSlug)
 
     if (isValidObjectId) {
@@ -31,7 +30,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     // If not found by ID or not a valid ObjectId, try to find by slug
     if (!event) {
-      console.log(`Trying to find event by slug: ${idOrSlug}`)
+      console.log(`Event not found by ID or not a valid ObjectId, trying slug: ${idOrSlug}`)
       event = await Event.findOne({ slug: idOrSlug }).lean()
     }
 
@@ -64,20 +63,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     event.attendeeForm = event.attendeeForm || { status: "draft" }
     event.volunteerForm = event.volunteerForm || { status: "draft" }
     event.speakerForm = event.speakerForm || { status: "draft" }
-    event.customQuestions = event.customQuestions || { attendee: [], volunteer: [], speaker: [] }
 
     // Fetch tickets for the event
     const tickets = await Ticket.find({ event: event._id }).lean()
 
-    console.log(`Found ${tickets.length} tickets for event ${event._id}`)
     // Add tickets to the event object
     event.tickets = tickets
 
     console.log(`Returning event data with form statuses:`, {
-      attendee: event.attendeeForm?.status,
-      volunteer: event.volunteerForm?.status,
-      speaker: event.speakerForm?.status,
-      customQuestions: event.customQuestions,
+      attendee: event.attendeeForm.status,
+      volunteer: event.volunteerForm.status,
+      speaker: event.speakerForm.status,
     })
 
     // Fetch custom questions
@@ -86,7 +82,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ event: { ...event, customQuestions } })
   } catch (error: any) {
     console.error("Error fetching event:", error)
-    console.error("Error stack:", error.stack)
     return NextResponse.json({ error: error.message || "An error occurred while fetching the event" }, { status: 500 })
   }
 }

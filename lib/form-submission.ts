@@ -1,7 +1,6 @@
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { sendFormSubmissionNotification } from "@/lib/email-service"
-import { sendEmail } from "@/lib/email-service"
 
 /**
  * Handles form submissions for events (attendee, volunteer, speaker)
@@ -81,19 +80,6 @@ export async function handleFormSubmission(
   }
   console.log("Found event:", event.title)
 
-  // Determine the status based on form type and event settings
-  // Default: attendee registrations are auto-approved, others are pending
-  let submissionStatus = "pending"
-
-  if (formType === "attendee") {
-    // Check if the event has auto-approval disabled
-    if (event.settings && event.settings.requireApproval === true) {
-      submissionStatus = "pending"
-    } else {
-      submissionStatus = "approved"
-    }
-  }
-
   // Create the submission document
   const submission = {
     eventId: eventObjectId,
@@ -101,7 +87,7 @@ export async function handleFormSubmission(
     userName: formData.name || `${formData.firstName || ""} ${formData.lastName || ""}`.trim() || "Event Participant",
     userEmail: formData.email,
     formType: formType,
-    status: submissionStatus,
+    status: formType === "attendee" ? "approved" : "pending", // Auto-approve registrations
     data: cleanData,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -117,93 +103,6 @@ export async function handleFormSubmission(
     if (!result.acknowledged) {
       console.error("Database did not acknowledge the insertion")
       throw new Error("Failed to save submission to database")
-    }
-
-    // Send email to the user confirming submission
-    try {
-      const userEmail = formData.email
-      const userName =
-        formData.name || `${formData.firstName || ""} ${formData.lastName || ""}`.trim() || "Event Participant"
-      const eventName = event.title
-      const eventDate = event.date ? new Date(event.date).toLocaleDateString() : "TBD"
-      const eventLocation = event.location || "TBD"
-
-      // Customize email subject and content based on status
-      let emailSubject = ""
-      let emailText = ""
-      let emailHtml = ""
-
-      if (submissionStatus === "approved") {
-        // For auto-approved submissions
-        emailSubject = `[${eventName}] Your Registration is Confirmed!`
-        emailText = `Dear ${userName},
-
-Thank you for registering for ${eventName}. Your registration has been confirmed!
-
-Event Details:
-- Date: ${eventDate}
-- Location: ${eventLocation}
-
-We look forward to seeing you at the event!
-
-Best regards,
-The ${eventName} Team`
-
-        emailHtml = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>${eventName} - Registration Confirmed</h2>
-            <p>Dear ${userName},</p>
-            <p>Thank you for registering for ${eventName}. Your registration has been confirmed!</p>
-            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
-              <h3 style="margin-top: 0;">Event Details</h3>
-              <p><strong>Date:</strong> ${eventDate}</p>
-              <p><strong>Location:</strong> ${eventLocation}</p>
-            </div>
-            <p>We look forward to seeing you at the event!</p>
-            <p>Best regards,<br>The ${eventName} Team</p>
-          </div>
-        `
-      } else {
-        // For pending submissions
-        emailSubject = `[${eventName}] Your ${formType.charAt(0).toUpperCase() + formType.slice(1)} Submission Received`
-        emailText = `Dear ${userName},
-
-Thank you for your ${formType} submission for ${eventName}. Your submission is currently under review.
-
-Event Details:
-- Date: ${eventDate}
-- Location: ${eventLocation}
-
-We will notify you once your submission has been reviewed.
-
-Best regards,
-The ${eventName} Team`
-
-        emailHtml = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>${eventName} - ${formType.charAt(0).toUpperCase() + formType.slice(1)} Submission Received</h2>
-            <p>Dear ${userName},</p>
-            <p>Thank you for your ${formType} submission for ${eventName}. Your submission is currently <strong>under review</strong>.</p>
-            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
-              <h3 style="margin-top: 0;">Event Details</h3>
-              <p><strong>Date:</strong> ${eventDate}</p>
-              <p><strong>Location:</strong> ${eventLocation}</p>
-            </div>
-            <p>We will notify you once your submission has been reviewed.</p>
-            <p>Best regards,<br>The ${eventName} Team</p>
-          </div>
-        `
-      }
-
-      await sendEmail({
-        to: userEmail,
-        subject: emailSubject,
-        text: emailText,
-        html: emailHtml,
-      })
-      console.log(`Confirmation email sent to user ${userEmail}`)
-    } catch (userEmailError) {
-      console.error("Error sending confirmation email to user:", userEmailError)
     }
 
     // Get organizer information for email notification
@@ -237,7 +136,7 @@ The ${eventName} Team`
         console.warn("No organizer found for event, skipping notification")
       }
     } catch (emailError) {
-      console.error("Error sending form submission notification:", emailError)
+      console.error("Error sending email notification:", emailError)
       // Continue with the response even if email fails
     }
 
@@ -245,7 +144,6 @@ The ${eventName} Team`
       success: true,
       message: "Form submission created successfully",
       submissionId: result.insertedId,
-      status: submissionStatus,
     }
   } catch (dbError: any) {
     console.error("Database error while saving submission:", dbError)

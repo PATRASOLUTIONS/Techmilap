@@ -1,15 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
-import { getServerSession } from "@/lib/auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
-import {
-  sendEmail,
-  sendVolunteerApprovalEmail,
-  sendSpeakerApprovalEmail,
-  sendAttendeeApprovalEmail,
-} from "@/lib/email-service"
-import { format } from "date-fns"
 
 // Import models
 const Event = mongoose.models.Event || mongoose.model("Event", require("@/models/Event").default.schema)
@@ -30,8 +23,6 @@ const FormSubmission =
     }),
   )
 
-const User = mongoose.models.User || mongoose.model("User", require("@/models/User").default.schema)
-
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string; formType: string; submissionId: string } },
@@ -45,19 +36,8 @@ export async function PATCH(
 
     await connectToDatabase()
 
-    // Check if the ID is a valid MongoDB ObjectId
-    const isValidObjectId = mongoose.isValidObjectId(params.id)
-    let event = null
-
-    if (isValidObjectId) {
-      // If it's a valid ObjectId, try to find by ID first
-      event = await Event.findById(params.id)
-    }
-
-    // If not found by ID or not a valid ObjectId, try to find by slug
-    if (!event) {
-      event = await Event.findOne({ slug: params.id })
-    }
+    // Check if the event exists
+    const event = await Event.findById(params.id)
 
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
@@ -68,153 +48,40 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden: You don't have permission to access this event" }, { status: 403 })
     }
 
+    // Get the request body
     const { status } = await req.json()
 
-    // Find the organizer's details
-    const organizer = await User.findById(event.organizer)
-    const organizerName = organizer ? `${organizer.firstName} ${organizer.lastName}` : "Event Organizer"
-    const organizerEmail = organizer ? organizer.email : session.user.email
-
-    // Check if this is a form submission ID
-    if (mongoose.isValidObjectId(params.submissionId)) {
-      // Try to update the form submission
-      const submission = await FormSubmission.findOneAndUpdate(
-        {
-          _id: params.submissionId,
-          eventId: event._id,
-          formType: params.formType,
-        },
-        {
-          status,
-          updatedAt: new Date(),
-        },
-        { new: true },
-      )
-
-      if (submission) {
-        // If the status is approved, send an approval email based on the form type
-        if (status === "approved") {
-          const recipientEmail = submission.userEmail
-          const recipientName = submission.userName || submission.data.name || "Participant"
-          const eventDate = event.date ? format(new Date(event.date), "MMMM dd, yyyy 'at' h:mm a") : "TBD"
-          const eventLocation = event.location || "TBD"
-
-          try {
-            if (params.formType === "volunteer") {
-              await sendVolunteerApprovalEmail({
-                eventName: event.title,
-                eventDate,
-                eventLocation,
-                recipientEmail,
-                recipientName,
-                eventId: event._id.toString(),
-                eventSlug: event.slug || "",
-                organizerName,
-                organizerEmail,
-                volunteerRole: submission.data.role || submission.data.interests || "Volunteer",
-                additionalInfo: "Please arrive 30 minutes before the event starts for orientation.",
-              })
-            } else if (params.formType === "speaker") {
-              await sendSpeakerApprovalEmail({
-                eventName: event.title,
-                eventDate,
-                eventLocation,
-                recipientEmail,
-                recipientName,
-                eventId: event._id.toString(),
-                eventSlug: event.slug || "",
-                organizerName,
-                organizerEmail,
-                presentationTitle: submission.data.topic || submission.data.title || "Your presentation",
-                additionalInfo:
-                  "Please prepare your presentation materials and arrive 45 minutes before your scheduled time.",
-              })
-            } else if (params.formType === "attendee") {
-              await sendAttendeeApprovalEmail({
-                eventName: event.title,
-                eventDate,
-                eventLocation,
-                recipientEmail,
-                recipientName,
-                eventId: event._id.toString(),
-                eventSlug: event.slug || "",
-                organizerName,
-                organizerEmail,
-                ticketId: `TICKET-${submission._id.toString().substring(0, 8).toUpperCase()}`,
-                additionalInfo: "Don't forget to bring your ID for check-in.",
-              })
-            }
-            console.log(`Approval email sent to ${recipientEmail} for ${params.formType} submission`)
-          } catch (emailError) {
-            console.error(`Error sending approval email to ${recipientEmail}:`, emailError)
-          }
-        } else {
-          // Send email to the user confirming submission status update
-          try {
-            const userEmail = submission.userEmail
-            const userName = submission.userName
-            const eventName = event.title
-
-            await sendEmail({
-              to: userEmail,
-              subject: `[TechEventPlanner] ${eventName} - ${params.formType} Submission Status Updated`,
-              text: `Dear ${userName},
-
-Your ${params.formType} submission for ${eventName} has been updated to ${status}.`,
-              html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <h2>${eventName} - ${params.formType} Submission Status Updated</h2>
-                  <p>Dear ${userName},</p>
-                  <p>Your ${params.formType} submission for ${eventName} has been updated to ${status}.</p>
-                </div>
-              `,
-            })
-            console.log(`Status update email sent to user ${userEmail}`)
-          } catch (userEmailError) {
-            console.error("Error sending status update email to user:", userEmailError)
-          }
-        }
-
-        // If it's an attendee submission, also update the event registration status
-        if (submission.formType === "attendee" && submission.userId) {
-          // Find the registration in the event.registrations array
-          const registrationIndex = event.registrations?.findIndex(
-            (reg) => reg.userId && reg.userId.toString() === submission.userId.toString(),
-          )
-
-          if (registrationIndex >= 0) {
-            // Update the status
-            event.registrations[registrationIndex].status = status === "approved" ? "confirmed" : status
-            await event.save()
-          }
-        }
-
-        return NextResponse.json({ success: true, submission })
-      }
+    if (!status || !["pending", "approved", "rejected"].includes(status)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 })
     }
 
-    // If not a form submission or not found, check if it's an event registration
-    // Extract the actual ID from the registration ID (which might be prefixed)
-    const regIdParts = params.submissionId.split("_")
-    const userId = regIdParts.length > 1 ? regIdParts[1] : null
+    // Find and update the submission
+    const submission = await FormSubmission.findOneAndUpdate(
+      {
+        _id: params.submissionId,
+        eventId: event._id,
+        formType: params.formType,
+      },
+      {
+        status,
+        updatedAt: new Date(),
+      },
+      { new: true },
+    )
 
-    if (userId) {
-      // Find the registration in the event.registrations array
-      const registrationIndex = event.registrations?.findIndex((reg) => reg.userId && reg.userId.toString() === userId)
-
-      if (registrationIndex >= 0) {
-        // Update the status
-        event.registrations[registrationIndex].status = status
-        await event.save()
-        return NextResponse.json({ success: true })
-      }
+    if (!submission) {
+      return NextResponse.json({ error: "Submission not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ error: "Registration not found" }, { status: 404 })
+    return NextResponse.json({
+      success: true,
+      message: `${params.formType} submission status updated to ${status}`,
+      submission,
+    })
   } catch (error: any) {
-    console.error("Error updating registration status:", error)
+    console.error(`Error updating ${params.formType} submission:`, error)
     return NextResponse.json(
-      { error: error.message || "An error occurred while updating the registration" },
+      { error: error.message || `An error occurred while updating ${params.formType} submission` },
       { status: 500 },
     )
   }

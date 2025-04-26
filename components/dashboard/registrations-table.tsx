@@ -10,21 +10,17 @@ import {
   getFacetedRowModel,
   getFacetedUniqueValues,
   getFacetedMinMaxValues,
-  getSortedRowModel,
-  getPaginationRowModel,
 } from "@tanstack/react-table"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Loader2, Eye, CheckCircle, XCircle, Search, Filter, ChevronLeft, ChevronRight } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Loader2, Eye, CheckCircle, XCircle, Search } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface RegistrationsTableProps {
   eventId: string
@@ -42,9 +38,6 @@ export function RegistrationsTable({ eventId, title, description }: Registration
   const { toast } = useToast()
   const [selectedSubmissions, setSelectedSubmissions] = useState<string[]>([])
   const [customQuestions, setCustomQuestions] = useState<any[]>([])
-  const [eventDetails, setEventDetails] = useState<any>(null)
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [questionFilters, setQuestionFilters] = useState<Record<string, string>>({})
 
   useEffect(() => {
     const fetchSubmissions = async () => {
@@ -57,22 +50,6 @@ export function RegistrationsTable({ eventId, title, description }: Registration
       try {
         setLoading(true)
         console.log(`Fetching registrations for event: ${eventId}`)
-
-        // Fetch event details to use in email notifications
-        const eventResponse = await fetch(`/api/events/${eventId}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-          },
-        })
-
-        if (eventResponse.ok) {
-          const eventData = await eventResponse.json()
-          setEventDetails(eventData.event)
-        } else {
-          console.error("Failed to fetch event details")
-        }
 
         // Use the correct API endpoint for attendee registrations
         const response = await fetch(`/api/events/${eventId}/registrations`, {
@@ -143,7 +120,6 @@ export function RegistrationsTable({ eventId, title, description }: Registration
 
   const handleUpdateStatus = async (submissionId: string, newStatus: string) => {
     try {
-      console.log(`Updating submission ${submissionId} to status ${newStatus}`)
       const response = await fetch(`/api/events/${eventId}/registrations/${submissionId}`, {
         method: "PATCH",
         headers: {
@@ -156,56 +132,8 @@ export function RegistrationsTable({ eventId, title, description }: Registration
         throw new Error("Failed to update submission status")
       }
 
-      // Find the submission that was updated
-      const updatedSubmission = registrations.find((sub: any) => sub.id === submissionId)
-
       // Update the submission in the local state
       setRegistrations(registrations.map((sub: any) => (sub.id === submissionId ? { ...sub, status: newStatus } : sub)))
-
-      // Send email notification if the submission was found and we have event details
-      if (updatedSubmission && eventDetails) {
-        // Prepare notification data
-        const notificationData = {
-          eventName: eventDetails.name,
-          eventDate: new Date(eventDetails.startDate).toLocaleDateString(),
-          eventLocation: eventDetails.location,
-          recipientEmail: updatedSubmission.email,
-          recipientName: updatedSubmission.name || "Attendee",
-          eventId: eventId,
-          eventSlug: eventDetails.slug,
-          organizerName: eventDetails.organizerName || "Event Organizer",
-          organizerEmail: eventDetails.organizerEmail || "noreply@example.com",
-          additionalInfo:
-            newStatus === "approved"
-              ? "We're excited to have you join us! More details will be sent closer to the event date."
-              : "We appreciate your interest in our event. Unfortunately, we cannot accommodate your registration at this time.",
-        }
-
-        // Send the appropriate notification based on status
-        if (newStatus === "approved") {
-          await fetch("/api/events/send-notification", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              type: "attendee-approval",
-              data: notificationData,
-            }),
-          })
-        } else if (newStatus === "rejected") {
-          await fetch("/api/events/send-notification", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              type: "attendee-rejection",
-              data: notificationData,
-            }),
-          })
-        }
-      }
 
       toast({
         title: "Status Updated",
@@ -239,38 +167,6 @@ export function RegistrationsTable({ eventId, title, description }: Registration
       setRegistrations(
         registrations.map((sub: any) => (selectedSubmissions.includes(sub.id) ? { ...sub, status: "approved" } : sub)),
       )
-
-      // Send email notifications for all approved submissions
-      if (eventDetails) {
-        const approvedSubmissions = registrations.filter((sub: any) => selectedSubmissions.includes(sub.id))
-
-        for (const submission of approvedSubmissions) {
-          const notificationData = {
-            eventName: eventDetails.name,
-            eventDate: new Date(eventDetails.startDate).toLocaleDateString(),
-            eventLocation: eventDetails.location,
-            recipientEmail: submission.email,
-            recipientName: submission.name || "Attendee",
-            eventId: eventId,
-            eventSlug: eventDetails.slug,
-            organizerName: eventDetails.organizerName || "Event Organizer",
-            organizerEmail: eventDetails.organizerEmail || "noreply@example.com",
-            additionalInfo: "We're excited to have you join us! More details will be sent closer to the event date.",
-          }
-
-          await fetch("/api/events/send-notification", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              type: "attendee-approval",
-              data: notificationData,
-            }),
-          })
-        }
-      }
-
       setSelectedSubmissions([])
 
       toast({
@@ -336,40 +232,6 @@ export function RegistrationsTable({ eventId, title, description }: Registration
     }
   }
 
-  const handleQuestionFilterChange = (questionId: string, value: string) => {
-    setQuestionFilters((prev) => ({
-      ...prev,
-      [questionId]: value,
-    }))
-  }
-
-  const filteredRegistrations = useMemo(() => {
-    return registrations.filter((registration: any) => {
-      // Filter by search term
-      if (
-        searchTerm &&
-        !registration.name?.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !registration.email?.toLowerCase().includes(searchTerm.toLowerCase())
-      ) {
-        return false
-      }
-
-      // Filter by status
-      if (statusFilter !== "all" && registration.status !== statusFilter) {
-        return false
-      }
-
-      // Filter by custom question answers
-      for (const [questionId, filterValue] of Object.entries(questionFilters)) {
-        if (filterValue && registration.data[`custom_${questionId}`] !== filterValue) {
-          return false
-        }
-      }
-
-      return true
-    })
-  }, [registrations, searchTerm, statusFilter, questionFilters])
-
   const columns: ColumnDef<any>[] = useMemo(
     () => [
       {
@@ -426,33 +288,25 @@ export function RegistrationsTable({ eventId, title, description }: Registration
           const submission = row.original
           return (
             <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleViewSubmission(submission)}
-                className="flex items-center"
-              >
+              <Button variant="outline" size="sm" onClick={() => handleViewSubmission(submission)}>
                 <Eye className="h-4 w-4 mr-1" />
                 View
               </Button>
               {submission.status === "pending" && (
                 <>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="text-green-600 hover:text-green-700 flex items-center"
-                    onClick={() => {
-                      console.log(`Approve button clicked for submission ID: ${submission.id}`)
-                      handleUpdateStatus(submission.id, "approved")
-                    }}
+                    className="text-green-600 hover:text-green-700"
+                    onClick={() => handleUpdateStatus(submission.id, "approved")}
                   >
                     <CheckCircle className="h-4 w-4 mr-1" />
                     Approve
                   </Button>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="text-red-600 hover:text-red-700 flex items-center"
+                    className="text-red-600 hover:text-red-700"
                     onClick={() => handleUpdateStatus(submission.id, "rejected")}
                   >
                     <XCircle className="h-4 w-4 mr-1" />
@@ -469,22 +323,17 @@ export function RegistrationsTable({ eventId, title, description }: Registration
   )
 
   const table = useReactTable({
-    data: filteredRegistrations,
+    data: registrations,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     getFacetedMinMaxValues: getFacetedMinMaxValues(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     initialState: {
       columnVisibility: {
         "data.name": true,
         "data.email": true,
-      },
-      pagination: {
-        pageSize: 10,
       },
     },
   })
@@ -522,64 +371,25 @@ export function RegistrationsTable({ eventId, title, description }: Registration
 
   return (
     <Card>
-      <CardHeader className="flex flex-col gap-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleBulkApprove} disabled={selectedSubmissions.length === 0}>
-              <CheckCircle className="h-4 w-4 mr-1" />
-              Bulk Approve
-            </Button>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 max-w-sm"
-              />
-            </div>
-          </div>
+      <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
         </div>
-
-        <div className="flex flex-wrap gap-2 items-center">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Filters:</span>
-
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {customQuestions
-            .filter((q) => q.type === "select" || q.type === "radio")
-            .map((question) => (
-              <DropdownMenu key={question.id}>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    {formatFieldName(question.label)}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => handleQuestionFilterChange(question.id, "")}>All</DropdownMenuItem>
-                  {question.options?.map((option: string) => (
-                    <DropdownMenuItem key={option} onClick={() => handleQuestionFilterChange(question.id, option)}>
-                      {option}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ))}
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleBulkApprove} disabled={selectedSubmissions.length === 0}>
+            <CheckCircle className="h-4 w-4 mr-1" />
+            Bulk Approve
+          </Button>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 max-w-sm"
+            />
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -606,21 +416,13 @@ export function RegistrationsTable({ eventId, title, description }: Registration
                 ))}
               </TableHeader>
               <TableBody>
-                {table.getRowModel().rows.length > 0 ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow key={row.id}>
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={columns.length} className="h-24 text-center">
-                      No results found.
-                    </TableCell>
+                {table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                    ))}
                   </TableRow>
-                )}
+                ))}
               </TableBody>
             </Table>
           </div>
@@ -677,8 +479,8 @@ export function RegistrationsTable({ eventId, title, description }: Registration
               {selectedRegistration.status === "pending" && (
                 <div className="flex justify-end gap-2 pt-4">
                   <Button
-                    variant="ghost"
-                    className="text-green-600 hover:text-green-700 flex items-center"
+                    variant="outline"
+                    className="text-green-600 hover:text-green-700"
                     onClick={() => {
                       handleUpdateStatus(selectedRegistration.id, "approved")
                       setDialogOpen(false)
@@ -688,8 +490,8 @@ export function RegistrationsTable({ eventId, title, description }: Registration
                     Approve
                   </Button>
                   <Button
-                    variant="ghost"
-                    className="text-red-600 hover:text-red-700 flex items-center"
+                    variant="outline"
+                    className="text-red-600 hover:text-red-700"
                     onClick={() => {
                       handleUpdateStatus(selectedRegistration.id, "rejected")
                       setDialogOpen(false)
@@ -704,31 +506,6 @@ export function RegistrationsTable({ eventId, title, description }: Registration
           )}
         </DialogContent>
       </Dialog>
-      <CardFooter className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{" "}
-          {Math.min(
-            (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-            filteredRegistrations.length,
-          )}{" "}
-          of {filteredRegistrations.length} entries
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Previous
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-            Next
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardFooter>
     </Card>
   )
 }

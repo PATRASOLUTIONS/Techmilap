@@ -20,58 +20,6 @@ export default async function ProfilePage() {
     return <div>User not found</div>
   }
 
-  // Fetch points data if user is an event planner
-  let pointsData = null
-  if (user.role === "event-planner") {
-    // Fetch points from the database
-    const pointsRecord = await User.aggregate([
-      { $match: { _id: user._id } },
-      {
-        $lookup: {
-          from: "events",
-          localField: "_id",
-          foreignField: "organizer",
-          as: "organizedEvents",
-        },
-      },
-      {
-        $project: {
-          totalEvents: { $size: "$organizedEvents" },
-          totalAttendees: {
-            $sum: {
-              $map: {
-                input: "$organizedEvents",
-                as: "event",
-                in: { $size: { $ifNull: ["$$event.registrations", []] } },
-              },
-            },
-          },
-          pointsEarned: {
-            $sum: {
-              $map: {
-                input: "$organizedEvents",
-                as: "event",
-                in: {
-                  $cond: [
-                    { $eq: ["$$event.status", "completed"] },
-                    { $multiply: [{ $size: { $ifNull: ["$$event.registrations", []] } }, 10] },
-                    0,
-                  ],
-                },
-              },
-            },
-          },
-        },
-      },
-    ]).exec()
-
-    if (pointsRecord && pointsRecord.length > 0) {
-      pointsData = pointsRecord[0]
-    } else {
-      pointsData = { totalEvents: 0, totalAttendees: 0, pointsEarned: 0 }
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div>
@@ -85,7 +33,7 @@ export default async function ProfilePage() {
           <CardDescription>Update your personal details and contact information.</CardDescription>
         </CardHeader>
         <CardContent>
-          <ProfileForm user={user} pointsData={pointsData} />
+          <ProfileForm user={user} />
         </CardContent>
       </Card>
     </div>

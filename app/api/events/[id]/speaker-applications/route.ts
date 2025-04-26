@@ -126,12 +126,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
-    // Check if the event date has passed
-    if (new Date(event.date) < new Date()) {
-      console.log("Event date has passed, speaker applications are not allowed")
-      return NextResponse.json({ error: "This event has already occurred" }, { status: 400 })
-    }
-
     // Check if the speaker form is published
     if (!event.speakerForm || event.speakerForm.formSettings?.status !== "published") {
       return NextResponse.json({ error: "Speaker form is not available" }, { status: 404 })
