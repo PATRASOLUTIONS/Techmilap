@@ -1,14 +1,11 @@
-"use client"
-
 import { Suspense } from "react"
 import { PublicEventList } from "@/components/events/public-event-list"
 import { PastEventsSection } from "@/components/events/past-events-section"
-import { Loader2, Search, Filter, PlusCircle } from "lucide-react"
+import { Search, Filter } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
+import { EventListSkeleton } from "@/components/events/event-list-skeleton"
 
 // This function runs on the server
 async function getPublicEvents(searchParams?: { search?: string; category?: string; past?: boolean }) {
@@ -77,16 +74,6 @@ export default async function PublicEventsPage({
   const runningEvents = await getPublicEvents({ ...searchParams, past: false })
 
   const now = new Date()
-  const router = useRouter()
-  const { data: session } = useSession()
-
-  const handleCreateEventClick = () => {
-    if (!session) {
-      router.push("/login?returnUrl=/dashboard/events/create")
-      return
-    }
-    router.push("/dashboard/events/create")
-  }
 
   return (
     <div className="pt-16">
@@ -132,13 +119,6 @@ export default async function PublicEventsPage({
                 Apply Filters
               </Button>
             </form>
-            <Button
-              onClick={handleCreateEventClick}
-              className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-opacity"
-            >
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Create Event
-            </Button>
           </div>
         </div>
 
@@ -174,9 +154,8 @@ export default async function PublicEventsPage({
 
 function EventsLoading() {
   return (
-    <div className="flex flex-col items-center justify-center py-12">
-      <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-      <p className="text-muted-foreground">Loading events...</p>
+    <div className="py-4">
+      <EventListSkeleton />
     </div>
   )
 }

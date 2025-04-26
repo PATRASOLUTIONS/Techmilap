@@ -7,31 +7,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { CheckCircle, Copy, ExternalLink, ArrowRight } from "lucide-react"
 import { motion } from "framer-motion"
 import { useToast } from "@/hooks/use-toast"
-import { useSession } from "next-auth/react"
 
 export function EventCreationSuccess({ eventId, eventName, eventSlug, isEditing = false, isPublished = true }) {
   const router = useRouter()
   const { toast } = useToast()
   const [copied, setCopied] = useState(false)
-  const { data: session, status } = useSession()
-
-  useEffect(() => {
-    // Check if user is authenticated
-    if (status === "loading") return
-
-    if (status === "unauthenticated") {
-      // Redirect to login page with return URL
-      router.push(`/login?returnUrl=/explore/${eventSlug || eventId}`)
-      return
-    }
-
-    // If authenticated, redirect to explore page after a short delay
-    const timer = setTimeout(() => {
-      router.push(`/explore/${eventSlug || eventId}`)
-    }, 2000)
-
-    return () => clearTimeout(timer)
-  }, [eventId, eventSlug, router, status])
 
   // Add this useEffect hook to show a toast when the component mounts
   useEffect(() => {
