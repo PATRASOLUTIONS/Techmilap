@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { DynamicForm } from "@/components/forms/dynamic-form"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, ArrowLeft } from "lucide-react"
+import { Loader2, ArrowLeft, Calendar, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
@@ -67,6 +67,7 @@ export default function EventFormPage() {
   const [successMessage, setSuccessMessage] = useState(formTypeConfig[formType]?.successMessage || "")
   const [submitText, setSubmitText] = useState(formTypeConfig[formType]?.submitText || "")
   const [submitting, setSubmitting] = useState(false)
+  const [isEventExpired, setIsEventExpired] = useState(false)
 
   useEffect(() => {
     if (formTypeConfig[formType]) {
@@ -111,6 +112,21 @@ export default function EventFormPage() {
         }
 
         setEvent(eventData.event)
+
+        // Check if the event has expired
+        const eventEndDate = eventData.event.endDate
+          ? new Date(eventData.event.endDate)
+          : new Date(eventData.event.date)
+
+        const today = new Date()
+
+        if (eventEndDate < today) {
+          console.log("Event has expired:", eventEndDate, today)
+          setIsEventExpired(true)
+          setIsLoading(false)
+          return // Don't fetch form data if event has expired
+        }
+
         const eventId = eventData.event._id // Use the actual MongoDB ID for form fetching
 
         console.log(`Fetching form config for event ID: ${eventId}, form type: ${apiEndpoint}`)
@@ -315,6 +331,22 @@ export default function EventFormPage() {
     )
   }
 
+  if (isEventExpired) {
+    return (
+      <div className="container mx-auto py-8 max-w-3xl">
+        <div className="flex items-center mb-6">
+          <Button variant="outline" size="icon" asChild className="mr-2">
+            <Link href={`/events/${eventIdOrSlug}`}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <h1 className="text-2xl font-bold">{event?.title || "Event"}</h1>
+        </div>
+        <ExpiredEventMessage />
+      </div>
+    )
+  }
+
   // Format the title based on form type
   const pageTitle =
     formType === "register"
@@ -350,3 +382,30 @@ export default function EventFormPage() {
     </div>
   )
 }
+
+const ExpiredEventMessage = () => (
+  <Card className="border-red-200 bg-red-50">
+    <CardHeader>
+      <div className="flex items-center space-x-2">
+        <AlertCircle className="h-5 w-5 text-red-500" />
+        <CardTitle className="text-red-700">Event Completed</CardTitle>
+      </div>
+      <CardDescription className="text-red-600">
+        Sorry, this event has already ended and is no longer accepting submissions.
+      </CardDescription>
+    </CardHeader>
+    <CardContent>
+      <p className="text-gray-700 mb-4">
+        The event you're trying to apply for has already been completed. Please check out our other upcoming events.
+      </p>
+    </CardContent>
+    <CardFooter>
+      <Button asChild>
+        <Link href="/explore">
+          <Calendar className="mr-2 h-4 w-4" />
+          Explore Other Events
+        </Link>
+      </Button>
+    </CardFooter>
+  </Card>
+)
