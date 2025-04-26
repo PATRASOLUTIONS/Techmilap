@@ -1,11 +1,14 @@
 "use client"
 
+import type React from "react"
+
 import Link from "next/link"
 import Image from "next/image"
 import { Calendar, MapPin, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { useRouter } from "next/navigation"
 
 interface EventCardProps {
   event: any
@@ -13,6 +16,23 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, onClick }: EventCardProps) {
+  const router = useRouter()
+
+  // Handle card click to navigate to explore page
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Prevent navigation if clicking on the View Details button
+    if ((e.target as HTMLElement).closest("a")) {
+      return
+    }
+
+    // Use the provided onClick or navigate to explore page
+    if (onClick) {
+      onClick()
+    } else {
+      router.push(`/explore/${event.slug || event._id}`)
+    }
+  }
+
   // Safely format the date with fallback
   const formattedDate = event.date
     ? new Date(event.date).toLocaleDateString("en-US", {
@@ -25,7 +45,7 @@ export function EventCard({ event, onClick }: EventCardProps) {
   return (
     <Card
       className="overflow-hidden flex flex-col h-full cursor-pointer transition-shadow hover:shadow-md"
-      onClick={onClick}
+      onClick={handleCardClick}
     >
       <div className="relative h-48">
         <Image
