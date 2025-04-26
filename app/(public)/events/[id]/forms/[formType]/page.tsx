@@ -369,7 +369,11 @@ export default function EventFormPage() {
           </Button>
           <h1 className="text-2xl font-bold">{event?.title || "Event"}</h1>
         </div>
-        <FormNotPublishedMessage eventTitle={event?.title || "this event"} formType={formType} />
+        <FormNotPublishedMessage
+          eventTitle={event?.title || "this event"}
+          formType={formType}
+          eventIdOrSlug={eventIdOrSlug}
+        />
       </div>
     )
   }
@@ -437,7 +441,7 @@ const ExpiredEventMessage = () => (
   </Card>
 )
 
-const FormNotPublishedMessage = ({ eventTitle, formType }) => (
+const FormNotPublishedMessage = ({ eventTitle, formType, eventIdOrSlug }) => (
   <Card className="border-amber-200 bg-amber-50">
     <CardHeader>
       <div className="flex items-center space-x-2">
