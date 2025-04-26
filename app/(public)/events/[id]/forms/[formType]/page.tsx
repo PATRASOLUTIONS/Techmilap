@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { DynamicForm } from "@/components/forms/dynamic-form"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, ArrowLeft, Calendar, AlertCircle } from "lucide-react"
+import { Loader2, ArrowLeft, Calendar, AlertCircle, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
@@ -68,6 +68,7 @@ export default function EventFormPage() {
   const [submitText, setSubmitText] = useState(formTypeConfig[formType]?.submitText || "")
   const [submitting, setSubmitting] = useState(false)
   const [isEventExpired, setIsEventExpired] = useState(false)
+  const [isFormNotPublished, setIsFormNotPublished] = useState(false)
 
   useEffect(() => {
     if (formTypeConfig[formType]) {
@@ -141,7 +142,12 @@ export default function EventFormPage() {
         if (!formResponse.ok) {
           const errorText = await formResponse.text()
           console.error(`Form fetch failed: ${formResponse.status}`, errorText)
-          throw new Error(`Form not available (${formResponse.status})`)
+
+          if (formResponse.status === 404) {
+            throw new Error("form_not_published")
+          } else {
+            throw new Error(`Form not available (${formResponse.status})`)
+          }
         }
 
         const formData = await formResponse.json()
@@ -153,12 +159,17 @@ export default function EventFormPage() {
         setFormConfig(form)
       } catch (error) {
         console.error("Error fetching data:", error)
-        setError(error.message || `Failed to load ${formType} form`)
-        toast({
-          title: "Error",
-          description: error.message || `Failed to load ${formType} form`,
-          variant: "destructive",
-        })
+
+        if (error.message === "form_not_published") {
+          setIsFormNotPublished(true)
+        } else {
+          setError(error.message || `Failed to load ${formType} form`)
+          toast({
+            title: "Error",
+            description: error.message || `Failed to load ${formType} form`,
+            variant: "destructive",
+          })
+        }
       } finally {
         setIsLoading(false)
       }
@@ -347,6 +358,22 @@ export default function EventFormPage() {
     )
   }
 
+  if (isFormNotPublished) {
+    return (
+      <div className="container mx-auto pt-10 py-8 max-w-3xl">
+        <div className="flex items-center mb-6">
+          <Button variant="outline" size="icon" asChild className="mr-2">
+            <Link href={`/events/${eventIdOrSlug}`}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <h1 className="text-2xl font-bold">{event?.title || "Event"}</h1>
+        </div>
+        <FormNotPublishedMessage eventTitle={event?.title || "this event"} formType={formType} />
+      </div>
+    )
+  }
+
   // Format the title based on form type
   const pageTitle =
     formType === "register"
@@ -405,6 +432,39 @@ const ExpiredEventMessage = () => (
           <Calendar className="mr-2 h-4 w-4" />
           Explore Other Events
         </Link>
+      </Button>
+    </CardFooter>
+  </Card>
+)
+
+const FormNotPublishedMessage = ({ eventTitle, formType }) => (
+  <Card className="border-amber-200 bg-amber-50">
+    <CardHeader>
+      <div className="flex items-center space-x-2">
+        <AlertCircle className="h-5 w-5 text-amber-500" />
+        <CardTitle className="text-amber-700">Form Not Available</CardTitle>
+      </div>
+      <CardDescription className="text-amber-600">The organizer hasn't published this form yet.</CardDescription>
+    </CardHeader>
+    <CardContent>
+      <p className="text-gray-700 mb-4">
+        The {formTypeConfig[formType]?.title.toLowerCase() || formType} form for "{eventTitle}" is not currently
+        available. The event organizer may still be setting up this form or has chosen not to make it public yet.
+      </p>
+      <p className="text-gray-700 mb-4">
+        If you believe this is an error, you can contact the event organizer for more information.
+      </p>
+    </CardContent>
+    <CardFooter className="flex flex-col sm:flex-row gap-3">
+      <Button asChild>
+        <Link href={`/events/${eventIdOrSlug}`}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Event
+        </Link>
+      </Button>
+      <Button variant="outline">
+        <Mail className="mr-2 h-4 w-4" />
+        Contact Organizer
       </Button>
     </CardFooter>
   </Card>
