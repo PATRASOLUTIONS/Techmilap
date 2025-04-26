@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast"
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const returnUrl = searchParams.get("returnUrl") || "/dashboard"
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -100,7 +101,7 @@ export default function LoginPage() {
       } else if (email === "eventplanner@gmail.com") {
         setTimeout(() => router.push("/my-events"), 1000)
       } else {
-        setTimeout(() => router.push("/my-events"), 1000)
+        setTimeout(() => router.push(returnUrl), 1000)
       }
     } catch (err) {
       console.error("Login error:", err)
