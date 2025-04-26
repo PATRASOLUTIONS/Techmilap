@@ -384,7 +384,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
               <h3 className="font-medium">Event Dates</h3>
             </div>
 
-            {/* New Date Range Picker */}
+            {/* Modern Date Range Picker */}
             <div className="grid gap-4">
               <Popover>
                 <PopoverTrigger asChild>
@@ -392,25 +392,37 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                     id="date"
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+                      "w-full justify-start text-left font-normal border border-input bg-background hover:bg-accent hover:text-accent-foreground h-auto py-3",
                       !dateRange && "text-muted-foreground",
                     )}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        <>
-                          {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
-                        </>
+                    <div className="flex flex-col items-start gap-1 w-full">
+                      <div className="flex items-center gap-2">
+                        <CalendarIcon className="h-4 w-4" />
+                        <span className="font-medium">Select Date Range</span>
+                      </div>
+                      {dateRange?.from ? (
+                        <p className="text-sm">
+                          {dateRange.to ? (
+                            <>
+                              <span className="font-medium">{format(dateRange.from, "LLL dd, y")}</span> -
+                              <span className="font-medium"> {format(dateRange.to, "LLL dd, y")}</span>
+                            </>
+                          ) : (
+                            <span className="font-medium">{format(dateRange.from, "LLL dd, y")}</span>
+                          )}
+                        </p>
                       ) : (
-                        format(dateRange.from, "LLL dd, y")
-                      )
-                    ) : (
-                      <span>Select event date(s)</span>
-                    )}
+                        <p className="text-sm text-muted-foreground">No date selected</p>
+                      )}
+                    </div>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
+                  <div className="p-3 border-b">
+                    <h3 className="font-medium">Select Event Dates</h3>
+                    <p className="text-sm text-muted-foreground">Choose a start and end date for your event</p>
+                  </div>
                   <Calendar
                     initialFocus
                     mode="range"
@@ -429,11 +441,11 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
 
                       return date < today || date > oneYearFromNow
                     }}
-                    className="rounded-md border shadow-md p-3"
+                    className="rounded-md border-0 shadow-none p-3"
                   />
-                  <div className="p-3 border-t border-border">
+                  <div className="p-3 border-t border-border bg-muted/30">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm text-muted-foreground">Select a date range for your event</div>
+                      <div className="text-sm text-muted-foreground">Quick select:</div>
                       <div className="space-x-2">
                         <Button
                           size="sm"
@@ -454,13 +466,15 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                           variant="outline"
                           onClick={() => {
                             const today = new Date()
+                            const nextMonth = new Date(today)
+                            nextMonth.setMonth(today.getMonth() + 1)
                             handleDateRangeChange({
                               from: today,
-                              to: today,
+                              to: nextMonth,
                             })
                           }}
                         >
-                          Today
+                          Next 30 days
                         </Button>
                       </div>
                     </div>
@@ -476,15 +490,15 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                       <SelectValue placeholder="Select time" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from({ length: 13 }).map((_, hourOffset) => {
-                        const hour = hourOffset + 9 // Start from 9:00
-                        return Array.from({ length: 4 }).map((_, minute) => {
+                      {Array.from({ length: 24 }).map((_, hour) => {
+                        return [0, 15, 30, 45].map((minute) => {
                           const h = hour.toString().padStart(2, "0")
-                          const m = (minute * 15).toString().padStart(2, "0")
+                          const m = minute.toString().padStart(2, "0")
                           const time = `${h}:${m}`
+                          const displayTime = `${hour % 12 || 12}:${m.padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`
                           return (
                             <SelectItem key={time} value={time}>
-                              {time}
+                              {displayTime}
                             </SelectItem>
                           )
                         })
@@ -499,15 +513,15 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                       <SelectValue placeholder="Select time" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from({ length: 13 }).map((_, hourOffset) => {
-                        const hour = hourOffset + 9 // Start from 9:00
-                        return Array.from({ length: 4 }).map((_, minute) => {
+                      {Array.from({ length: 24 }).map((_, hour) => {
+                        return [0, 15, 30, 45].map((minute) => {
                           const h = hour.toString().padStart(2, "0")
-                          const m = (minute * 15).toString().padStart(2, "0")
+                          const m = minute.toString().padStart(2, "0")
                           const time = `${h}:${m}`
+                          const displayTime = `${hour % 12 || 12}:${m.padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`
                           return (
                             <SelectItem key={time} value={time}>
-                              {time}
+                              {displayTime}
                             </SelectItem>
                           )
                         })
