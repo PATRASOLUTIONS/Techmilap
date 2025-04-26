@@ -49,7 +49,13 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
   // Add filter handling functions
   const handleFilterChange = (field: string, value: string | boolean | null) => {
     setFilters((prev) => {
-      const newFilters = { ...prev, [field]: value }
+      const newFilters = { ...prev }
+
+      if (value === null || value === "") {
+        delete newFilters[field]
+      } else {
+        newFilters[field] = value
+      }
 
       // Update active filters list
       const activeFiltersList = Object.entries(newFilters)
@@ -98,7 +104,13 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
             <label className="text-sm font-medium mb-1 block">{formatFieldName(question.label)}</label>
             <Select
               value={filters[fieldKey]?.toString() || ""}
-              onValueChange={(value) => handleFilterChange(fieldKey, value === "" ? null : value === "true")}
+              onValueChange={(value) => {
+                if (value === "all") {
+                  handleFilterChange(fieldKey, null)
+                } else {
+                  handleFilterChange(fieldKey, value === "true")
+                }
+              }}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select option" />
@@ -119,7 +131,13 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
             <label className="text-sm font-medium mb-1 block">{formatFieldName(question.label)}</label>
             <Select
               value={filters[fieldKey]?.toString() || ""}
-              onValueChange={(value) => handleFilterChange(fieldKey, value === "" ? null : value)}
+              onValueChange={(value) => {
+                if (value === "all") {
+                  handleFilterChange(fieldKey, null)
+                } else {
+                  handleFilterChange(fieldKey, value)
+                }
+              }}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select option" />
@@ -531,13 +549,19 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
                     <label className="text-sm font-medium mb-1 block">Status</label>
                     <Select
                       value={filters.status?.toString() || ""}
-                      onValueChange={(value) => handleFilterChange("status", value === "" ? null : value)}
+                      onValueChange={(value) => {
+                        if (value === "all") {
+                          handleFilterChange("status", null)
+                        } else {
+                          handleFilterChange("status", value)
+                        }
+                      }}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Filter by status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All</SelectItem>
+                        <SelectItem value="all">All</SelectItem>
                         <SelectItem value="pending">Pending</SelectItem>
                         <SelectItem value="approved">Approved</SelectItem>
                         <SelectItem value="rejected">Rejected</SelectItem>
