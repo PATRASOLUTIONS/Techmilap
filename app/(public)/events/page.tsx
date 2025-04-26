@@ -84,7 +84,7 @@ export default async function PublicEventsPage({
           </div>
 
           <div className="w-full md:w-auto flex flex-col sm:flex-row gap-3">
-            <form className="flex-1 min-w-[200px]" action="/events">
+            <form className="flex-1 min-w-[200px]" action="/explore">
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input

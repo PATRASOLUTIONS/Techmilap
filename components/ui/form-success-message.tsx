@@ -19,10 +19,10 @@ export function FormSuccessMessage({ title, message, eventId, formType }: FormSu
       <p className="text-green-700 mb-6">{message}</p>
       <div className="flex flex-col sm:flex-row justify-center gap-4">
         <Button asChild variant="outline">
-          <Link href={`/events/${eventId}`}>Back to Event</Link>
+          <Link href={`/explore/${eventId}`}>Back to Event</Link>
         </Button>
         <Button asChild>
-          <Link href="/events">Browse More Events</Link>
+          <Link href="/explore">Browse More Events</Link>
         </Button>
       </div>
     </div>

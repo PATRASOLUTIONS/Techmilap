@@ -536,7 +536,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
             <div className="grid gap-4">
               <div className="space-y-2">
                 <Label htmlFor="venue" className="text-sm font-medium">
-                  Venue Name
+                  Google Map Location
                 </Label>
                 <Input
                   id="venue"

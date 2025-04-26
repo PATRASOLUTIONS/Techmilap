@@ -304,7 +304,7 @@ export default function EventFormPage() {
 
   if (isSuccess) {
     return (
-      <div className="container mx-auto py-8 max-w-3xl">
+      <div className="container mx-auto pt-24 py-8 max-w-3xl">
         <FormSuccessMessage
           title={successTitle}
           message={successMessage}
@@ -335,7 +335,7 @@ export default function EventFormPage() {
       </div>
 
       <Card>
-        <CardContent className="pt-24">
+        <CardContent className="pt-5">
           <DynamicForm
             formFields={formConfig.fields || []}
             formTitle={formConfig.title || formTypeConfig[formType].title}

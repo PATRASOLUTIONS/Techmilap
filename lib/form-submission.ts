@@ -129,6 +129,16 @@ export async function handleFormSubmission(
             submissionId: result.insertedId.toString(),
           })
           console.log("Email notification sent")
+          await sendFormSubmissionNotification({
+            eventName: event.title,
+            formType: formType,
+            submissionData: cleanData,
+            recipientEmail: submitterEmail,
+            recipientName: submitterName,
+            eventId: eventId,
+            submissionId: result.insertedId.toString(),
+          })
+          console.log("Email notification sent submnitter")
         } else {
           console.warn("No submitter email found, skipping notification")
         }

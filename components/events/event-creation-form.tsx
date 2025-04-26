@@ -62,9 +62,9 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   })
 
   const [formStatus, setFormStatus] = useState({
-    attendee: "draft",
-    volunteer: "draft",
-    speaker: "draft",
+    attendee: "published",
+    volunteer: "published",
+    speaker: "published",
   })
 
   // Load existing event data if editing
