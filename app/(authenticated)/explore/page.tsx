@@ -49,8 +49,7 @@ export default async function ExplorePage({ searchParams }: { searchParams: { ca
           title="No events found"
           description="No events match your current filters. Try changing your search criteria."
         />
-      )} 
-       
+      )}
     </div>
   )
 }

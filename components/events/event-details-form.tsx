@@ -524,7 +524,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
       {(data.type === "Offline" || data.type === "Hybrid") && (
         <motion.div className="space-y-4" variants={item}>
           <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-            Venue Details
+            Google Map Location
           </h2>
           <Card className="p-4 space-y-4">
             <div className="flex items-center gap-2">
@@ -536,7 +536,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
             <div className="grid gap-4">
               <div className="space-y-2">
                 <Label htmlFor="venue" className="text-sm font-medium">
-                  Google Map Location
+                  Venue Name
                 </Label>
                 <Input
                   id="venue"
