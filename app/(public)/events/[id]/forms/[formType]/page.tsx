@@ -299,7 +299,7 @@ export default function EventFormPage() {
           <h2 className="text-xl font-bold text-red-700 mb-2">Invalid Form Type</h2>
           <p className="text-red-600 mb-4">The requested form type is not valid.</p>
           <Button asChild variant="outline">
-            <Link href={`/events/${eventIdOrSlug}`}>Back to Event</Link>
+            <Link href={`/events/details/${eventIdOrSlug}`}>Back to Event</Link>
           </Button>
         </div>
       </div>
