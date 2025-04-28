@@ -92,6 +92,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
                     startDate: event.startDate,
                     startTime: event.startTime,
                     location: event.location,
+                    description: event.description,
                   },
                   eventId: event._id.toString(),
                 })
@@ -113,6 +114,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
                   eventName: event.title,
                   attendeeEmail: submission.data.email,
                   attendeeName: submission.data.name || `${submission.data.firstName} ${submission.data.lastName}`,
+                  rejectionReason: "due to capacity limitations or eligibility criteria",
                 })
 
                 console.log(`Email sending result: ${emailResult ? "Success" : "Failed"}`)
