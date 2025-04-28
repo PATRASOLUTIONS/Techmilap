@@ -1,6 +1,6 @@
 import mongoose from "mongoose"
 import { connectToDatabase } from "@/lib/mongodb"
-import { sendFormSubmissionNotification } from "@/lib/email-service"
+import { sendFormSubmissionNotification, sendEmail } from "@/lib/email-service"
 
 // Import models
 const Event = mongoose.models.Event || mongoose.model("Event", require("@/models/Event").default.schema)
@@ -22,6 +22,123 @@ const FormSubmission =
     }),
   )
 
+// Email styles for confirmation emails
+const emailStyles = {
+  container: `
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 30px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background-color: #ffffff;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  `,
+  header: `
+    text-align: center;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 25px;
+  `,
+  logo: `
+    font-size: 24px;
+    font-weight: bold;
+    color: #4f46e5;
+    text-decoration: none;
+  `,
+  title: `
+    color: #111827;
+    font-size: 22px;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 20px;
+  `,
+  content: `
+    color: #374151;
+    font-size: 16px;
+    line-height: 1.6;
+  `,
+  infoBox: `
+    background-color: #f9fafb;
+    padding: 20px;
+    border-radius: 6px;
+    margin: 25px 0;
+    border-left: 4px solid #4f46e5;
+  `,
+  footer: `
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+    color: #6b7280;
+    font-size: 14px;
+  `,
+}
+
+// Function to send confirmation email to the person who submitted the form
+async function sendSubmitterConfirmationEmail(
+  formType: string,
+  eventName: string,
+  submitterEmail: string,
+  submitterName: string,
+  eventId: string,
+) {
+  console.log(`Sending confirmation email to ${submitterEmail} for ${formType} submission to event ${eventName}`)
+
+  if (!submitterEmail) {
+    console.error("Missing submitter email for confirmation email")
+    return false
+  }
+
+  const formTypeCapitalized = formType.charAt(0).toUpperCase() + formType.slice(1)
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  const eventUrl = `${appUrl}/events/${eventId}`
+
+  const subject = `${formTypeCapitalized} Submission Received: ${eventName}`
+  const text = `
+    Hello ${submitterName || "there"},
+    
+    Thank you for your ${formType} submission for "${eventName}".
+    
+    Your submission has been received and is pending review by the event organizer.
+    You will be notified once your submission has been reviewed.
+    
+    Event Details: ${eventUrl}
+    
+    Thank you for using TechMilap!
+    
+    Best regards,
+    The TechMilap Team
+  `
+
+  const html = `
+    <div style="${emailStyles.container}">
+      <div style="${emailStyles.header}">
+        <div style="${emailStyles.logo}">TechMilap</div>
+      </div>
+      
+      <h1 style="${emailStyles.title}">${formTypeCapitalized} Submission Received</h1>
+      
+      <div style="${emailStyles.content}">
+        <p>Hello ${submitterName || "there"},</p>
+        <p>Thank you for your ${formType} submission for <strong>"${eventName}"</strong>.</p>
+        
+        <div style="${emailStyles.infoBox}">
+          <p>Your submission has been received and is pending review by the event organizer.</p>
+          <p>You will be notified once your submission has been reviewed.</p>
+        </div>
+        
+        <p><a href="${eventUrl}" style="color: #4f46e5; text-decoration: underline;">View Event Details</a></p>
+      </div>
+      
+      <div style="${emailStyles.footer}">
+        <p>Best regards,<br>The TechMilap Team</p>
+      </div>
+    </div>
+  `
+
+  return sendEmail({ to: submitterEmail, subject, text, html })
+}
+
 export async function handleFormSubmission(
   eventIdOrSlug: string,
   formType: "attendee" | "volunteer" | "speaker",
@@ -30,6 +147,7 @@ export async function handleFormSubmission(
 ) {
   try {
     console.log(`Handling ${formType} form submission for event ${eventIdOrSlug}`)
+    console.log("Form data:", JSON.stringify(formData, null, 2))
 
     await connectToDatabase()
 
@@ -73,11 +191,19 @@ export async function handleFormSubmission(
       }
     }
 
-    // Create a name field from firstName and lastName if they exist
-    let name = formData.name
-    if (!name && formData.firstName && formData.lastName) {
-      name = `${formData.firstName} ${formData.lastName}`.trim()
+    // Extract submitter information
+    const submitterEmail = formData.email || user?.email
+    let submitterName = formData.name
+
+    if (!submitterName) {
+      if (formData.firstName && formData.lastName) {
+        submitterName = `${formData.firstName} ${formData.lastName}`.trim()
+      } else if (user) {
+        submitterName = `${user.firstName} ${user.lastName || ""}`.trim()
+      }
     }
+
+    console.log("Submitter info:", { submitterEmail, submitterName })
 
     // Create the form submission
     const submission = new FormSubmission({
@@ -85,11 +211,11 @@ export async function handleFormSubmission(
       formType,
       status: "pending", // Always set to pending initially
       userId: user?._id,
-      userName: name || user?.firstName ? `${user.firstName} ${user.lastName || ""}` : undefined,
-      userEmail: formData.email || user?.email,
+      userName: submitterName,
+      userEmail: submitterEmail,
       data: {
         ...formData,
-        name: name || undefined,
+        name: submitterName || undefined,
       },
     })
 
@@ -104,8 +230,8 @@ export async function handleFormSubmission(
 
       event.registrations.push({
         userId: user?._id,
-        name: name || (user ? `${user.firstName} ${user.lastName || ""}` : undefined),
-        email: formData.email || user?.email,
+        name: submitterName,
+        email: submitterEmail,
         status: "pending", // Set to pending initially
         registeredAt: new Date(),
         formSubmissionId: submission._id,
@@ -117,6 +243,7 @@ export async function handleFormSubmission(
 
     // Send notification to the event organizer
     try {
+      // Fetch the organizer with their email
       const organizer = await User.findById(event.organizer)
       console.log("Found organizer:", organizer ? organizer.email : "Not found")
 
@@ -140,6 +267,28 @@ export async function handleFormSubmission(
     } catch (notificationError) {
       console.error("Error sending notification to organizer:", notificationError)
       // Don't fail the submission if notification fails
+    }
+
+    // Send confirmation email to the submitter
+    try {
+      if (submitterEmail) {
+        console.log("Sending confirmation email to submitter:", submitterEmail)
+
+        const confirmationSent = await sendSubmitterConfirmationEmail(
+          formType,
+          event.title,
+          submitterEmail,
+          submitterName || "",
+          event._id.toString(),
+        )
+
+        console.log("Confirmation sent to submitter:", confirmationSent)
+      } else {
+        console.error("No email found for submitter")
+      }
+    } catch (confirmationError) {
+      console.error("Error sending confirmation to submitter:", confirmationError)
+      // Don't fail the submission if confirmation fails
     }
 
     return {

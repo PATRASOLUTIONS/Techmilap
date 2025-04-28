@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
-import { sendFormSubmissionNotification } from "@/lib/email-service"
+import { sendFormSubmissionNotification, sendEmail } from "@/lib/email-service"
 
 // Import models
 const Event = mongoose.models.Event || mongoose.model("Event", require("@/models/Event").default.schema)
@@ -22,6 +22,58 @@ const FormSubmission =
       updatedAt: { type: Date, default: Date.now },
     }),
   )
+
+// Email styles for confirmation emails
+const emailStyles = {
+  container: `
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 30px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background-color: #ffffff;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  `,
+  header: `
+    text-align: center;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 25px;
+  `,
+  logo: `
+    font-size: 24px;
+    font-weight: bold;
+    color: #4f46e5;
+    text-decoration: none;
+  `,
+  title: `
+    color: #111827;
+    font-size: 22px;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 20px;
+  `,
+  content: `
+    color: #374151;
+    font-size: 16px;
+    line-height: 1.6;
+  `,
+  infoBox: `
+    background-color: #f9fafb;
+    padding: 20px;
+    border-radius: 6px;
+    margin: 25px 0;
+    border-left: 4px solid #4f46e5;
+  `,
+  footer: `
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+    color: #6b7280;
+    font-size: 14px;
+  `,
+}
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   console.log(`Received public registration for event ${params.id}`)
@@ -147,6 +199,63 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       } catch (notificationError) {
         console.error("Error sending notification to organizer:", notificationError)
         // Don't fail the registration if notification fails
+      }
+
+      // Send confirmation email to the attendee
+      try {
+        console.log("Sending confirmation email to attendee:", email)
+
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+        const eventUrl = `${appUrl}/events/${event._id}`
+
+        const subject = `Registration Received: ${event.title}`
+        const text = `
+          Hello ${name},
+          
+          Thank you for registering for "${event.title}".
+          
+          Your registration has been received and is pending approval by the event organizer.
+          You will be notified once your registration has been reviewed.
+          
+          Event Details: ${eventUrl}
+          
+          Thank you for using TechMilap!
+          
+          Best regards,
+          The TechMilap Team
+        `
+
+        const html = `
+          <div style="${emailStyles.container}">
+            <div style="${emailStyles.header}">
+              <div style="${emailStyles.logo}">TechMilap</div>
+            </div>
+            
+            <h1 style="${emailStyles.title}">Registration Received</h1>
+            
+            <div style="${emailStyles.content}">
+              <p>Hello ${name},</p>
+              <p>Thank you for registering for <strong>"${event.title}"</strong>.</p>
+              
+              <div style="${emailStyles.infoBox}">
+                <p>Your registration has been received and is pending approval by the event organizer.</p>
+                <p>You will be notified once your registration has been reviewed.</p>
+              </div>
+              
+              <p><a href="${eventUrl}" style="color: #4f46e5; text-decoration: underline;">View Event Details</a></p>
+            </div>
+            
+            <div style="${emailStyles.footer}">
+              <p>Best regards,<br>The TechMilap Team</p>
+            </div>
+          </div>
+        `
+
+        const confirmationSent = await sendEmail({ to: email, subject, text, html })
+        console.log("Confirmation sent to attendee:", confirmationSent)
+      } catch (confirmationError) {
+        console.error("Error sending confirmation to attendee:", confirmationError)
+        // Don't fail the registration if confirmation fails
       }
 
       return NextResponse.json({
