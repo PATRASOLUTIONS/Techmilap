@@ -1,136 +1,188 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { NextResponse, type NextRequest } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { sendEmail } from "@/lib/email-service"
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }): Promise<NextResponse> {
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
     const { db } = await connectToDatabase()
-    const eventId = params.id
+    const { to, subject, html, text, registrationIds, attendeeData, message, includeEventDetails } = await req.json()
 
-    // Verify the user has permission to access this event
-    const event = await db.collection("events").findOne({
-      _id: new ObjectId(eventId),
-      userId: session.user.id,
-    })
+    // Get the event details
+    const event = await db.collection("events").findOne({ _id: new ObjectId(params.id) })
 
     if (!event) {
-      return NextResponse.json({ error: "Event not found or access denied" }, { status: 404 })
+      return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
-    const { registrationIds, subject, message, includeEventDetails } = await request.json()
+    // If sending to specific registrations
+    if (registrationIds && Array.isArray(registrationIds)) {
+      const results = []
+      const successfulEmails = []
+      const failedEmails = []
 
-    if (!registrationIds || !Array.isArray(registrationIds) || registrationIds.length === 0) {
+      // Get all registrations
+      const registrations = await db
+        .collection("formsubmissions")
+        .find({
+          _id: { $in: registrationIds.map((id) => new ObjectId(id)) },
+          eventId: new ObjectId(params.id),
+        })
+        .toArray()
+
+      // Process each registration for email notification
+      for (const registration of registrations) {
+        try {
+          // Find attendee data if provided
+          const attendee = attendeeData?.find((a) => a.id === registration._id.toString())
+
+          // Extract email and name from registration or provided attendee data
+          const formData = registration.data || {}
+
+          const email =
+            attendee?.email ||
+            formData.email ||
+            formData.corporateEmail ||
+            formData.userEmail ||
+            formData.emailAddress ||
+            formData.email_address ||
+            formData.corporate_email ||
+            formData.user_email ||
+            formData.Email ||
+            formData.CorporateEmail ||
+            formData.UserEmail ||
+            formData.EmailAddress ||
+            registration.userEmail
+
+          const name =
+            attendee?.name ||
+            formData.name ||
+            formData.fullName ||
+            formData.full_name ||
+            formData.Name ||
+            formData.FullName ||
+            ((formData.firstName || formData.first_name || formData.FirstName) &&
+            (formData.lastName || formData.last_name || formData.LastName)
+              ? `${formData.firstName || formData.first_name || formData.FirstName} ${
+                  formData.lastName || formData.last_name || formData.LastName
+                }`
+              : formData.firstName || formData.first_name || formData.FirstName) ||
+            registration.userName ||
+            "Attendee"
+
+          if (email) {
+            console.log(`Sending email to ${name} (${email})`)
+
+            // Personalize the message with the recipient's name
+            let personalizedMessage = message
+            if (message.includes("{name}")) {
+              personalizedMessage = message.replace(/{name}/g, name)
+            }
+
+            // Build the email content
+            let emailHtml = `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+                <h2 style="color: #4f46e5;">${subject}</h2>
+                <p>Hello ${name},</p>
+                <div style="margin: 20px 0;">
+                  ${personalizedMessage.replace(/\n/g, "<br>")}
+                </div>
+            `
+
+            // Add event details if requested
+            if (includeEventDetails) {
+              emailHtml += `
+                <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                  <h3 style="margin-top: 0;">Event Details</h3>
+                  <p><strong>Event:</strong> ${event.title}</p>
+                  <p><strong>Date:</strong> ${new Date(event.date).toLocaleDateString()}</p>
+                  <p><strong>Location:</strong> ${event.location || "TBD"}</p>
+                  ${event.description ? `<p><strong>Description:</strong> ${event.description}</p>` : ""}
+                </div>
+              `
+            }
+
+            // Close the email
+            emailHtml += `
+                <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+                  Best regards,<br>
+                  The Event Team
+                </p>
+              </div>
+            `
+
+            // Create plain text version
+            let emailText = `Hello ${name},\n\n${personalizedMessage}\n\n`
+
+            if (includeEventDetails) {
+              emailText += `
+                Event Details:
+                - Event: ${event.title}
+                - Date: ${new Date(event.date).toLocaleDateString()}
+                - Location: ${event.location || "TBD"}
+                ${event.description ? `- Description: ${event.description}` : ""}
+              `
+            }
+
+            emailText += `\n\nBest regards,\nThe Event Team`
+
+            const emailSent = await sendEmail({
+              to: email,
+              subject: subject,
+              html: emailHtml,
+              text: emailText,
+            })
+
+            if (emailSent) {
+              successfulEmails.push(email)
+              results.push({ id: registration._id.toString(), email, name, success: true })
+            } else {
+              failedEmails.push(email)
+              results.push({ id: registration._id.toString(), email, name, success: false })
+            }
+          } else {
+            console.warn(`No email found for registration ${registration._id}`)
+            results.push({ id: registration._id.toString(), success: false, reason: "No email address found" })
+          }
+        } catch (error) {
+          console.error(`Error sending email for registration ${registration._id}:`, error)
+          results.push({
+            id: registration._id.toString(),
+            success: false,
+            reason: error instanceof Error ? error.message : "Unknown error",
+          })
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Emails sent to ${successfulEmails.length} out of ${registrationIds.length} recipients`,
+        results: {
+          total: results.length,
+          successful: successfulEmails.length,
+          failed: failedEmails.length,
+          details: results,
+        },
+      })
+    }
+    // If sending to a specific email address
+    else if (to) {
+      const emailSent = await sendEmail({
+        to,
+        subject,
+        html,
+        text,
+      })
+
+      return NextResponse.json({
+        success: emailSent,
+        message: emailSent ? "Email sent successfully" : "Failed to send email",
+      })
+    } else {
       return NextResponse.json({ error: "No recipients specified" }, { status: 400 })
     }
-
-    if (!subject || !message) {
-      return NextResponse.json({ error: "Subject and message are required" }, { status: 400 })
-    }
-
-    // Get the registrations
-    const registrations = await db
-      .collection("formSubmissions")
-      .find({
-        _id: { $in: registrationIds.map((id) => new ObjectId(id)) },
-        eventId: eventId,
-        formType: "attendee",
-      })
-      .toArray()
-
-    if (registrations.length === 0) {
-      return NextResponse.json({ error: "No valid registrations found" }, { status: 404 })
-    }
-
-    // Send emails to each recipient
-    const emailPromises = registrations.map(async (registration) => {
-      const attendeeEmail = registration.data?.email
-      const attendeeName = registration.data?.name || registration.data?.firstName || "Attendee"
-
-      if (!attendeeEmail) {
-        return { id: registration._id, success: false, error: "No email address found" }
-      }
-
-      // Prepare event details section if requested
-      let eventDetailsHtml = ""
-      let eventDetailsText = ""
-
-      if (includeEventDetails) {
-        const eventDate = event.startDate ? new Date(event.startDate).toLocaleDateString() : "TBD"
-        const eventTime = event.startTime || "TBD"
-        const eventLocation = event.location || "TBD"
-
-        eventDetailsHtml = `
-          <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="margin-top: 0;">Event Details</h3>
-            <p><strong>Event:</strong> ${event.title}</p>
-            <p><strong>Date:</strong> ${eventDate}</p>
-            <p><strong>Time:</strong> ${eventTime}</p>
-            <p><strong>Location:</strong> ${eventLocation}</p>
-          </div>
-        `
-
-        eventDetailsText = `
-Event Details:
-- Event: ${event.title}
-- Date: ${eventDate}
-- Time: ${eventTime}
-- Location: ${eventLocation}
-        `
-      }
-
-      // Personalize the message with the attendee's name
-      const personalizedHtml = message.replace(/\{name\}/g, attendeeName)
-      const personalizedText = message.replace(/\{name\}/g, attendeeName)
-
-      const html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
-          ${personalizedHtml}
-          ${eventDetailsHtml}
-          <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px; border-top: 1px solid #eaeaea; padding-top: 20px;">
-            This email was sent by the organizer of ${event.title}.
-          </p>
-        </div>
-      `
-
-      const text = `${personalizedText}
-      
-${eventDetailsText}
-
-This email was sent by the organizer of ${event.title}.`
-
-      try {
-        const result = await sendEmail({
-          to: attendeeEmail,
-          subject,
-          text,
-          html,
-        })
-
-        return { id: registration._id, success: result, email: attendeeEmail }
-      } catch (error) {
-        console.error(`Error sending email to ${attendeeEmail}:`, error)
-        return { id: registration._id, success: false, email: attendeeEmail, error: error.message }
-      }
-    })
-
-    const results = await Promise.all(emailPromises)
-    const successCount = results.filter((r) => r.success).length
-
-    return NextResponse.json({
-      success: true,
-      message: `Sent ${successCount} of ${registrations.length} emails successfully`,
-      results,
-    })
   } catch (error) {
-    console.error("Error sending emails:", error)
-    return NextResponse.json({ error: "Failed to send emails" }, { status: 500 })
+    console.error("Error sending email:", error)
+    return NextResponse.json({ error: "An error occurred while sending the email" }, { status: 500 })
   }
 }

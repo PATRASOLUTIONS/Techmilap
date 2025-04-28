@@ -106,37 +106,56 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
 
   // Inside the RegistrationsTable component, add this helper function
   const getAttendeeEmail = (registration: any) => {
-    if (!registration || !registration.data) return "N/A"
+    if (!registration) return "N/A"
 
-    // Check multiple possible email fields
-    return (
-      registration.data.email ||
-      registration.data.corporateEmail ||
-      registration.data.userEmail ||
-      registration.data.emailAddress ||
-      registration.userEmail ||
-      "N/A"
-    )
+    // First check the data object for email fields
+    if (registration.data) {
+      const data = registration.data
+      return (
+        data.email ||
+        data.corporateEmail ||
+        data.userEmail ||
+        data.emailAddress ||
+        data.email_address ||
+        data.corporate_email ||
+        data.user_email ||
+        data.Email ||
+        data.CorporateEmail ||
+        data.UserEmail ||
+        data.EmailAddress ||
+        ""
+      )
+    }
+
+    // Then check the registration object itself
+    return registration.userEmail || registration.email || "N/A"
   }
 
   const getAttendeeName = (registration: any) => {
-    if (!registration || !registration.data) return "Anonymous"
+    if (!registration) return "Anonymous"
 
-    const data = registration.data
+    // First check the data object for name fields
+    if (registration.data) {
+      const data = registration.data
 
-    // Check for full name fields
-    if (data.name) return data.name
-    if (data.fullName) return data.fullName
+      // Check for full name fields
+      if (data.name) return data.name
+      if (data.fullName) return data.fullName
+      if (data.full_name) return data.full_name
+      if (data.Name) return data.Name
+      if (data.FullName) return data.FullName
 
-    // Check for first/last name combination
-    const firstName = data.firstName || data.first_name || ""
-    const lastName = data.lastName || data.last_name || ""
+      // Check for first/last name combination
+      const firstName = data.firstName || data.first_name || data.FirstName || ""
 
-    if (firstName || lastName) {
-      return `${firstName} ${lastName}`.trim()
+      const lastName = data.lastName || data.last_name || data.LastName || ""
+
+      if (firstName || lastName) {
+        return `${firstName} ${lastName}`.trim()
+      }
     }
 
-    // Fall back to userName from the registration
+    // Then check the registration object itself
     return registration.userName || "Anonymous"
   }
 
@@ -200,14 +219,37 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
         const data = await response.json()
         console.log(`Registrations data:`, data)
 
-        setRegistrations(data.registrations || [])
+        // Process each registration to ensure name and email are properly set
+        const processedRegistrations =
+          data.registrations?.map((reg: any) => {
+            // Make sure the registration has a data object
+            if (!reg.data) reg.data = {}
+
+            // Extract email and name from the registration data
+            const email = getAttendeeEmail(reg)
+            const name = getAttendeeName(reg)
+
+            // Update the registration object with the extracted email and name
+            return {
+              ...reg,
+              userEmail: email !== "N/A" ? email : reg.userEmail,
+              userName: name !== "Anonymous" ? name : reg.userName,
+              data: {
+                ...reg.data,
+                email: email !== "N/A" ? email : reg.data.email,
+                name: name !== "Anonymous" ? name : reg.data.name,
+              },
+            }
+          }) || []
+
+        setRegistrations(processedRegistrations)
         setShouldRetry(false) // Reset retry flag on success
         setRetryCount(0) // Reset retry count on success
 
         // Extract unique values for each field for filtering
         const options: { [key: string]: Set<string> } = {}
 
-        data.registrations?.forEach((registration: any) => {
+        processedRegistrations.forEach((registration: any) => {
           if (registration.data) {
             Object.entries(registration.data).forEach(([key, value]) => {
               if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
@@ -302,18 +344,42 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
   }, [eventId])
 
   const handleViewRegistration = (registration: any) => {
-    setSelectedRegistration(registration)
+    // Make sure the registration has the latest extracted email and name
+    const updatedRegistration = {
+      ...registration,
+      userEmail: getAttendeeEmail(registration),
+      userName: getAttendeeName(registration),
+    }
+
+    setSelectedRegistration(updatedRegistration)
     setDialogOpen(true)
   }
 
   const handleUpdateStatus = async (registrationId: string, newStatus: string) => {
     try {
+      // Find the registration to get the email and name
+      const registration = registrations.find((reg: any) => reg._id === registrationId)
+      if (!registration) {
+        throw new Error("Registration not found")
+      }
+
+      // Extract email and name from the registration
+      const email = getAttendeeEmail(registration)
+      const name = getAttendeeName(registration)
+
+      // Log the extracted email and name
+      console.log(`Updating status for ${name} (${email}) to ${newStatus}`)
+
       const response = await fetch(`/api/events/${eventId}/registrations/${registrationId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({
+          status: newStatus,
+          attendeeEmail: email !== "N/A" ? email : undefined,
+          attendeeName: name !== "Anonymous" ? name : undefined,
+        }),
       })
 
       if (!response.ok) {
@@ -374,12 +440,27 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     }
 
     try {
+      // Prepare attendee data for bulk approval
+      const attendeeData = selectedRegistrations.map((id) => {
+        const registration = registrations.find((reg: any) => reg._id === id)
+        if (!registration) return { id }
+
+        return {
+          id,
+          email: getAttendeeEmail(registration),
+          name: getAttendeeName(registration),
+        }
+      })
+
       const response = await fetch(`/api/events/${eventId}/registrations/bulk-approve`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ registrationIds: selectedRegistrations }),
+        body: JSON.stringify({
+          registrationIds: selectedRegistrations,
+          attendeeData,
+        }),
       })
 
       if (!response.ok) {
@@ -736,6 +817,18 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     setSendingEmail(true)
 
     try {
+      // Prepare attendee data for email sending
+      const attendeeData = selectedRegistrations.map((id) => {
+        const registration = registrations.find((reg: any) => reg._id === id)
+        if (!registration) return { id }
+
+        return {
+          id,
+          email: getAttendeeEmail(registration),
+          name: getAttendeeName(registration),
+        }
+      })
+
       const response = await fetch(`/api/events/${eventId}/email`, {
         method: "POST",
         headers: {
@@ -743,6 +836,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
         },
         body: JSON.stringify({
           registrationIds: selectedRegistrations,
+          attendeeData,
           subject: emailSubject,
           message: emailMessage,
           includeEventDetails,
@@ -1228,8 +1322,8 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
               <div className="max-h-[100px] overflow-y-auto">
                 {selectedAttendees.map((attendee) => (
                   <div key={attendee._id} className="text-sm py-1 flex justify-between">
-                    <span>{attendee.data?.name || attendee.data?.firstName || "Anonymous"}</span>
-                    <span className="text-muted-foreground">{attendee.data?.email || "No email"}</span>
+                    <span>{getAttendeeName(attendee)}</span>
+                    <span className="text-muted-foreground">{getAttendeeEmail(attendee)}</span>
                   </div>
                 ))}
               </div>

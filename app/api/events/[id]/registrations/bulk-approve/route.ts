@@ -6,7 +6,7 @@ import { sendRegistrationApprovalEmail } from "@/lib/email-service"
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { db } = await connectToDatabase()
-    const { registrationIds } = await req.json()
+    const { registrationIds, attendeeData } = await req.json()
 
     if (!registrationIds || !Array.isArray(registrationIds) || registrationIds.length === 0) {
       return NextResponse.json({ error: "Registration IDs are required" }, { status: 400 })
@@ -19,87 +19,115 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
-    // Convert string IDs to ObjectIds
-    const objectIds = registrationIds.map((id) => new ObjectId(id))
+    // Update all registrations to approved status
+    const updateResult = await db.collection("formsubmissions").updateMany(
+      {
+        _id: { $in: registrationIds.map((id) => new ObjectId(id)) },
+        eventId: new ObjectId(params.id),
+      },
+      {
+        $set: {
+          status: "approved",
+          updatedAt: new Date(),
+        },
+      },
+    )
 
-    // Find all the registrations to be approved
-    const registrations = await db
+    // Send email notifications to all approved attendees
+    const emailResults = []
+    const successfulEmails = []
+    const failedEmails = []
+
+    // Get all registrations that were updated
+    const updatedRegistrations = await db
       .collection("formsubmissions")
-      .find({ _id: { $in: objectIds }, eventId: new ObjectId(params.id) })
+      .find({
+        _id: { $in: registrationIds.map((id) => new ObjectId(id)) },
+        eventId: new ObjectId(params.id),
+      })
       .toArray()
 
-    if (registrations.length === 0) {
-      return NextResponse.json({ error: "No matching registrations found" }, { status: 404 })
-    }
+    // Process each registration for email notification
+    for (const registration of updatedRegistrations) {
+      try {
+        // Find attendee data if provided
+        const attendee = attendeeData?.find((a) => a.id === registration._id.toString())
 
-    // Update all registrations to approved status
-    await db
-      .collection("formsubmissions")
-      .updateMany({ _id: { $in: objectIds } }, { $set: { status: "approved", updatedAt: new Date() } })
+        // Extract email and name from registration or provided attendee data
+        const formData = registration.data || {}
 
-    // Send email notifications
-    const emailResults = await Promise.all(
-      registrations.map(async (registration) => {
-        try {
-          // Extract attendee information for email notification
-          const formData = registration.data || {}
+        const email =
+          attendee?.email ||
+          formData.email ||
+          formData.corporateEmail ||
+          formData.userEmail ||
+          formData.emailAddress ||
+          formData.email_address ||
+          formData.corporate_email ||
+          formData.user_email ||
+          formData.Email ||
+          formData.CorporateEmail ||
+          formData.UserEmail ||
+          formData.EmailAddress ||
+          registration.userEmail
 
-          // Extract email from any available email field
-          const attendeeEmail =
-            formData.email ||
-            formData.corporateEmail ||
-            formData.userEmail ||
-            formData.emailAddress ||
-            registration.userEmail ||
-            null
+        const name =
+          attendee?.name ||
+          formData.name ||
+          formData.fullName ||
+          formData.full_name ||
+          formData.Name ||
+          formData.FullName ||
+          ((formData.firstName || formData.first_name || formData.FirstName) &&
+          (formData.lastName || formData.last_name || formData.LastName)
+            ? `${formData.firstName || formData.first_name || formData.FirstName} ${
+                formData.lastName || formData.last_name || formData.LastName
+              }`
+            : formData.firstName || formData.first_name || formData.FirstName) ||
+          registration.userName ||
+          "Attendee"
 
-          // Extract name from any available name field
-          const firstName = formData.firstName || formData.first_name || ""
-          const lastName = formData.lastName || formData.last_name || ""
-          const fullName = formData.name || formData.fullName || ""
-
-          // Construct attendee name from available fields
-          const attendeeName =
-            fullName || (firstName && lastName ? `${firstName} ${lastName}` : firstName) || "Attendee"
-
-          if (!attendeeEmail) {
-            console.warn(`No email found for registration ${registration._id}`)
-            return { id: registration._id.toString(), success: false, reason: "No email address found" }
-          }
-
-          console.log(`Sending approval email to ${attendeeEmail} for registration ${registration._id}`)
+        if (email) {
+          console.log(`Sending approval email to ${name} (${email})`)
 
           const emailSent = await sendRegistrationApprovalEmail({
             eventName: event.title,
-            attendeeEmail,
-            attendeeName,
+            attendeeEmail: email,
+            attendeeName: name,
             eventDetails: event,
             eventId: params.id,
           })
 
-          return {
-            id: registration._id.toString(),
-            success: emailSent,
-            email: attendeeEmail,
-            name: attendeeName,
+          if (emailSent) {
+            successfulEmails.push(email)
+            emailResults.push({ id: registration._id.toString(), email, name, success: true })
+          } else {
+            failedEmails.push(email)
+            emailResults.push({ id: registration._id.toString(), email, name, success: false })
           }
-        } catch (error) {
-          console.error(`Error sending email for registration ${registration._id}:`, error)
-          return {
-            id: registration._id.toString(),
-            success: false,
-            reason: error instanceof Error ? error.message : "Unknown error",
-          }
+        } else {
+          console.warn(`No email found for registration ${registration._id}`)
+          emailResults.push({ id: registration._id.toString(), success: false, reason: "No email address found" })
         }
-      }),
-    )
-
-    const successCount = emailResults.filter((result) => result.success).length
+      } catch (error) {
+        console.error(`Error sending email for registration ${registration._id}:`, error)
+        emailResults.push({
+          id: registration._id.toString(),
+          success: false,
+          reason: error instanceof Error ? error.message : "Unknown error",
+        })
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      message: `${registrations.length} registrations approved, ${successCount} email notifications sent`,
-      emailResults,
+      message: `${updateResult.modifiedCount} registrations approved`,
+      emailResults: {
+        total: emailResults.length,
+        successful: successfulEmails.length,
+        failed: failedEmails.length,
+        details: emailResults,
+      },
     })
   } catch (error) {
     console.error("Error bulk approving registrations:", error)
