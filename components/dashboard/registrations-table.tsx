@@ -5,13 +5,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, CheckCircle, XCircle, Search, Filter, X } from "lucide-react"
+// Update the imports at the top to include our CSV utilities
+import { Loader2, Eye, CheckCircle, XCircle, Search, X, Download } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
+import { registrationsToCSV, downloadCSV } from "@/lib/csv-export"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface RegistrationsTableProps {
@@ -393,6 +395,42 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     }
   }
 
+  // Replace the existing exportToCSV function with this improved version
+  const exportToCSV = () => {
+    if (registrations.length === 0) {
+      toast({
+        title: "No data to export",
+        description: "There are no registrations to export.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      // Convert data to CSV using our utility
+      const csvData = registrationsToCSV(registrations)
+
+      // Generate filename with event ID and date
+      const date = new Date().toISOString().split("T")[0]
+      const filename = `event-${eventId}-attendees-${date}.csv`
+
+      // Download the CSV
+      downloadCSV(csvData, filename)
+
+      toast({
+        title: "Export Successful",
+        description: "Attendee data has been exported to CSV.",
+      })
+    } catch (error) {
+      console.error("Error exporting to CSV:", error)
+      toast({
+        title: "Export Failed",
+        description: "Failed to export attendee data to CSV.",
+        variant: "destructive",
+      })
+    }
+  }
+
   if (loading) {
     return (
       <Card>
@@ -442,18 +480,14 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
               Approve Selected ({selectedRegistrations.length})
             </Button>
           )}
+
+          {/* Add the Export button here */}
+          <Button variant="outline" onClick={exportToCSV}>
+            <Download className="h-4 w-4 mr-1" />
+            Export CSV
+          </Button>
+
           <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" className="relative">
-                <Filter className="h-4 w-4 mr-1" />
-                Filters
-                {activeFilters.length > 0 && (
-                  <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full">
-                    {activeFilters.length}
-                  </Badge>
-                )}
-              </Button>
-            </SheetTrigger>
             <SheetContent className="w-[300px] sm:w-[400px] overflow-y-auto">
               <SheetHeader>
                 <SheetTitle>Filter Registrations</SheetTitle>
