@@ -535,9 +535,13 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
     }
   }
 
-  // Group questions by category for the filter UI
+  // Update the filter UI organization to show specific questions by default and only show custom questions with data
+
+  // First, modify the grouping of questions to match the requirements
   const basicQuestions = customQuestions.filter((q) =>
-    ["name", "email", "corporateEmail", "designation", "mobileNumber"].includes(q.id),
+    ["email", "corporateEmail", "designation", "linkedinId", "githubId", "otherSocialMediaId", "mobileNumber"].includes(
+      q.id,
+    ),
   )
 
   const socialMediaQuestions = customQuestions.filter((q) =>
@@ -559,11 +563,11 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
     ].includes(q.id),
   )
 
-  // Any questions that don't fit into the above categories
+  // Update the otherQuestions definition to exclude the basic questions we're showing by default
   const otherQuestions = customQuestions.filter(
     (q) =>
       !basicQuestions.includes(q) &&
-      !socialMediaQuestions.includes(q) &&
+      !["name"].includes(q.id) &&
       !mvpQuestions.includes(q) &&
       !eventQuestions.includes(q),
   )
@@ -746,6 +750,7 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
                     <TabsTrigger value="customFields">Custom Fields</TabsTrigger>
                   </TabsList>
 
+                  {/* Replace the TabsContent for "basic" with this updated version that shows the required fields */}
                   <TabsContent value="basic">
                     <div className="space-y-4">
                       <div className="mb-4">
@@ -772,6 +777,11 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
                         </Select>
                       </div>
 
+                      {/* Show name field first if available */}
+                      {customQuestions.find((q) => q.id === "name") &&
+                        renderFilterOptions(customQuestions.find((q) => q.id === "name")!)}
+
+                      {/* Show the required fields */}
                       {basicQuestions.map((question) => renderFilterOptions(question))}
                     </div>
                   </TabsContent>
@@ -810,48 +820,63 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
                     </div>
                   </TabsContent>
 
+                  {/* Replace the TabsContent for "customFields" with this updated version that only shows questions with data */}
                   <TabsContent value="customFields">
                     <div className="space-y-4">
                       {formType === "attendee" && (
                         <>
                           <h3 className="text-sm font-medium mb-2">Attendee Questions</h3>
-                          {socialMediaQuestions.map((question) => renderFilterOptions(question))}
+                          {/* Filter out questions that don't have any data */}
+                          {otherQuestions
+                            .filter((question) => {
+                              const fieldKey = question.id.startsWith("custom_") ? question.id : question.id
+                              return fieldOptions[fieldKey] && fieldOptions[fieldKey].size > 0
+                            })
+                            .map((question) => renderFilterOptions(question))}
                         </>
                       )}
 
                       {formType === "volunteer" && (
                         <>
                           <h3 className="text-sm font-medium mb-2">Volunteer Questions</h3>
-                          {mvpQuestions.map((question) => renderFilterOptions(question))}
-                          {eventQuestions.map((question) => renderFilterOptions(question))}
-                          {socialMediaQuestions.map((question) => renderFilterOptions(question))}
+                          {/* Filter out questions that don't have any data */}
+                          {[...mvpQuestions, ...eventQuestions]
+                            .filter((question) => {
+                              const fieldKey = question.id.startsWith("custom_") ? question.id : question.id
+                              return fieldOptions[fieldKey] && fieldOptions[fieldKey].size > 0
+                            })
+                            .map((question) => renderFilterOptions(question))}
                         </>
                       )}
 
                       {formType === "speaker" && (
                         <>
                           <h3 className="text-sm font-medium mb-2">Speaker Questions</h3>
-                          {mvpQuestions.map((question) => renderFilterOptions(question))}
-                          {eventQuestions.map((question) => renderFilterOptions(question))}
-                          {socialMediaQuestions.map((question) => renderFilterOptions(question))}
+                          {/* Filter out questions that don't have any data */}
+                          {[...mvpQuestions, ...eventQuestions]
+                            .filter((question) => {
+                              const fieldKey = question.id.startsWith("custom_") ? question.id : question.id
+                              return fieldOptions[fieldKey] && fieldOptions[fieldKey].size > 0
+                            })
+                            .map((question) => renderFilterOptions(question))}
                         </>
                       )}
 
-                      {otherQuestions.length > 0 && (
-                        <>
-                          <h3 className="text-sm font-medium mb-2">Other Questions</h3>
-                          {otherQuestions.map((question) => renderFilterOptions(question))}
-                        </>
-                      )}
-
-                      {socialMediaQuestions.length === 0 &&
-                        mvpQuestions.length === 0 &&
-                        eventQuestions.length === 0 &&
-                        otherQuestions.length === 0 && (
-                          <div className="text-center py-4 text-muted-foreground">
-                            <p>No custom questions found for this event.</p>
-                          </div>
-                        )}
+                      {/* Show message if no custom questions with data are found */}
+                      {(formType === "attendee" &&
+                        otherQuestions.filter((q) => {
+                          const fieldKey = q.id.startsWith("custom_") ? q.id : q.id
+                          return fieldOptions[fieldKey] && fieldOptions[fieldKey].size > 0
+                        }).length === 0) ||
+                      ((formType === "volunteer" || formType === "speaker") &&
+                        [...mvpQuestions, ...eventQuestions].filter((q) => {
+                          const fieldKey = q.id.startsWith("custom_") ? q.id : q.id
+                          return fieldOptions[fieldKey] && fieldOptions[fieldKey].size > 0
+                        }).length === 0) ? (
+                        <div className="text-center py-4 text-muted-foreground">
+                          <p>No custom questions found for this event.</p>
+                        </div>
+                      ) : null}
                     </div>
                   </TabsContent>
                 </Tabs>
