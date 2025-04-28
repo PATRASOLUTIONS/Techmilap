@@ -33,7 +33,8 @@ export default async function EventAttendeesPage({ params }: { params: { id: str
             <div>
               <CardTitle>Attendee Filtering</CardTitle>
               <CardDescription>
-                Use the filter button to find specific attendees based on their registration information.
+                Use the filter button to find specific attendees based on their registration information. When you
+                approve or reject an attendee, they will automatically receive an email notification.
               </CardDescription>
             </div>
           </div>
@@ -48,6 +49,7 @@ export default async function EventAttendeesPage({ params }: { params: { id: str
             <li>Filter by custom form fields</li>
             <li>Combine multiple filters</li>
             <li>Export filtered results to CSV</li>
+            <li>Automatic email notifications when approving or rejecting attendees</li>
           </ul>
         </CardContent>
       </Card>

@@ -106,12 +106,24 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
                 // Continue with the process even if email fails
               }
             } else if (status === "rejected") {
-              // Send rejection email to the attendee
-              await sendRegistrationRejectionEmail({
-                eventName: event.title,
-                attendeeEmail: submission.data.email,
-                attendeeName: submission.data.name || `${submission.data.firstName} ${submission.data.lastName}`,
-              })
+              try {
+                // Send rejection email to the attendee
+                console.log(`Sending rejection email to ${submission.data.email}`)
+                const emailResult = await sendRegistrationRejectionEmail({
+                  eventName: event.title,
+                  attendeeEmail: submission.data.email,
+                  attendeeName: submission.data.name || `${submission.data.firstName} ${submission.data.lastName}`,
+                })
+
+                console.log(`Email sending result: ${emailResult ? "Success" : "Failed"}`)
+
+                if (!emailResult) {
+                  console.error(`Failed to send rejection email to ${submission.data.email}`)
+                }
+              } catch (emailError) {
+                console.error("Error sending rejection email:", emailError)
+                // Continue with the process even if email fails
+              }
             }
           }
         }

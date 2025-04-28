@@ -192,6 +192,7 @@ export async function sendRegistrationApprovalEmail({
     const eventDate = eventDetails.startDate ? new Date(eventDetails.startDate).toLocaleDateString() : "TBD"
     const eventTime = eventDetails.startTime || "TBD"
     const eventLocation = eventDetails.location || "TBD"
+    const eventDescription = eventDetails.description || "No description provided."
 
     const subject = `Registration Approved: ${eventName}`
     const text = `
@@ -203,6 +204,7 @@ export async function sendRegistrationApprovalEmail({
       - Date: ${eventDate}
       - Time: ${eventTime}
       - Location: ${eventLocation}
+      - Description: ${eventDescription}
       
       You can view the event details here: ${eventUrl}
       
@@ -223,6 +225,7 @@ export async function sendRegistrationApprovalEmail({
           <p><strong>Date:</strong> ${eventDate}</p>
           <p><strong>Time:</strong> ${eventTime}</p>
           <p><strong>Location:</strong> ${eventLocation}</p>
+          <p><strong>Description:</strong> ${eventDescription}</p>
         </div>
         
         <p>
@@ -262,19 +265,23 @@ export async function sendRegistrationRejectionEmail({
   eventName,
   attendeeEmail,
   attendeeName,
+  rejectionReason,
 }: {
   eventName: string
   attendeeEmail: string
   attendeeName: string
+  rejectionReason?: string
 }) {
   try {
     const subject = `Registration Update: ${eventName}`
+    const reason = rejectionReason || "due to capacity limitations or eligibility criteria."
+
     const text = `
       Hello ${attendeeName},
       
       Thank you for your interest in "${eventName}".
       
-      We regret to inform you that we are unable to approve your registration at this time. This could be due to various reasons such as capacity limitations or eligibility criteria.
+      We regret to inform you that we are unable to approve your registration at this time ${reason}.
       
       If you have any questions, please contact the event organizer directly.
       
@@ -290,7 +297,7 @@ export async function sendRegistrationRejectionEmail({
         <p>Hello ${attendeeName},</p>
         <p>Thank you for your interest in <strong>"${eventName}"</strong>.</p>
         
-        <p>We regret to inform you that we are unable to approve your registration at this time. This could be due to various reasons such as capacity limitations or eligibility criteria.</p>
+        <p>We regret to inform you that we are unable to approve your registration at this time ${reason}.</p>
         
         <p>If you have any questions, please contact the event organizer directly.</p>
         
@@ -303,7 +310,16 @@ export async function sendRegistrationRejectionEmail({
       </div>
     `
 
-    return sendEmail({ to: attendeeEmail, subject, text, html })
+    console.log(`Attempting to send rejection email to ${attendeeEmail} for event ${eventName}`)
+    const result = await sendEmail({ to: attendeeEmail, subject, text, html })
+
+    if (result) {
+      console.log(`Successfully sent rejection email to ${attendeeEmail}`)
+    } else {
+      console.error(`Failed to send rejection email to ${attendeeEmail}`)
+    }
+
+    return result
   } catch (error) {
     console.error("Error sending registration rejection email:", error)
     return false
