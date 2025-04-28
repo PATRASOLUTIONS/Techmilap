@@ -38,10 +38,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Could not read request body" }, { status: 400 })
     }
 
-    const { firstName, lastName, email, userEmail, ...additionalInfo } = body || {}
+    const { firstName, lastName, email, corporateEmail, userEmail, ...additionalInfo } = body || {}
 
-    // Use email consistently - prioritize the main email field but fall back to userEmail if provided
-    const finalEmail = email || userEmail || ""
+    // Use email consistently - prioritize the main email field but fall back to corporateEmail or userEmail if provided
+    const finalEmail = email || corporateEmail || userEmail || ""
 
     if (!firstName || !lastName || !finalEmail) {
       console.error("Missing required fields: firstName, lastName, or email")
@@ -91,6 +91,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
         const result = await db.collection("formsubmissions").insertOne(submission)
         console.log("Direct submission saved with ID:", result.insertedId)
+
+        // Send confirmation email to the user
+        await sendConfirmationEmail(event, finalEmail, `${firstName} ${lastName}`.trim())
 
         return NextResponse.json({
           success: true,
@@ -147,6 +150,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         const result = await db.collection("formsubmissions").insertOne(submission)
         console.log("Fallback submission saved with ID:", result.insertedId)
 
+        // Send confirmation email to the user
+        await sendConfirmationEmail(event, finalEmail, `${firstName} ${lastName}`.trim())
+
         return NextResponse.json({
           success: true,
           message: "Registration submitted and pending approval (fallback method)",
@@ -172,5 +178,70 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       },
       { status: 500 },
     )
+  }
+}
+
+// Helper function to send confirmation email
+async function sendConfirmationEmail(event: any, email: string, name: string) {
+  try {
+    const subject = `Your registration for ${event.title} has been received`
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+        <h2 style="color: #4f46e5;">Registration Received</h2>
+        <p>Hello ${name},</p>
+        <p>Thank you for registering for <strong>"${event.title}"</strong>.</p>
+        
+        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="margin-top: 0;">Event Details</h3>
+          <p><strong>Event:</strong> ${event.title}</p>
+          <p><strong>Date:</strong> ${new Date(event.date).toLocaleDateString()}</p>
+          <p><strong>Location:</strong> ${event.location || "TBD"}</p>
+        </div>
+        
+        <p>Your registration is currently under review. We will notify you once it has been approved.</p>
+        
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+          Best regards,<br>
+          The Tech Milap Team
+        </p>
+      </div>
+    `
+
+    const text = `
+      Hello ${name},
+      
+      Thank you for registering for "${event.title}".
+      
+      Event Details:
+      - Event: ${event.title}
+      - Date: ${new Date(event.date).toLocaleDateString()}
+      - Location: ${event.location || "TBD"}
+      
+      Your registration is currently under review. We will notify you once it has been approved.
+      
+      Best regards,
+      The Tech Milap Team
+    `
+
+    // Use the email service to send the email
+    await fetch(`/api/events/${event._id}/email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        to: email,
+        subject,
+        html,
+        text,
+      }),
+    })
+
+    console.log(`Confirmation email sent to: ${email}`)
+    return true
+  } catch (error) {
+    console.error("Error sending confirmation email:", error)
+    return false
   }
 }

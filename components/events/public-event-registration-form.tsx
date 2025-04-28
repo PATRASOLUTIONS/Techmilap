@@ -150,12 +150,13 @@ export function PublicEventRegistrationForm({
     }
   }, [eventData, customQuestions, form, session])
 
+  // Update the onSubmit function to explicitly set status to pending
   async function onSubmit(values) {
     setIsSubmitting(true)
 
     try {
       // Make sure email is consistently stored in all fields
-      const email = values.email
+      const email = values.email || values.corporateEmail
       const enhancedValues = {
         ...values,
         email: email, // Ensure primary email field is set

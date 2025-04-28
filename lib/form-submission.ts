@@ -28,8 +28,8 @@ export async function handleFormSubmission(
     // Always set status to pending for all form types
     const status = "pending"
 
-    // Ensure email consistency
-    const email = formData.email || formData.userEmail || ""
+    // Ensure email consistency - check both email and corporateEmail fields
+    const email = formData.email || formData.corporateEmail || formData.userEmail || ""
     const name = formData.firstName
       ? `${formData.firstName} ${formData.lastName || ""}`.trim()
       : formData.name || "Attendee"
@@ -99,7 +99,7 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail)
         
         <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
           Best regards,<br>
-          The TechEventPlanner Team
+          The Tech Milap Team
         </p>
       </div>
     `
@@ -117,7 +117,7 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail)
       Your submission is currently under review. We will notify you once it has been processed.
       
       Best regards,
-      The TechEventPlanner Team
+      The Tech Milap Team
     `
 
     await sendEmail({
@@ -169,7 +169,17 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
     let submissionSummary = ""
     if (submission.data && typeof submission.data === "object") {
       // Extract key information for the email summary
-      const keyFields = ["name", "firstName", "lastName", "email", "phone", "message", "interests", "availability"]
+      const keyFields = [
+        "name",
+        "firstName",
+        "lastName",
+        "email",
+        "corporateEmail",
+        "phone",
+        "message",
+        "interests",
+        "availability",
+      ]
 
       for (const key of Object.keys(submission.data)) {
         if (
@@ -209,7 +219,7 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
         </p>
         
         <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
-          Thank you for using TechEventPlanner!
+          Thank you for using Tech Milap!
         </p>
       </div>
     `
@@ -223,7 +233,7 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
       
       To view all submissions, please visit: ${viewSubmissionUrl}
       
-      Thank you for using TechEventPlanner!
+      Thank you for using Tech Milap!
     `
 
     await sendEmail({

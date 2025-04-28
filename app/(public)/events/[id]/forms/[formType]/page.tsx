@@ -215,6 +215,7 @@ export default function EventFormPage() {
       const payload = {
         data: cleanData,
         userId: session?.user?.id || null,
+        status: "pending", // Always set status to pending
       }
 
       console.log("Submitting form data:", JSON.stringify(payload))

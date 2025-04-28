@@ -20,7 +20,7 @@ export async function sendEmail({ to, subject, text, html }) {
     const transporter = createTransporter()
 
     const mailOptions = {
-      from: `"TechEventPlanner" <${process.env.EMAIL_USER}>`,
+      from: `"Tech Milap" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       text,
@@ -39,25 +39,25 @@ export async function sendEmail({ to, subject, text, html }) {
 
 // Function to send verification email
 export async function sendVerificationEmail(email: string, firstName: string, verificationCode: string) {
-  const subject = "TechEventPlanner - Verify Your Email"
+  const subject = "Tech Milap - Verify Your Email"
   const text = `Hello ${firstName},
 
-Thank you for signing up with TechEventPlanner! Please use the following verification code to verify your email:
+Thank you for signing up with Tech Milap! Please use the following verification code to verify your email:
 
 ${verificationCode}
 
 This code will expire in 30 minutes.
 
 Best regards,
-TechEventPlanner Team`
+Tech Milap Team`
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2>Verify Your Email</h2>
       <p>Hello ${firstName},</p>
-      <p>Thank you for signing up with TechEventPlanner! Please use the following verification code to verify your email:</p>
+      <p>Thank you for signing up with Tech Milap! Please use the following verification code to verify your email:</p>
       <p style="font-size: 20px; font-weight: bold;">${verificationCode}</p>
       <p>This code will expire in 30 minutes.</p>
-      <p>Best regards,<br>TechEventPlanner Team</p>
+      <p>Best regards,<br>Tech Milap Team</p>
     </div>
   `
 
@@ -66,19 +66,19 @@ TechEventPlanner Team`
 
 // Function to send congratulations email
 export async function sendCongratulationsEmail(email: string, firstName: string, role: string) {
-  const subject = "Welcome to TechEventPlanner!"
+  const subject = "Welcome to Tech Milap!"
   const text = `Hello ${firstName},
 
-Your email has been successfully verified! You are now a registered ${role} on TechEventPlanner.
+Your email has been successfully verified! You are now a registered ${role} on Tech Milap.
 
 Best regards,
-TechEventPlanner Team`
+Tech Milap Team`
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2>Welcome to TechEventPlanner!</h2>
+      <h2>Welcome to Tech Milap!</h2>
       <p>Hello ${firstName},</p>
-      <p>Your email has been successfully verified! You are now a registered ${role} on TechEventPlanner.</p>
-      <p>Best regards,<br>TechEventPlanner Team</p>
+      <p>Your email has been successfully verified! You are now a registered ${role} on Tech Milap.</p>
+      <p>Best regards,<br>Tech Milap Team</p>
     </div>
   `
 
@@ -138,7 +138,7 @@ export async function sendFormSubmissionNotification({
       
       To view all submissions, please visit: ${viewSubmissionUrl}
       
-      Thank you for using TechEventPlanner!
+      Thank you for using Tech Milap!
     `
 
     const html = `
@@ -159,7 +159,7 @@ export async function sendFormSubmissionNotification({
         </p>
         
         <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
-          Thank you for using TechEventPlanner!
+          Thank you for using Tech Milap!
         </p>
       </div>
     `
@@ -211,7 +211,7 @@ export async function sendRegistrationApprovalEmail({
       We look forward to seeing you at the event!
       
       Best regards,
-      The TechEventPlanner Team
+      The Tech Milap Team
     `
 
     const html = `
@@ -238,7 +238,7 @@ export async function sendRegistrationApprovalEmail({
         
         <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
           Best regards,<br>
-          The TechEventPlanner Team
+          The Tech Milap Team
         </p>
       </div>
     `
@@ -288,7 +288,7 @@ export async function sendRegistrationRejectionEmail({
       Thank you for your understanding.
       
       Best regards,
-      The TechEventPlanner Team
+      The Tech Milap Team
     `
 
     const html = `
@@ -305,7 +305,7 @@ export async function sendRegistrationRejectionEmail({
         
         <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
           Best regards,<br>
-          The TechEventPlanner Team
+          The Tech Milap Team
         </p>
       </div>
     `
