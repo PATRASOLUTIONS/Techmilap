@@ -13,13 +13,91 @@ const createTransporter = () => {
   })
 }
 
+// Common email styling
+const emailStyles = {
+  container: `
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 30px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background-color: #ffffff;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  `,
+  header: `
+    text-align: center;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 25px;
+  `,
+  logo: `
+    font-size: 24px;
+    font-weight: bold;
+    color: #4f46e5;
+    text-decoration: none;
+  `,
+  title: `
+    color: #111827;
+    font-size: 22px;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 20px;
+  `,
+  content: `
+    color: #374151;
+    font-size: 16px;
+    line-height: 1.6;
+  `,
+  infoBox: `
+    background-color: #f9fafb;
+    padding: 20px;
+    border-radius: 6px;
+    margin: 25px 0;
+    border-left: 4px solid #4f46e5;
+  `,
+  infoTitle: `
+    margin-top: 0;
+    color: #111827;
+    font-size: 18px;
+    font-weight: 600;
+  `,
+  button: `
+    display: inline-block;
+    background-color: #4f46e5;
+    color: white;
+    font-weight: 500;
+    text-decoration: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    margin: 20px 0;
+    text-align: center;
+  `,
+  footer: `
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+    color: #6b7280;
+    font-size: 14px;
+  `,
+  highlight: `
+    font-size: 18px;
+    font-weight: bold;
+    padding: 10px;
+    background-color: #f3f4f6;
+    border-radius: 4px;
+    display: inline-block;
+    margin: 10px 0;
+  `,
+}
+
 // Generic function to send emails
 export async function sendEmail({ to, subject, text, html }) {
   try {
     const transporter = createTransporter()
 
     const mailOptions = {
-      from: `"TechEventPlanner" <${process.env.EMAIL_USER}>`,
+      from: `"TechMilap" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       text,
@@ -37,25 +115,38 @@ export async function sendEmail({ to, subject, text, html }) {
 
 // Function to send verification email
 export async function sendVerificationEmail(email: string, firstName: string, verificationCode: string) {
-  const subject = "TechEventPlanner - Verify Your Email"
+  const subject = "TechMilap - Verify Your Email"
   const text = `Hello ${firstName},
 
-Thank you for signing up with TechEventPlanner! Please use the following verification code to verify your email:
+Thank you for signing up with TechMilap! Please use the following verification code to verify your email:
 
 ${verificationCode}
 
 This code will expire in 30 minutes.
 
 Best regards,
-TechEventPlanner Team`
+TechMilap Team`
+
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2>Verify Your Email</h2>
-      <p>Hello ${firstName},</p>
-      <p>Thank you for signing up with TechEventPlanner! Please use the following verification code to verify your email:</p>
-      <p style="font-size: 20px; font-weight: bold;">${verificationCode}</p>
-      <p>This code will expire in 30 minutes.</p>
-      <p>Best regards,<br>TechEventPlanner Team</p>
+    <div style="${emailStyles.container}">
+      <div style="${emailStyles.header}">
+        <div style="${emailStyles.logo}">TechMilap</div>
+      </div>
+      
+      <h1 style="${emailStyles.title}">Verify Your Email</h1>
+      
+      <div style="${emailStyles.content}">
+        <p>Hello ${firstName},</p>
+        <p>Thank you for signing up with TechMilap! Please use the following verification code to verify your email:</p>
+        
+        <div style="${emailStyles.highlight}">${verificationCode}</div>
+        
+        <p>This code will expire in 30 minutes.</p>
+      </div>
+      
+      <div style="${emailStyles.footer}">
+        <p>Best regards,<br>TechMilap Team</p>
+      </div>
     </div>
   `
 
@@ -64,19 +155,35 @@ TechEventPlanner Team`
 
 // Function to send congratulations email
 export async function sendCongratulationsEmail(email: string, firstName: string, role: string) {
-  const subject = "Welcome to TechEventPlanner!"
+  const subject = "Welcome to TechMilap!"
   const text = `Hello ${firstName},
 
-Your email has been successfully verified! You are now a registered ${role} on TechEventPlanner.
+Your email has been successfully verified! You are now a registered ${role} on TechMilap.
 
 Best regards,
-TechEventPlanner Team`
+TechMilap Team`
+
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2>Welcome to TechEventPlanner!</h2>
-      <p>Hello ${firstName},</p>
-      <p>Your email has been successfully verified! You are now a registered ${role} on TechEventPlanner.</p>
-      <p>Best regards,<br>TechEventPlanner Team</p>
+    <div style="${emailStyles.container}">
+      <div style="${emailStyles.header}">
+        <div style="${emailStyles.logo}">TechMilap</div>
+      </div>
+      
+      <h1 style="${emailStyles.title}">Welcome to TechMilap!</h1>
+      
+      <div style="${emailStyles.content}">
+        <p>Hello ${firstName},</p>
+        <p>Your email has been successfully verified! You are now a registered ${role} on TechMilap.</p>
+        
+        <div style="${emailStyles.infoBox}">
+          <h3 style="${emailStyles.infoTitle}">What's Next?</h3>
+          <p>You can now explore events, register for upcoming gatherings, or create your own events!</p>
+        </div>
+      </div>
+      
+      <div style="${emailStyles.footer}">
+        <p>Best regards,<br>TechMilap Team</p>
+      </div>
     </div>
   `
 
@@ -136,29 +243,35 @@ export async function sendFormSubmissionNotification({
       
       To view all submissions, please visit: ${viewSubmissionUrl}
       
-      Thank you for using TechEventPlanner!
+      Thank you for using TechMilap!
     `
 
     const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
-        <h2 style="color: #4f46e5;">New ${formTypeFormatted} Submission</h2>
-        <p>Hello ${recipientName || "Event Organizer"},</p>
-        <p>You have received a new ${formType} submission for your event <strong>"${eventName}"</strong>.</p>
-        
-        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <h3 style="margin-top: 0;">Submission Summary</h3>
-          ${submissionSummary}
+      <div style="${emailStyles.container}">
+        <div style="${emailStyles.header}">
+          <div style="${emailStyles.logo}">TechMilap</div>
         </div>
         
-        <p>
-          <a href="${viewSubmissionUrl}" style="background-color: #4f46e5; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block;">
+        <h1 style="${emailStyles.title}">New ${formTypeFormatted} Submission</h1>
+        
+        <div style="${emailStyles.content}">
+          <p>Hello ${recipientName || "Event Organizer"},</p>
+          <p>You have received a new ${formType} submission for your event <strong>"${eventName}"</strong>.</p>
+          
+          <div style="${emailStyles.infoBox}">
+            <h3 style="${emailStyles.infoTitle}">Submission Summary</h3>
+            ${submissionSummary}
+            <p><strong>Submission ID:</strong> ${submissionId}</p>
+          </div>
+          
+          <a href="${viewSubmissionUrl}" style="${emailStyles.button}">
             View All Submissions
           </a>
-        </p>
+        </div>
         
-        <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
-          Thank you for using TechEventPlanner!
-        </p>
+        <div style="${emailStyles.footer}">
+          <p>Thank you for using TechMilap!</p>
+        </div>
       </div>
     `
 
@@ -169,7 +282,7 @@ export async function sendFormSubmissionNotification({
   }
 }
 
-// New function to send registration approval notification to attendees
+// Function to send registration approval notification to attendees
 export async function sendRegistrationApprovalEmail({
   eventName,
   attendeeEmail,
@@ -207,34 +320,38 @@ export async function sendRegistrationApprovalEmail({
       We look forward to seeing you at the event!
       
       Best regards,
-      The TechEventPlanner Team
+      The TechMilap Team
     `
 
     const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
-        <h2 style="color: #4f46e5;">Registration Approved!</h2>
-        <p>Hello ${attendeeName},</p>
-        <p>Great news! Your registration for <strong>"${eventName}"</strong> has been approved.</p>
-        
-        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <h3 style="margin-top: 0;">Event Details</h3>
-          <p><strong>Date:</strong> ${eventDate}</p>
-          <p><strong>Time:</strong> ${eventTime}</p>
-          <p><strong>Location:</strong> ${eventLocation}</p>
+      <div style="${emailStyles.container}">
+        <div style="${emailStyles.header}">
+          <div style="${emailStyles.logo}">TechMilap</div>
         </div>
         
-        <p>
-          <a href="${eventUrl}" style="background-color: #4f46e5; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block;">
+        <h1 style="${emailStyles.title}">Registration Approved!</h1>
+        
+        <div style="${emailStyles.content}">
+          <p>Hello ${attendeeName},</p>
+          <p>Great news! Your registration for <strong>"${eventName}"</strong> has been approved.</p>
+          
+          <div style="${emailStyles.infoBox}">
+            <h3 style="${emailStyles.infoTitle}">Event Details</h3>
+            <p><strong>Date:</strong> ${eventDate}</p>
+            <p><strong>Time:</strong> ${eventTime}</p>
+            <p><strong>Location:</strong> ${eventLocation}</p>
+          </div>
+          
+          <a href="${eventUrl}" style="${emailStyles.button}">
             View Event Details
           </a>
-        </p>
+          
+          <p>We look forward to seeing you at the event!</p>
+        </div>
         
-        <p>We look forward to seeing you at the event!</p>
-        
-        <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
-          Best regards,<br>
-          The TechEventPlanner Team
-        </p>
+        <div style="${emailStyles.footer}">
+          <p>Best regards,<br>The TechMilap Team</p>
+        </div>
       </div>
     `
 
@@ -245,7 +362,7 @@ export async function sendRegistrationApprovalEmail({
   }
 }
 
-// New function to send registration rejection notification to attendees
+// Function to send registration rejection notification to attendees
 export async function sendRegistrationRejectionEmail({
   eventName,
   attendeeEmail,
@@ -269,25 +386,34 @@ export async function sendRegistrationRejectionEmail({
       Thank you for your understanding.
       
       Best regards,
-      The TechEventPlanner Team
+      The TechMilap Team
     `
 
     const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
-        <h2 style="color: #4f46e5;">Registration Update</h2>
-        <p>Hello ${attendeeName},</p>
-        <p>Thank you for your interest in <strong>"${eventName}"</strong>.</p>
+      <div style="${emailStyles.container}">
+        <div style="${emailStyles.header}">
+          <div style="${emailStyles.logo}">TechMilap</div>
+        </div>
         
-        <p>We regret to inform you that we are unable to approve your registration at this time. This could be due to various reasons such as capacity limitations or eligibility criteria.</p>
+        <h1 style="${emailStyles.title}">Registration Update</h1>
         
-        <p>If you have any questions, please contact the event organizer directly.</p>
+        <div style="${emailStyles.content}">
+          <p>Hello ${attendeeName},</p>
+          <p>Thank you for your interest in <strong>"${eventName}"</strong>.</p>
+          
+          <p>We regret to inform you that we are unable to approve your registration at this time. This could be due to various reasons such as capacity limitations or eligibility criteria.</p>
+          
+          <div style="${emailStyles.infoBox}">
+            <h3 style="${emailStyles.infoTitle}">Need Help?</h3>
+            <p>If you have any questions, please contact the event organizer directly.</p>
+          </div>
+          
+          <p>Thank you for your understanding.</p>
+        </div>
         
-        <p>Thank you for your understanding.</p>
-        
-        <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
-          Best regards,<br>
-          The TechEventPlanner Team
-        </p>
+        <div style="${emailStyles.footer}">
+          <p>Best regards,<br>The TechMilap Team</p>
+        </div>
       </div>
     `
 
