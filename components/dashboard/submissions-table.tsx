@@ -535,18 +535,22 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
     }
   }
 
-  // Update the filter UI organization to show specific questions by default and only show custom questions with data
+  // Define the fields that should always appear in the Custom Fields tab for attendees
+  const attendeeCustomFields = [
+    "email",
+    "corporateEmail",
+    "designation",
+    "linkedinId",
+    "githubId",
+    "otherSocialMediaId",
+    "mobileNumber",
+  ]
 
-  // First, modify the grouping of questions to match the requirements
-  const basicQuestions = customQuestions.filter((q) =>
-    ["email", "corporateEmail", "designation", "linkedinId", "githubId", "otherSocialMediaId", "mobileNumber"].includes(
-      q.id,
-    ),
-  )
+  // Get the questions for these fields
+  const attendeeCustomQuestions = customQuestions.filter((q) => attendeeCustomFields.includes(q.id))
 
-  const socialMediaQuestions = customQuestions.filter((q) =>
-    ["linkedinId", "githubId", "otherSocialMediaId"].includes(q.id),
-  )
+  // Other questions for different form types
+  const basicQuestions = customQuestions.filter((q) => ["name"].includes(q.id))
 
   const mvpQuestions = customQuestions.filter((q) => ["isMvp", "mvpId", "mvpProfileLink", "mvpCategory"].includes(q.id))
 
@@ -563,11 +567,11 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
     ].includes(q.id),
   )
 
-  // Update the otherQuestions definition to exclude the basic questions we're showing by default
+  // Any questions that don't fit into the above categories
   const otherQuestions = customQuestions.filter(
     (q) =>
       !basicQuestions.includes(q) &&
-      !["name"].includes(q.id) &&
+      !attendeeCustomQuestions.includes(q) &&
       !mvpQuestions.includes(q) &&
       !eventQuestions.includes(q),
   )
@@ -750,7 +754,7 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
                     <TabsTrigger value="customFields">Custom Fields</TabsTrigger>
                   </TabsList>
 
-                  {/* Replace the TabsContent for "basic" with this updated version that shows the required fields */}
+                  {/* Basic tab content */}
                   <TabsContent value="basic">
                     <div className="space-y-4">
                       <div className="mb-4">
@@ -778,10 +782,6 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
                       </div>
 
                       {/* Show name field first if available */}
-                      {customQuestions.find((q) => q.id === "name") &&
-                        renderFilterOptions(customQuestions.find((q) => q.id === "name")!)}
-
-                      {/* Show the required fields */}
                       {basicQuestions.map((question) => renderFilterOptions(question))}
                     </div>
                   </TabsContent>
@@ -820,19 +820,14 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
                     </div>
                   </TabsContent>
 
-                  {/* Replace the TabsContent for "customFields" with this updated version that only shows questions with data */}
+                  {/* Custom Fields tab - always show the specified fields for attendees */}
                   <TabsContent value="customFields">
                     <div className="space-y-4">
                       {formType === "attendee" && (
                         <>
                           <h3 className="text-sm font-medium mb-2">Attendee Questions</h3>
-                          {/* Filter out questions that don't have any data */}
-                          {otherQuestions
-                            .filter((question) => {
-                              const fieldKey = question.id.startsWith("custom_") ? question.id : question.id
-                              return fieldOptions[fieldKey] && fieldOptions[fieldKey].size > 0
-                            })
-                            .map((question) => renderFilterOptions(question))}
+                          {/* Always show these specific fields for attendees */}
+                          {attendeeCustomQuestions.map((question) => renderFilterOptions(question))}
                         </>
                       )}
 
@@ -863,11 +858,7 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
                       )}
 
                       {/* Show message if no custom questions with data are found */}
-                      {(formType === "attendee" &&
-                        otherQuestions.filter((q) => {
-                          const fieldKey = q.id.startsWith("custom_") ? q.id : q.id
-                          return fieldOptions[fieldKey] && fieldOptions[fieldKey].size > 0
-                        }).length === 0) ||
+                      {(formType === "attendee" && attendeeCustomQuestions.length === 0) ||
                       ((formType === "volunteer" || formType === "speaker") &&
                         [...mvpQuestions, ...eventQuestions].filter((q) => {
                           const fieldKey = q.id.startsWith("custom_") ? q.id : q.id
