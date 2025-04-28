@@ -76,8 +76,8 @@
     "react-markdown": "latest",
     "@tailwindcss/typography": "latest",
     "bcryptjs": "latest",
-    "@auth/mongodb-adapter": "latest",
-    "@tanstack/react-table": "latest"
+    "@tanstack/react-table": "latest",
+    "@auth/mongodb-adapter": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

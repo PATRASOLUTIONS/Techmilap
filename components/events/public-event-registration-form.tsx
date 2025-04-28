@@ -154,13 +154,21 @@ export function PublicEventRegistrationForm({
     setIsSubmitting(true)
 
     try {
+      // Make sure email is consistently stored in all fields
+      const email = values.email
+      const enhancedValues = {
+        ...values,
+        email: email, // Ensure primary email field is set
+        userEmail: email, // Add userEmail field explicitly
+      }
+
       const response = await fetch(`/api/events/${eventId}/public-register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...values,
+          ...enhancedValues,
           status: "pending", // Explicitly set status to pending
         }),
       })

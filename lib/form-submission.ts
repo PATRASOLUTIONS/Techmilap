@@ -30,15 +30,21 @@ export async function handleFormSubmission(
     // Always set status to pending for all form types
     const status = "pending"
 
-    // Create the submission document
+    // Ensure email consistency
+    const email = formData.email || formData.userEmail || ""
+
+    // Create the submission document with consistent email
     const submission = {
       eventId: event._id,
       userId: userId ? new ObjectId(userId) : null,
       userName: formData.firstName ? `${formData.firstName} ${formData.lastName || ""}`.trim() : formData.name,
-      userEmail: formData.email,
+      userEmail: email, // Use consistent email
       formType,
       status,
-      data: formData,
+      data: {
+        ...formData,
+        email: email, // Ensure email is consistent in data object
+      },
       createdAt: new Date(),
       updatedAt: new Date(),
     }

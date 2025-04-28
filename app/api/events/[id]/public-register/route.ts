@@ -38,9 +38,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Could not read request body" }, { status: 400 })
     }
 
-    const { firstName, lastName, email, ...additionalInfo } = body || {}
+    const { firstName, lastName, email, userEmail, ...additionalInfo } = body || {}
 
-    if (!firstName || !lastName || !email) {
+    // Use email consistently - prioritize the main email field but fall back to userEmail if provided
+    const finalEmail = email || userEmail || ""
+
+    if (!firstName || !lastName || !finalEmail) {
       console.error("Missing required fields: firstName, lastName, or email")
       return NextResponse.json({ error: "First Name, Last Name, and email are required" }, { status: 400 })
     }
@@ -73,10 +76,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           eventId: eventObjectId,
           userId: null,
           userName: `${firstName} ${lastName}`.trim(),
-          userEmail: email,
+          userEmail: finalEmail, // Use the consistent email
           formType: "attendee",
           status: "pending", // Set to pending instead of approved
-          data: { firstName, lastName, email, ...additionalInfo },
+          data: {
+            firstName,
+            lastName,
+            email: finalEmail, // Store consistent email in data
+            ...additionalInfo,
+          },
           createdAt: new Date(),
           updatedAt: new Date(),
         }
@@ -92,11 +100,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
 
       // Use the handleFormSubmission helper if available
-      // Make sure to pass the status as pending
+      // Make sure to pass the status as pending and consistent email
       const submissionResult = await handleFormSubmission(
         params.id,
         "attendee",
-        { firstName, lastName, email, ...additionalInfo, status: "pending" },
+        {
+          firstName,
+          lastName,
+          email: finalEmail, // Use consistent email
+          userEmail: finalEmail, // Also set userEmail to be consistent
+          ...additionalInfo,
+          status: "pending",
+        },
         null, // No user ID for public submissions
       )
 
@@ -116,10 +131,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           eventId: eventObjectId,
           userId: null,
           userName: `${firstName} ${lastName}`.trim(),
-          userEmail: email,
+          userEmail: finalEmail, // Use consistent email
           formType: "attendee",
           status: "pending", // Set to pending instead of approved
-          data: { firstName, lastName, email, ...additionalInfo },
+          data: {
+            firstName,
+            lastName,
+            email: finalEmail, // Store consistent email in data
+            ...additionalInfo,
+          },
           createdAt: new Date(),
           updatedAt: new Date(),
         }
