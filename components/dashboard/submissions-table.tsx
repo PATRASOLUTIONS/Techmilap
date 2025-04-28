@@ -32,6 +32,60 @@ interface SubmissionsTableProps {
   filterStatus?: "pending" | "approved" | "rejected"
 }
 
+// Add these predefined questions for each form type
+const PREDEFINED_QUESTIONS = {
+  attendee: [
+    { id: "name", label: "Name", type: "text" },
+    { id: "email", label: "Email ID", type: "text" },
+    { id: "corporateEmail", label: "Corporate Email ID", type: "text" },
+    { id: "designation", label: "Designation", type: "text" },
+    { id: "linkedinId", label: "LinkedIn ID", type: "text" },
+    { id: "githubId", label: "GitHub ID", type: "text" },
+    { id: "otherSocialMediaId", label: "Any other social Media ID", type: "text" },
+    { id: "mobileNumber", label: "Mobile number", type: "text" },
+  ],
+  volunteer: [
+    { id: "name", label: "Name", type: "text" },
+    { id: "email", label: "Email ID", type: "text" },
+    { id: "corporateEmail", label: "Corporate Email ID", type: "text" },
+    { id: "designation", label: "Designation", type: "text" },
+    { id: "eventOrganizer", label: "Event Organizer", type: "text" },
+    { id: "isMvp", label: "Are you a Microsoft MVP?", type: "checkbox" },
+    { id: "mvpId", label: "MVP ID", type: "text" },
+    { id: "mvpProfileLink", label: "MVP Profile Link", type: "text" },
+    { id: "mvpCategory", label: "MVP Category", type: "text" },
+    { id: "eventsSupported", label: "How many events have you supported as a volunteer?", type: "number" },
+    { id: "meetupName", label: "Meetup/Event Name", type: "text" },
+    { id: "eventDetails", label: "Event Details", type: "text" },
+    { id: "meetupPageDetails", label: "Meetup page details", type: "text" },
+    { id: "contribution", label: "Your Contribution", type: "text" },
+    { id: "organizerInfo", label: "Organizer Name/ LinkedIn ID", type: "text" },
+    { id: "linkedinId", label: "LinkedIn ID", type: "text" },
+    { id: "githubId", label: "GitHub ID", type: "text" },
+    { id: "otherSocialMediaId", label: "Any other social Media ID", type: "text" },
+    { id: "mobileNumber", label: "Mobile number", type: "text" },
+  ],
+  speaker: [
+    { id: "name", label: "Name", type: "text" },
+    { id: "email", label: "Email ID", type: "text" },
+    { id: "corporateEmail", label: "Corporate Email ID", type: "text" },
+    { id: "designation", label: "Designation", type: "text" },
+    { id: "eventOrganizer", label: "Event Organizer", type: "text" },
+    { id: "isMvp", label: "Are you a Microsoft MVP?", type: "checkbox" },
+    { id: "mvpId", label: "MVP ID", type: "text" },
+    { id: "mvpProfileLink", label: "MVP Profile Link", type: "text" },
+    { id: "mvpCategory", label: "MVP Category", type: "text" },
+    { id: "runningMeetupGroup", label: "Are you running any meetup group?", type: "checkbox" },
+    { id: "meetupName", label: "Meetup/Event Name", type: "text" },
+    { id: "eventDetails", label: "Event Details", type: "text" },
+    { id: "meetupPageDetails", label: "Meetup page details", type: "text" },
+    { id: "linkedinId", label: "LinkedIn ID", type: "text" },
+    { id: "githubId", label: "GitHub ID", type: "text" },
+    { id: "otherSocialMediaId", label: "Any other social Media ID", type: "text" },
+    { id: "mobileNumber", label: "Mobile number", type: "text" },
+  ],
+}
+
 // Update the SubmissionsTable component to include filters
 export function SubmissionsTable({ eventId, formType, title, description, filterStatus }: SubmissionsTableProps) {
   const [submissions, setSubmissions] = useState([])
@@ -98,7 +152,8 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
   // Create a function to render filter options based on question type
   const renderFilterOptions = (question: any) => {
     const fieldName = question.id || question.label
-    const fieldKey = `custom_${fieldName}`
+    // Determine if this is a custom question or predefined question
+    const fieldKey = fieldName.startsWith("custom_") ? fieldName : `data.${fieldName}`
 
     // Get unique values for this field
     const options = fieldOptions[fieldKey] || new Set()
@@ -287,19 +342,22 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
 
         data.submissions?.forEach((submission: any) => {
           if (submission.data) {
+            // Process both custom fields and predefined fields
             Object.entries(submission.data).forEach(([key, value]) => {
+              const fieldKey = key.startsWith("custom_") ? key : `data.${key}`
+
               // Handle different types of values
               if (typeof value === "string" || typeof value === "boolean") {
-                if (!options[key]) {
-                  options[key] = new Set()
+                if (!options[fieldKey]) {
+                  options[fieldKey] = new Set()
                 }
-                options[key].add(String(value))
+                options[fieldKey].add(String(value))
               } else if (typeof value === "number") {
-                if (!stats[key]) {
-                  stats[key] = { min: value, max: value }
+                if (!stats[fieldKey]) {
+                  stats[fieldKey] = { min: value, max: value }
                 } else {
-                  stats[key].min = Math.min(stats[key].min, value)
-                  stats[key].max = Math.max(stats[key].max, value)
+                  stats[fieldKey].min = Math.min(stats[fieldKey].min, value)
+                  stats[fieldKey].max = Math.max(stats[fieldKey].max, value)
                 }
               }
             })
@@ -333,12 +391,28 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
 
         if (response.ok) {
           const data = await response.json()
-          setCustomQuestions(data.questions || [])
+          // Combine predefined questions with custom questions from the API
+          const predefinedQuestions = PREDEFINED_QUESTIONS[formType as keyof typeof PREDEFINED_QUESTIONS] || []
+
+          // Create a map of existing question IDs to avoid duplicates
+          const existingQuestionIds = new Set(predefinedQuestions.map((q) => q.id))
+
+          // Filter out any custom questions that might duplicate predefined ones
+          const filteredCustomQuestions = (data.questions || []).filter((q: any) => !existingQuestionIds.has(q.id))
+
+          // Combine both sets of questions
+          setCustomQuestions([...predefinedQuestions, ...filteredCustomQuestions])
         } else {
           console.error("Failed to fetch custom questions")
+          // Fall back to predefined questions if API fails
+          const predefinedQuestions = PREDEFINED_QUESTIONS[formType as keyof typeof PREDEFINED_QUESTIONS] || []
+          setCustomQuestions(predefinedQuestions)
         }
       } catch (error) {
         console.error("Error fetching custom questions:", error)
+        // Fall back to predefined questions if API fails
+        const predefinedQuestions = PREDEFINED_QUESTIONS[formType as keyof typeof PREDEFINED_QUESTIONS] || []
+        setCustomQuestions(predefinedQuestions)
       }
     }
 
@@ -487,17 +561,24 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
       header: "Email",
       cell: ({ row }) => <div>{row.original.data?.email || "N/A"}</div>,
     },
-    ...customQuestions.map((question) => ({
-      accessorKey: `data.custom_${question.id}`,
-      header: formatFieldName(question.label),
-      cell: ({ row }) => {
-        const value = row.original.data[`custom_${question.id}`]
-        if (typeof value === "boolean") {
-          return <div>{value ? "Yes" : "No"}</div>
-        }
-        return <div>{value || "N/A"}</div>
-      },
-    })),
+    ...customQuestions.map((question) => {
+      const fieldKey = question.id.startsWith("custom_") ? question.id : `data.${question.id}`
+      return {
+        accessorKey: fieldKey,
+        header: formatFieldName(question.label),
+        cell: ({ row }) => {
+          // Handle both custom_ prefixed fields and direct data fields
+          const value = question.id.startsWith("custom_")
+            ? row.original.data[question.id]
+            : row.original.data[question.id]
+
+          if (typeof value === "boolean") {
+            return <div>{value ? "Yes" : "No"}</div>
+          }
+          return <div>{value || "N/A"}</div>
+        },
+      }
+    }),
     {
       accessorKey: "createdAt",
       header: "Submitted",
