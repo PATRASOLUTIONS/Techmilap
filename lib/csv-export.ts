@@ -81,46 +81,55 @@ export function objectsToCSV(
 
 /**
  * Converts registration data to CSV format
+ * @param registrations Array of registration objects
+ * @returns CSV string
  */
 export function registrationsToCSV(registrations: any[]): string {
-  if (!registrations || registrations.length === 0) return ""
+  if (!registrations || registrations.length === 0) {
+    return ""
+  }
 
-  // Determine all possible fields from the data
+  // Collect all possible fields from all registrations
   const allFields = new Set<string>()
-  const baseFields = ["name", "email", "status", "registrationDate"]
-
-  registrations.forEach((item) => {
-    if (item.data) {
-      Object.keys(item.data).forEach((key) => allFields.add(key))
+  registrations.forEach((registration) => {
+    if (registration.data) {
+      Object.keys(registration.data).forEach((key) => allFields.add(key))
     }
   })
 
-  // Create headers
-  const headers = ["Name", "Email", "Status", "Registration Date", ...Array.from(allFields).map(formatFieldName)]
+  // Add standard fields
+  const standardFields = ["id", "status", "createdAt", "updatedAt"]
+  standardFields.forEach((field) => allFields.add(field))
 
-  // Prepare data for CSV
-  const csvData = registrations.map((item) => {
-    const row: Record<string, any> = {
-      name: item.data?.name || item.data?.firstName || "Anonymous",
-      email: item.data?.email || "N/A",
-      status: item.status || "Unknown",
-      registrationDate: formatDateForCSV(item.createdAt),
-    }
+  // Convert fields to array and sort
+  const fields = Array.from(allFields).sort()
 
-    // Add custom fields
-    if (item.data) {
-      Array.from(allFields).forEach((field) => {
-        row[field] = item.data[field] !== undefined ? item.data[field] : ""
+  // Create header row
+  const header = fields.map(escapeCSVField).join(",")
+
+  // Create data rows
+  const rows = registrations.map((registration) => {
+    return fields
+      .map((field) => {
+        let value = ""
+        if (standardFields.includes(field)) {
+          if (field === "id") {
+            value = registration._id || ""
+          } else if (field === "createdAt" || field === "updatedAt") {
+            value = registration[field] ? new Date(registration[field]).toISOString() : ""
+          } else {
+            value = registration[field] || ""
+          }
+        } else if (registration.data && registration.data[field] !== undefined) {
+          value = registration.data[field]
+        }
+        return escapeCSVField(value)
       })
-    }
-
-    return row
+      .join(",")
   })
 
-  return objectsToCSV(csvData, {
-    headers,
-    fields: ["name", "email", "status", "registrationDate", ...Array.from(allFields)],
-  })
+  // Combine header and rows
+  return [header, ...rows].join("\n")
 }
 
 /**
@@ -140,25 +149,47 @@ export function formatFieldName(key: string): string {
 }
 
 /**
- * Triggers a download of CSV data
+ * Escapes a field for CSV format
+ * @param value Field value to escape
+ * @returns Escaped field value
+ */
+function escapeCSVField(value: any): string {
+  if (value === null || value === undefined) {
+    return ""
+  }
+
+  // Convert to string
+  const str = String(value)
+
+  // Check if we need to escape
+  const needsEscape = str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")
+
+  if (needsEscape) {
+    // Replace double quotes with two double quotes and wrap in quotes
+    return `"${str.replace(/"/g, '""')}"`
+  }
+
+  return str
+}
+
+/**
+ * Downloads a CSV file
+ * @param csvData CSV data as string
+ * @param filename Filename for the download
  */
 export function downloadCSV(csvData: string, filename: string): void {
-  // Create a Blob with the CSV data
+  // Create a blob with the CSV data
   const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" })
 
-  // Create a URL for the Blob
-  const url = URL.createObjectURL(blob)
-
-  // Create a temporary link element
+  // Create a download link
   const link = document.createElement("a")
-  link.href = url
-  link.download = filename
+  const url = URL.createObjectURL(blob)
+  link.setAttribute("href", url)
+  link.setAttribute("download", filename)
+  link.style.visibility = "hidden"
 
-  // Append to the document, click it, and remove it
+  // Add to document, click, and remove
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-
-  // Clean up the URL object
-  URL.revokeObjectURL(url)
 }

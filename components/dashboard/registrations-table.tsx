@@ -6,15 +6,24 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 // Update the imports at the top to include our CSV utilities
-import { Loader2, Eye, CheckCircle, XCircle, Search, X, Download } from "lucide-react"
+import { Loader2, Eye, CheckCircle, XCircle, Search, X, Download, Mail } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { registrationsToCSV, downloadCSV } from "@/lib/csv-export"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 
 interface RegistrationsTableProps {
   eventId: string
@@ -41,6 +50,14 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
   const [activeFilters, setActiveFilters] = useState<string[]>([])
   const [fieldOptions, setFieldOptions] = useState<{ [key: string]: Set<string> }>({})
+
+  // Email dialog state
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
+  const [emailSubject, setEmailSubject] = useState("")
+  const [emailMessage, setEmailMessage] = useState("")
+  const [includeEventDetails, setIncludeEventDetails] = useState(true)
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [selectedAttendees, setSelectedAttendees] = useState<any[]>([])
 
   useEffect(() => {
     const fetchRegistrations = async () => {
@@ -431,6 +448,85 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     }
   }
 
+  // New function to open the email dialog
+  const openEmailDialog = () => {
+    if (selectedRegistrations.length === 0) {
+      toast({
+        title: "No attendees selected",
+        description: "Please select at least one attendee to email.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Get the selected attendee data for preview
+    const selected = registrations.filter((reg: any) => selectedRegistrations.includes(reg._id))
+    setSelectedAttendees(selected)
+
+    // Reset the form
+    setEmailSubject("")
+    setEmailMessage("")
+    setIncludeEventDetails(true)
+
+    // Open the dialog
+    setEmailDialogOpen(true)
+  }
+
+  // Function to send emails
+  const sendEmails = async () => {
+    if (!emailSubject || !emailMessage) {
+      toast({
+        title: "Missing information",
+        description: "Please provide both subject and message for your email.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSendingEmail(true)
+
+    try {
+      const response = await fetch(`/api/events/${eventId}/email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          registrationIds: selectedRegistrations,
+          subject: emailSubject,
+          message: emailMessage,
+          includeEventDetails,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to send emails")
+      }
+
+      const result = await response.json()
+
+      toast({
+        title: "Emails Sent",
+        description: result.message,
+      })
+
+      // Close the dialog and reset form
+      setEmailDialogOpen(false)
+      setEmailSubject("")
+      setEmailMessage("")
+    } catch (error) {
+      console.error("Error sending emails:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send emails",
+        variant: "destructive",
+      })
+    } finally {
+      setSendingEmail(false)
+    }
+  }
+
   if (loading) {
     return (
       <Card>
@@ -471,23 +567,41 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {selectedRegistrations.length > 0 && (
-            <Button
-              variant="default"
-              className="bg-green-600 hover:bg-green-700 text-white"
-              onClick={handleBulkApprove}
-            >
-              <CheckCircle className="h-4 w-4 mr-1" />
-              Approve Selected ({selectedRegistrations.length})
-            </Button>
+            <>
+              <Button
+                variant="default"
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={handleBulkApprove}
+              >
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Approve Selected ({selectedRegistrations.length})
+              </Button>
+
+              {/* Add Email button */}
+              <Button variant="outline" onClick={openEmailDialog}>
+                <Mail className="h-4 w-4 mr-1" />
+                Email Selected ({selectedRegistrations.length})
+              </Button>
+            </>
           )}
 
-          {/* Add the Export button here */}
           <Button variant="outline" onClick={exportToCSV}>
             <Download className="h-4 w-4 mr-1" />
             Export CSV
           </Button>
 
           <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" className="relative">
+                <Search className="h-4 w-4 mr-1" />
+                Filters
+                {activeFilters.length > 0 && (
+                  <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full">
+                    {activeFilters.length}
+                  </Badge>
+                )}
+              </Button>
+            </SheetTrigger>
             <SheetContent className="w-[300px] sm:w-[400px] overflow-y-auto">
               <SheetHeader>
                 <SheetTitle>Filter Registrations</SheetTitle>
@@ -702,6 +816,81 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Dialog */}
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Send Email to Attendees</DialogTitle>
+            <DialogDescription>
+              Compose an email to send to {selectedRegistrations.length} selected attendee(s)
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div>
+              <Label htmlFor="email-subject">Subject</Label>
+              <Input
+                id="email-subject"
+                placeholder="Email subject"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="email-message">Message</Label>
+              <Textarea
+                id="email-message"
+                placeholder="Enter your message here. Use {name} to include the recipient's name."
+                className="min-h-[200px]"
+                value={emailMessage}
+                onChange={(e) => setEmailMessage(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Use {"{name}"} to personalize the email with the attendee's name.
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="include-event-details"
+                checked={includeEventDetails}
+                onCheckedChange={(checked) => setIncludeEventDetails(!!checked)}
+              />
+              <Label htmlFor="include-event-details">Include event details in the email</Label>
+            </div>
+
+            <div className="border rounded-md p-4">
+              <h3 className="text-sm font-medium mb-2">Recipients ({selectedAttendees.length})</h3>
+              <div className="max-h-[100px] overflow-y-auto">
+                {selectedAttendees.map((attendee) => (
+                  <div key={attendee._id} className="text-sm py-1 flex justify-between">
+                    <span>{attendee.data?.name || attendee.data?.firstName || "Anonymous"}</span>
+                    <span className="text-muted-foreground">{attendee.data?.email || "No email"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={sendEmails} disabled={sendingEmail || !emailSubject || !emailMessage}>
+              {sendingEmail ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Email"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Card>

@@ -68,15 +68,16 @@
     "@mongodb-js/zstd": "latest",
     "mongodb-client-encryption": "latest",
     "@aws-sdk/credential-providers": "latest",
+    "mongodb": "latest",
     "next-auth": "latest",
     "mongoose": "latest",
     "framer-motion": "latest",
-    "mongodb": "latest",
     "crypto": "latest",
     "react-markdown": "latest",
     "@tailwindcss/typography": "latest",
     "bcryptjs": "latest",
-    "@tanstack/react-table": "latest"
+    "@tanstack/react-table": "latest",
+    "@auth/mongodb-adapter": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
