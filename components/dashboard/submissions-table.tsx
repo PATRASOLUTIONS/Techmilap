@@ -19,6 +19,229 @@ import { format } from "date-fns"
 import { Slider } from "@/components/ui/slider"
 import type { ColumnDef } from "@tanstack/react-table"
 
+// Add these default question templates at the top of the file, after the imports
+// Default question templates for different form types
+const defaultAttendeeQuestions = [
+  {
+    id: "name",
+    type: "text",
+    label: "Name",
+    placeholder: "Enter your name",
+    required: true,
+  },
+  {
+    id: "email",
+    type: "email",
+    label: "Email ID",
+    placeholder: "Enter your email address",
+    required: true,
+  },
+  {
+    id: "corporateEmail",
+    type: "email",
+    label: "Corporate Email ID",
+    placeholder: "Enter your corporate email address",
+    required: true,
+  },
+  {
+    id: "designation",
+    type: "text",
+    label: "Designation",
+    placeholder: "Enter your designation",
+    required: true,
+  },
+  {
+    id: "linkedinId",
+    type: "text",
+    label: "LinkedIn ID",
+    placeholder: "Enter your LinkedIn profile URL",
+    required: true,
+  },
+  {
+    id: "githubId",
+    type: "text",
+    label: "GitHub ID",
+    placeholder: "Enter your GitHub profile URL",
+    required: true,
+  },
+  {
+    id: "otherSocialMediaId",
+    type: "text",
+    label: "Any other social Media ID",
+    placeholder: "Enter any other social media profile URL",
+    required: false,
+  },
+  {
+    id: "mobileNumber",
+    type: "phone",
+    label: "Mobile number",
+    placeholder: "Enter your mobile number",
+    required: true,
+  },
+]
+
+const defaultVolunteerQuestions = [
+  {
+    id: "name",
+    type: "text",
+    label: "Name",
+    placeholder: "Enter your name",
+    required: true,
+  },
+  {
+    id: "email",
+    type: "email",
+    label: "Email ID",
+    placeholder: "Enter your email address",
+    required: true,
+  },
+  {
+    id: "corporateEmail",
+    type: "email",
+    label: "Corporate Email ID",
+    placeholder: "Enter your corporate email address",
+    required: true,
+  },
+  {
+    id: "designation",
+    type: "text",
+    label: "Designation",
+    placeholder: "Enter your designation",
+    required: true,
+  },
+  {
+    id: "eventOrganizer",
+    type: "text",
+    label: "Event Organizer",
+    placeholder: "Enter the event organizer",
+    required: true,
+  },
+  {
+    id: "isMicrosoftMVP",
+    type: "checkbox",
+    label: "Are you a Microsoft MVP?",
+    required: true,
+  },
+  {
+    id: "mvpId",
+    type: "text",
+    label: "MVP ID",
+    placeholder: "Enter your MVP ID",
+    required: false,
+  },
+  {
+    id: "howManyEventsVolunteered",
+    type: "select",
+    label: "How many events have you supported as a volunteer?",
+    placeholder: "Select the number of events",
+    required: true,
+    options: [
+      { id: "events_1", value: "1-5" },
+      { id: "events_2", value: "6-10" },
+      { id: "events_3", value: "11+" },
+    ],
+  },
+  {
+    id: "yourContribution",
+    type: "select",
+    label: "Your Contribution",
+    placeholder: "Select your contribution",
+    required: true,
+    options: [
+      { id: "contribution_1", value: "Content creator" },
+      { id: "contribution_2", value: "Social media" },
+      { id: "contribution_3", value: "Event planner" },
+      { id: "contribution_4", value: "Infographic designer" },
+      { id: "contribution_5", value: "Organizer" },
+    ],
+  },
+  {
+    id: "linkedinId",
+    type: "text",
+    label: "LinkedIn ID",
+    placeholder: "Enter your LinkedIn profile URL",
+    required: true,
+  },
+  {
+    id: "githubId",
+    type: "text",
+    label: "GitHub ID",
+    placeholder: "Enter your GitHub profile URL",
+    required: true,
+  },
+  {
+    id: "mobileNumber",
+    type: "phone",
+    label: "Mobile number",
+    placeholder: "Enter your mobile number",
+    required: true,
+  },
+]
+
+const defaultSpeakerQuestions = [
+  {
+    id: "name",
+    type: "text",
+    label: "Name",
+    placeholder: "Enter your name",
+    required: true,
+  },
+  {
+    id: "email",
+    type: "email",
+    label: "Email ID",
+    placeholder: "Enter your email address",
+    required: true,
+  },
+  {
+    id: "corporateEmail",
+    type: "email",
+    label: "Corporate Email ID",
+    placeholder: "Enter your corporate email address",
+    required: true,
+  },
+  {
+    id: "designation",
+    type: "text",
+    label: "Designation",
+    placeholder: "Enter your designation",
+    required: true,
+  },
+  {
+    id: "eventOrganizer",
+    type: "text",
+    label: "Event Organizer",
+    placeholder: "Enter the event organizer",
+    required: true,
+  },
+  {
+    id: "isMicrosoftMVP",
+    type: "checkbox",
+    label: "Are you a Microsoft MVP?",
+    required: true,
+  },
+  {
+    id: "areYouRunningMeetupGroup",
+    type: "checkbox",
+    label: "Are you running any meetup group?",
+    required: true,
+  },
+  {
+    id: "linkedinId",
+    type: "text",
+    label: "LinkedIn ID",
+    placeholder: "Enter your LinkedIn profile URL",
+    required: true,
+  },
+  {
+    id: "githubId",
+    type: "text",
+    label: "GitHub ID",
+    placeholder: "Enter your GitHub profile URL",
+    required: true,
+  },
+]
+
 // Add interface for filters
 interface FilterState {
   [key: string]: string | boolean | null | number[] | Date
@@ -32,7 +255,7 @@ interface SubmissionsTableProps {
   filterStatus?: "pending" | "approved" | "rejected"
 }
 
-// Update the SubmissionsTable component to include filters
+// Modify the SubmissionsTable component to include a useEffect that sets default questions based on formType
 export function SubmissionsTable({ eventId, formType, title, description, filterStatus }: SubmissionsTableProps) {
   const [submissions, setSubmissions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -47,6 +270,29 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
   const [activeFilters, setActiveFilters] = useState<string[]>([])
   const [date, setDate] = useState<Date | undefined>(undefined)
+  const [allQuestions, setAllQuestions] = useState<any[]>([])
+  const [retryCount, setRetryCount] = useState(0)
+  const maxRetries = 3
+
+  // Add a function to get default questions based on form type
+  const getDefaultQuestions = (type: string) => {
+    switch (type) {
+      case "attendee":
+        return defaultAttendeeQuestions
+      case "volunteer":
+        return defaultVolunteerQuestions
+      case "speaker":
+        return defaultSpeakerQuestions
+      default:
+        return []
+    }
+  }
+
+  // Add a useEffect to set default questions based on formType
+  useEffect(() => {
+    // Set default questions based on form type
+    setAllQuestions(getDefaultQuestions(formType))
+  }, [formType])
 
   // Add a function to extract unique values for each field for filtering
   const [fieldOptions, setFieldOptions] = useState<{ [key: string]: Set<string> }>({})
@@ -225,6 +471,49 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
     }
   }
 
+  // Update the fetchCustomQuestions function to merge custom questions with default ones
+  const fetchCustomQuestions = async () => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/forms/${formType}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        const customQs = data.questions || []
+        setCustomQuestions(customQs)
+
+        // Merge custom questions with default questions, avoiding duplicates
+        const defaultQs = getDefaultQuestions(formType)
+        const mergedQuestions = [...customQs]
+
+        // Add default questions that don't exist in custom questions
+        defaultQs.forEach((defaultQ) => {
+          const exists = customQs.some((customQ) => customQ.label.toLowerCase() === defaultQ.label.toLowerCase())
+
+          if (!exists) {
+            mergedQuestions.push(defaultQ)
+          }
+        })
+
+        setAllQuestions(mergedQuestions)
+      } else {
+        console.error("Failed to fetch custom questions")
+        // Fall back to default questions
+        setAllQuestions(getDefaultQuestions(formType))
+      }
+    } catch (error) {
+      console.error("Error fetching custom questions:", error)
+      // Fall back to default questions
+      setAllQuestions(getDefaultQuestions(formType))
+    }
+  }
+
+  // Modify the useEffect that fetches submissions to include retry logic
   useEffect(() => {
     const fetchSubmissions = async () => {
       try {
@@ -273,8 +562,31 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
         if (!response.ok) {
           const errorText = await response.text()
           console.error(`API Error (${response.status}):`, errorText)
+
+          // If it's a 500 error and we haven't exceeded max retries, schedule a retry
+          if (response.status === 500 && retryCount < maxRetries) {
+            const nextRetryCount = retryCount + 1
+            setRetryCount(nextRetryCount)
+
+            toast({
+              title: "Connection Error",
+              description: `Retrying in 5 seconds... (Attempt ${nextRetryCount}/${maxRetries})`,
+              variant: "destructive",
+            })
+
+            // Schedule retry after 5 seconds
+            setTimeout(() => {
+              fetchSubmissions()
+            }, 5000)
+
+            return
+          }
+
           throw new Error(`Failed to fetch ${formType} submissions (Status: ${response.status})`)
         }
+
+        // Reset retry count on success
+        setRetryCount(0)
 
         const data = await response.json()
         console.log(`${formType} submissions data:`, data)
@@ -321,30 +633,9 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
       }
     }
 
-    const fetchCustomQuestions = async () => {
-      try {
-        const response = await fetch(`/api/events/${eventId}/forms/${formType}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-          },
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          setCustomQuestions(data.questions || [])
-        } else {
-          console.error("Failed to fetch custom questions")
-        }
-      } catch (error) {
-        console.error("Error fetching custom questions:", error)
-      }
-    }
-
     fetchSubmissions()
     fetchCustomQuestions()
-  }, [eventId, formType, filterStatus, searchQuery, filters, toast])
+  }, [eventId, formType, filterStatus, searchQuery, filters, toast, retryCount])
 
   const handleViewSubmission = (submission: any) => {
     setSelectedSubmission(submission)
@@ -487,7 +778,7 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
       header: "Email",
       cell: ({ row }) => <div>{row.original.data?.email || "N/A"}</div>,
     },
-    ...customQuestions.map((question) => ({
+    ...allQuestions.map((question) => ({
       accessorKey: `data.custom_${question.id}`,
       header: formatFieldName(question.label),
       cell: ({ row }) => {
@@ -650,7 +941,7 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
                     </Select>
                   </div>
 
-                  {customQuestions.map((question) => renderFilterOptions(question))}
+                  {allQuestions.map((question) => renderFilterOptions(question))}
                 </div>
               </div>
             </SheetContent>
