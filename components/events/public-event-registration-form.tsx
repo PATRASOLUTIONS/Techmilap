@@ -159,7 +159,11 @@ export function PublicEventRegistrationForm({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          ...values,
+          // Explicitly set the status to pending for attendee registrations
+          status: "pending",
+        }),
       })
 
       if (!response.ok) {
@@ -169,8 +173,8 @@ export function PublicEventRegistrationForm({
       }
 
       toast({
-        title: "Registration successful",
-        description: "You have been registered for this event.",
+        title: "Registration submitted",
+        description: "Your registration has been submitted and is pending approval.",
       })
 
       onSuccess()
@@ -290,7 +294,7 @@ export function PublicEventRegistrationForm({
         </CardContent>
 
         <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Registering..." : "Register"}
+          {isSubmitting ? "Submitting..." : "Register"}
         </Button>
       </form>
     </Form>

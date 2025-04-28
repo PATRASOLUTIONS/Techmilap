@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+import { sendRegistrationApprovalEmail, sendRegistrationRejectionEmail } from "@/lib/email-service"
 
 // Import models
 const Event = mongoose.models.Event || mongoose.model("Event", require("@/models/Event").default.schema)
@@ -67,16 +68,39 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
       if (submission) {
         // If it's an attendee submission, also update the event registration status
-        if (submission.formType === "attendee" && submission.userId) {
+        if (submission.formType === "attendee") {
           // Find the registration in the event.registrations array
           const registrationIndex = event.registrations?.findIndex(
-            (reg) => reg.userId && reg.userId.toString() === submission.userId.toString(),
+            (reg) => reg.formSubmissionId && reg.formSubmissionId.toString() === submission._id.toString(),
           )
 
           if (registrationIndex >= 0) {
             // Update the status
             event.registrations[registrationIndex].status = status === "approved" ? "confirmed" : status
             await event.save()
+
+            // Send email notification based on the status
+            if (status === "approved") {
+              // Send approval email to the attendee
+              await sendRegistrationApprovalEmail({
+                eventName: event.title,
+                attendeeEmail: submission.data.email,
+                attendeeName: submission.data.name || `${submission.data.firstName} ${submission.data.lastName}`,
+                eventDetails: {
+                  startDate: event.startDate,
+                  startTime: event.startTime,
+                  location: event.location,
+                },
+                eventId: event._id.toString(),
+              })
+            } else if (status === "rejected") {
+              // Send rejection email to the attendee
+              await sendRegistrationRejectionEmail({
+                eventName: event.title,
+                attendeeEmail: submission.data.email,
+                attendeeName: submission.data.name || `${submission.data.firstName} ${submission.data.lastName}`,
+              })
+            }
           }
         }
 

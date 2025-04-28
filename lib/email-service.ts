@@ -168,3 +168,132 @@ export async function sendFormSubmissionNotification({
     return false
   }
 }
+
+// New function to send registration approval notification to attendees
+export async function sendRegistrationApprovalEmail({
+  eventName,
+  attendeeEmail,
+  attendeeName,
+  eventDetails,
+  eventId,
+}: {
+  eventName: string
+  attendeeEmail: string
+  attendeeName: string
+  eventDetails: any
+  eventId: string
+}) {
+  try {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const eventUrl = `${appUrl}/events/${eventId}`
+
+    const eventDate = eventDetails.startDate ? new Date(eventDetails.startDate).toLocaleDateString() : "TBD"
+    const eventTime = eventDetails.startTime || "TBD"
+    const eventLocation = eventDetails.location || "TBD"
+
+    const subject = `Registration Approved: ${eventName}`
+    const text = `
+      Hello ${attendeeName},
+      
+      Great news! Your registration for "${eventName}" has been approved.
+      
+      Event Details:
+      - Date: ${eventDate}
+      - Time: ${eventTime}
+      - Location: ${eventLocation}
+      
+      You can view the event details here: ${eventUrl}
+      
+      We look forward to seeing you at the event!
+      
+      Best regards,
+      The TechEventPlanner Team
+    `
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+        <h2 style="color: #4f46e5;">Registration Approved!</h2>
+        <p>Hello ${attendeeName},</p>
+        <p>Great news! Your registration for <strong>"${eventName}"</strong> has been approved.</p>
+        
+        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="margin-top: 0;">Event Details</h3>
+          <p><strong>Date:</strong> ${eventDate}</p>
+          <p><strong>Time:</strong> ${eventTime}</p>
+          <p><strong>Location:</strong> ${eventLocation}</p>
+        </div>
+        
+        <p>
+          <a href="${eventUrl}" style="background-color: #4f46e5; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block;">
+            View Event Details
+          </a>
+        </p>
+        
+        <p>We look forward to seeing you at the event!</p>
+        
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+          Best regards,<br>
+          The TechEventPlanner Team
+        </p>
+      </div>
+    `
+
+    return sendEmail({ to: attendeeEmail, subject, text, html })
+  } catch (error) {
+    console.error("Error sending registration approval email:", error)
+    return false
+  }
+}
+
+// New function to send registration rejection notification to attendees
+export async function sendRegistrationRejectionEmail({
+  eventName,
+  attendeeEmail,
+  attendeeName,
+}: {
+  eventName: string
+  attendeeEmail: string
+  attendeeName: string
+}) {
+  try {
+    const subject = `Registration Update: ${eventName}`
+    const text = `
+      Hello ${attendeeName},
+      
+      Thank you for your interest in "${eventName}".
+      
+      We regret to inform you that we are unable to approve your registration at this time. This could be due to various reasons such as capacity limitations or eligibility criteria.
+      
+      If you have any questions, please contact the event organizer directly.
+      
+      Thank you for your understanding.
+      
+      Best regards,
+      The TechEventPlanner Team
+    `
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+        <h2 style="color: #4f46e5;">Registration Update</h2>
+        <p>Hello ${attendeeName},</p>
+        <p>Thank you for your interest in <strong>"${eventName}"</strong>.</p>
+        
+        <p>We regret to inform you that we are unable to approve your registration at this time. This could be due to various reasons such as capacity limitations or eligibility criteria.</p>
+        
+        <p>If you have any questions, please contact the event organizer directly.</p>
+        
+        <p>Thank you for your understanding.</p>
+        
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+          Best regards,<br>
+          The TechEventPlanner Team
+        </p>
+      </div>
+    `
+
+    return sendEmail({ to: attendeeEmail, subject, text, html })
+  } catch (error) {
+    console.error("Error sending registration rejection email:", error)
+    return false
+  }
+}
