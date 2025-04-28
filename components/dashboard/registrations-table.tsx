@@ -592,9 +592,9 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
 
           <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" className="relative">
+              <Button variant="secondary" className="relative">
                 <Search className="h-4 w-4 mr-1" />
-                Filters
+                Filter Attendees
                 {activeFilters.length > 0 && (
                   <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full">
                     {activeFilters.length}
@@ -605,7 +605,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
             <SheetContent className="w-[300px] sm:w-[400px] overflow-y-auto">
               <SheetHeader>
                 <SheetTitle>Filter Registrations</SheetTitle>
-                <SheetDescription>Filter registrations based on form responses</SheetDescription>
+                <SheetDescription>Filter attendees based on form responses</SheetDescription>
               </SheetHeader>
               <div className="py-4">
                 {activeFilters.length > 0 && (
@@ -669,6 +669,22 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
           </div>
         </div>
       </CardHeader>
+      {activeFilters.length > 0 && (
+        <div className="px-6 py-2 bg-muted/20 border-t border-b">
+          <div className="flex items-center flex-wrap gap-2">
+            <span className="text-sm font-medium">Active filters:</span>
+            {activeFilters.map((field) => (
+              <Badge key={field} variant="secondary" className="flex items-center gap-1">
+                {formatFieldName(field.replace("custom_", ""))}
+                <X className="h-3 w-3 cursor-pointer" onClick={() => clearFilter(field)} />
+              </Badge>
+            ))}
+            <Button variant="ghost" size="sm" onClick={clearAllFilters} className="ml-auto">
+              Clear All
+            </Button>
+          </div>
+        </div>
+      )}
       <CardContent>
         {registrations.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
