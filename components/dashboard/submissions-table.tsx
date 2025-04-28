@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { Slider } from "@/components/ui/slider"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { ColumnDef } from "@tanstack/react-table"
 
 // Add interface for filters
@@ -101,6 +102,7 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
   const [activeFilters, setActiveFilters] = useState<string[]>([])
   const [date, setDate] = useState<Date | undefined>(undefined)
+  const [activeTab, setActiveTab] = useState("basic")
 
   // Add a function to extract unique values for each field for filtering
   const [fieldOptions, setFieldOptions] = useState<{ [key: string]: Set<string> }>({})
@@ -153,7 +155,7 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
   const renderFilterOptions = (question: any) => {
     const fieldName = question.id || question.label
     // Determine if this is a custom question or predefined question
-    const fieldKey = fieldName.startsWith("custom_") ? fieldName : `data.${fieldName}`
+    const fieldKey = fieldName.startsWith("custom_") ? fieldName : fieldName
 
     // Get unique values for this field
     const options = fieldOptions[fieldKey] || new Set()
@@ -344,20 +346,18 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
           if (submission.data) {
             // Process both custom fields and predefined fields
             Object.entries(submission.data).forEach(([key, value]) => {
-              const fieldKey = key.startsWith("custom_") ? key : `data.${key}`
-
               // Handle different types of values
               if (typeof value === "string" || typeof value === "boolean") {
-                if (!options[fieldKey]) {
-                  options[fieldKey] = new Set()
+                if (!options[key]) {
+                  options[key] = new Set()
                 }
-                options[fieldKey].add(String(value))
+                options[key].add(String(value))
               } else if (typeof value === "number") {
-                if (!stats[fieldKey]) {
-                  stats[fieldKey] = { min: value, max: value }
+                if (!stats[key]) {
+                  stats[key] = { min: value, max: value }
                 } else {
-                  stats[fieldKey].min = Math.min(stats[fieldKey].min, value)
-                  stats[fieldKey].max = Math.max(stats[fieldKey].max, value)
+                  stats[key].min = Math.min(stats[key].min, value)
+                  stats[key].max = Math.max(stats[key].max, value)
                 }
               }
             })
@@ -535,6 +535,39 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
     }
   }
 
+  // Group questions by category for the filter UI
+  const basicQuestions = customQuestions.filter((q) =>
+    ["name", "email", "corporateEmail", "designation", "mobileNumber"].includes(q.id),
+  )
+
+  const socialMediaQuestions = customQuestions.filter((q) =>
+    ["linkedinId", "githubId", "otherSocialMediaId"].includes(q.id),
+  )
+
+  const mvpQuestions = customQuestions.filter((q) => ["isMvp", "mvpId", "mvpProfileLink", "mvpCategory"].includes(q.id))
+
+  const eventQuestions = customQuestions.filter((q) =>
+    [
+      "eventOrganizer",
+      "eventsSupported",
+      "meetupName",
+      "eventDetails",
+      "meetupPageDetails",
+      "contribution",
+      "organizerInfo",
+      "runningMeetupGroup",
+    ].includes(q.id),
+  )
+
+  // Any questions that don't fit into the above categories
+  const otherQuestions = customQuestions.filter(
+    (q) =>
+      !basicQuestions.includes(q) &&
+      !socialMediaQuestions.includes(q) &&
+      !mvpQuestions.includes(q) &&
+      !eventQuestions.includes(q),
+  )
+
   const columns: ColumnDef<any>[] = [
     {
       id: "select",
@@ -562,9 +595,9 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
       cell: ({ row }) => <div>{row.original.data?.email || "N/A"}</div>,
     },
     ...customQuestions.map((question) => {
-      const fieldKey = question.id.startsWith("custom_") ? question.id : `data.${question.id}`
+      const fieldKey = question.id.startsWith("custom_") ? question.id : question.id
       return {
-        accessorKey: fieldKey,
+        accessorKey: `data.${fieldKey}`,
         header: formatFieldName(question.label),
         cell: ({ row }) => {
           // Handle both custom_ prefixed fields and direct data fields
@@ -683,8 +716,8 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
             </SheetTrigger>
             <SheetContent className="w-[300px] sm:w-[400px] overflow-y-auto">
               <SheetHeader>
-                <SheetTitle>Filter Submissions</SheetTitle>
-                <SheetDescription>Filter submissions based on form responses</SheetDescription>
+                <SheetTitle>Advanced Filters</SheetTitle>
+                <SheetDescription>Filter {formType}s based on registration data</SheetDescription>
               </SheetHeader>
               <div className="py-4">
                 {activeFilters.length > 0 && (
@@ -706,33 +739,122 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
                   </div>
                 )}
 
-                <div className="space-y-4">
-                  <div className="mb-4">
-                    <label className="text-sm font-medium mb-1 block">Status</label>
-                    <Select
-                      value={filters.status?.toString() || ""}
-                      onValueChange={(value) => {
-                        if (value === "all") {
-                          handleFilterChange("status", null)
-                        } else {
-                          handleFilterChange("status", value)
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Filter by status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="approved">Approved</SelectItem>
-                        <SelectItem value="rejected">Rejected</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <Tabs defaultValue="basic" value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList className="grid grid-cols-3 mb-4">
+                    <TabsTrigger value="basic">Basic</TabsTrigger>
+                    <TabsTrigger value="dateTime">Date & Time</TabsTrigger>
+                    <TabsTrigger value="customFields">Custom Fields</TabsTrigger>
+                  </TabsList>
 
-                  {customQuestions.map((question) => renderFilterOptions(question))}
-                </div>
+                  <TabsContent value="basic">
+                    <div className="space-y-4">
+                      <div className="mb-4">
+                        <label className="text-sm font-medium mb-1 block">Status</label>
+                        <Select
+                          value={filters.status?.toString() || ""}
+                          onValueChange={(value) => {
+                            if (value === "all") {
+                              handleFilterChange("status", null)
+                            } else {
+                              handleFilterChange("status", value)
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Filter by status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="approved">Approved</SelectItem>
+                            <SelectItem value="rejected">Rejected</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {basicQuestions.map((question) => renderFilterOptions(question))}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="dateTime">
+                    <div className="space-y-4">
+                      <div className="mb-4">
+                        <label className="text-sm font-medium mb-1 block">Submission Date</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start text-left font-normal">
+                              <Calendar className="mr-2 h-4 w-4" />
+                              {filters.submissionDate ? (
+                                format(filters.submissionDate as Date, "PPP")
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <CalendarComponent
+                              mode="single"
+                              selected={filters.submissionDate as Date}
+                              onSelect={(date) => {
+                                if (date) {
+                                  handleFilterChange("submissionDate", date)
+                                } else {
+                                  handleFilterChange("submissionDate", null)
+                                }
+                              }}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="customFields">
+                    <div className="space-y-4">
+                      {formType === "attendee" && (
+                        <>
+                          <h3 className="text-sm font-medium mb-2">Attendee Questions</h3>
+                          {socialMediaQuestions.map((question) => renderFilterOptions(question))}
+                        </>
+                      )}
+
+                      {formType === "volunteer" && (
+                        <>
+                          <h3 className="text-sm font-medium mb-2">Volunteer Questions</h3>
+                          {mvpQuestions.map((question) => renderFilterOptions(question))}
+                          {eventQuestions.map((question) => renderFilterOptions(question))}
+                          {socialMediaQuestions.map((question) => renderFilterOptions(question))}
+                        </>
+                      )}
+
+                      {formType === "speaker" && (
+                        <>
+                          <h3 className="text-sm font-medium mb-2">Speaker Questions</h3>
+                          {mvpQuestions.map((question) => renderFilterOptions(question))}
+                          {eventQuestions.map((question) => renderFilterOptions(question))}
+                          {socialMediaQuestions.map((question) => renderFilterOptions(question))}
+                        </>
+                      )}
+
+                      {otherQuestions.length > 0 && (
+                        <>
+                          <h3 className="text-sm font-medium mb-2">Other Questions</h3>
+                          {otherQuestions.map((question) => renderFilterOptions(question))}
+                        </>
+                      )}
+
+                      {socialMediaQuestions.length === 0 &&
+                        mvpQuestions.length === 0 &&
+                        eventQuestions.length === 0 &&
+                        otherQuestions.length === 0 && (
+                          <div className="text-center py-4 text-muted-foreground">
+                            <p>No custom questions found for this event.</p>
+                          </div>
+                        )}
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </div>
             </SheetContent>
           </Sheet>
