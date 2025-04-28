@@ -110,6 +110,27 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           endDate.setHours(23, 59, 59, 999)
 
           submissionQuery[`data.${fieldName}`] = { $gte: startDate, $lte: endDate }
+        } else if (value.startsWith("date_range:")) {
+          // Date range filter (e.g., date_range:2023-01-01:2023-01-31)
+          const [fromDate, toDate] = value.replace("date_range:", "").split(":")
+
+          const startDate = new Date(fromDate)
+          startDate.setHours(0, 0, 0, 0)
+
+          let endDate
+          if (toDate) {
+            endDate = new Date(toDate)
+            endDate.setHours(23, 59, 59, 999)
+          } else {
+            endDate = new Date(fromDate)
+            endDate.setHours(23, 59, 59, 999)
+          }
+
+          if (fieldName === "registrationDate") {
+            submissionQuery.createdAt = { $gte: startDate, $lte: endDate }
+          } else {
+            submissionQuery[`data.${fieldName}`] = { $gte: startDate, $lte: endDate }
+          }
         } else if (value.startsWith("in:")) {
           // Multiple values (e.g., in:value1,value2,value3)
           const values = value.replace("in:", "").split(",")
@@ -218,6 +239,26 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         const fieldName = key.replace("filter_", "")
 
         filteredRegistrations = filteredRegistrations.filter((reg: any) => {
+          // Special handling for registration date
+          if (fieldName === "registrationDate" && value.startsWith("date_range:")) {
+            const [fromDate, toDate] = value.replace("date_range:", "").split(":")
+
+            const startDate = new Date(fromDate)
+            startDate.setHours(0, 0, 0, 0)
+
+            let endDate
+            if (toDate) {
+              endDate = new Date(toDate)
+              endDate.setHours(23, 59, 59, 999)
+            } else {
+              endDate = new Date(fromDate)
+              endDate.setHours(23, 59, 59, 999)
+            }
+
+            const regDate = new Date(reg.createdAt)
+            return regDate >= startDate && regDate <= endDate
+          }
+
           const fieldValue = reg.data[fieldName]
           if (fieldValue === undefined) return false
 
