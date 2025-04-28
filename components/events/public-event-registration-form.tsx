@@ -161,8 +161,7 @@ export function PublicEventRegistrationForm({
         },
         body: JSON.stringify({
           ...values,
-          // Explicitly set the status to pending for attendee registrations
-          status: "pending",
+          status: "pending", // Explicitly set status to pending
         }),
       })
 
