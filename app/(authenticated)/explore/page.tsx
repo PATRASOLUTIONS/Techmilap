@@ -13,10 +13,8 @@ export default async function ExplorePage({ searchParams }: { searchParams: { ca
     if (!session) {
       return (
         <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Explore Events</h1>
-            <p className="text-muted-foreground">Please sign in to explore events.</p>
-          </div>
+          <h1 className="text-3xl font-bold tracking-tight">Explore Events</h1>
+          <p className="text-muted-foreground">Please sign in to explore events.</p>
         </div>
       )
     }
@@ -25,14 +23,18 @@ export default async function ExplorePage({ searchParams }: { searchParams: { ca
 
     const category = searchParams.category
 
-    // Build query
-    const query: any = { status: "published" }
-    if (category) {
+    // Build query with proper status filter
+    const query: any = { status: { $in: ["published", "active"] } }
+    if (category && category !== "all") {
       query.category = category
     }
 
+    console.log("Explore page query:", JSON.stringify(query))
+
     // Find published events with form status information
     const events = await Event.find(query).populate("organizer", "firstName lastName").sort({ date: 1 }).lean()
+
+    console.log(`Found ${events.length} events for explore page`)
 
     // Client-side filtering to remove past events
     const currentDate = new Date()
@@ -47,8 +49,22 @@ export default async function ExplorePage({ searchParams }: { searchParams: { ca
       }
     })
 
+    console.log(`After filtering, ${upcomingEvents.length} upcoming events remain`)
+
     // Get all unique categories for the filter
-    const categories = await Event.distinct("category", { status: "published" })
+    const categories = await Event.distinct("category", { status: { $in: ["published", "active"] } })
+
+    // Format events to ensure consistent structure
+    const formattedEvents = upcomingEvents.map((event) => ({
+      ...event,
+      _id: event._id.toString(),
+      organizer: event.organizer
+        ? {
+            firstName: event.organizer.firstName || "Event",
+            lastName: event.organizer.lastName || "Organizer",
+          }
+        : { firstName: "Event", lastName: "Organizer" },
+    }))
 
     return (
       <div className="space-y-6">
@@ -59,8 +75,8 @@ export default async function ExplorePage({ searchParams }: { searchParams: { ca
 
         <EventFilters categories={categories} selectedCategory={category} />
 
-        {upcomingEvents.length > 0 ? (
-          <EventList events={upcomingEvents} showRegisterButton />
+        {formattedEvents.length > 0 ? (
+          <EventList events={formattedEvents} showRegisterButton />
         ) : (
           <EventEmptyState
             title="No events found"

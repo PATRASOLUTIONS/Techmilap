@@ -245,8 +245,8 @@ export default function EventFormPage() {
         title: formType === "register" ? "Registration Successful" : "Application Submitted",
         description:
           formType === "register"
-            ? "You have successfully registered for this event"
-            : `Your ${formType} application has been submitted successfully`,
+            ? "You have successfully registered for this event. A confirmation email has been sent to your email address."
+            : `Your ${formType} application has been submitted successfully. A confirmation email has been sent to your email address.`,
       })
 
       router.push(`/events/${eventIdOrSlug}/forms/${formType}?success=true`)
@@ -390,7 +390,10 @@ export default function EventFormPage() {
     <div className="container mx-auto py-8 max-w-3xl">
       <div className="flex items-center mb-6">
         <Button variant="outline" size="icon" asChild className="mr-2">
-          <Link href={`/events/${eventIdOrSlug}`}>
+          <Link
+            href={`/events/${eventIdOrSlug}\`  size="icon" asChild className="mr-2">
+          <Link href={\`/events/${eventIdOrSlug}`}
+          >
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>

@@ -1,8 +1,6 @@
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
-
-// This is a partial implementation focusing on the handleFormSubmission function
-// to ensure it sets the status to "pending" for attendee registrations
+import { sendEmail } from "@/lib/email-service"
 
 export async function handleFormSubmission(
   eventIdOrSlug: string,
@@ -32,12 +30,15 @@ export async function handleFormSubmission(
 
     // Ensure email consistency
     const email = formData.email || formData.userEmail || ""
+    const name = formData.firstName
+      ? `${formData.firstName} ${formData.lastName || ""}`.trim()
+      : formData.name || "Attendee"
 
     // Create the submission document with consistent email
     const submission = {
       eventId: event._id,
       userId: userId ? new ObjectId(userId) : null,
-      userName: formData.firstName ? `${formData.firstName} ${formData.lastName || ""}`.trim() : formData.name,
+      userName: name,
       userEmail: email, // Use consistent email
       formType,
       status,
@@ -52,6 +53,12 @@ export async function handleFormSubmission(
     // Insert the submission
     const result = await db.collection("formsubmissions").insertOne(submission)
 
+    // Send confirmation email to the user
+    await sendConfirmationEmailToUser(event, formType, name, email)
+
+    // Send notification email to the organizer
+    await sendNotificationEmailToOrganizer(event, formType, submission, result.insertedId.toString())
+
     // Return success response
     return {
       success: true,
@@ -64,5 +71,172 @@ export async function handleFormSubmission(
       success: false,
       message: error instanceof Error ? error.message : "Unknown error occurred",
     }
+  }
+}
+
+// Function to send confirmation email to the user
+async function sendConfirmationEmailToUser(event, formType, userName, userEmail) {
+  try {
+    // Format the form type for display
+    const formTypeDisplay = formType === "attendee" ? "registration" : `${formType} application`
+
+    const subject = `Your ${formTypeDisplay} for ${event.title} has been received`
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+        <h2 style="color: #4f46e5;">Submission Received</h2>
+        <p>Hello ${userName},</p>
+        <p>Thank you for your ${formTypeDisplay} for <strong>"${event.title}"</strong>.</p>
+        
+        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="margin-top: 0;">Event Details</h3>
+          <p><strong>Event:</strong> ${event.title}</p>
+          <p><strong>Date:</strong> ${new Date(event.date).toLocaleDateString()}</p>
+          <p><strong>Location:</strong> ${event.location || "TBD"}</p>
+        </div>
+        
+        <p>Your submission is currently under review. We will notify you once it has been processed.</p>
+        
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+          Best regards,<br>
+          The TechEventPlanner Team
+        </p>
+      </div>
+    `
+
+    const text = `
+      Hello ${userName},
+      
+      Thank you for your ${formTypeDisplay} for "${event.title}".
+      
+      Event Details:
+      - Event: ${event.title}
+      - Date: ${new Date(event.date).toLocaleDateString()}
+      - Location: ${event.location || "TBD"}
+      
+      Your submission is currently under review. We will notify you once it has been processed.
+      
+      Best regards,
+      The TechEventPlanner Team
+    `
+
+    await sendEmail({
+      to: userEmail,
+      subject,
+      html,
+      text,
+    })
+
+    console.log(`Confirmation email sent to user: ${userEmail}`)
+    return true
+  } catch (error) {
+    console.error("Error sending confirmation email to user:", error)
+    return false
+  }
+}
+
+// Function to send notification email to the organizer
+async function sendNotificationEmailToOrganizer(event, formType, submission, submissionId) {
+  try {
+    // Get organizer email
+    let organizerEmail = event.organizerEmail
+
+    // If no direct organizer email, try to get it from the organizer object
+    if (!organizerEmail && event.organizer) {
+      // Check if organizer is populated or just an ID
+      if (typeof event.organizer === "object" && event.organizer !== null) {
+        organizerEmail = event.organizer.email
+      } else {
+        // Try to fetch organizer from database
+        const { db } = await connectToDatabase()
+        const organizer = await db.collection("users").findOne({ _id: event.organizer })
+        if (organizer) {
+          organizerEmail = organizer.email
+        }
+      }
+    }
+
+    // If still no organizer email, use a fallback or return
+    if (!organizerEmail) {
+      console.error("Could not find organizer email for event:", event._id)
+      return false
+    }
+
+    // Format the form type for display
+    const formTypeFormatted = formType.charAt(0).toUpperCase() + formType.slice(1)
+
+    // Create a summary of the submission data
+    let submissionSummary = ""
+    if (submission.data && typeof submission.data === "object") {
+      // Extract key information for the email summary
+      const keyFields = ["name", "firstName", "lastName", "email", "phone", "message", "interests", "availability"]
+
+      for (const key of Object.keys(submission.data)) {
+        if (
+          (keyFields.includes(key) || key.toLowerCase().includes("email") || key.toLowerCase().includes("name")) &&
+          submission.data[key]
+        ) {
+          const value = Array.isArray(submission.data[key]) ? submission.data[key].join(", ") : submission.data[key]
+          submissionSummary += `<p><strong>${key.charAt(0).toUpperCase() + key.slice(1)}:</strong> ${value}</p>`
+        }
+      }
+    }
+
+    if (!submissionSummary) {
+      submissionSummary = "<p>No detailed information available.</p>"
+    }
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const viewSubmissionUrl = `${appUrl}/event-dashboard/${event._id}/${formType}s`
+
+    const subject = `New ${formTypeFormatted} Submission for ${event.title}`
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+        <h2 style="color: #4f46e5;">New ${formTypeFormatted} Submission</h2>
+        <p>Hello Event Organizer,</p>
+        <p>You have received a new ${formType} submission for your event <strong>"${event.title}"</strong>.</p>
+        
+        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="margin-top: 0;">Submission Summary</h3>
+          ${submissionSummary}
+        </div>
+        
+        <p>
+          <a href="${viewSubmissionUrl}" style="background-color: #4f46e5; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block;">
+            View All Submissions
+          </a>
+        </p>
+        
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+          Thank you for using TechEventPlanner!
+        </p>
+      </div>
+    `
+
+    const text = `
+      Hello Event Organizer,
+      
+      You have received a new ${formType} submission for your event "${event.title}".
+      
+      Submission ID: ${submissionId}
+      
+      To view all submissions, please visit: ${viewSubmissionUrl}
+      
+      Thank you for using TechEventPlanner!
+    `
+
+    await sendEmail({
+      to: organizerEmail,
+      subject,
+      html,
+      text,
+    })
+
+    console.log(`Notification email sent to organizer: ${organizerEmail}`)
+    return true
+  } catch (error) {
+    console.error("Error sending notification email to organizer:", error)
+    return false
   }
 }

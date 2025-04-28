@@ -157,47 +157,43 @@ export async function GET(req: NextRequest, { params }: { params: { id: string; 
   }
 }
 
-export async function POST(request: Request, { params }: { params: { id: string; formType: string } }) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string; formType: string } },
+): Promise<NextResponse> {
   try {
-    console.log(`Processing ${params.formType} submission for event ${params.id}`)
+    const session = await getServerSession(authOptions)
+    const userId = session?.user?.id || null
 
-    // Parse the request body
-    let body
-    try {
-      body = await request.json()
-    } catch (error) {
-      console.error("Failed to parse request body:", error)
-      return NextResponse.json({ error: "Invalid request format" }, { status: 400 })
-    }
-
-    // Extract the form data and user ID
-    const { data, userId } = body
+    const { id: eventIdOrSlug, formType } = params
+    const { data } = await request.json()
 
     if (!data) {
-      console.error("No form data provided")
       return NextResponse.json({ error: "No form data provided" }, { status: 400 })
     }
 
-    console.log("Form data received:", JSON.stringify(data, null, 2))
-    console.log("User ID:", userId)
+    // Validate form type
+    const validFormTypes = ["attendee", "volunteer", "speaker"]
+    if (!validFormTypes.includes(formType)) {
+      return NextResponse.json({ error: "Invalid form type" }, { status: 400 })
+    }
 
-    // Process the form submission
-    const result = await handleFormSubmission(params.id, params.formType, data, userId)
+    console.log(`Processing ${formType} submission for event ${eventIdOrSlug}`)
 
-    // Return a successful response
+    // Handle the form submission
+    const result = await handleFormSubmission(eventIdOrSlug, formType, data, userId)
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.message }, { status: 400 })
+    }
+
     return NextResponse.json({
       success: true,
-      message:
-        params.formType === "attendee"
-          ? "Registration successful"
-          : `${params.formType} application submitted successfully`,
+      message: result.message,
       submissionId: result.submissionId,
     })
-  } catch (error: any) {
-    console.error(`Error processing form submission:`, error)
-    return NextResponse.json(
-      { error: error.message || `An error occurred while processing form submission` },
-      { status: 500 },
-    )
+  } catch (error) {
+    console.error(`Error processing ${params.formType} submission:`, error)
+    return NextResponse.json({ error: "An error occurred while processing your submission" }, { status: 500 })
   }
 }
