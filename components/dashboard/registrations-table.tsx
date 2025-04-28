@@ -264,7 +264,10 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
 
       toast({
         title: "Status Updated",
-        description: `Registration status updated to ${newStatus}`,
+        description:
+          newStatus === "approved"
+            ? "Registration approved and notification email sent to attendee"
+            : `Registration status updated to ${newStatus}`,
       })
     } catch (error) {
       console.error("Error updating registration status:", error)

@@ -16,6 +16,7 @@ const createTransporter = () => {
 // Generic function to send emails
 export async function sendEmail({ to, subject, text, html }) {
   try {
+    console.log(`Creating email transporter with host: ${process.env.EMAIL_HOST}, port: ${process.env.EMAIL_PORT}`)
     const transporter = createTransporter()
 
     const mailOptions = {
@@ -26,8 +27,9 @@ export async function sendEmail({ to, subject, text, html }) {
       html,
     }
 
-    await transporter.sendMail(mailOptions)
-    console.log(`Email sent to ${to} with subject ${subject}`)
+    console.log(`Sending email to ${to} with subject: ${subject}`)
+    const info = await transporter.sendMail(mailOptions)
+    console.log(`Email sent to ${to} with subject ${subject}. Message ID: ${info.messageId}`)
     return true
   } catch (error) {
     console.error(`Error sending email to ${to}:`, error)
@@ -238,7 +240,17 @@ export async function sendRegistrationApprovalEmail({
       </div>
     `
 
-    return sendEmail({ to: attendeeEmail, subject, text, html })
+    console.log(`Attempting to send approval email to ${attendeeEmail} for event ${eventName}`)
+
+    const result = await sendEmail({ to: attendeeEmail, subject, text, html })
+
+    if (result) {
+      console.log(`Successfully sent approval email to ${attendeeEmail}`)
+    } else {
+      console.error(`Failed to send approval email to ${attendeeEmail}`)
+    }
+
+    return result
   } catch (error) {
     console.error("Error sending registration approval email:", error)
     return false

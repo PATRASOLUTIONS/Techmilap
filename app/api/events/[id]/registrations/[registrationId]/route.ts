@@ -81,18 +81,30 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
             // Send email notification based on the status
             if (status === "approved") {
-              // Send approval email to the attendee
-              await sendRegistrationApprovalEmail({
-                eventName: event.title,
-                attendeeEmail: submission.data.email,
-                attendeeName: submission.data.name || `${submission.data.firstName} ${submission.data.lastName}`,
-                eventDetails: {
-                  startDate: event.startDate,
-                  startTime: event.startTime,
-                  location: event.location,
-                },
-                eventId: event._id.toString(),
-              })
+              try {
+                // Send approval email to the attendee
+                console.log(`Sending approval email to ${submission.data.email}`)
+                const emailResult = await sendRegistrationApprovalEmail({
+                  eventName: event.title,
+                  attendeeEmail: submission.data.email,
+                  attendeeName: submission.data.name || `${submission.data.firstName} ${submission.data.lastName}`,
+                  eventDetails: {
+                    startDate: event.startDate,
+                    startTime: event.startTime,
+                    location: event.location,
+                  },
+                  eventId: event._id.toString(),
+                })
+
+                console.log(`Email sending result: ${emailResult ? "Success" : "Failed"}`)
+
+                if (!emailResult) {
+                  console.error(`Failed to send approval email to ${submission.data.email}`)
+                }
+              } catch (emailError) {
+                console.error("Error sending approval email:", emailError)
+                // Continue with the process even if email fails
+              }
             } else if (status === "rejected") {
               // Send rejection email to the attendee
               await sendRegistrationRejectionEmail({

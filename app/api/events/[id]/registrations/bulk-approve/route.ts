@@ -155,6 +155,33 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         }
       }
 
+      // Send approval emails to all approved attendees
+      const approvedSubmissions = await FormSubmission.find({ _id: { $in: validObjectIds } }).lean()
+      const eventDetails = await Event.findById(params.id).lean()
+
+      if (eventDetails) {
+        for (const submission of approvedSubmissions) {
+          if (submission.formType === "attendee" && submission.data?.email) {
+            try {
+              await sendRegistrationApprovalEmail({
+                eventName: eventDetails.title,
+                attendeeEmail: submission.data.email,
+                attendeeName: submission.data.name || `${submission.data.firstName} ${submission.data.lastName}`,
+                eventDetails: {
+                  startDate: eventDetails.startDate,
+                  startTime: eventDetails.startTime,
+                  location: eventDetails.location,
+                },
+                eventId: eventDetails._id.toString(),
+              })
+              console.log(`Sent approval email to ${submission.data.email}`)
+            } catch (emailError) {
+              console.error(`Failed to send approval email to ${submission.data.email}:`, emailError)
+            }
+          }
+        }
+      }
+
       return NextResponse.json({
         success: true,
         message: `Successfully approved registrations`,
