@@ -38,14 +38,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Could not read request body" }, { status: 400 })
     }
 
-    const { firstName, lastName, email, corporateEmail, userEmail, ...additionalInfo } = body || {}
+    // Extract all possible name and email fields
+    const { firstName, lastName, name, fullName, email, corporateEmail, userEmail, emailAddress, ...additionalInfo } =
+      body || {}
 
-    // Use email consistently - prioritize the main email field but fall back to corporateEmail or userEmail if provided
-    const finalEmail = email || corporateEmail || userEmail || ""
+    // Use email consistently - prioritize the main email field but fall back to other email fields if provided
+    const finalEmail = email || corporateEmail || userEmail || emailAddress || ""
 
-    if (!firstName || !lastName || !finalEmail) {
-      console.error("Missing required fields: firstName, lastName, or email")
-      return NextResponse.json({ error: "First Name, Last Name, and email are required" }, { status: 400 })
+    // Use name consistently - prioritize full name but fall back to first/last name combination
+    const finalName = name || fullName || (firstName && lastName ? `${firstName} ${lastName}` : firstName || "")
+
+    if (!finalName || !finalEmail) {
+      console.error("Missing required fields: name or email")
+      return NextResponse.json({ error: "Name and email are required" }, { status: 400 })
     }
 
     // Verify that the event exists before proceeding
@@ -75,13 +80,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         const submission = {
           eventId: eventObjectId,
           userId: null,
-          userName: `${firstName} ${lastName}`.trim(),
+          userName: finalName,
           userEmail: finalEmail, // Use the consistent email
           formType: "attendee",
           status: "pending", // Set to pending instead of approved
           data: {
-            firstName,
-            lastName,
+            firstName: firstName || "",
+            lastName: lastName || "",
+            name: finalName,
             email: finalEmail, // Store consistent email in data
             ...additionalInfo,
           },
@@ -93,7 +99,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         console.log("Direct submission saved with ID:", result.insertedId)
 
         // Send confirmation email to the user
-        await sendConfirmationEmail(event, finalEmail, `${firstName} ${lastName}`.trim())
+        await sendConfirmationEmail(event, finalEmail, finalName)
 
         return NextResponse.json({
           success: true,
@@ -108,8 +114,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         params.id,
         "attendee",
         {
-          firstName,
-          lastName,
+          firstName: firstName || "",
+          lastName: lastName || "",
+          name: finalName,
           email: finalEmail, // Use consistent email
           userEmail: finalEmail, // Also set userEmail to be consistent
           ...additionalInfo,
@@ -133,13 +140,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         const submission = {
           eventId: eventObjectId,
           userId: null,
-          userName: `${firstName} ${lastName}`.trim(),
+          userName: finalName,
           userEmail: finalEmail, // Use consistent email
           formType: "attendee",
           status: "pending", // Set to pending instead of approved
           data: {
-            firstName,
-            lastName,
+            firstName: firstName || "",
+            lastName: lastName || "",
+            name: finalName,
             email: finalEmail, // Store consistent email in data
             ...additionalInfo,
           },
@@ -151,7 +159,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         console.log("Fallback submission saved with ID:", result.insertedId)
 
         // Send confirmation email to the user
-        await sendConfirmationEmail(event, finalEmail, `${firstName} ${lastName}`.trim())
+        await sendConfirmationEmail(event, finalEmail, finalName)
 
         return NextResponse.json({
           success: true,

@@ -104,6 +104,42 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     {} as Record<string, QuestionType[]>,
   )
 
+  // Inside the RegistrationsTable component, add this helper function
+  const getAttendeeEmail = (registration: any) => {
+    if (!registration || !registration.data) return "N/A"
+
+    // Check multiple possible email fields
+    return (
+      registration.data.email ||
+      registration.data.corporateEmail ||
+      registration.data.userEmail ||
+      registration.data.emailAddress ||
+      registration.userEmail ||
+      "N/A"
+    )
+  }
+
+  const getAttendeeName = (registration: any) => {
+    if (!registration || !registration.data) return "Anonymous"
+
+    const data = registration.data
+
+    // Check for full name fields
+    if (data.name) return data.name
+    if (data.fullName) return data.fullName
+
+    // Check for first/last name combination
+    const firstName = data.firstName || data.first_name || ""
+    const lastName = data.lastName || data.last_name || ""
+
+    if (firstName || lastName) {
+      return `${firstName} ${lastName}`.trim()
+    }
+
+    // Fall back to userName from the registration
+    return registration.userName || "Anonymous"
+  }
+
   // Modify the useEffect that fetches registrations to include retry logic
   useEffect(() => {
     const fetchRegistrations = async () => {
@@ -1023,8 +1059,8 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
                         aria-label="Select row"
                       />
                     </TableCell>
-                    <TableCell>{registration.data?.name || registration.data?.firstName || "Anonymous"}</TableCell>
-                    <TableCell>{registration.data?.email || "N/A"}</TableCell>
+                    <TableCell>{getAttendeeName(registration)}</TableCell>
+                    <TableCell>{getAttendeeEmail(registration)}</TableCell>
                     <TableCell>{formatDistanceToNow(new Date(registration.createdAt), { addSuffix: true })}</TableCell>
                     <TableCell>{getStatusBadge(registration.status)}</TableCell>
                     <TableCell className="text-right">
@@ -1083,11 +1119,11 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Name</h3>
-                  <p>{selectedRegistration.data?.firstName || selectedRegistration.data?.name || "Anonymous"}</p>
+                  <p>{getAttendeeName(selectedRegistration)}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Email</h3>
-                  <p>{selectedRegistration.data?.email || "N/A"}</p>
+                  <p>{getAttendeeEmail(selectedRegistration)}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Status</h3>

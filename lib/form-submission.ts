@@ -28,13 +28,18 @@ export async function handleFormSubmission(
     // Always set status to pending for all form types
     const status = "pending"
 
-    // Ensure email consistency - check both email and corporateEmail fields
-    const email = formData.email || formData.corporateEmail || formData.userEmail || ""
-    const name = formData.firstName
-      ? `${formData.firstName} ${formData.lastName || ""}`.trim()
-      : formData.name || "Attendee"
+    // Ensure email consistency - check all possible email fields
+    const email = formData.email || formData.corporateEmail || formData.userEmail || formData.emailAddress || ""
 
-    // Create the submission document with consistent email
+    // Ensure name consistency - check all possible name fields
+    const firstName = formData.firstName || formData.first_name || ""
+    const lastName = formData.lastName || formData.last_name || ""
+    const fullName = formData.name || formData.fullName || ""
+
+    // Construct name from available fields
+    const name = fullName || (firstName && lastName ? `${firstName} ${lastName}` : firstName || "Attendee")
+
+    // Create the submission document with consistent email and name
     const submission = {
       eventId: event._id,
       userId: userId ? new ObjectId(userId) : null,
@@ -45,6 +50,7 @@ export async function handleFormSubmission(
       data: {
         ...formData,
         email: email, // Ensure email is consistent in data object
+        name: name,
       },
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -77,6 +83,11 @@ export async function handleFormSubmission(
 // Function to send confirmation email to the user
 async function sendConfirmationEmailToUser(event, formType, userName, userEmail) {
   try {
+    if (!userEmail || typeof userEmail !== "string" || !userEmail.includes("@")) {
+      console.error(`Invalid user email address: "${userEmail}"`)
+      return false
+    }
+
     // Format the form type for display
     const formTypeDisplay = formType === "attendee" ? "registration" : `${formType} application`
 

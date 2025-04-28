@@ -1,10 +1,10 @@
 import nodemailer from "nodemailer"
 
-// Function to create and return a nodemailer transporter
-const createTransporter = () => {
+// Function to create a nodemailer transporter
+function createTransporter() {
   return nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
-    port: Number.parseInt(process.env.EMAIL_PORT || "587"),
+    port: Number.parseInt(process.env.EMAIL_PORT || "587", 10),
     secure: process.env.EMAIL_SECURE === "true",
     auth: {
       user: process.env.EMAIL_USER,
@@ -17,7 +17,7 @@ const createTransporter = () => {
   })
 }
 
-// Generic function to send emails
+// Generic function to send emails - exported as required
 export async function sendEmail({ to, subject, text, html }) {
   try {
     console.log(`Creating email transporter with host: ${process.env.EMAIL_HOST}, port: ${process.env.EMAIL_PORT}`)
@@ -176,7 +176,7 @@ export async function sendFormSubmissionNotification({
   }
 }
 
-// New function to send registration approval notification to attendees
+// Function to send registration approval notification to attendees
 export async function sendRegistrationApprovalEmail({
   eventName,
   attendeeEmail,
@@ -273,7 +273,7 @@ export async function sendRegistrationApprovalEmail({
   }
 }
 
-// New function to send registration rejection notification to attendees
+// Function to send registration rejection notification to attendees
 export async function sendRegistrationRejectionEmail({
   eventName,
   attendeeEmail,
