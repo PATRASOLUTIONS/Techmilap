@@ -90,9 +90,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     })
   } catch (error: any) {
     console.error("Error fetching field options:", error)
-    return NextResponse.json(
-      { error: error.message || "An error occurred while fetching field options" },
-      { status: 500 },
-    )
+    // Return empty options instead of an error to prevent client-side crashes
+    return NextResponse.json({
+      options: {},
+      totalFields: 0,
+      error: error.message || "An error occurred while fetching field options",
+    })
   }
 }

@@ -20,7 +20,6 @@ import { Slider } from "@/components/ui/slider"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { format } from "date-fns"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface FilterState {
   [key: string]: string | boolean | null | number[] | Date | { min: number; max: number } | string[]
@@ -48,6 +47,7 @@ interface AdvancedFilterProps {
   initialFilters?: FilterState
 }
 
+// Simplify the component to make it more robust
 export function AdvancedFilter({ eventId, onFilterChange, initialFilters = {} }: AdvancedFilterProps) {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
   const [filters, setFilters] = useState<FilterState>(initialFilters)
@@ -64,19 +64,18 @@ export function AdvancedFilter({ eventId, onFilterChange, initialFilters = {} }:
   })
   const [expandedCategories, setExpandedCategories] = useState<{ [key: string]: boolean }>({})
 
-  // Group questions by category for better organization
+  // Simplified question grouping
   const questionsByCategory = customQuestions.reduce(
     (acc, question) => {
-      // Extract category from question ID or use type as fallback
-      let category = question.id.split("_")[1] || question.type
+      // Use a simpler category determination
+      let category = "other"
 
-      // Special handling for common fields
-      if (["name", "email", "corporateEmail"].includes(category)) {
-        category = "personal"
-      } else if (["linkedinId", "githubId", "otherSocialMediaId"].includes(category)) {
-        category = "social"
-      } else if (["designation", "organization", "company", "role"].includes(category)) {
-        category = "professional"
+      if (question.type === "text" || question.type === "email") {
+        category = "basic"
+      } else if (question.type === "select" || question.type === "radio" || question.type === "checkbox") {
+        category = "options"
+      } else if (question.type === "date" || question.type === "number") {
+        category = "numeric"
       }
 
       if (!acc[category]) {
@@ -128,7 +127,30 @@ export function AdvancedFilter({ eventId, onFilterChange, initialFilters = {} }:
         setCustomQuestions(processedQuestions)
 
         // Fetch field options (unique values) for each question
-        fetchFieldOptions(eventId, processedQuestions)
+        try {
+          const response = await fetch(`/api/events/${eventId}/field-options`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          })
+
+          if (response.ok) {
+            const data = await response.json()
+
+            // Convert arrays back to Sets
+            const optionSets: { [key: string]: Set<string> } = {}
+            Object.entries(data.options || {}).forEach(([key, values]) => {
+              optionSets[key] = new Set(values as string[])
+            })
+
+            setFieldOptions(optionSets)
+          } else {
+            console.warn("Field options API not available, using static options")
+          }
+        } catch (error) {
+          console.error("Error fetching field options:", error)
+        }
       } catch (error) {
         console.error("Error fetching custom questions:", error)
         setError(error instanceof Error ? error.message : "Failed to load questions")
@@ -139,38 +161,6 @@ export function AdvancedFilter({ eventId, onFilterChange, initialFilters = {} }:
 
     fetchCustomQuestions()
   }, [eventId])
-
-  // Fetch unique values for each field to populate filter options
-  const fetchFieldOptions = async (eventId: string, questions: QuestionType[]) => {
-    try {
-      const response = await fetch(`/api/events/${eventId}/field-options`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (!response.ok) {
-        console.warn("Field options API not available, using static options")
-        return
-      }
-
-      const data = await response.json()
-      setFieldOptions(data.options || {})
-    } catch (error) {
-      console.error("Error fetching field options:", error)
-      // Fall back to using question options if available
-      const options: { [key: string]: Set<string> } = {}
-
-      questions.forEach((question) => {
-        if (question.options && question.options.length > 0) {
-          options[question.id] = new Set(question.options.map((opt) => opt.value))
-        }
-      })
-
-      setFieldOptions(options)
-    }
-  }
 
   useEffect(() => {
     // Update active filters list whenever filters change
@@ -511,7 +501,7 @@ export function AdvancedFilter({ eventId, onFilterChange, initialFilters = {} }:
                         defaultMonth={dateRange.from}
                         selected={dateRange}
                         onSelect={(range) => {
-                          setDateRange(range)
+                          setDateRange(range || { from: undefined, to: undefined })
                           if (range?.from) {
                             handleFilterChange("registrationDate", range)
                           } else {
@@ -544,24 +534,22 @@ export function AdvancedFilter({ eventId, onFilterChange, initialFilters = {} }:
               ) : (
                 <>
                   {Object.entries(questionsByCategory).map(([category, questions]) => (
-                    <Collapsible
-                      key={category}
-                      open={expandedCategories[category]}
-                      onOpenChange={() => toggleCategory(category)}
-                      className="mb-6 border rounded-md p-2"
-                    >
-                      <CollapsibleTrigger className="flex w-full items-center justify-between p-2 hover:bg-muted/50 rounded">
+                    <div key={category} className="mb-6 border rounded-md p-2">
+                      <div
+                        className="flex w-full items-center justify-between p-2 hover:bg-muted/50 rounded cursor-pointer"
+                        onClick={() => toggleCategory(category)}
+                      >
                         <h3 className="text-sm font-medium capitalize">{formatCategoryName(category)} Questions</h3>
                         {expandedCategories[category] ? (
                           <ChevronUp className="h-4 w-4" />
                         ) : (
                           <ChevronDown className="h-4 w-4" />
                         )}
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="p-2">
-                        {questions.map((question) => renderFilterOptions(question))}
-                      </CollapsibleContent>
-                    </Collapsible>
+                      </div>
+                      {expandedCategories[category] && (
+                        <div className="p-2">{questions.map((question) => renderFilterOptions(question))}</div>
+                      )}
+                    </div>
                   ))}
                 </>
               )}
