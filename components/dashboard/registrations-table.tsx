@@ -281,8 +281,11 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
       })
 
       if (!response.ok) {
-        throw new Error("Failed to update registration status")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update registration status")
       }
+
+      const result = await response.json()
 
       // Update the registration in the local state
       setRegistrations(
@@ -305,6 +308,14 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
           title: "Status Updated",
           description: `Registration status updated to ${newStatus}`,
         })
+      }
+
+      console.log("Status update response:", result)
+
+      if (result.emailSent) {
+        console.log("Email notification sent successfully")
+      } else {
+        console.warn("Email notification may not have been sent")
       }
     } catch (error) {
       console.error("Error updating registration status:", error)

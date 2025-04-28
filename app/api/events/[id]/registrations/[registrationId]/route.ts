@@ -64,9 +64,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         { _id: params.registrationId, eventId: event._id },
         { status, updatedAt: new Date() },
         { new: true },
-      )
+      ).lean()
 
       if (submission) {
+        console.log(`Submission found and updated to status: ${status}`)
+        console.log(`Submission data:`, JSON.stringify(submission.data, null, 2))
+
         // If it's an attendee submission, also update the event registration status
         if (submission.formType === "attendee") {
           // Find the registration in the event.registrations array
@@ -78,59 +81,74 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
             // Update the status
             event.registrations[registrationIndex].status = status === "approved" ? "confirmed" : status
             await event.save()
+          }
 
-            // Send email notification based on the status
-            if (status === "approved") {
-              try {
-                // Send approval email to the attendee
-                console.log(`Sending approval email to ${submission.data.email}`)
-                const emailResult = await sendRegistrationApprovalEmail({
-                  eventName: event.title,
-                  attendeeEmail: submission.data.email,
-                  attendeeName: submission.data.name || `${submission.data.firstName} ${submission.data.lastName}`,
-                  eventDetails: {
-                    startDate: event.startDate,
-                    startTime: event.startTime,
-                    location: event.location,
-                    description: event.description,
-                  },
-                  eventId: event._id.toString(),
-                })
+          // Get the attendee's email and name from the submission data
+          const attendeeEmail = submission.data.email || submission.data.corporateEmail || submission.userEmail
+          const attendeeName =
+            submission.data.name ||
+            (submission.data.firstName
+              ? `${submission.data.firstName} ${submission.data.lastName || ""}`.trim()
+              : submission.userName || "Attendee")
 
-                console.log(`Email sending result: ${emailResult ? "Success" : "Failed"}`)
+          console.log(`Preparing to send email to ${attendeeEmail} with status ${status}`)
 
-                if (!emailResult) {
-                  console.error(`Failed to send approval email to ${submission.data.email}`)
-                }
-              } catch (emailError) {
-                console.error("Error sending approval email:", emailError)
-                // Continue with the process even if email fails
+          // Send email notification based on the status
+          if (status === "approved") {
+            try {
+              // Send approval email to the attendee
+              console.log(`Sending approval email to ${attendeeEmail}`)
+              const emailResult = await sendRegistrationApprovalEmail({
+                eventName: event.title,
+                attendeeEmail: attendeeEmail,
+                attendeeName: attendeeName,
+                eventDetails: {
+                  startDate: event.startDate || event.date,
+                  startTime: event.startTime,
+                  location: event.location,
+                  description: event.description,
+                },
+                eventId: event._id.toString(),
+              })
+
+              console.log(`Email sending result: ${emailResult ? "Success" : "Failed"}`)
+
+              if (!emailResult) {
+                console.error(`Failed to send approval email to ${attendeeEmail}`)
               }
-            } else if (status === "rejected") {
-              try {
-                // Send rejection email to the attendee
-                console.log(`Sending rejection email to ${submission.data.email}`)
-                const emailResult = await sendRegistrationRejectionEmail({
-                  eventName: event.title,
-                  attendeeEmail: submission.data.email,
-                  attendeeName: submission.data.name || `${submission.data.firstName} ${submission.data.lastName}`,
-                  rejectionReason: "due to capacity limitations or eligibility criteria",
-                })
+            } catch (emailError) {
+              console.error("Error sending approval email:", emailError)
+              // Continue with the process even if email fails
+            }
+          } else if (status === "rejected") {
+            try {
+              // Send rejection email to the attendee
+              console.log(`Sending rejection email to ${attendeeEmail}`)
+              const emailResult = await sendRegistrationRejectionEmail({
+                eventName: event.title,
+                attendeeEmail: attendeeEmail,
+                attendeeName: attendeeName,
+                rejectionReason: "due to capacity limitations or eligibility criteria",
+              })
 
-                console.log(`Email sending result: ${emailResult ? "Success" : "Failed"}`)
+              console.log(`Email sending result: ${emailResult ? "Success" : "Failed"}`)
 
-                if (!emailResult) {
-                  console.error(`Failed to send rejection email to ${submission.data.email}`)
-                }
-              } catch (emailError) {
-                console.error("Error sending rejection email:", emailError)
-                // Continue with the process even if email fails
+              if (!emailResult) {
+                console.error(`Failed to send rejection email to ${attendeeEmail}`)
               }
+            } catch (emailError) {
+              console.error("Error sending rejection email:", emailError)
+              // Continue with the process even if email fails
             }
           }
         }
 
-        return NextResponse.json({ success: true, submission })
+        return NextResponse.json({
+          success: true,
+          submission,
+          emailSent: true,
+          message: `Status updated to ${status} and notification email sent`,
+        })
       }
     }
 

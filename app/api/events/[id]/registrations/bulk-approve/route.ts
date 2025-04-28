@@ -57,67 +57,96 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const { registrationIds } = await req.json()
 
-    if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
+    if (!registrationIds || !Array.isArray(registrationIds) || registrationIds.length === 0) {
       return NextResponse.json({ error: "No registration IDs provided" }, { status: 400 })
     }
 
-    // Update all the form submissions
-    const updatedSubmissions = await FormSubmission.updateMany(
-      { _id: { $in: registrationIds }, eventId: event._id },
-      { status: "approved", updatedAt: new Date() },
-    )
+    console.log(`Processing bulk approval for ${registrationIds.length} registrations`)
 
-    // Get the updated submissions to send emails
-    const submissions = await FormSubmission.find({ _id: { $in: registrationIds }, eventId: event._id })
+    // Update all form submissions
+    const updatePromises = []
+    const emailPromises = []
+    const updatedSubmissions = []
 
-    // Send emails to all approved attendees
-    const emailPromises = submissions.map(async (submission) => {
-      try {
-        if (submission.formType === "attendee" && submission.data?.email) {
-          const emailResult = await sendRegistrationApprovalEmail({
-            eventName: event.title,
-            attendeeEmail: submission.data.email,
-            attendeeName: submission.data.name || `${submission.data.firstName} ${submission.data.lastName}`,
-            eventDetails: {
-              startDate: event.startDate,
-              startTime: event.startTime,
-              location: event.location,
-              description: event.description,
-            },
-            eventId: event._id.toString(),
-          })
+    for (const regId of registrationIds) {
+      if (mongoose.isValidObjectId(regId)) {
+        // Update the submission status
+        const updatePromise = FormSubmission.findOneAndUpdate(
+          { _id: regId, eventId: event._id },
+          { status: "approved", updatedAt: new Date() },
+          { new: true },
+        ).lean()
 
-          console.log(`Email sending result for ${submission.data.email}: ${emailResult ? "Success" : "Failed"}`)
-        }
-      } catch (error) {
-        console.error(`Error sending email to ${submission.data?.email}:`, error)
-      }
-    })
-
-    // Wait for all emails to be sent (or fail)
-    await Promise.allSettled(emailPromises)
-
-    // Update the event registrations
-    const submissionIds = submissions.map((sub) => sub._id.toString())
-
-    if (event.registrations && event.registrations.length > 0) {
-      let updated = false
-
-      event.registrations.forEach((reg, index) => {
-        if (reg.formSubmissionId && submissionIds.includes(reg.formSubmissionId.toString())) {
-          event.registrations[index].status = "confirmed"
-          updated = true
-        }
-      })
-
-      if (updated) {
-        await event.save()
+        updatePromises.push(updatePromise)
       }
     }
 
+    // Wait for all updates to complete
+    const results = await Promise.all(updatePromises)
+
+    // Process the results and send emails
+    for (const submission of results) {
+      if (submission) {
+        updatedSubmissions.push(submission)
+
+        // If it's an attendee submission, also update the event registration status
+        if (submission.formType === "attendee") {
+          // Find the registration in the event.registrations array
+          const registrationIndex = event.registrations?.findIndex(
+            (reg) => reg.formSubmissionId && reg.formSubmissionId.toString() === submission._id.toString(),
+          )
+
+          if (registrationIndex >= 0) {
+            // Update the status
+            event.registrations[registrationIndex].status = "confirmed"
+          }
+
+          // Get the attendee's email and name from the submission data
+          const attendeeEmail = submission.data.email || submission.data.corporateEmail || submission.userEmail
+          const attendeeName =
+            submission.data.name ||
+            (submission.data.firstName
+              ? `${submission.data.firstName} ${submission.data.lastName || ""}`.trim()
+              : submission.userName || "Attendee")
+
+          // Send approval email to the attendee
+          if (attendeeEmail) {
+            console.log(`Preparing to send approval email to ${attendeeEmail}`)
+
+            const emailPromise = sendRegistrationApprovalEmail({
+              eventName: event.title,
+              attendeeEmail: attendeeEmail,
+              attendeeName: attendeeName,
+              eventDetails: {
+                startDate: event.startDate || event.date,
+                startTime: event.startTime,
+                location: event.location,
+                description: event.description,
+              },
+              eventId: event._id.toString(),
+            }).catch((error) => {
+              console.error(`Error sending approval email to ${attendeeEmail}:`, error)
+              return false
+            })
+
+            emailPromises.push(emailPromise)
+          }
+        }
+      }
+    }
+
+    // Save the event with updated registrations
+    await event.save()
+
+    // Wait for all emails to be sent
+    const emailResults = await Promise.all(emailPromises)
+    const successfulEmails = emailResults.filter((result) => result === true).length
+
     return NextResponse.json({
       success: true,
-      message: `${updatedSubmissions.modifiedCount} registrations approved successfully. Notification emails have been sent.`,
+      message: `Successfully approved ${updatedSubmissions.length} registrations and sent ${successfulEmails} notification emails`,
+      updatedCount: updatedSubmissions.length,
+      emailsSent: successfulEmails,
     })
   } catch (error: any) {
     console.error("Error bulk approving registrations:", error)

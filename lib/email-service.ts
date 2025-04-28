@@ -10,6 +10,10 @@ const createTransporter = () => {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
     },
+    tls: {
+      // Do not fail on invalid certs
+      rejectUnauthorized: false,
+    },
   })
 }
 
@@ -33,6 +37,7 @@ export async function sendEmail({ to, subject, text, html }) {
     return true
   } catch (error) {
     console.error(`Error sending email to ${to}:`, error)
+    console.error(`Error details:`, error)
     return false
   }
 }
@@ -186,6 +191,13 @@ export async function sendRegistrationApprovalEmail({
   eventId: string
 }) {
   try {
+    if (!attendeeEmail) {
+      console.error("No attendee email provided for approval notification")
+      return false
+    }
+
+    console.log(`Preparing approval email for ${attendeeEmail}`)
+
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
     const eventUrl = `${appUrl}/events/${eventId}`
 
@@ -256,6 +268,7 @@ export async function sendRegistrationApprovalEmail({
     return result
   } catch (error) {
     console.error("Error sending registration approval email:", error)
+    console.error("Error details:", error)
     return false
   }
 }
@@ -273,6 +286,13 @@ export async function sendRegistrationRejectionEmail({
   rejectionReason?: string
 }) {
   try {
+    if (!attendeeEmail) {
+      console.error("No attendee email provided for rejection notification")
+      return false
+    }
+
+    console.log(`Preparing rejection email for ${attendeeEmail}`)
+
     const subject = `Registration Update: ${eventName}`
     const reason = rejectionReason || "due to capacity limitations or eligibility criteria."
 
@@ -322,6 +342,7 @@ export async function sendRegistrationRejectionEmail({
     return result
   } catch (error) {
     console.error("Error sending registration rejection email:", error)
+    console.error("Error details:", error)
     return false
   }
 }
