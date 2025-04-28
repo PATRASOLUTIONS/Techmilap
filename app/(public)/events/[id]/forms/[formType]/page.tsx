@@ -197,16 +197,65 @@ export default function EventFormPage() {
         cleanData[key] = data[key] === undefined ? "" : data[key]
       })
 
+      // Extract email and name from custom question fields if they exist
+      let extractedEmail = ""
+      let extractedName = ""
+      let extractedFirstName = ""
+      let extractedLastName = ""
+
+      // Look for email fields in the form data
+      Object.entries(cleanData).forEach(([key, value]) => {
+        // Check for email fields
+        if (
+          (key.includes("email") || key.includes("Email")) &&
+          typeof value === "string" &&
+          value.includes("@") &&
+          !extractedEmail
+        ) {
+          extractedEmail = value
+        }
+
+        // Check for name fields
+        if ((key.includes("name") || key.includes("Name")) && typeof value === "string") {
+          if (
+            (key.includes("firstName") || key.includes("first_name") || key.includes("FirstName")) &&
+            !extractedFirstName
+          ) {
+            extractedFirstName = value
+          } else if (
+            (key.includes("lastName") || key.includes("last_name") || key.includes("LastName")) &&
+            !extractedLastName
+          ) {
+            extractedLastName = value
+          } else if (
+            (key.includes("name") || key.includes("Name")) &&
+            !key.includes("first") &&
+            !key.includes("last") &&
+            !extractedName
+          ) {
+            extractedName = value
+          }
+        }
+      })
+
+      console.log("Extracted from form fields:", {
+        email: extractedEmail,
+        name: extractedName,
+        firstName: extractedFirstName,
+        lastName: extractedLastName,
+      })
+
       // Add basic information based on form type
       if (formType === "register") {
-        cleanData.firstName = data.firstName || session?.user?.name?.split(" ")[0] || ""
-        cleanData.lastName = data.lastName || session?.user?.name?.split(" ").slice(1).join(" ") || ""
-        cleanData.email = data.email || session?.user?.email || ""
-        cleanData.name = `${cleanData.firstName} ${cleanData.lastName}`.trim()
+        cleanData.firstName = data.firstName || extractedFirstName || session?.user?.name?.split(" ")[0] || ""
+        cleanData.lastName =
+          data.lastName || extractedLastName || session?.user?.name?.split(" ").slice(1).join(" ") || ""
+        cleanData.email = data.email || extractedEmail || session?.user?.email || ""
+        cleanData.name = extractedName || `${cleanData.firstName} ${cleanData.lastName}`.trim()
       } else {
         // For volunteer and speaker forms
-        cleanData.name = data.name || session?.user?.name || ""
-        cleanData.email = data.email || session?.user?.email || ""
+        cleanData.name = data.name || extractedName || session?.user?.name || ""
+        cleanData.email = data.email || extractedEmail || session?.user?.email || ""
       }
 
       console.log("Form data prepared:", cleanData)
@@ -391,10 +440,7 @@ export default function EventFormPage() {
     <div className="container mx-auto py-8 max-w-3xl">
       <div className="flex items-center mb-6">
         <Button variant="outline" size="icon" asChild className="mr-2">
-          <Link
-            href={`/events/${eventIdOrSlug}\`  size="icon" asChild className="mr-2">
-          <Link href={\`/events/${eventIdOrSlug}`}
-          >
+          <Link href={`/events/${eventIdOrSlug}`}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>

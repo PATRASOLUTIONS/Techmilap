@@ -3,7 +3,8 @@ import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
-import { handleFormSubmission } from "@/lib/form-submission"
+import { ObjectId } from "mongodb"
+import { sendEmail } from "@/lib/email-service"
 
 // Import models
 const Event = mongoose.models.Event || mongoose.model("Event", require("@/models/Event").default.schema)
@@ -26,174 +27,337 @@ const FormSubmission =
 
 export async function GET(req: NextRequest, { params }: { params: { id: string; formType: string } }) {
   try {
+    const { db } = await connectToDatabase()
     const session = await getServerSession(authOptions)
 
-    if (!session) {
+    // Check if user is authenticated
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    await connectToDatabase()
-
-    console.log(`Fetching ${params.formType} submissions for event: ${params.id}`)
-
-    // Check if the ID is a valid MongoDB ObjectId
-    const isValidObjectId = mongoose.isValidObjectId(params.id)
-    let event = null
-
-    if (isValidObjectId) {
-      // If it's a valid ObjectId, try to find by ID first
-      event = await Event.findById(params.id)
-    }
-
-    // If not found by ID or not a valid ObjectId, try to find by slug
-    if (!event) {
-      event = await Event.findOne({ slug: params.id })
-    }
-
-    if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 })
-    }
-
-    // Check if the user is the organizer or a super-admin
-    if (event.organizer.toString() !== session.user.id && session.user.role !== "super-admin") {
-      return NextResponse.json({ error: "Forbidden: You don't have permission to access this event" }, { status: 403 })
-    }
-
-    // Get query parameters for filtering
-    const url = new URL(req.url)
-    const status = url.searchParams.get("status")
-    const search = url.searchParams.get("search")
-    const page = Number.parseInt(url.searchParams.get("page") || "1")
-    const limit = Number.parseInt(url.searchParams.get("limit") || "100")
-
-    // Build the query
-    const query: any = {
-      eventId: event._id,
-      formType: params.formType,
-    }
-
-    if (status) {
-      query.status = status
-    }
-
-    if (search) {
-      query.$or = [
-        { "data.name": { $regex: search, $options: "i" } },
-        { "data.firstName": { $regex: search, $options: "i" } },
-        { "data.lastName": { $regex: search, $options: "i" } },
-        { "data.email": { $regex: search, $options: "i" } },
-        { userName: { $regex: search, $options: "i" } },
-        { userEmail: { $regex: search, $options: "i" } },
-      ]
-    }
-
-    // Enhanced filtering for custom fields
-    // Look for parameters that start with filter_
-    for (const [key, value] of url.searchParams.entries()) {
-      if (key.startsWith("filter_")) {
-        const fieldName = key.replace("filter_", "")
-
-        // Handle different types of filters
-        if (value === "true") {
-          // Boolean true
-          query[`data.${fieldName}`] = true
-        } else if (value === "false") {
-          // Boolean false
-          query[`data.${fieldName}`] = false
-        } else if (value.startsWith("range:")) {
-          // Range filter (e.g., range:10-20)
-          const [min, max] = value.replace("range:", "").split("-").map(Number)
-          query[`data.${fieldName}`] = { $gte: min, $lte: max }
-        } else if (value.startsWith("date:")) {
-          // Date filter (e.g., date:2023-01-01)
-          const dateValue = value.replace("date:", "")
-          const startDate = new Date(dateValue)
-          startDate.setHours(0, 0, 0, 0)
-
-          const endDate = new Date(dateValue)
-          endDate.setHours(23, 59, 59, 999)
-
-          query[`data.${fieldName}`] = { $gte: startDate, $lte: endDate }
-        } else if (value.startsWith("in:")) {
-          // Multiple values (e.g., in:value1,value2,value3)
-          const values = value.replace("in:", "").split(",")
-          query[`data.${fieldName}`] = { $in: values }
-        } else {
-          // For text fields, use regex for partial matching
-          query[`data.${fieldName}`] = { $regex: value, $options: "i" }
-        }
-      }
-    }
-
-    console.log("Query:", JSON.stringify(query, null, 2))
-
-    // Get total count for pagination
-    const total = await FormSubmission.countDocuments(query)
-
-    // Get submissions with pagination
-    const submissions = await FormSubmission.find(query)
+    // Get submissions for this event and form type
+    const submissions = await db
+      .collection("formsubmissions")
+      .find({
+        eventId: new ObjectId(params.id),
+        formType: params.formType,
+      })
       .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean()
-
-    console.log(`Found ${submissions.length} ${params.formType} submissions`)
+      .toArray()
 
     return NextResponse.json({
+      success: true,
       submissions,
-      pagination: {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
-      },
     })
-  } catch (error: any) {
-    console.error(`Error fetching ${params.formType} submissions:`, error)
+  } catch (error) {
+    console.error("Error fetching submissions:", error)
     return NextResponse.json(
-      { error: error.message || `An error occurred while fetching ${params.formType} submissions` },
+      { error: error instanceof Error ? error.message : "An error occurred while fetching submissions" },
       { status: 500 },
     )
   }
 }
 
 export async function POST(
-  request: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string; formType: string } },
 ): Promise<NextResponse> {
   try {
+    const { db } = await connectToDatabase()
     const session = await getServerSession(authOptions)
-    const userId = session?.user?.id || null
+    const { data, userId, status } = await req.json()
 
-    const { id: eventIdOrSlug, formType } = params
-    const { data } = await request.json()
+    // Validate required parameters
+    if (!params.id) {
+      return NextResponse.json({ error: "Event ID is required" }, { status: 400 })
+    }
+
+    if (!params.formType) {
+      return NextResponse.json({ error: "Form type is required" }, { status: 400 })
+    }
 
     if (!data) {
-      return NextResponse.json({ error: "No form data provided" }, { status: 400 })
+      return NextResponse.json({ error: "Form data is required" }, { status: 400 })
     }
 
-    // Validate form type
-    const validFormTypes = ["attendee", "volunteer", "speaker"]
-    if (!validFormTypes.includes(formType)) {
-      return NextResponse.json({ error: "Invalid form type" }, { status: 400 })
+    // Find the event by ID or slug
+    let event
+    try {
+      const objectId = new ObjectId(params.id)
+      event = await db.collection("events").findOne({ _id: objectId })
+    } catch (error) {
+      // If not a valid ObjectId, try to find by slug
+      event = await db.collection("events").findOne({ slug: params.id })
     }
 
-    console.log(`Processing ${formType} submission for event ${eventIdOrSlug}`)
+    if (!event) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+    }
 
-    // Handle the form submission
-    const result = await handleFormSubmission(eventIdOrSlug, formType, data, userId)
+    // Extract email from form data
+    let email = ""
 
-    if (!result.success) {
-      return NextResponse.json({ error: result.message }, { status: 400 })
+    // First check standard email fields
+    if (data.email) {
+      email = data.email
+    } else {
+      // Look for email in custom question fields
+      for (const [key, value] of Object.entries(data)) {
+        if ((key.includes("email") || key.includes("Email")) && typeof value === "string" && value.includes("@")) {
+          email = value
+          break
+        }
+      }
+    }
+
+    // Extract name from form data
+    let name = ""
+
+    // First check standard name fields
+    if (data.name) {
+      name = data.name
+    } else if (data.firstName || data.lastName) {
+      name = `${data.firstName || ""} ${data.lastName || ""}`.trim()
+    } else {
+      // Look for name in custom question fields
+      let firstName = ""
+      let lastName = ""
+      let fullName = ""
+
+      for (const [key, value] of Object.entries(data)) {
+        if (typeof value !== "string") continue
+
+        if ((key.includes("firstName") || key.includes("first_name") || key.includes("FirstName")) && !firstName) {
+          firstName = value
+        } else if ((key.includes("lastName") || key.includes("last_name") || key.includes("LastName")) && !lastName) {
+          lastName = value
+        } else if (
+          (key.includes("name") || key.includes("Name")) &&
+          !key.includes("first") &&
+          !key.includes("last") &&
+          !fullName
+        ) {
+          fullName = value
+        }
+      }
+
+      if (fullName) {
+        name = fullName
+      } else if (firstName || lastName) {
+        name = `${firstName} ${lastName}`.trim()
+      }
+    }
+
+    // Create the submission document
+    const submission = {
+      eventId: event._id,
+      userId: userId ? new ObjectId(userId) : session?.user?.id ? new ObjectId(session.user.id) : null,
+      userName: name || session?.user?.name || "Anonymous",
+      userEmail: email || session?.user?.email || null,
+      formType: params.formType,
+      status: status || "pending",
+      data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+
+    // Insert the submission
+    const result = await db.collection("formsubmissions").insertOne(submission)
+
+    // Send confirmation email to the user if we have their email
+    if (email) {
+      try {
+        await sendConfirmationEmail(event, params.formType, name, email)
+      } catch (emailError) {
+        console.error("Error sending confirmation email:", emailError)
+      }
+    }
+
+    // Send notification to the event organizer
+    try {
+      await sendOrganizerNotification(event, params.formType, submission, result.insertedId.toString())
+    } catch (emailError) {
+      console.error("Error sending organizer notification:", emailError)
     }
 
     return NextResponse.json({
       success: true,
-      message: result.message,
-      submissionId: result.submissionId,
+      message: `${params.formType} submission received`,
+      submissionId: result.insertedId.toString(),
     })
   } catch (error) {
-    console.error(`Error processing ${params.formType} submission:`, error)
-    return NextResponse.json({ error: "An error occurred while processing your submission" }, { status: 500 })
+    console.error("Error handling form submission:", error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "An error occurred while processing your submission" },
+      { status: 500 },
+    )
   }
+}
+
+// Function to send confirmation email to the user
+async function sendConfirmationEmail(event, formType, userName, userEmail) {
+  // Format the form type for display
+  const formTypeDisplay = formType === "attendee" ? "registration" : `${formType} application`
+  const name = userName || "Attendee"
+
+  const subject = `Your ${formTypeDisplay} for ${event.title} has been received`
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+      <h2 style="color: #4f46e5;">Submission Received</h2>
+      <p>Hello ${name},</p>
+      <p>Thank you for your ${formTypeDisplay} for <strong>"${event.title}"</strong>.</p>
+      
+      <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <h3 style="margin-top: 0;">Event Details</h3>
+        <p><strong>Event:</strong> ${event.title}</p>
+        <p><strong>Date:</strong> ${new Date(event.date).toLocaleDateString()}</p>
+        <p><strong>Location:</strong> ${event.location || "TBD"}</p>
+      </div>
+      
+      <p>Your submission is currently under review. We will notify you once it has been processed.</p>
+      
+      <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+        Best regards,<br>
+        The Event Team
+      </p>
+    </div>
+  `
+
+  const text = `
+    Hello ${name},
+    
+    Thank you for your ${formTypeDisplay} for "${event.title}".
+    
+    Event Details:
+    - Event: ${event.title}
+    - Date: ${new Date(event.date).toLocaleDateString()}
+    - Location: ${event.location || "TBD"}
+    
+    Your submission is currently under review. We will notify you once it has been processed.
+    
+    Best regards,
+    The Event Team
+  `
+
+  await sendEmail({
+    to: userEmail,
+    subject,
+    html,
+    text,
+  })
+
+  console.log(`Confirmation email sent to user: ${userEmail}`)
+  return true
+}
+
+// Function to send notification email to the organizer
+async function sendOrganizerNotification(event, formType, submission, submissionId) {
+  // Get organizer email
+  let organizerEmail = event.organizerEmail
+
+  // If no direct organizer email, try to get it from the organizer object
+  if (!organizerEmail && event.organizer) {
+    // Check if organizer is populated or just an ID
+    if (typeof event.organizer === "object" && event.organizer !== null) {
+      organizerEmail = event.organizer.email
+    } else {
+      // Try to fetch organizer from database
+      const { db } = await connectToDatabase()
+      const organizer = await db.collection("users").findOne({ _id: event.organizer })
+      if (organizer) {
+        organizerEmail = organizer.email
+      }
+    }
+  }
+
+  // If still no organizer email, use a fallback or return
+  if (!organizerEmail) {
+    console.error("Could not find organizer email for event:", event._id)
+    return false
+  }
+
+  // Format the form type for display
+  const formTypeFormatted = formType.charAt(0).toUpperCase() + formType.slice(1)
+
+  // Create a summary of the submission data
+  let submissionSummary = ""
+  if (submission.data && typeof submission.data === "object") {
+    // Extract key information for the email summary
+    for (const [key, value] of Object.entries(submission.data)) {
+      if (
+        key.toLowerCase().includes("email") ||
+        key.toLowerCase().includes("name") ||
+        key.toLowerCase().includes("phone") ||
+        key.toLowerCase().includes("message") ||
+        key.toLowerCase().includes("interest") ||
+        key.toLowerCase().includes("availability")
+      ) {
+        const displayKey = key
+          .replace(/^question_/, "")
+          .replace(/_\d+$/, "")
+          .replace(/([A-Z])/g, " $1")
+          .replace(/_/g, " ")
+          .replace(/^\w/, (c) => c.toUpperCase())
+
+        const displayValue = Array.isArray(value) ? value.join(", ") : String(value)
+
+        submissionSummary += `<p><strong>${displayKey}:</strong> ${displayValue}</p>`
+      }
+    }
+  }
+
+  if (!submissionSummary) {
+    submissionSummary = "<p>No detailed information available.</p>"
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  const viewSubmissionUrl = `${appUrl}/event-dashboard/${event._id}/${formType}s`
+
+  const subject = `New ${formTypeFormatted} Submission for ${event.title}`
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+      <h2 style="color: #4f46e5;">New ${formTypeFormatted} Submission</h2>
+      <p>Hello Event Organizer,</p>
+      <p>You have received a new ${formType} submission for your event <strong>"${event.title}"</strong>.</p>
+      
+      <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <h3 style="margin-top: 0;">Submission Summary</h3>
+        ${submissionSummary}
+      </div>
+      
+      <p>
+        <a href="${viewSubmissionUrl}" style="background-color: #4f46e5; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block;">
+          View All Submissions
+        </a>
+      </p>
+      
+      <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+        Thank you for using our platform!
+      </p>
+    </div>
+  `
+
+  const text = `
+    Hello Event Organizer,
+    
+    You have received a new ${formType} submission for your event "${event.title}".
+    
+    Submission ID: ${submissionId}
+    
+    To view all submissions, please visit: ${viewSubmissionUrl}
+    
+    Thank you for using our platform!
+  `
+
+  await sendEmail({
+    to: organizerEmail,
+    subject,
+    html,
+    text,
+  })
+
+  console.log(`Notification email sent to organizer: ${organizerEmail}`)
+  return true
 }
