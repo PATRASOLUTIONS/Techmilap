@@ -1,14 +1,33 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import { handleFormSubmission } from "@/lib/form-submission"
-import { ObjectId } from "mongodb"
+import mongoose from "mongoose"
+import { sendFormSubmissionNotification } from "@/lib/email-service"
+
+// Import models
+const Event = mongoose.models.Event || mongoose.model("Event", require("@/models/Event").default.schema)
+const User = mongoose.models.User || mongoose.model("User", require("@/models/User").default.schema)
+const FormSubmission =
+  mongoose.models.FormSubmission ||
+  mongoose.model(
+    "FormSubmission",
+    new mongoose.Schema({
+      eventId: { type: mongoose.Schema.Types.ObjectId, ref: "Event", required: true },
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      userName: String,
+      userEmail: String,
+      formType: { type: String, required: true, enum: ["attendee", "volunteer", "speaker"] },
+      status: { type: String, default: "pending", enum: ["pending", "approved", "rejected"] },
+      data: { type: mongoose.Schema.Types.Mixed, required: true },
+      createdAt: { type: Date, default: Date.now },
+      updatedAt: { type: Date, default: Date.now },
+    }),
+  )
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   console.log(`Received public registration for event ${params.id}`)
 
   try {
-    // Connect to MongoDB
-    const { db } = await connectToDatabase()
+    await connectToDatabase()
     console.log("Connected to database")
 
     // Get the request body with careful error handling
@@ -48,10 +67,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // Verify that the event exists before proceeding
     let eventObjectId
     try {
-      eventObjectId = new ObjectId(params.id)
+      eventObjectId = new mongoose.Types.ObjectId(params.id)
     } catch (error) {
       // If not a valid ObjectId, try to find by slug
-      const event = await db.collection("events").findOne({ slug: params.id })
+      const event = await Event.findOne({ slug: params.id })
       if (!event) {
         console.error("Event not found with slug:", params.id)
         return NextResponse.json({ error: "Event not found" }, { status: 404 })
@@ -60,88 +79,89 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     // Check if the event exists
-    const event = await db.collection("events").findOne({ _id: eventObjectId })
+    const event = await Event.findOne({ _id: eventObjectId })
     if (!event) {
       console.error("Event not found with ID:", params.id)
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
     try {
-      // Create a direct submission to the database as a fallback
-      if (!event.useCustomForms) {
-        const submission = {
-          eventId: eventObjectId,
-          userId: null,
-          userName: `${firstName} ${lastName}`.trim(),
-          userEmail: email,
-          formType: "attendee",
-          status: "pending", // Set to pending instead of approved
-          data: { firstName, lastName, email, ...additionalInfo },
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }
+      // Create a name field from firstName and lastName
+      const name = `${firstName} ${lastName}`.trim()
 
-        const result = await db.collection("formsubmissions").insertOne(submission)
-        console.log("Direct submission saved with ID:", result.insertedId)
+      // Create a new form submission for the attendee
+      const formSubmission = new FormSubmission({
+        eventId: event._id,
+        formType: "attendee",
+        status: "pending", // Always set to pending initially
+        userName: name,
+        userEmail: email,
+        data: {
+          ...body,
+          name, // Add the combined name field
+        },
+      })
 
-        return NextResponse.json({
-          success: true,
-          message: "Registration submitted and pending approval",
-          registrationId: result.insertedId.toString(),
-        })
+      await formSubmission.save()
+      console.log("Form submission saved with ID:", formSubmission._id)
+
+      // Add the registration to the event's registrations array
+      // But set the status to pending
+      if (!event.registrations) {
+        event.registrations = []
       }
 
-      // Use the handleFormSubmission helper if available
-      // Make sure to pass the status as pending
-      const submissionResult = await handleFormSubmission(
-        params.id,
-        "attendee",
-        { firstName, lastName, email, ...additionalInfo, status: "pending" },
-        null, // No user ID for public submissions
-      )
+      event.registrations.push({
+        name,
+        email,
+        status: "pending", // Set to pending initially
+        registeredAt: new Date(),
+        formSubmissionId: formSubmission._id,
+      })
 
-      console.log("handleFormSubmission result:", submissionResult)
+      await event.save()
+      console.log("Event updated with new registration")
+
+      // Send notification to the event organizer about the new registration
+      try {
+        const organizer = await User.findById(event.organizer)
+        console.log("Found organizer:", organizer ? organizer.email : "Not found")
+
+        if (organizer && organizer.email) {
+          console.log("Sending notification to organizer:", organizer.email)
+
+          const notificationSent = await sendFormSubmissionNotification({
+            eventName: event.title,
+            formType: "attendee",
+            submissionData: body,
+            recipientEmail: organizer.email,
+            recipientName: organizer.firstName,
+            eventId: event._id.toString(),
+            submissionId: formSubmission._id.toString(),
+          })
+
+          console.log("Notification sent to organizer:", notificationSent)
+        } else {
+          console.error("Organizer not found or has no email:", event.organizer)
+        }
+      } catch (notificationError) {
+        console.error("Error sending notification to organizer:", notificationError)
+        // Don't fail the registration if notification fails
+      }
 
       return NextResponse.json({
-        success: submissionResult.success,
-        message: "Registration submitted and pending approval",
-        registrationId: submissionResult.submissionId,
+        success: true,
+        message: "Registration submitted successfully and pending approval",
       })
     } catch (submissionError: any) {
       console.error("Error in form submission:", submissionError)
-
-      // Attempt direct database insertion as a fallback
-      try {
-        const submission = {
-          eventId: eventObjectId,
-          userId: null,
-          userName: `${firstName} ${lastName}`.trim(),
-          userEmail: email,
-          formType: "attendee",
-          status: "pending", // Set to pending instead of approved
-          data: { firstName, lastName, email, ...additionalInfo },
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }
-
-        const result = await db.collection("formsubmissions").insertOne(submission)
-        console.log("Fallback submission saved with ID:", result.insertedId)
-
-        return NextResponse.json({
-          success: true,
-          message: "Registration submitted and pending approval (fallback method)",
-          registrationId: result.insertedId.toString(),
-        })
-      } catch (fallbackError: any) {
-        console.error("Fallback submission also failed:", fallbackError)
-        return NextResponse.json(
-          {
-            error: "Form submission failed",
-            details: submissionError.message || "Unknown submission error",
-          },
-          { status: 500 },
-        )
-      }
+      return NextResponse.json(
+        {
+          error: "Form submission failed",
+          details: submissionError.message || "Unknown submission error",
+        },
+        { status: 500 },
+      )
     }
   } catch (error: any) {
     console.error("Error registering for event:", error)

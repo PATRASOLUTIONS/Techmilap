@@ -2,13 +2,28 @@ import nodemailer from "nodemailer"
 
 // Function to create and return a nodemailer transporter
 const createTransporter = () => {
+  const host = process.env.EMAIL_HOST
+  const port = Number.parseInt(process.env.EMAIL_PORT || "587")
+  const secure = process.env.EMAIL_SECURE === "true"
+  const user = process.env.EMAIL_USER
+  const pass = process.env.EMAIL_PASSWORD
+
+  console.log(`Creating email transporter with host: ${host}, port: ${port}, secure: ${secure}, user: ${user}`)
+
+  if (!host || !user || !pass) {
+    console.error(
+      "Missing email configuration. Check EMAIL_HOST, EMAIL_USER, and EMAIL_PASSWORD environment variables.",
+    )
+    throw new Error("Email configuration is incomplete")
+  }
+
   return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: Number.parseInt(process.env.EMAIL_PORT || "587"),
-    secure: process.env.EMAIL_SECURE === "true",
+    host,
+    port,
+    secure,
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
+      user,
+      pass,
     },
   })
 }
@@ -94,6 +109,13 @@ const emailStyles = {
 // Generic function to send emails
 export async function sendEmail({ to, subject, text, html }) {
   try {
+    console.log(`Attempting to send email to ${to} with subject: ${subject}`)
+
+    if (!to || !subject || (!text && !html)) {
+      console.error("Missing required email parameters:", { to, subject, hasText: !!text, hasHtml: !!html })
+      return false
+    }
+
     const transporter = createTransporter()
 
     const mailOptions = {
@@ -104,8 +126,10 @@ export async function sendEmail({ to, subject, text, html }) {
       html,
     }
 
-    await transporter.sendMail(mailOptions)
-    console.log(`Email sent to ${to} with subject ${subject}`)
+    console.log("Mail options prepared:", { to, subject, from: mailOptions.from })
+
+    const info = await transporter.sendMail(mailOptions)
+    console.log(`Email sent successfully to ${to}:`, info.messageId)
     return true
   } catch (error) {
     console.error(`Error sending email to ${to}:`, error)
@@ -115,6 +139,17 @@ export async function sendEmail({ to, subject, text, html }) {
 
 // Function to send verification email
 export async function sendVerificationEmail(email: string, firstName: string, verificationCode: string) {
+  console.log(`Sending verification email to ${email} for ${firstName} with code ${verificationCode}`)
+
+  if (!email || !firstName || !verificationCode) {
+    console.error("Missing required parameters for verification email:", {
+      email,
+      firstName,
+      hasCode: !!verificationCode,
+    })
+    return false
+  }
+
   const subject = "TechMilap - Verify Your Email"
   const text = `Hello ${firstName},
 
@@ -155,6 +190,13 @@ TechMilap Team`
 
 // Function to send congratulations email
 export async function sendCongratulationsEmail(email: string, firstName: string, role: string) {
+  console.log(`Sending congratulations email to ${email} for ${firstName} with role ${role}`)
+
+  if (!email || !firstName) {
+    console.error("Missing required parameters for congratulations email:", { email, firstName })
+    return false
+  }
+
   const subject = "Welcome to TechMilap!"
   const text = `Hello ${firstName},
 
@@ -209,6 +251,17 @@ export async function sendFormSubmissionNotification({
   submissionId: string
 }) {
   try {
+    console.log(`Sending form submission notification to ${recipientEmail} for event ${eventName}`)
+
+    if (!recipientEmail || !eventName || !formType) {
+      console.error("Missing required parameters for form submission notification:", {
+        hasRecipientEmail: !!recipientEmail,
+        hasEventName: !!eventName,
+        formType,
+      })
+      return false
+    }
+
     // Format the form type for display
     const formTypeFormatted = formType.charAt(0).toUpperCase() + formType.slice(1)
 
@@ -216,7 +269,7 @@ export async function sendFormSubmissionNotification({
     let submissionSummary = ""
     if (submissionData && typeof submissionData === "object") {
       // Extract key information for the email summary
-      const keyFields = ["name", "email", "phone", "message", "interests", "availability"]
+      const keyFields = ["name", "email", "phone", "message", "interests", "availability", "firstName", "lastName"]
 
       for (const key of Object.keys(submissionData)) {
         if (keyFields.includes(key) && submissionData[key]) {
@@ -297,16 +350,26 @@ export async function sendRegistrationApprovalEmail({
   eventId: string
 }) {
   try {
+    console.log(`Sending registration approval email to ${attendeeEmail} for event ${eventName}`)
+
+    if (!attendeeEmail || !eventName) {
+      console.error("Missing required parameters for registration approval email:", {
+        hasAttendeeEmail: !!attendeeEmail,
+        hasEventName: !!eventName,
+      })
+      return false
+    }
+
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
     const eventUrl = `${appUrl}/events/${eventId}`
 
-    const eventDate = eventDetails.startDate ? new Date(eventDetails.startDate).toLocaleDateString() : "TBD"
-    const eventTime = eventDetails.startTime || "TBD"
-    const eventLocation = eventDetails.location || "TBD"
+    const eventDate = eventDetails?.startDate ? new Date(eventDetails.startDate).toLocaleDateString() : "TBD"
+    const eventTime = eventDetails?.startTime || "TBD"
+    const eventLocation = eventDetails?.location || "TBD"
 
     const subject = `Registration Approved: ${eventName}`
     const text = `
-      Hello ${attendeeName},
+      Hello ${attendeeName || "Attendee"},
       
       Great news! Your registration for "${eventName}" has been approved.
       
@@ -332,7 +395,7 @@ export async function sendRegistrationApprovalEmail({
         <h1 style="${emailStyles.title}">Registration Approved!</h1>
         
         <div style="${emailStyles.content}">
-          <p>Hello ${attendeeName},</p>
+          <p>Hello ${attendeeName || "Attendee"},</p>
           <p>Great news! Your registration for <strong>"${eventName}"</strong> has been approved.</p>
           
           <div style="${emailStyles.infoBox}">
@@ -373,9 +436,19 @@ export async function sendRegistrationRejectionEmail({
   attendeeName: string
 }) {
   try {
+    console.log(`Sending registration rejection email to ${attendeeEmail} for event ${eventName}`)
+
+    if (!attendeeEmail || !eventName) {
+      console.error("Missing required parameters for registration rejection email:", {
+        hasAttendeeEmail: !!attendeeEmail,
+        hasEventName: !!eventName,
+      })
+      return false
+    }
+
     const subject = `Registration Update: ${eventName}`
     const text = `
-      Hello ${attendeeName},
+      Hello ${attendeeName || "Attendee"},
       
       Thank you for your interest in "${eventName}".
       
@@ -398,7 +471,7 @@ export async function sendRegistrationRejectionEmail({
         <h1 style="${emailStyles.title}">Registration Update</h1>
         
         <div style="${emailStyles.content}">
-          <p>Hello ${attendeeName},</p>
+          <p>Hello ${attendeeName || "Attendee"},</p>
           <p>Thank you for your interest in <strong>"${eventName}"</strong>.</p>
           
           <p>We regret to inform you that we are unable to approve your registration at this time. This could be due to various reasons such as capacity limitations or eligibility criteria.</p>
