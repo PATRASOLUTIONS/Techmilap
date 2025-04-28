@@ -181,6 +181,53 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     }
   }
 
+  const handleBulkApprove = async () => {
+    if (selectedRegistrations.length === 0) {
+      toast({
+        title: "No registrations selected",
+        description: "Please select at least one registration to approve.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/events/${eventId}/registrations/bulk-approve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ registrationIds: selectedRegistrations }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to bulk approve registrations")
+      }
+
+      // Update the registrations in the local state
+      setRegistrations(
+        registrations.map((reg: any) =>
+          selectedRegistrations.includes(reg._id) ? { ...reg, status: "approved" } : reg,
+        ),
+      )
+
+      // Clear selection
+      setSelectedRegistrations([])
+
+      toast({
+        title: "Registrations Approved",
+        description: `Successfully approved ${selectedRegistrations.length} registrations`,
+      })
+    } catch (error) {
+      console.error("Error bulk approving registrations:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to bulk approve registrations",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleFilterChange = (field: string, value: string | boolean | null) => {
     setFilters((prev) => {
       const newFilters = { ...prev }
@@ -385,6 +432,16 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
           <CardDescription>{description}</CardDescription>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {selectedRegistrations.length > 0 && (
+            <Button
+              variant="default"
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={handleBulkApprove}
+            >
+              <CheckCircle className="h-4 w-4 mr-1" />
+              Approve Selected ({selectedRegistrations.length})
+            </Button>
+          )}
           <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" className="relative">

@@ -14,8 +14,6 @@ const FormSubmission =
     new mongoose.Schema({
       eventId: { type: mongoose.Schema.Types.ObjectId, ref: "Event", required: true },
       userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-      userName: String,
-      userEmail: String,
       formType: { type: String, required: true, enum: ["attendee", "volunteer", "speaker"] },
       status: { type: String, default: "pending", enum: ["pending", "approved", "rejected"] },
       data: { type: mongoose.Schema.Types.Mixed, required: true },
@@ -26,27 +24,28 @@ const FormSubmission =
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string; registrationId: string } }) {
   try {
-    console.log(`Updating registration status for event ${params.id}, registration ${params.registrationId}`)
-
     const session = await getServerSession(authOptions)
+
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     await connectToDatabase()
 
-    // Get the request body
-    const body = await req.json()
-    const { status } = body
+    // Check if the ID is a valid MongoDB ObjectId
+    const isValidObjectId = mongoose.isValidObjectId(params.id)
+    let event = null
 
-    if (!status || !["approved", "rejected", "pending"].includes(status)) {
-      return NextResponse.json({ error: "Invalid status" }, { status: 400 })
+    if (isValidObjectId) {
+      // If it's a valid ObjectId, try to find by ID first
+      event = await Event.findById(params.id)
     }
 
-    console.log(`Setting registration status to: ${status}`)
+    // If not found by ID or not a valid ObjectId, try to find by slug
+    if (!event) {
+      event = await Event.findOne({ slug: params.id })
+    }
 
-    // Find the event
-    const event = await Event.findById(params.id)
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
@@ -56,84 +55,81 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: "Forbidden: You don't have permission to update this event" }, { status: 403 })
     }
 
-    // Find the registration in the event
-    const registrationIndex = event.registrations.findIndex((reg) => reg._id.toString() === params.registrationId)
+    const { status } = await req.json()
 
-    if (registrationIndex === -1) {
-      return NextResponse.json({ error: "Registration not found" }, { status: 404 })
-    }
+    // Check if this is a form submission ID
+    if (mongoose.isValidObjectId(params.registrationId)) {
+      // Try to update the form submission
+      const submission = await FormSubmission.findOneAndUpdate(
+        { _id: params.registrationId, eventId: event._id },
+        { status, updatedAt: new Date() },
+        { new: true },
+      )
 
-    // Get the registration details before updating
-    const registration = event.registrations[registrationIndex]
-    const oldStatus = registration.status
-    const attendeeEmail = registration.email
-    const attendeeName = registration.name
+      if (submission) {
+        // If it's an attendee submission, also update the event registration status
+        if (submission.formType === "attendee") {
+          // Find the registration in the event.registrations array
+          const registrationIndex = event.registrations?.findIndex(
+            (reg) => reg.formSubmissionId && reg.formSubmissionId.toString() === submission._id.toString(),
+          )
 
-    console.log(`Found registration: ${attendeeName} (${attendeeEmail}), current status: ${oldStatus}`)
+          if (registrationIndex >= 0) {
+            // Update the status
+            event.registrations[registrationIndex].status = status === "approved" ? "confirmed" : status
+            await event.save()
 
-    // Update the registration status
-    event.registrations[registrationIndex].status = status
-    await event.save()
-    console.log(`Updated registration status in event to: ${status}`)
-
-    // If there's a form submission ID, update that too
-    if (registration.formSubmissionId) {
-      const formSubmission = await FormSubmission.findById(registration.formSubmissionId)
-      if (formSubmission) {
-        formSubmission.status = status
-        await formSubmission.save()
-        console.log(`Updated form submission status to: ${status}`)
-      } else {
-        console.log(`Form submission not found: ${registration.formSubmissionId}`)
-      }
-    }
-
-    // Send email notification to the attendee based on the new status
-    if (attendeeEmail) {
-      try {
-        if (status === "approved" && oldStatus !== "approved") {
-          console.log(`Sending approval email to ${attendeeEmail}`)
-
-          const emailSent = await sendRegistrationApprovalEmail({
-            eventName: event.title,
-            attendeeEmail,
-            attendeeName: attendeeName || "Attendee",
-            eventDetails: {
-              startDate: event.startDate,
-              startTime: event.startTime,
-              location: event.location,
-            },
-            eventId: event._id.toString(),
-          })
-
-          console.log(`Approval email sent: ${emailSent}`)
-        } else if (status === "rejected" && oldStatus !== "rejected") {
-          console.log(`Sending rejection email to ${attendeeEmail}`)
-
-          const emailSent = await sendRegistrationRejectionEmail({
-            eventName: event.title,
-            attendeeEmail,
-            attendeeName: attendeeName || "Attendee",
-          })
-
-          console.log(`Rejection email sent: ${emailSent}`)
+            // Send email notification based on the status
+            if (status === "approved") {
+              // Send approval email to the attendee
+              await sendRegistrationApprovalEmail({
+                eventName: event.title,
+                attendeeEmail: submission.data.email,
+                attendeeName: submission.data.name || `${submission.data.firstName} ${submission.data.lastName}`,
+                eventDetails: {
+                  startDate: event.startDate,
+                  startTime: event.startTime,
+                  location: event.location,
+                },
+                eventId: event._id.toString(),
+              })
+            } else if (status === "rejected") {
+              // Send rejection email to the attendee
+              await sendRegistrationRejectionEmail({
+                eventName: event.title,
+                attendeeEmail: submission.data.email,
+                attendeeName: submission.data.name || `${submission.data.firstName} ${submission.data.lastName}`,
+              })
+            }
+          }
         }
-      } catch (emailError) {
-        console.error("Error sending status update email:", emailError)
-        // Don't fail the status update if email fails
+
+        return NextResponse.json({ success: true, submission })
       }
-    } else {
-      console.log("No attendee email found, skipping notification")
     }
 
-    return NextResponse.json({
-      success: true,
-      message: `Registration status updated to ${status}`,
-    })
+    // If not a form submission or not found, check if it's an event registration
+    // Extract the actual ID from the registration ID (which might be prefixed)
+    const regIdParts = params.registrationId.split("_")
+    const userId = regIdParts.length > 1 ? regIdParts[1] : null
+
+    if (userId) {
+      // Find the registration in the event.registrations array
+      const registrationIndex = event.registrations?.findIndex((reg) => reg.userId && reg.userId.toString() === userId)
+
+      if (registrationIndex >= 0) {
+        // Update the status
+        event.registrations[registrationIndex].status = status
+        await event.save()
+        return NextResponse.json({ success: true })
+      }
+    }
+
+    return NextResponse.json({ error: "Registration not found" }, { status: 404 })
   } catch (error: any) {
     console.error("Error updating registration status:", error)
     return NextResponse.json(
-      { error: error.message || "An error occurred while updating registration status" },
+      { error: error.message || "An error occurred while updating the registration" },
       { status: 500 },
     )
   }
