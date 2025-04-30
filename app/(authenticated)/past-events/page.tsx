@@ -22,7 +22,7 @@ interface Event {
   status: "draft" | "published" | "cancelled" | "completed" | "active"
   attendees?: string[] | any[]
   slug?: string
-  userRole?: "organizer" | "attendee" | "volunteer" | "speaker"
+  userRole?: "organizer" | "attendee" | "volunteer" | "speaker" | "viewer"
 }
 
 interface PaginationInfo {

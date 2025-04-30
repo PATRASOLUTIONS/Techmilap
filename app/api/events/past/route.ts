@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Ensure database connection is established before querying
     await connectToDatabase()
 
     // Get current date
@@ -33,20 +34,13 @@ export async function GET(req: NextRequest) {
         // Events with date in the past and no endDate
         { date: { $lt: currentDate }, endDate: { $exists: false } },
       ],
-      // Include events where the user is an attendee, organizer, volunteer, or speaker
-      $or: [
-        { organizer: session.user.id },
-        { attendees: session.user.id },
-        { volunteers: session.user.id },
-        { speakers: session.user.id },
-      ],
     }
 
+    // No need to filter by user role - show all past events to logged-in users
     const pastEvents = await Event.find(query)
       .sort({ date: -1 }) // Sort by date descending (most recent first)
       .skip(skip)
       .limit(limit)
-      .populate("organizer", "firstName lastName email")
       .lean()
 
     // Get total count for pagination
@@ -55,16 +49,25 @@ export async function GET(req: NextRequest) {
     // Transform the events to include user role
     const eventsWithUserRole = pastEvents.map((event) => {
       let userRole = "attendee"
+      const userId = session.user.id
 
-      if (
-        event.organizer &&
-        (event.organizer._id?.toString() === session.user.id || event.organizer.email === session.user.email)
-      ) {
+      // Check if the user is the organizer
+      if (event.organizer && event.organizer.toString() === userId) {
         userRole = "organizer"
-      } else if (event.volunteers?.includes(session.user.id)) {
+      }
+      // Check if the user is a volunteer
+      else if (event.volunteers && event.volunteers.some((id: any) => id.toString() === userId)) {
         userRole = "volunteer"
-      } else if (event.speakers?.includes(session.user.id)) {
+      }
+      // Check if the user is a speaker
+      else if (event.speakers && event.speakers.some((id: any) => id.toString() === userId)) {
         userRole = "speaker"
+      }
+      // Check if the user is an attendee
+      else if (event.attendees && event.attendees.some((id: any) => id.toString() === userId)) {
+        userRole = "attendee"
+      } else {
+        userRole = "viewer" // User has no specific role in this event
       }
 
       return {
