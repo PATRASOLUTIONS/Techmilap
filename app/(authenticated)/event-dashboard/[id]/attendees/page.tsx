@@ -39,6 +39,9 @@ export default async function EventAttendeesPage({ params }: { params: { id: str
             </div>
           </div>
         </CardHeader>
+        <CardContent>
+          <p>You can sort attendees by clicking on column headers. Use the search box to find specific attendees.</p>
+        </CardContent>
       </Card>
 
       <RegistrationsTable

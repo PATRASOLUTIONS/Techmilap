@@ -22,27 +22,30 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
   await connectToDatabase()
 
   // Try to find the event by slug first
-  let event = await Event.findOne({ slug: params.eventUrl })
-    .populate("organizer", "firstName lastName email")
-    .populate("attendees", "firstName lastName")
+  let event = await Event.findOne({ slug: params.eventUrl }).populate("organizer", "firstName lastName email").lean()
 
   // If not found by slug, check if the eventUrl is a valid ObjectId and try to find by ID
   if (!event && mongoose.Types.ObjectId.isValid(params.eventUrl)) {
-    event = await Event.findById(params.eventUrl)
-      .populate("organizer", "firstName lastName email")
-      .populate("attendees", "firstName lastName")
+    event = await Event.findById(params.eventUrl).populate("organizer", "firstName lastName email").lean()
   }
 
   if (!event || event.status !== "published") {
     return notFound()
   }
 
+  // Get attendees separately to avoid circular references
+  const attendees = await Event.findById(event._id)
+    .select("attendees")
+    .populate("attendees", "firstName lastName")
+    .lean()
+
   // Check if user is registered as an attendee
-  const isRegistered = event.attendees.some(
-    (attendee: any) =>
-      attendee._id.toString() === session.user.id ||
-      (attendee.userId && attendee.userId.toString() === session.user.id),
-  )
+  const isRegistered =
+    attendees?.attendees?.some(
+      (attendee: any) =>
+        attendee._id?.toString() === session.user.id ||
+        (attendee.userId && attendee.userId.toString() === session.user.id),
+    ) || false
 
   // Check if user has submitted forms for this event
   const userSubmissions = await FormSubmission.find({
@@ -70,7 +73,7 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
     }
   }
 
-  const isAtCapacity = event.attendees.length >= event.capacity
+  const isAtCapacity = (attendees?.attendees?.length || 0) >= (event.capacity || 0)
 
   // Check if forms are published
   const hasAttendeeForm = true // Attendee registration is always available
@@ -83,12 +86,12 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{event.title}</h1>
           <p className="text-muted-foreground">
-            Organized by {event.organizer.firstName} {event.organizer.lastName}
+            Organized by {event.organizer?.firstName || "Unknown"} {event.organizer?.lastName || ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-sm">
-            {event.category}
+            {event.category || "Uncategorized"}
           </Badge>
           {userRole !== "visitor" && (
             <Badge
@@ -116,7 +119,13 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
           <div className="relative aspect-video overflow-hidden rounded-lg">
-            <Image src={event.image || "/community-celebration.png"} alt={event.title} fill className="object-cover" />
+            <Image
+              src={event.image || "/community-celebration.png"}
+              alt={event.title}
+              fill
+              className="object-cover"
+              priority
+            />
           </div>
 
           <Card>
@@ -140,6 +149,7 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
                 <div>
                   <h3 className="font-medium">Date</h3>
                   <p>{formatDate(event.date)}</p>
+                  {event.endDate && <p className="text-sm text-muted-foreground">to {formatDate(event.endDate)}</p>}
                 </div>
               </div>
               <div className="flex items-start">
@@ -153,7 +163,7 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
                 <MapPin className="h-5 w-5 mr-3 mt-0.5 text-muted-foreground" />
                 <div>
                   <h3 className="font-medium">Location</h3>
-                  <p>{event.location}</p>
+                  <p>{event.location || "Online"}</p>
                 </div>
               </div>
               <div className="flex items-start">
@@ -161,7 +171,7 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
                 <div>
                   <h3 className="font-medium">Attendees</h3>
                   <p>
-                    {event.attendees.length} / {event.capacity}
+                    {attendees?.attendees?.length || 0} / {event.capacity || "Unlimited"}
                   </p>
                 </div>
               </div>
@@ -176,15 +186,15 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <span className="font-medium text-primary">
-                    {event.organizer.firstName[0]}
-                    {event.organizer.lastName[0]}
+                    {event.organizer?.firstName?.[0] || "?"}
+                    {event.organizer?.lastName?.[0] || ""}
                   </span>
                 </div>
                 <div>
                   <p className="font-medium">
-                    {event.organizer.firstName} {event.organizer.lastName}
+                    {event.organizer?.firstName || "Unknown"} {event.organizer?.lastName || ""}
                   </p>
-                  <p className="text-sm text-muted-foreground">{event.organizer.email}</p>
+                  <p className="text-sm text-muted-foreground">{event.organizer?.email || "No email provided"}</p>
                 </div>
               </div>
             </CardContent>
