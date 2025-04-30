@@ -36,7 +36,7 @@ async function sendEmailViaAPI({ to, subject, text, html }) {
         body: JSON.stringify({
           email: to,
           emailbody: emailBody,
-          subject: subject,
+          subject: subject || "Notification from Tech Milap", // Provide a default subject if none is given
         }),
       },
     )
@@ -140,6 +140,7 @@ export async function sendFormSubmissionNotification({
   recipientName,
   eventId,
   submissionId,
+  emailSubject = null, // Add optional emailSubject parameter
 }: {
   eventName: string
   formType: string
@@ -148,6 +149,7 @@ export async function sendFormSubmissionNotification({
   recipientName?: string
   eventId: string
   submissionId: string
+  emailSubject?: string // Add type for emailSubject
 }) {
   try {
     // Format the form type for display
@@ -174,7 +176,9 @@ export async function sendFormSubmissionNotification({
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
     const viewSubmissionUrl = `${appUrl}/event-dashboard/${eventId}/${formType}s`
 
-    const subject = `New ${formTypeFormatted} Submission for ${eventName}`
+    // Use custom subject if provided, otherwise use default
+    const subject = emailSubject || `New ${formTypeFormatted} Submission for ${eventName}`
+
     const text = `
       Hello ${recipientName || "Event Organizer"},
       
@@ -224,14 +228,16 @@ export async function sendRegistrationApprovalEmail({
   attendeeName,
   eventDetails,
   eventId,
-  organizerEmail, // Add organizerEmail parameter
+  organizerEmail,
+  emailSubject = null, // Add optional emailSubject parameter
 }: {
   eventName: string
   attendeeEmail: string
   attendeeName: string
   eventDetails: any
   eventId: string
-  organizerEmail?: string // Make it optional to maintain backward compatibility
+  organizerEmail?: string
+  emailSubject?: string // Add type for emailSubject
 }) {
   try {
     if (!attendeeEmail) {
@@ -249,7 +255,9 @@ export async function sendRegistrationApprovalEmail({
     const eventLocation = eventDetails.location || "TBD"
     const eventDescription = eventDetails.description || "No description provided."
 
-    const subject = `Registration Approved: ${eventName}`
+    // Use custom subject if provided, otherwise use default
+    const subject = emailSubject || `Registration Approved: ${eventName}`
+
     const text = `
       Hello ${attendeeName},
       
@@ -388,11 +396,13 @@ export async function sendRegistrationRejectionEmail({
   attendeeEmail,
   attendeeName,
   rejectionReason,
+  emailSubject = null, // Add optional emailSubject parameter
 }: {
   eventName: string
   attendeeEmail: string
   attendeeName: string
   rejectionReason?: string
+  emailSubject?: string // Add type for emailSubject
 }) {
   try {
     if (!attendeeEmail) {
@@ -402,7 +412,8 @@ export async function sendRegistrationRejectionEmail({
 
     console.log(`Preparing rejection email for ${attendeeEmail}`)
 
-    const subject = `Registration Update: ${eventName}`
+    // Use custom subject if provided, otherwise use default
+    const subject = emailSubject || `Registration Update: ${eventName}`
     const reason = rejectionReason || "due to capacity limitations or eligibility criteria."
 
     const text = `

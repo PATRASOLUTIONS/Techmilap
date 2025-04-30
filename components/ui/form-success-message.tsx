@@ -18,7 +18,7 @@ export function FormSuccessMessage({ title, message, eventId, formType }: FormSu
       <h2 className="text-2xl font-bold text-green-800 mb-4">{title}</h2>
       <p className="text-green-700 mb-6">{message}</p>
       <Link href={`/events/${eventId}/register`} passHref>
-        <Button className="bg-green-600 hover:bg-green-700">Make Another regristrationo</Button>
+        <Button className="bg-green-600 hover:bg-green-700">Make Another regristration</Button>
       </Link>
 
       <div className="mt-6 flex items-center justify-center p-4 bg-blue-50 rounded-lg">

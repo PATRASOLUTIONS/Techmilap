@@ -65,7 +65,7 @@ export async function POST(
   try {
     const { db } = await connectToDatabase()
     const session = await getServerSession(authOptions)
-    const { data, userId, status } = await req.json()
+    const { data, userId, status, emailSubject } = await req.json()
 
     // Validate required parameters
     if (!params.id) {
@@ -167,7 +167,7 @@ export async function POST(
     // Send confirmation email to the user if we have their email
     if (email) {
       try {
-        await sendConfirmationEmail(event, params.formType, name, email)
+        await sendConfirmationEmail(event, params.formType, name, email, emailSubject)
       } catch (emailError) {
         console.error("Error sending confirmation email:", emailError)
       }
@@ -175,7 +175,7 @@ export async function POST(
 
     // Send notification to the event organizer
     try {
-      await sendOrganizerNotification(event, params.formType, submission, result.insertedId.toString())
+      await sendOrganizerNotification(event, params.formType, submission, result.insertedId.toString(), emailSubject)
     } catch (emailError) {
       console.error("Error sending organizer notification:", emailError)
     }
@@ -195,12 +195,13 @@ export async function POST(
 }
 
 // Function to send confirmation email to the user
-async function sendConfirmationEmail(event, formType, userName, userEmail) {
+async function sendConfirmationEmail(event, formType, userName, userEmail, emailSubject = null) {
   // Format the form type for display
   const formTypeDisplay = formType === "attendee" ? "registration" : `${formType} application`
   const name = userName || "Attendee"
 
-  const subject = `Your ${formTypeDisplay} for ${event.title} has been received`
+  // Use custom subject if provided, otherwise use default
+  const subject = emailSubject || `Your ${formTypeDisplay} for ${event.title} has been received`
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
@@ -252,7 +253,7 @@ async function sendConfirmationEmail(event, formType, userName, userEmail) {
 }
 
 // Function to send notification email to the organizer
-async function sendOrganizerNotification(event, formType, submission, submissionId) {
+async function sendOrganizerNotification(event, formType, submission, submissionId, emailSubject = null) {
   // Get organizer email
   let organizerEmail = event.organizerEmail
 
@@ -314,7 +315,8 @@ async function sendOrganizerNotification(event, formType, submission, submission
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
   const viewSubmissionUrl = `${appUrl}/event-dashboard/${event._id}/${formType}s`
 
-  const subject = `New ${formTypeFormatted} Submission for ${event.title}`
+  // Use custom subject if provided, otherwise use default
+  const subject = emailSubject || `New ${formTypeFormatted} Submission for ${event.title}`
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
