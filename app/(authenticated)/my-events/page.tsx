@@ -74,7 +74,6 @@ export default function MyEventsPage() {
   const searchParams = useSearchParams()
   const roleParam = searchParams.get("role")
   const [activeTab, setActiveTab] = useState(roleParam || "all")
-  const filterPast = searchParams.get("filter") === "past"
 
   // Update current time every minute
   useEffect(() => {
@@ -218,8 +217,7 @@ export default function MyEventsPage() {
     })
   }
 
-  const filteredUpcomingEvents = getFilteredEvents(upcomingEvents)
-  const filteredPastEvents = getFilteredEvents(pastEvents)
+  const filteredEvents = getFilteredEvents([...upcomingEvents, ...pastEvents])
 
   // Update the handleEventClick function to use the event slug if available
   const handleEventClick = (eventId: string, userRole: string, eventSlug?: string) => {
@@ -327,25 +325,7 @@ export default function MyEventsPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">{filterPast ? "Past Events" : "My Events"}</h1>
-        <div className="flex gap-2">
-          <Link
-            href="/my-events"
-            className={`${
-              !filterPast ? "bg-primary text-primary-foreground" : "bg-secondary/20"
-            } px-4 py-2 rounded-md text-sm font-medium`}
-          >
-            Upcoming
-          </Link>
-          <Link
-            href="/my-events?filter=past"
-            className={`${
-              filterPast ? "bg-primary text-primary-foreground" : "bg-secondary/20"
-            } px-4 py-2 rounded-md text-sm font-medium`}
-          >
-            Past
-          </Link>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight">My Events</h1>
       </div>
       <div className="flex flex-col space-y-2">
         <p className="text-muted-foreground">
@@ -382,54 +362,28 @@ export default function MyEventsPage() {
             <EventsLoadingSkeleton />
           ) : (
             <div className="space-y-10">
-              {!filterPast && (
-                <div>
-                  <h2 className="text-xl font-semibold mb-4 flex items-center">
-                    <Calendar className="h-5 w-5 mr-2 text-primary" />
-                    Upcoming Events ({filteredUpcomingEvents.length})
-                  </h2>
-                  {filteredUpcomingEvents.length > 0 ? (
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                      {filteredUpcomingEvents.map((event) => (
-                        <EventCard
-                          key={`${event._id}-${event.userRole}`}
-                          event={event}
-                          onClick={() => handleEventClick(event._id, event.userRole || "attendee", event.slug)}
-                          onManageClick={(e) => handleManageClick(e, event._id)}
-                          onDeleteClick={(e) => handleDeleteClick(e, event)}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <EmptyState role={activeTab === "all" ? "any" : activeTab} type="upcoming" />
-                  )}
-                </div>
-              )}
-
-              {filterPast && (
-                <div>
-                  <h2 className="text-xl font-semibold mb-4 flex items-center">
-                    <Calendar className="h-5 w-5 mr-2 text-secondary" />
-                    Past Events ({filteredPastEvents.length})
-                  </h2>
-                  {filteredPastEvents.length > 0 ? (
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                      {filteredPastEvents.map((event) => (
-                        <EventCard
-                          key={`${event._id}-${event.userRole}`}
-                          event={event}
-                          onClick={() => handleEventClick(event._id, event.userRole || "attendee", event.slug)}
-                          onManageClick={(e) => handleManageClick(e, event._id)}
-                          onDeleteClick={(e) => handleDeleteClick(e, event)}
-                          isPast={true}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <EmptyState role={activeTab === "all" ? "any" : activeTab} type="past" />
-                  )}
-                </div>
-              )}
+              <div>
+                <h2 className="text-xl font-semibold mb-4 flex items-center">
+                  <Calendar className="h-5 w-5 mr-2 text-primary" />
+                  All Events ({filteredEvents.length})
+                </h2>
+                {filteredEvents.length > 0 ? (
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredEvents.map((event) => (
+                      <EventCard
+                        key={`${event._id}-${event.userRole}`}
+                        event={event}
+                        onClick={() => handleEventClick(event._id, event.userRole || "attendee", event.slug)}
+                        onManageClick={(e) => handleManageClick(e, event._id)}
+                        onDeleteClick={(e) => handleDeleteClick(e, event)}
+                        isPast={new Date(event.date) < currentTime}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState role={activeTab === "all" ? "any" : activeTab} type="all" />
+                )}
+              </div>
             </div>
           )}
         </TabsContent>
@@ -712,6 +666,10 @@ function EmptyState({ role = "any", type = "upcoming" }) {
   let icon = <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
   let actionText = "Explore Events"
   let actionLink = "/explore"
+
+  if (type === "all") {
+    message = `You don't have any events.`
+  }
 
   if (type === "past") {
     message = `You don't have any past events.`
