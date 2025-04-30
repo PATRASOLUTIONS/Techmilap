@@ -170,13 +170,8 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
     // Format the event date in IST
     // In sendConfirmationEmailToUser function, update the date formatting code to:
     const eventDate = event.date ? new Date(event.date) : null
-    let formattedDate = "Date TBA"
-
-    if (eventDate) {
-      // Convert to IST by adding 5 hours and 30 minutes
-      const istDate = addMinutes(eventDate, 5 * 60 + 30)
-      formattedDate = format(istDate, "EEEE, MMMM d, yyyy") + ", " + format(istDate, "h:mm a") + " IST"
-    }
+  const formattedDate = eventDate ? format(eventDate, "EEEE, MMMM d, yyyy") : "Date TBA"
+  const formattedTime = eventDate ? format(eventDate, "h:mm a") : "Time TBA"
 
     // Format start and end times if available
     let timeInfo = ""
@@ -270,13 +265,8 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
     // Format the event date in IST
     // Similarly update the sendNotificationEmailToOrganizer function's date formatting code
     const eventDate = event.date ? new Date(event.date) : null
-    let formattedDate = "Date TBA"
-
-    if (eventDate) {
-      // Convert to IST by adding 5 hours and 30 minutes
-      const istDate = addMinutes(eventDate, 5 * 60 + 30)
-      formattedDate = format(istDate, "EEEE, MMMM d, yyyy") + ", " + format(istDate, "h:mm a") + " IST"
-    }
+  const formattedDate = eventDate ? format(eventDate, "EEEE, MMMM d, yyyy") : "Date TBA"
+  const formattedTime = eventDate ? format(eventDate, "h:mm a") : "Time TBA"
 
     // Format start and end times if available
     let timeInfo = ""
