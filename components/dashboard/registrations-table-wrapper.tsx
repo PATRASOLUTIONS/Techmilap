@@ -22,6 +22,7 @@ export function RegistrationsTableWrapper({ eventId }: RegistrationsTableWrapper
         setLoading(true)
         setError(null)
 
+        // This is where we fetch the data from the API
         const response = await fetch(`/api/events/${eventId}/registrations`)
 
         if (!response.ok) {
@@ -29,6 +30,7 @@ export function RegistrationsTableWrapper({ eventId }: RegistrationsTableWrapper
         }
 
         const data = await response.json()
+        console.log("Fetched registrations data:", data) // Debug log to see the data structure
         setRegistrations(data.registrations || [])
       } catch (err) {
         console.error("Error fetching registrations:", err)

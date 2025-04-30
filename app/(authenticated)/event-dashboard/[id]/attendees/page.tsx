@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Filter } from "lucide-react"
 import { Suspense } from "react"
 import { RegistrationsTableWrapper } from "@/components/dashboard/registrations-table-wrapper"
+import { DebugDataViewer } from "@/components/dashboard/debug-data-viewer"
 
 export default async function EventAttendeesPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
@@ -50,6 +51,9 @@ export default async function EventAttendeesPage({ params }: { params: { id: str
       <Suspense fallback={<div className="text-center py-10">Loading attendee data...</div>}>
         <RegistrationsTableWrapper eventId={eventId} />
       </Suspense>
+
+      {/* Debug Data Viewer */}
+      <DebugDataViewer eventId={eventId} />
     </div>
   )
 }
