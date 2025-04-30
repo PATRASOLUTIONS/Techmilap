@@ -1,5 +1,3 @@
-"use client"
-
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { EventList } from "@/components/events/event-list"
@@ -94,14 +92,6 @@ export default async function ExplorePage({ searchParams }: { searchParams: { ca
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Explore Events</h1>
           <p className="text-red-500">Sorry, we encountered an error loading events. Please try again later.</p>
-        </div>
-        <div className="p-8 text-center">
-          <button
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
-          >
-            Try Again
-          </button>
         </div>
       </div>
     )
