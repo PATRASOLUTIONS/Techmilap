@@ -2,40 +2,50 @@ import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { sendEmail } from "@/lib/email-service"
 
-// Function to format date in Indian Standard Time (IST)
-function formatEventDate(dateInput, startTime, endTime) {
-  if (!dateInput) return "TBD"
-
+// Function to convert UTC date to IST and format it
+function formatDateToIST(dateInput) {
   try {
-    // Handle MongoDB date format if present
-    let dateObj
-    if (typeof dateInput === "object" && dateInput.$date) {
-      dateObj = new Date(dateInput.$date)
-    } else if (typeof dateInput === "string") {
-      dateObj = new Date(dateInput)
-    } else {
-      dateObj = dateInput
-    }
+    // Handle different date input formats
+    let utcDate
 
-    // Check if valid date
-    if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
+    if (!dateInput) {
       return "TBD"
     }
 
-    // Log original date for debugging
-    console.log(`Original GMT date: ${dateObj.toISOString()}`)
+    // Handle MongoDB date format
+    if (typeof dateInput === "object" && dateInput.$date) {
+      utcDate = new Date(dateInput.$date)
+    }
+    // Handle Date object
+    else if (dateInput instanceof Date) {
+      utcDate = dateInput
+    }
+    // Handle string date
+    else if (typeof dateInput === "string") {
+      utcDate = new Date(dateInput)
+    }
+    // Handle other formats
+    else {
+      utcDate = new Date(dateInput)
+    }
 
-    // Convert to Indian Standard Time (UTC+5:30)
-    const istOffsetHours = 5
-    const istOffsetMinutes = 30
+    // Check if valid date
+    if (!(utcDate instanceof Date) || isNaN(utcDate.getTime())) {
+      console.error("Invalid date input:", dateInput)
+      return "TBD"
+    }
 
-    // Create a new date object with IST offset
-    const istDate = new Date(dateObj.getTime() + (istOffsetHours * 60 + istOffsetMinutes) * 60 * 1000)
+    // Log the original UTC date
+    console.log("Original UTC date:", utcDate.toISOString())
 
-    // Log IST date for debugging
-    console.log(`Converted IST date: ${istDate.toISOString()}`)
+    // Convert to IST by adding 5 hours and 30 minutes
+    const istDate = new Date(utcDate.getTime() + (5 * 60 + 30) * 60 * 1000)
 
-    // Month names for formatting
+    // Log the converted IST date
+    console.log("Converted IST date:", istDate.toISOString())
+
+    // Format the date in a readable format
+    const day = istDate.getDate()
     const monthNames = [
       "January",
       "February",
@@ -50,43 +60,38 @@ function formatEventDate(dateInput, startTime, endTime) {
       "November",
       "December",
     ]
+    const month = monthNames[istDate.getMonth()]
+    const year = istDate.getFullYear()
 
-    // Get date components directly from the IST date
-    const day = istDate.getUTCDate()
-    const month = monthNames[istDate.getUTCMonth()]
-    const year = istDate.getUTCFullYear()
+    // Format time
+    let hours = istDate.getHours()
+    const minutes = istDate.getMinutes().toString().padStart(2, "0")
+    const ampm = hours >= 12 ? "PM" : "AM"
+    hours = hours % 12
+    hours = hours ? hours : 12 // the hour '0' should be '12'
 
-    // Get time components for display
-    const hours = istDate.getUTCHours()
-    const minutes = istDate.getUTCMinutes()
+    const formattedDate = `${month} ${day}, ${year}, ${hours}:${minutes} ${ampm} IST`
+    console.log("Formatted IST date:", formattedDate)
+
+    return formattedDate
+  } catch (error) {
+    console.error("Error formatting date to IST:", error)
+    return String(dateInput) || "TBD"
+  }
+}
+
+// Function to format time in 12-hour format
+function formatTime(timeStr) {
+  if (!timeStr) return ""
+
+  try {
+    const [hours, minutes] = timeStr.split(":").map(Number)
     const period = hours >= 12 ? "PM" : "AM"
     const hours12 = hours % 12 || 12
-    const formattedMinutes = minutes.toString().padStart(2, "0")
-
-    // Format the time string
-    const timeString = `${hours12}:${formattedMinutes} ${period}`
-
-    // Format time if provided separately as strings
-    let timeStr = ""
-    if (startTime && endTime) {
-      // Convert 24-hour format to 12-hour format with AM/PM
-      const formatTimeStr = (timeStr) => {
-        const [hours, minutes] = timeStr.split(":").map(Number)
-        const period = hours >= 12 ? "PM" : "AM"
-        const hours12 = hours % 12 || 12
-        return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`
-      }
-
-      timeStr = `, ${formatTimeStr(startTime)} - ${formatTimeStr(endTime)}`
-    } else {
-      // Use the time from the date object
-      timeStr = `, ${timeString}`
-    }
-
-    return `${month} ${day}, ${year}${timeStr} IST`
+    return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`
   } catch (error) {
-    console.error("Error formatting date:", error)
-    return String(dateInput) || "TBD"
+    console.error("Error formatting time:", error)
+    return timeStr
   }
 }
 
@@ -183,29 +188,17 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
     // Use custom subject if provided, otherwise use default
     const subject = emailSubject || `Your ${formTypeDisplay} for ${event.title || event.name} has been received`
 
-
-    console.log("date-------------------------------------------"+event.data)
-    // Manually adjust event date to IST by adding 5 hours and 30 minutes
-    let adjustedDate = event.date
-
-    if (adjustedDate) {
-      // Handle MongoDB date format
-      if (typeof adjustedDate === "object" && adjustedDate.$date) {
-        adjustedDate = new Date(adjustedDate.$date)
-      } else if (!(adjustedDate instanceof Date)) {
-        adjustedDate = new Date(adjustedDate)
-      }
-
-      // Add 5 hours and 30 minutes to convert to IST
-      if (adjustedDate instanceof Date && !isNaN(adjustedDate.getTime())) {
-        adjustedDate = new Date(adjustedDate.getTime() + (5 * 60 + 30) * 60 * 1000)
-        console.log(`Adjusted date for IST: ${adjustedDate.toISOString()}`)
-      }
-    }
+    // Log the event date for debugging
+    console.log("Event date from database:", event.date)
 
     // Format the event date in IST
-    const formattedDate = formatEventDate(adjustedDate, event.startTime, event.endTime)
-    console.log(`Formatted date for email: ${formattedDate}`)
+    const formattedDate = formatDateToIST(event.date)
+
+    // Format start and end times if available
+    let timeInfo = ""
+    if (event.startTime && event.endTime) {
+      timeInfo = ` (${formatTime(event.startTime)} - ${formatTime(event.endTime)})`
+    }
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
@@ -216,7 +209,7 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
         <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <h3 style="margin-top: 0;">Event Details</h3>
           <p><strong>Event:</strong> ${event.title || event.name}</p>
-          <p><strong>Date:</strong> ${formattedDate}</p>
+          <p><strong>Date:</strong> ${formattedDate}${timeInfo}</p>
           <p><strong>Location:</strong> ${event.location || event.venue || "TBD"}</p>
         </div>
         
@@ -236,7 +229,7 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
       
       Event Details:
       - Event: ${event.title || event.name}
-      - Date: ${formattedDate}
+      - Date: ${formattedDate}${timeInfo}
       - Location: ${event.location || event.venue || "TBD"}
       
       Your submission is currently under review. We will notify you once it has been processed.
@@ -290,25 +283,14 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
     // Format the form type for display
     const formTypeFormatted = formType.charAt(0).toUpperCase() + formType.slice(1)
 
-    // Manually adjust event date to IST by adding 5 hours and 30 minutes
-    let adjustedDate = event.date
-
-    if (adjustedDate) {
-      // Handle MongoDB date format
-      if (typeof adjustedDate === "object" && adjustedDate.$date) {
-        adjustedDate = new Date(adjustedDate.$date)
-      } else if (!(adjustedDate instanceof Date)) {
-        adjustedDate = new Date(adjustedDate)
-      }
-
-      // Add 5 hours and 30 minutes to convert to IST
-      if (adjustedDate instanceof Date && !isNaN(adjustedDate.getTime())) {
-        adjustedDate = new Date(adjustedDate.getTime() + (5 * 60 + 30) * 60 * 1000)
-      }
-    }
-
     // Format the event date in IST
-    const formattedDate = formatEventDate(adjustedDate, event.startTime, event.endTime)
+    const formattedDate = formatDateToIST(event.date)
+
+    // Format start and end times if available
+    let timeInfo = ""
+    if (event.startTime && event.endTime) {
+      timeInfo = ` (${formatTime(event.startTime)} - ${formatTime(event.endTime)})`
+    }
 
     // Create a summary of the submission data in markdown format
     let submissionSummary = ""
@@ -378,7 +360,7 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
         <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <h3 style="margin-top: 0;">Event Details</h3>
           <p><strong>Event:</strong> ${event.title || event.name}</p>
-          <p><strong>Date:</strong> ${formattedDate}</p>
+          <p><strong>Date:</strong> ${formattedDate}${timeInfo}</p>
         </div>
         
         <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -405,7 +387,7 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
       
       Event Details:
       - Event: ${event.title || event.name}
-      - Date: ${formattedDate}
+      - Date: ${formattedDate}${timeInfo}
       
       Submission ID: ${submissionId}
       
