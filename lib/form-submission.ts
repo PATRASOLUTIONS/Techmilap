@@ -81,25 +81,32 @@ export async function handleFormSubmission(
   }
 }
 
-// Replace the formatEventDate function with this updated version that handles timezone correctly
-
-// Function to format date properly with timezone consideration
-function formatEventDate(date) {
-  if (!date) return "TBD"
+// Function to format date in Indian Standard Time (IST)
+function formatEventDate(dateInput, startTime, endTime) {
+  if (!dateInput) return "TBD"
 
   try {
-    // If date is a string, convert to Date object
-    const dateObj = typeof date === "string" ? new Date(date) : date
+    // Handle MongoDB date format if present
+    let dateObj
+    if (typeof dateInput === "object" && dateInput.$date) {
+      dateObj = new Date(dateInput.$date)
+    } else if (typeof dateInput === "string") {
+      dateObj = new Date(dateInput)
+    } else {
+      dateObj = dateInput
+    }
 
     // Check if valid date
-    if (isNaN(dateObj.getTime())) return "TBD"
+    if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
+      return "TBD"
+    }
 
-    // Get the date components in UTC to avoid timezone shifts
-    const year = dateObj.getUTCFullYear()
-    const month = dateObj.getUTCMonth()
-    const day = dateObj.getUTCDate()
-    const hours = dateObj.getUTCHours()
-    const minutes = dateObj.getUTCMinutes()
+    // Convert to Indian Standard Time (UTC+5:30)
+    const istOffsetHours = 5
+    const istOffsetMinutes = 30
+
+    // Create a new date object with IST offset
+    const istDate = new Date(dateObj.getTime() + (istOffsetHours * 60 + istOffsetMinutes) * 60 * 1000)
 
     // Month names for formatting
     const monthNames = [
@@ -117,17 +124,29 @@ function formatEventDate(date) {
       "December",
     ]
 
-    // Format time (12-hour format with AM/PM)
-    let hour12 = hours % 12
-    if (hour12 === 0) hour12 = 12
-    const ampm = hours >= 12 ? "PM" : "AM"
-    const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes
+    // Format date components
+    const day = istDate.getUTCDate()
+    const month = monthNames[istDate.getUTCMonth()]
+    const year = istDate.getUTCFullYear()
 
-    // Construct the formatted date string
-    return `${monthNames[month]} ${day}, ${year} ${hour12}:${formattedMinutes} ${ampm} UTC`
+    // Format time if provided separately
+    let timeStr = ""
+    if (startTime && endTime) {
+      // Convert 24-hour format to 12-hour format with AM/PM
+      const formatTimeStr = (timeStr) => {
+        const [hours, minutes] = timeStr.split(":").map(Number)
+        const period = hours >= 12 ? "PM" : "AM"
+        const hours12 = hours % 12 || 12
+        return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`
+      }
+
+      timeStr = `, ${formatTimeStr(startTime)} - ${formatTimeStr(endTime)} IST`
+    }
+
+    return `${month} ${day}, ${year}${timeStr}`
   } catch (error) {
     console.error("Error formatting date:", error)
-    return String(date) || "TBD"
+    return String(dateInput) || "TBD"
   }
 }
 
@@ -143,22 +162,22 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
     const formTypeDisplay = formType === "attendee" ? "registration" : `${formType} application`
 
     // Use custom subject if provided, otherwise use default
-    const subject = emailSubject || `Your ${formTypeDisplay} for ${event.title} has been received`
+    const subject = emailSubject || `Your ${formTypeDisplay} for ${event.title || event.name} has been received`
 
-    // Format the event date
-    const formattedDate = formatEventDate(event.date)
+    // Format the event date in IST
+    const formattedDate = formatEventDate(event.date, event.startTime, event.endTime)
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
         <h2 style="color: #4f46e5;">Submission Received</h2>
         <p>Hello ${userName},</p>
-        <p>Thank you for your ${formTypeDisplay} for <strong>"${event.title}"</strong>.</p>
+        <p>Thank you for your ${formTypeDisplay} for <strong>"${event.title || event.name}"</strong>.</p>
         
         <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <h3 style="margin-top: 0;">Event Details</h3>
-          <p><strong>Event:</strong> ${event.title}</p>
+          <p><strong>Event:</strong> ${event.title || event.name}</p>
           <p><strong>Date:</strong> ${formattedDate}</p>
-          <p><strong>Location:</strong> ${event.location || "TBD"}</p>
+          <p><strong>Location:</strong> ${event.location || event.venue || "TBD"}</p>
         </div>
         
         <p>Your submission is currently under review. We will notify you once it has been processed.</p>
@@ -173,12 +192,12 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
     const text = `
       Hello ${userName},
       
-      Thank you for your ${formTypeDisplay} for "${event.title}".
+      Thank you for your ${formTypeDisplay} for "${event.title || event.name}".
       
       Event Details:
-      - Event: ${event.title}
+      - Event: ${event.title || event.name}
       - Date: ${formattedDate}
-      - Location: ${event.location || "TBD"}
+      - Location: ${event.location || event.venue || "TBD"}
       
       Your submission is currently under review. We will notify you once it has been processed.
       
@@ -231,8 +250,8 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
     // Format the form type for display
     const formTypeFormatted = formType.charAt(0).toUpperCase() + formType.slice(1)
 
-    // Format the event date
-    const formattedDate = formatEventDate(event.date)
+    // Format the event date in IST
+    const formattedDate = formatEventDate(event.date, event.startTime, event.endTime)
 
     // Create a summary of the submission data in markdown format
     let submissionSummary = ""
@@ -291,17 +310,17 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
     const viewSubmissionUrl = `${appUrl}/event-dashboard/${event._id}/${formType}s`
 
     // Use custom subject if provided, otherwise use default
-    const subject = emailSubject || `New ${formTypeFormatted} Submission for ${event.title}`
+    const subject = emailSubject || `New ${formTypeFormatted} Submission for ${event.title || event.name}`
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
         <h2 style="color: #4f46e5;">New ${formTypeFormatted} Submission</h2>
         <p>Hello Event Organizer,</p>
-        <p>You have received a new ${formType} submission for your event <strong>"${event.title}"</strong>.</p>
+        <p>You have received a new ${formType} submission for your event <strong>"${event.title || event.name}"</strong>.</p>
         
         <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <h3 style="margin-top: 0;">Event Details</h3>
-          <p><strong>Event:</strong> ${event.title}</p>
+          <p><strong>Event:</strong> ${event.title || event.name}</p>
           <p><strong>Date:</strong> ${formattedDate}</p>
         </div>
         
@@ -325,10 +344,10 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
     const text = `
       Hello Event Organizer,
       
-      You have received a new ${formType} submission for your event "${event.title}".
+      You have received a new ${formType} submission for your event "${event.title || event.name}".
       
       Event Details:
-      - Event: ${event.title}
+      - Event: ${event.title || event.name}
       - Date: ${formattedDate}
       
       Submission ID: ${submissionId}
