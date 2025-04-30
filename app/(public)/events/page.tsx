@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { EventListSkeleton } from "@/components/events/event-list-skeleton"
 
 // This function runs on the server with optimized caching
-async function getPublicEvents(searchParams?: { search?: string; category?: string; past?: boolean }) {
+async function getPublicEvents(searchParams?: { search?: string; category?: string }) {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
     let url = `${baseUrl}/api/events/public`
@@ -17,7 +17,6 @@ async function getPublicEvents(searchParams?: { search?: string; category?: stri
     const params = new URLSearchParams()
     if (searchParams?.search) params.append("search", searchParams.search)
     if (searchParams?.category && searchParams.category !== "all") params.append("category", searchParams.category)
-    if (searchParams?.past) params.append("past", searchParams.past.toString())
 
     // Add debug parameter for development
     if (process.env.NODE_ENV === "development") {
@@ -28,11 +27,12 @@ async function getPublicEvents(searchParams?: { search?: string; category?: stri
       url += `?${params.toString()}`
     }
 
+    console.log("Fetching events from:", url)
+
     // Use different caching strategies based on the type of data
-    // Past events can be cached longer than upcoming events
     const cacheOptions = {
       next: {
-        revalidate: searchParams?.past ? 3600 : 300, // Cache past events for 1 hour, upcoming for 5 minutes
+        revalidate: 300, // Cache for 5 minutes
       },
     }
 
@@ -43,10 +43,26 @@ async function getPublicEvents(searchParams?: { search?: string; category?: stri
     }
 
     const data = await response.json()
-    return data.events || []
+
+    console.log(
+      `Fetched ${data.events?.length || 0} events, ${data.upcomingEvents?.length || 0} upcoming, ${data.runningEvents?.length || 0} running, ${data.pastEvents?.length || 0} past`,
+    )
+
+    return {
+      events: data.events || [],
+      upcomingEvents: data.upcomingEvents || [],
+      runningEvents: data.runningEvents || [],
+      pastEvents: data.pastEvents || [],
+    }
   } catch (error) {
     console.error("Error fetching public events:", error)
-    return []
+    return {
+      events: [],
+      upcomingEvents: [],
+      runningEvents: [],
+      pastEvents: [],
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    }
   }
 }
 
@@ -56,9 +72,14 @@ async function getCategories() {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
     const response = await fetch(`${baseUrl}/api/events/categories`, {
       next: { revalidate: 3600 }, // Cache for 1 hour
-    }).then((res) => res.json())
+    })
 
-    return response.categories || []
+    if (!response.ok) {
+      throw new Error(`Failed to fetch categories: ${response.status}`)
+    }
+
+    const data = await response.json()
+    return data.categories || []
   } catch (error) {
     console.error("Error fetching categories:", error)
     return ["Conference", "Workshop", "Meetup", "Webinar", "Other"] // Fallback categories
@@ -68,29 +89,12 @@ async function getCategories() {
 export default async function PublicEventsPage({
   searchParams,
 }: {
-  searchParams?: { search?: string; category?: string; past?: boolean }
+  searchParams?: { search?: string; category?: string }
 }) {
   // Fetch data in parallel for better performance
-  const [upcomingEventsPromise, pastEventsPromise, categoriesPromise] = await Promise.allSettled([
-    getPublicEvents({ ...searchParams, past: false }),
-    getPublicEvents({ ...searchParams, past: true }),
-    getCategories(),
-  ])
+  const [eventsData, categories] = await Promise.all([getPublicEvents(searchParams), getCategories()])
 
-  // Handle the results safely
-  const upcomingEvents = upcomingEventsPromise.status === "fulfilled" ? upcomingEventsPromise.value : []
-  const pastEvents = pastEventsPromise.status === "fulfilled" ? pastEventsPromise.value : []
-  const categories =
-    categoriesPromise.status === "fulfilled"
-      ? categoriesPromise.value
-      : ["Conference", "Workshop", "Meetup", "Webinar", "Other"]
-
-  const now = new Date()
-
-  // Filter events only once
-  const runningEvents = upcomingEvents.filter((event) => new Date(event.date) <= now && new Date(event.endDate) >= now)
-
-  const futureEvents = upcomingEvents.filter((event) => new Date(event.date) > now)
+  const { upcomingEvents = [], runningEvents = [], pastEvents = [], error } = eventsData
 
   return (
     <div className="pt-16">
@@ -139,18 +143,37 @@ export default async function PublicEventsPage({
           </div>
         </div>
 
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4 mb-8">
+            <h3 className="font-semibold">Error Loading Events</h3>
+            <p>{error}</p>
+          </div>
+        )}
+
         {/* Upcoming Events Section */}
         <section aria-labelledby="upcoming-events-heading" className="mb-12">
           <h2 id="upcoming-events-heading" className="text-2xl font-bold mt-8">
             Upcoming Events
           </h2>
-          <Suspense fallback={<EventsLoading />}>
-            {futureEvents.length > 0 ? (
-              <PublicEventList events={futureEvents} />
-            ) : (
-              <div className="text-center py-12">No upcoming events found.</div>
-            )}
-          </Suspense>
+          <div className="mt-6">
+            <Suspense fallback={<EventsLoading />}>
+              {upcomingEvents.length > 0 ? (
+                <PublicEventList events={upcomingEvents} />
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">No upcoming events found.</p>
+                  {searchParams?.search || searchParams?.category ? (
+                    <p className="mt-2">
+                      Try adjusting your search filters or{" "}
+                      <a href="/events" className="text-primary hover:underline">
+                        view all events
+                      </a>
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </Suspense>
+          </div>
         </section>
 
         {/* Running Events Section */}
@@ -158,13 +181,17 @@ export default async function PublicEventsPage({
           <h2 id="running-events-heading" className="text-2xl font-bold mt-8">
             Running Events
           </h2>
-          <Suspense fallback={<EventsLoading />}>
-            {runningEvents.length > 0 ? (
-              <PublicEventList events={runningEvents} />
-            ) : (
-              <div className="text-center py-12">No running events found.</div>
-            )}
-          </Suspense>
+          <div className="mt-6">
+            <Suspense fallback={<EventsLoading />}>
+              {runningEvents.length > 0 ? (
+                <PublicEventList events={runningEvents} />
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">No running events found.</p>
+                </div>
+              )}
+            </Suspense>
+          </div>
         </section>
 
         {/* Past Events Section */}
