@@ -38,7 +38,7 @@ export function validateField(type: string, value: string, required = false): st
       return validationPatterns.email.test(value) ? null : validationMessages.email
 
     case "corporateEmail":
-      return validationPatterns.corporateEmail.test(value) ? null : validationMessages.corporateEmail
+      return validationPatterns.email.test(value) ? null : validationMessages.email
 
     case "phone":
       return validationPatterns.phone.test(value) ? null : validationMessages.phone

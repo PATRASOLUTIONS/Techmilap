@@ -183,9 +183,7 @@ export default function EventTermsPage() {
           <p>If you have any questions about these Terms and Conditions, please contact us at:</p>
           <p className="mt-2">
             Email: info@techmilap.com
-            <br />
-            Phone: +91 8332 936 831
-            <br />
+            <br />            
             Address: Bengaluru, India
           </p>
         </div>

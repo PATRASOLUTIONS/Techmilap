@@ -18,13 +18,13 @@ export function FormSuccessMessage({ title, message, eventId, formType }: FormSu
       <h2 className="text-2xl font-bold text-green-800 mb-4">{title}</h2>
       <p className="text-green-700 mb-6">{message}</p>
       <Link href={`/events/${eventId}/register`} passHref>
-        <Button className="bg-green-600 hover:bg-green-700">Register for your friend also</Button>
+        <Button className="bg-green-600 hover:bg-green-700">Make Another regristrationo</Button>
       </Link>
 
       <div className="mt-6 flex items-center justify-center p-4 bg-blue-50 rounded-lg">
         <AlertCircle className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" />
         <p className="text-blue-700 text-sm">
-          Please check your email inbox for confirmation. If you don't see it, please check your spam folder.
+          Please check your email inbox for confirmation. If you don't see it, please check your spam folder. or reach out to info@techmilap.com
         </p>
       </div>
     </div>
