@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { CheckCircle } from "lucide-react"
+import { CheckCircle, AlertCircle } from "lucide-react"
 
 interface FormSuccessMessageProps {
   title: string
@@ -20,6 +20,13 @@ export function FormSuccessMessage({ title, message, eventId, formType }: FormSu
       <Link href={`/events/${eventId}/register`} passHref>
         <Button className="bg-green-600 hover:bg-green-700">Register for your friend also</Button>
       </Link>
+
+      <div className="mt-6 flex items-center justify-center p-4 bg-blue-50 rounded-lg">
+        <AlertCircle className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" />
+        <p className="text-blue-700 text-sm">
+          Please check your email inbox for confirmation. If you don't see it, please check your spam folder.
+        </p>
+      </div>
     </div>
   )
 }

@@ -224,12 +224,14 @@ export async function sendRegistrationApprovalEmail({
   attendeeName,
   eventDetails,
   eventId,
+  organizerEmail, // Add organizerEmail parameter
 }: {
   eventName: string
   attendeeEmail: string
   attendeeName: string
   eventDetails: any
   eventId: string
+  organizerEmail?: string // Make it optional to maintain backward compatibility
 }) {
   try {
     if (!attendeeEmail) {
@@ -299,6 +301,41 @@ export async function sendRegistrationApprovalEmail({
     console.log(`Attempting to send approval email to ${attendeeEmail} for event ${eventName}`)
 
     const result = await sendEmail({ to: attendeeEmail, subject, text, html })
+
+    // Send a copy to the organizer if an email is provided
+    if (organizerEmail) {
+      const organizerSubject = `Copy: Registration Approved for ${attendeeName} - ${eventName}`
+      const organizerHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+          <h2 style="color: #4f46e5;">Registration Approval Confirmation</h2>
+          <p>This is a copy of the approval email sent to ${attendeeName} (${attendeeEmail}) for the event <strong>"${eventName}"</strong>.</p>
+          
+          <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">Event Details</h3>
+            <p><strong>Date:</strong> ${eventDate}</p>
+            <p><strong>Time:</strong> ${eventTime}</p>
+            <p><strong>Location:</strong> ${eventLocation}</p>
+            <p><strong>Attendee:</strong> ${attendeeName} (${attendeeEmail})</p>
+          </div>
+          
+          <p style="background-color: #fff8e6; padding: 15px; border-radius: 5px; border-left: 4px solid #f59e0b;">
+            <strong>Note:</strong> If you need any additional assistance or have specific requirements for this event, 
+            please contact us at <a href="mailto:info@techmilap.com">info@techmilap.com</a>.
+          </p>
+          
+          <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+            Thank you for using Tech Milap!
+          </p>
+        </div>
+      `
+
+      await sendEmail({
+        to: organizerEmail,
+        subject: organizerSubject,
+        text: `This is a copy of the approval email sent to ${attendeeName} (${attendeeEmail}) for the event "${eventName}". If you need any additional assistance, please contact info@techmilap.com.`,
+        html: organizerHtml,
+      })
+    }
 
     if (result) {
       console.log(`Successfully sent approval email to ${attendeeEmail}`)
