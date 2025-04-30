@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2, Eye, CheckCircle, XCircle, Search, X, Download, Mail, Filter, Calendar } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow, format } from "date-fns"
-import { registrationsToCSV, downloadCSV } from "@/lib/csv-export"
 import {
   Dialog,
   DialogContent,
@@ -755,15 +754,40 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     }
 
     try {
-      // Convert data to CSV using our utility
-      const csvData = registrationsToCSV(registrations)
+      // Prepare data for CSV export with all required fields
+      const csvData = registrations.map((reg: any) => ({
+        Name: getAttendeeName(reg),
+        "Email ID": getAttendeeEmail(reg),
+        "Corporate Email ID": reg.data?.corporateEmail || reg.data?.corporate_email || "",
+        Designation: reg.data?.designation || reg.data?.role || reg.data?.jobTitle || "",
+        "LinkedIn ID": reg.data?.linkedin || reg.data?.linkedinId || reg.data?.linkedInUrl || "",
+        "GitHub ID": reg.data?.github || reg.data?.githubId || reg.data?.githubUrl || "",
+        "Other Social Media": reg.data?.otherSocialMedia || reg.data?.socialMedia || "",
+        "Mobile Number": reg.data?.mobile || reg.data?.mobileNumber || reg.data?.phone || "",
+        Status: reg.status,
+        "Registration Date": new Date(reg.createdAt).toLocaleDateString(),
+      }))
+
+      // Convert to CSV string
+      const csvString = [
+        Object.keys(csvData[0]).join(","),
+        ...csvData.map((row) =>
+          Object.values(row)
+            .map((value) => `"${value}"`)
+            .join(","),
+        ),
+      ].join("\n")
 
       // Generate filename with event ID and date
       const date = new Date().toISOString().split("T")[0]
       const filename = `event-${eventId}-attendees-${date}.csv`
 
       // Download the CSV
-      downloadCSV(csvData, filename)
+      const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" })
+      const link = document.createElement("a")
+      link.href = URL.createObjectURL(blob)
+      link.download = filename
+      link.click()
 
       toast({
         title: "Export Successful",
@@ -1197,7 +1221,13 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
                     <Checkbox checked={allSelected} onCheckedChange={() => toggleSelectAll()} aria-label="Select all" />
                   </TableHead>
                   <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
+                  <TableHead>Email ID</TableHead>
+                  <TableHead>Corporate Email ID</TableHead>
+                  <TableHead>Designation</TableHead>
+                  <TableHead>LinkedIn ID</TableHead>
+                  <TableHead>GitHub ID</TableHead>
+                  <TableHead>Other Social Media</TableHead>
+                  <TableHead>Mobile Number</TableHead>
                   <TableHead>Registered</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead></TableHead>
@@ -1215,6 +1245,36 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
                     </TableCell>
                     <TableCell>{getAttendeeName(registration)}</TableCell>
                     <TableCell>{getAttendeeEmail(registration)}</TableCell>
+                    <TableCell>
+                      {registration.data?.corporateEmail || registration.data?.corporate_email || "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {registration.data?.designation ||
+                        registration.data?.role ||
+                        registration.data?.jobTitle ||
+                        "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {registration.data?.linkedin ||
+                        registration.data?.linkedinId ||
+                        registration.data?.linkedInUrl ||
+                        "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {registration.data?.github ||
+                        registration.data?.githubId ||
+                        registration.data?.githubUrl ||
+                        "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {registration.data?.otherSocialMedia || registration.data?.socialMedia || "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {registration.data?.mobile ||
+                        registration.data?.mobileNumber ||
+                        registration.data?.phone ||
+                        "N/A"}
+                    </TableCell>
                     <TableCell>{formatDistanceToNow(new Date(registration.createdAt), { addSuffix: true })}</TableCell>
                     <TableCell>{getStatusBadge(registration.status)}</TableCell>
                     <TableCell className="text-right">

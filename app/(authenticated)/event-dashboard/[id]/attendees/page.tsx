@@ -2,8 +2,9 @@ import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
 import { RegistrationsTable } from "@/components/dashboard/registrations-table"
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Filter } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Filter, CheckCircle, Download } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export default async function EventAttendeesPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
@@ -26,20 +27,43 @@ export default async function EventAttendeesPage({ params }: { params: { id: str
         <p className="text-muted-foreground">Manage attendees for your event.</p>
       </div>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <div className="flex items-center">
-            <Filter className="h-5 w-5 mr-2" />
-            <div>
-              <CardTitle>Attendee Filtering</CardTitle>
-              <CardDescription>
-                Use the filter button to find specific attendees based on their registration information. When you
-                approve or reject an attendee, they will automatically receive an email notification.
-              </CardDescription>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center">
+              <Filter className="h-5 w-5 mr-2" />
+              <div>
+                <CardTitle>Attendee Filtering</CardTitle>
+                <CardDescription>
+                  Use the filter button to find specific attendees based on their registration information.
+                </CardDescription>
+              </div>
             </div>
-          </div>
-        </CardHeader>
-      </Card>
+          </CardHeader>
+        </Card>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center">
+              <CheckCircle className="h-5 w-5 mr-2 text-green-600" />
+              <div>
+                <CardTitle>Bulk Actions</CardTitle>
+                <CardDescription>Select multiple attendees to approve or export their information.</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex gap-4">
+            <Button className="bg-green-600 hover:bg-green-700 text-white">
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Bulk Approve
+            </Button>
+            <Button variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Export Attendees
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
 
       <RegistrationsTable
         eventId={eventId}
