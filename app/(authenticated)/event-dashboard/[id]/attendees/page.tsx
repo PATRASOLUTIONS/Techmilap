@@ -39,19 +39,6 @@ export default async function EventAttendeesPage({ params }: { params: { id: str
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <p>
-            You can filter attendees by status (pending, approved, rejected) or by any custom field from your
-            registration form. Click the &quot;Filter Attendees&quot; button to get started.
-          </p>
-          <ul className="list-disc list-inside mt-2 space-y-1 text-sm text-muted-foreground">
-            <li>Filter by registration status</li>
-            <li>Filter by custom form fields</li>
-            <li>Combine multiple filters</li>
-            <li>Export filtered results to CSV</li>
-            <li>Automatic email notifications when approving or rejecting attendees</li>
-          </ul>
-        </CardContent>
       </Card>
 
       <RegistrationsTable

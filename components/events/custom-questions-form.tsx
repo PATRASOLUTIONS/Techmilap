@@ -63,6 +63,10 @@ export function CustomQuestionsForm({
         label: "Name",
         placeholder: "Enter your name",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z ]{2,50}$",
+          message: "Name should be 2-50 characters and contain only letters",
+        },
       },
       {
         id: `question_email_${Date.now() + 1}`,
@@ -70,6 +74,10 @@ export function CustomQuestionsForm({
         label: "Email ID",
         placeholder: "Enter your email address",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+          message: "Please enter a valid email address",
+        },
       },
       {
         id: `question_corporateEmail_${Date.now() + 2}`,
@@ -77,6 +85,10 @@ export function CustomQuestionsForm({
         label: "Corporate Email ID",
         placeholder: "Enter your corporate email address",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+          message: "Please enter a valid corporate email address",
+        },
       },
       {
         id: `question_designation_${Date.now() + 3}`,
@@ -84,6 +96,10 @@ export function CustomQuestionsForm({
         label: "Designation",
         placeholder: "Enter your designation",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z ]{2,50}$",
+          message: "Designation should be 2-50 characters",
+        },
       },
       {
         id: `question_linkedinId_${Date.now() + 4}`,
@@ -91,6 +107,10 @@ export function CustomQuestionsForm({
         label: "LinkedIn ID",
         placeholder: "Enter your LinkedIn profile URL",
         required: true,
+        validation: {
+          pattern: "^(https?:\\/\\/)?(www\\.)?linkedin\\.com\\/in\\/[a-zA-Z0-9_-]+\\/?$",
+          message: "Please enter a valid LinkedIn profile URL",
+        },
       },
       {
         id: `question_githubId_${Date.now() + 5}`,
@@ -98,6 +118,10 @@ export function CustomQuestionsForm({
         label: "GitHub ID",
         placeholder: "Enter your GitHub profile URL",
         required: true,
+        validation: {
+          pattern: "^(https?:\\/\\/)?(www\\.)?github\\.com\\/[a-zA-Z0-9_-]+\\/?$",
+          message: "Please enter a valid GitHub profile URL",
+        },
       },
       {
         id: `question_otherSocialMediaId_${Date.now() + 6}`,
@@ -105,6 +129,10 @@ export function CustomQuestionsForm({
         label: "Any other social Media ID",
         placeholder: "Enter any other social media profile URL",
         required: false,
+        validation: {
+          pattern: "^(https?:\\/\\/)?(www\\.)?[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}(\\/[a-zA-Z0-9_-]+)*\\/?$",
+          message: "Please enter a valid URL",
+        },
       },
       {
         id: `question_mobileNumber_${Date.now() + 7}`,
@@ -112,6 +140,10 @@ export function CustomQuestionsForm({
         label: "Mobile number",
         placeholder: "Enter your mobile number",
         required: true,
+        validation: {
+          pattern: "^[0-9]{10}$",
+          message: "Please enter a valid 10-digit mobile number",
+        },
       },
     ]
 
@@ -122,6 +154,10 @@ export function CustomQuestionsForm({
         label: "Name",
         placeholder: "Enter your name",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z ]{2,50}$",
+          message: "Name should be 2-50 characters and contain only letters",
+        },
       },
       {
         id: `question_email_${Date.now() + 11}`,
@@ -129,6 +165,10 @@ export function CustomQuestionsForm({
         label: "Email ID",
         placeholder: "Enter your email address",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+          message: "Please enter a valid email address",
+        },
       },
       {
         id: `question_corporateEmail_${Date.now() + 12}`,
@@ -136,6 +176,10 @@ export function CustomQuestionsForm({
         label: "Corporate Email ID",
         placeholder: "Enter your corporate email address",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+          message: "Please enter a valid corporate email address",
+        },
       },
       {
         id: `question_designation_${Date.now() + 13}`,
@@ -143,6 +187,10 @@ export function CustomQuestionsForm({
         label: "Designation",
         placeholder: "Enter your designation",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z ]{2,50}$",
+          message: "Designation should be 2-50 characters",
+        },
       },
       {
         id: `question_eventOrganizer_${Date.now() + 14}`,
@@ -150,6 +198,10 @@ export function CustomQuestionsForm({
         label: "Event Organizer",
         placeholder: "Enter the event organizer",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z ]{2,50}$",
+          message: "Event organizer name should be 2-50 characters",
+        },
       },
       {
         id: `question_isMicrosoftMVP_${Date.now() + 15}`,
@@ -163,6 +215,10 @@ export function CustomQuestionsForm({
         label: "MVP ID",
         placeholder: "Enter your MVP ID",
         required: false,
+        validation: {
+          pattern: "^[a-zA-Z0-9-]{5,20}$",
+          message: "Please enter a valid MVP ID",
+        },
       },
       {
         id: `question_mvpProfileLink_${Date.now() + 17}`,
@@ -170,6 +226,10 @@ export function CustomQuestionsForm({
         label: "MVP Profile Link",
         placeholder: "Enter your MVP profile link",
         required: false,
+        validation: {
+          pattern: "^(https?:\\/\\/)?(www\\.)?microsoft\\.com\\/.*$",
+          message: "Please enter a valid Microsoft MVP profile link",
+        },
       },
       {
         id: `question_mvpCategory_${Date.now() + 18}`,
@@ -177,6 +237,10 @@ export function CustomQuestionsForm({
         label: "MVP Category",
         placeholder: "Enter your MVP category",
         required: false,
+        validation: {
+          pattern: "^[a-zA-Z &]{2,50}$",
+          message: "MVP category should be 2-50 characters",
+        },
       },
       {
         id: `question_howManyEventsVolunteered_${Date.now() + 19}`,
@@ -196,6 +260,10 @@ export function CustomQuestionsForm({
         label: "Meetup/Event Name",
         placeholder: "Enter the meetup/event name",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z0-9 ]{2,100}$",
+          message: "Meetup/Event name should be 2-100 characters",
+        },
       },
       {
         id: `question_eventDetails_${Date.now() + 21}`,
@@ -203,6 +271,11 @@ export function CustomQuestionsForm({
         label: "Event Details",
         placeholder: "Enter the event details",
         required: true,
+        validation: {
+          minLength: 10,
+          maxLength: 500,
+          message: "Event details should be between 10-500 characters",
+        },
       },
       {
         id: `question_meetupPageDetails_${Date.now() + 22}`,
@@ -210,6 +283,10 @@ export function CustomQuestionsForm({
         label: "Meetup page details",
         placeholder: "Enter the meetup page details",
         required: true,
+        validation: {
+          pattern: "^(https?:\\/\\/)?(www\\.)?meetup\\.com\\/.*$",
+          message: "Please enter a valid Meetup page URL",
+        },
       },
       {
         id: `question_yourContribution_${Date.now() + 23}`,
@@ -231,6 +308,10 @@ export function CustomQuestionsForm({
         label: "Organizer Name/ LinkedIn ID",
         placeholder: "Enter the organizer name/ LinkedIn ID",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z ]{2,50}$|^(https?:\\/\\/)?(www\\.)?linkedin\\.com\\/in\\/[a-zA-Z0-9_-]+\\/?$",
+          message: "Please enter a valid name or LinkedIn profile URL",
+        },
       },
       {
         id: `question_linkedinId_${Date.now() + 25}`,
@@ -238,6 +319,10 @@ export function CustomQuestionsForm({
         label: "LinkedIn ID",
         placeholder: "Enter your LinkedIn profile URL",
         required: true,
+        validation: {
+          pattern: "^(https?:\\/\\/)?(www\\.)?linkedin\\.com\\/in\\/[a-zA-Z0-9_-]+\\/?$",
+          message: "Please enter a valid LinkedIn profile URL",
+        },
       },
       {
         id: `question_githubId_${Date.now() + 26}`,
@@ -245,6 +330,10 @@ export function CustomQuestionsForm({
         label: "GitHub ID",
         placeholder: "Enter your GitHub profile URL",
         required: true,
+        validation: {
+          pattern: "^(https?:\\/\\/)?(www\\.)?github\\.com\\/[a-zA-Z0-9_-]+\\/?$",
+          message: "Please enter a valid GitHub profile URL",
+        },
       },
       {
         id: `question_otherSocialMediaId_${Date.now() + 27}`,
@@ -252,6 +341,10 @@ export function CustomQuestionsForm({
         label: "Any other social Media ID",
         placeholder: "Enter any other social media profile URL",
         required: false,
+        validation: {
+          pattern: "^(https?:\\/\\/)?(www\\.)?[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}(\\/[a-zA-Z0-9_-]+)*\\/?$",
+          message: "Please enter a valid URL",
+        },
       },
       {
         id: `question_mobileNumber_${Date.now() + 28}`,
@@ -259,6 +352,10 @@ export function CustomQuestionsForm({
         label: "Mobile number",
         placeholder: "Enter your mobile number",
         required: true,
+        validation: {
+          pattern: "^[0-9]{10}$",
+          message: "Please enter a valid 10-digit mobile number",
+        },
       },
     ]
 
@@ -269,6 +366,10 @@ export function CustomQuestionsForm({
         label: "Name",
         placeholder: "Enter your name",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z ]{2,50}$",
+          message: "Name should be 2-50 characters and contain only letters",
+        },
       },
       {
         id: `question_email_${Date.now() + 31}`,
@@ -276,6 +377,10 @@ export function CustomQuestionsForm({
         label: "Email ID",
         placeholder: "Enter your email address",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+          message: "Please enter a valid email address",
+        },
       },
       {
         id: `question_corporateEmail_${Date.now() + 32}`,
@@ -283,6 +388,10 @@ export function CustomQuestionsForm({
         label: "Corporate Email ID",
         placeholder: "Enter your corporate email address",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+          message: "Please enter a valid corporate email address",
+        },
       },
       {
         id: `question_designation_${Date.now() + 33}`,
@@ -290,6 +399,10 @@ export function CustomQuestionsForm({
         label: "Designation",
         placeholder: "Enter your designation",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z ]{2,50}$",
+          message: "Designation should be 2-50 characters",
+        },
       },
       {
         id: `question_eventOrganizer_${Date.now() + 34}`,
@@ -297,6 +410,10 @@ export function CustomQuestionsForm({
         label: "Event Organizer",
         placeholder: "Enter the event organizer",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z ]{2,50}$",
+          message: "Event organizer name should be 2-50 characters",
+        },
       },
       {
         id: `question_isMicrosoftMVP_${Date.now() + 35}`,
@@ -310,6 +427,10 @@ export function CustomQuestionsForm({
         label: "MVP ID",
         placeholder: "Enter your MVP ID",
         required: false,
+        validation: {
+          pattern: "^[a-zA-Z0-9-]{5,20}$",
+          message: "Please enter a valid MVP ID",
+        },
       },
       {
         id: `question_mvpProfileLink_${Date.now() + 37}`,
@@ -317,6 +438,10 @@ export function CustomQuestionsForm({
         label: "MVP Profile Link",
         placeholder: "Enter your MVP profile link",
         required: false,
+        validation: {
+          pattern: "^(https?:\\/\\/)?(www\\.)?microsoft\\.com\\/.*$",
+          message: "Please enter a valid Microsoft MVP profile link",
+        },
       },
       {
         id: `question_mvpCategory_${Date.now() + 38}`,
@@ -324,6 +449,10 @@ export function CustomQuestionsForm({
         label: "MVP Category",
         placeholder: "Enter your MVP category",
         required: false,
+        validation: {
+          pattern: "^[a-zA-Z &]{2,50}$",
+          message: "MVP category should be 2-50 characters",
+        },
       },
       {
         id: `question_areYouRunningMeetupGroup_${Date.now() + 39}`,
@@ -337,6 +466,10 @@ export function CustomQuestionsForm({
         label: "Meetup/Event Name",
         placeholder: "Enter the meetup/event name",
         required: true,
+        validation: {
+          pattern: "^[a-zA-Z0-9 ]{2,100}$",
+          message: "Meetup/Event name should be 2-100 characters",
+        },
       },
       {
         id: `question_eventDetails_${Date.now() + 41}`,
@@ -344,6 +477,11 @@ export function CustomQuestionsForm({
         label: "Event Details",
         placeholder: "Enter the event details",
         required: true,
+        validation: {
+          minLength: 10,
+          maxLength: 500,
+          message: "Event details should be between 10-500 characters",
+        },
       },
       {
         id: `question_meetupPageDetails_${Date.now() + 42}`,
@@ -351,6 +489,10 @@ export function CustomQuestionsForm({
         label: "Meetup page details",
         placeholder: "Enter the meetup page details",
         required: true,
+        validation: {
+          pattern: "^(https?:\\/\\/)?(www\\.)?meetup\\.com\\/.*$",
+          message: "Please enter a valid Meetup page URL",
+        },
       },
       {
         id: `question_linkedinId_${Date.now() + 43}`,
@@ -358,6 +500,10 @@ export function CustomQuestionsForm({
         label: "LinkedIn ID",
         placeholder: "Enter your LinkedIn profile URL",
         required: true,
+        validation: {
+          pattern: "^(https?:\\/\\/)?(www\\.)?linkedin\\.com\\/in\\/[a-zA-Z0-9_-]+\\/?$",
+          message: "Please enter a valid LinkedIn profile URL",
+        },
       },
       {
         id: `question_githubId_${Date.now() + 44}`,
@@ -365,6 +511,10 @@ export function CustomQuestionsForm({
         label: "GitHub ID",
         placeholder: "Enter your GitHub profile URL",
         required: true,
+        validation: {
+          pattern: "^(https?:\\/\\/)?(www\\.)?github\\.com\\/[a-zA-Z0-9_-]+\\/?$",
+          message: "Please enter a valid GitHub profile URL",
+        },
       },
       {
         id: `question_otherSocialMediaId_${Date.now() + 45}`,
@@ -372,6 +522,10 @@ export function CustomQuestionsForm({
         label: "Any other social Media ID",
         placeholder: "Enter any other social media profile URL",
         required: false,
+        validation: {
+          pattern: "^(https?:\\/\\/)?(www\\.)?[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}(\\/[a-zA-Z0-9_-]+)*\\/?$",
+          message: "Please enter a valid URL",
+        },
       },
     ]
 
@@ -654,6 +808,10 @@ export function CustomQuestionsForm({
       placeholder: "",
       required: false,
       options: [],
+      validation: {
+        pattern: "",
+        message: "Please enter a valid value",
+      },
     }
 
     if (type === "attendee") {
@@ -697,74 +855,16 @@ export function CustomQuestionsForm({
     }
   }
 
-  const addOption = (type, questionId) => {
-    const newOption = {
-      id: `option_${Date.now()}`,
-      value: "",
-    }
-
+  const updateValidation = (type, questionId, field, value) => {
     if (type === "attendee") {
       const updatedQuestions = attendeeQuestions.map((q) => {
         if (q.id === questionId) {
-          return { ...q, options: [...(q.options || []), newOption] }
-        }
-        return q
-      })
-      updateQuestions("attendee", updatedQuestions)
-    } else if (type === "volunteer") {
-      const updatedQuestions = volunteerQuestions.map((q) => {
-        if (q.id === questionId) {
-          return { ...q, options: [...(q.options || []), newOption] }
-        }
-        return q
-      })
-      updateQuestions("volunteer", updatedQuestions)
-    } else if (type === "speaker") {
-      const updatedQuestions = speakerQuestions.map((q) => {
-        if (q.id === questionId) {
-          return { ...q, options: [...(q.options || []), newOption] }
-        }
-        return q
-      })
-      updateQuestions("speaker", updatedQuestions)
-    }
-  }
-
-  const removeOption = (type, questionId, optionId) => {
-    if (type === "attendee") {
-      const updatedQuestions = attendeeQuestions.map((q) => {
-        if (q.id === questionId && Array.isArray(q.options)) {
-          return { ...q, options: q.options.filter((opt) => opt.id !== optionId) }
-        }
-        return q
-      })
-      updateQuestions("attendee", updatedQuestions)
-    } else if (type === "volunteer") {
-      const updatedQuestions = volunteerQuestions.map((q) => {
-        if (q.id === questionId && Array.isArray(q.options)) {
-          return { ...q, options: q.options.filter((opt) => opt.id !== optionId) }
-        }
-        return q
-      })
-      updateQuestions("volunteer", updatedQuestions)
-    } else if (type === "speaker") {
-      const updatedQuestions = speakerQuestions.map((q) => {
-        if (q.id === questionId && Array.isArray(q.options)) {
-          return { ...q, options: q.options.filter((opt) => opt.id !== optionId) }
-        }
-        return q
-      })
-      updateQuestions("speaker", updatedQuestions)
-    }
-  }
-
-  const updateOption = (type, questionId, optionId, value) => {
-    if (type === "attendee") {
-      const updatedQuestions = attendeeQuestions.map((q) => {
-        if (q.id === questionId && Array.isArray(q.options)) {
           return {
             ...q,
-            options: q.options.map((opt) => (opt.id === optionId ? { ...opt, value } : opt)),
+            validation: {
+              ...(q.validation || {}),
+              [field]: value,
+            },
           }
         }
         return q
@@ -772,10 +872,13 @@ export function CustomQuestionsForm({
       updateQuestions("attendee", updatedQuestions)
     } else if (type === "volunteer") {
       const updatedQuestions = volunteerQuestions.map((q) => {
-        if (q.id === questionId && Array.isArray(q.options)) {
+        if (q.id === questionId) {
           return {
             ...q,
-            options: q.options.map((opt) => (opt.id === optionId ? { ...opt, value } : opt)),
+            validation: {
+              ...(q.validation || {}),
+              [field]: value,
+            },
           }
         }
         return q
@@ -783,10 +886,13 @@ export function CustomQuestionsForm({
       updateQuestions("volunteer", updatedQuestions)
     } else if (type === "speaker") {
       const updatedQuestions = speakerQuestions.map((q) => {
-        if (q.id === questionId && Array.isArray(q.options)) {
+        if (q.id === questionId) {
           return {
             ...q,
-            options: q.options.map((opt) => (opt.id === optionId ? { ...opt, value } : opt)),
+            validation: {
+              ...(q.validation || {}),
+              [field]: value,
+            },
           }
         }
         return q
@@ -797,6 +903,92 @@ export function CustomQuestionsForm({
 
   const renderQuestionFields = (question, type, index) => {
     if (!question) return null
+
+    const updateOption = (type, questionId, optionId, value) => {
+      if (type === "attendee") {
+        const updatedQuestions = attendeeQuestions.map((q) => {
+          if (q.id === questionId && Array.isArray(q.options)) {
+            const updatedOptions = q.options.map((opt) => (opt.id === optionId ? { ...opt, value } : opt))
+            return { ...q, options: updatedOptions }
+          }
+          return q
+        })
+        updateQuestions("attendee", updatedQuestions)
+      } else if (type === "volunteer") {
+        const updatedQuestions = volunteerQuestions.map((q) => {
+          if (q.id === questionId && Array.isArray(q.options)) {
+            const updatedOptions = q.options.map((opt) => (opt.id === optionId ? { ...opt, value } : opt))
+            return { ...q, options: updatedOptions }
+          }
+          return q
+        })
+        updateQuestions("volunteer", updatedQuestions)
+      } else if (type === "speaker") {
+        const updatedQuestions = speakerQuestions.map((q) => {
+          if (q.id === questionId && Array.isArray(q.options)) {
+            const updatedOptions = q.options.map((opt) => (opt.id === optionId ? { ...opt, value } : opt))
+            return { ...q, options: updatedOptions }
+          }
+          return q
+        })
+        updateQuestions("speaker", updatedQuestions)
+      }
+    }
+
+    const addOption = (type, questionId) => {
+      const newOption = {
+        id: `option_${Date.now()}`,
+        value: "",
+      }
+
+      if (type === "attendee") {
+        const updatedQuestions = attendeeQuestions.map((q) =>
+          q.id === questionId ? { ...q, options: [...(q.options || []), newOption] } : q,
+        )
+        updateQuestions("attendee", updatedQuestions)
+      } else if (type === "volunteer") {
+        const updatedQuestions = volunteerQuestions.map((q) =>
+          q.id === questionId ? { ...q, options: [...(q.options || []), newOption] } : q,
+        )
+        updateQuestions("volunteer", updatedQuestions)
+      } else if (type === "speaker") {
+        const updatedQuestions = speakerQuestions.map((q) =>
+          q.id === questionId ? { ...q, options: [...(q.options || []), newOption] } : q,
+        )
+        updateQuestions("speaker", updatedQuestions)
+      }
+    }
+
+    const removeOption = (type, questionId, optionId) => {
+      if (type === "attendee") {
+        const updatedQuestions = attendeeQuestions.map((q) => {
+          if (q.id === questionId && Array.isArray(q.options)) {
+            const updatedOptions = q.options.filter((opt) => opt.id !== optionId)
+            return { ...q, options: updatedOptions }
+          }
+          return q
+        })
+        updateQuestions("attendee", updatedQuestions)
+      } else if (type === "volunteer") {
+        const updatedQuestions = volunteerQuestions.map((q) => {
+          if (q.id === questionId && Array.isArray(q.options)) {
+            const updatedOptions = q.options.filter((opt) => opt.id !== optionId)
+            return { ...q, options: updatedOptions }
+          }
+          return q
+        })
+        updateQuestions("volunteer", updatedQuestions)
+      } else if (type === "speaker") {
+        const updatedQuestions = speakerQuestions.map((q) => {
+          if (q.id === questionId && Array.isArray(q.options)) {
+            const updatedOptions = q.options.filter((opt) => opt.id !== optionId)
+            return { ...q, options: updatedOptions }
+          }
+          return q
+        })
+        updateQuestions("speaker", updatedQuestions)
+      }
+    }
 
     return (
       <div className="space-y-2">
@@ -888,6 +1080,85 @@ export function CustomQuestionsForm({
           />
           <Label htmlFor={`${question.id}-required`}>Required</Label>
         </div>
+
+        {/* Validation fields based on question type */}
+        {["text", "email", "phone"].includes(question.type) && (
+          <div className="space-y-2 mt-4">
+            <Label>Validation</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor={`${question.id}-pattern`} className="text-xs">
+                  Pattern (RegEx)
+                </Label>
+                <Input
+                  id={`${question.id}-pattern`}
+                  value={question.validation?.pattern || ""}
+                  onChange={(e) => updateValidation(type, question.id, "pattern", e.target.value)}
+                  placeholder="RegEx pattern"
+                  className="text-xs"
+                />
+              </div>
+              <div>
+                <Label htmlFor={`${question.id}-message`} className="text-xs">
+                  Error Message
+                </Label>
+                <Input
+                  id={`${question.id}-message`}
+                  value={question.validation?.message || ""}
+                  onChange={(e) => updateValidation(type, question.id, "message", e.target.value)}
+                  placeholder="Error message"
+                  className="text-xs"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {question.type === "textarea" && (
+          <div className="space-y-2 mt-4">
+            <Label>Validation</Label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor={`${question.id}-minLength`} className="text-xs">
+                  Min Length
+                </Label>
+                <Input
+                  id={`${question.id}-minLength`}
+                  type="number"
+                  value={question.validation?.minLength || ""}
+                  onChange={(e) => updateValidation(type, question.id, "minLength", Number.parseInt(e.target.value))}
+                  placeholder="Min length"
+                  className="text-xs"
+                />
+              </div>
+              <div>
+                <Label htmlFor={`${question.id}-maxLength`} className="text-xs">
+                  Max Length
+                </Label>
+                <Input
+                  id={`${question.id}-maxLength`}
+                  type="number"
+                  value={question.validation?.maxLength || ""}
+                  onChange={(e) => updateValidation(type, question.id, "maxLength", Number.parseInt(e.target.value))}
+                  placeholder="Max length"
+                  className="text-xs"
+                />
+              </div>
+              <div>
+                <Label htmlFor={`${question.id}-message`} className="text-xs">
+                  Error Message
+                </Label>
+                <Input
+                  id={`${question.id}-message`}
+                  value={question.validation?.message || ""}
+                  onChange={(e) => updateValidation(type, question.id, "message", e.target.value)}
+                  placeholder="Error message"
+                  className="text-xs"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
