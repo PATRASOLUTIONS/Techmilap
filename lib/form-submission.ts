@@ -183,6 +183,8 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
     // Use custom subject if provided, otherwise use default
     const subject = emailSubject || `Your ${formTypeDisplay} for ${event.title || event.name} has been received`
 
+
+    console.log("date-------------------------------------------"+event.data)
     // Manually adjust event date to IST by adding 5 hours and 30 minutes
     let adjustedDate = event.date
 

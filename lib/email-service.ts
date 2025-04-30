@@ -226,6 +226,8 @@ export async function sendFormSubmissionNotification({
     // Format the form type for display
     const formTypeFormatted = formType.charAt(0).toUpperCase() + formType.slice(1)
 
+    console.log("date-------------------------------"+eventDetails.date)
+
     // Format event date if details are provided
     let formattedDate = "TBD"
     if (eventDetails) {
