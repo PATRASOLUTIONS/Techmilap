@@ -47,22 +47,24 @@ export async function GET(req: NextRequest) {
             { "registrations.user": new mongoose.Types.ObjectId(userId) },
             { "submissions.userId": new mongoose.Types.ObjectId(userId) },
           ],
-          // Filter by date based on isPastEvents flag
+          // Updated date filtering logic
           ...(isPastEvents
             ? {
                 $or: [
-                  // If there's an end date, use that for determining if it's past
-                  { endDate: { $exists: true, $lt: currentDate } },
-                  // If no end date, use the start date
+                  // Events with end date in the past
+                  { endDate: { $lt: currentDate } },
+                  // Events with no end date but start date in the past
                   { $and: [{ endDate: { $exists: false } }, { date: { $lt: currentDate } }] },
                 ],
               }
             : {
                 $or: [
-                  // If there's an end date, event is upcoming if end date is in the future
-                  { endDate: { $exists: true, $gte: currentDate } },
-                  // If no end date, use the start date
+                  // Events with end date in the future
+                  { endDate: { $gte: currentDate } },
+                  // Events with no end date but start date in the future
                   { $and: [{ endDate: { $exists: false } }, { date: { $gte: currentDate } }] },
+                  // Events with start date in the past but end date in the future
+                  { $and: [{ date: { $lt: currentDate } }, { endDate: { $gte: currentDate } }] },
                 ],
               }),
         },

@@ -1,53 +1,136 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { NextResponse, type NextRequest } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import mongoose from "mongoose"
 import { ObjectId } from "mongodb"
+import { sendRegistrationApprovalEmail } from "@/lib/email-service"
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const eventId = params.id
-    const { registrationIds } = await request.json()
+    const { db } = await connectToDatabase()
+    const { registrationIds, attendeeData } = await req.json()
 
     if (!registrationIds || !Array.isArray(registrationIds) || registrationIds.length === 0) {
-      return NextResponse.json({ error: "Invalid registration IDs" }, { status: 400 })
+      return NextResponse.json({ error: "Registration IDs are required" }, { status: 400 })
     }
 
-    // Connect to the database
-    await connectToDatabase()
+    // Get the event details for the email
+    const event = await db.collection("events").findOne({ _id: new ObjectId(params.id) })
 
-    // Get the MongoDB connection
-    const db = mongoose.connection
-
-    // Get the registrations collection
-    const registrationsCollection = db.collection("formsubmissions")
-
-    // Convert string IDs to ObjectIds
-    const objectIds = registrationIds.map((id) => new ObjectId(id))
+    if (!event) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+    }
 
     // Update all registrations to approved status
-    const result = await registrationsCollection.updateMany(
+    const updateResult = await db.collection("formsubmissions").updateMany(
       {
-        _id: { $in: objectIds },
-        eventId: eventId,
+        _id: { $in: registrationIds.map((id) => new ObjectId(id)) },
+        eventId: new ObjectId(params.id),
       },
-      { $set: { status: "approved" } },
+      {
+        $set: {
+          status: "approved",
+          updatedAt: new Date(),
+        },
+      },
     )
 
-    // Return success
+    // Send email notifications to all approved attendees
+    const emailResults = []
+    const successfulEmails = []
+    const failedEmails = []
+
+    // Get all registrations that were updated
+    const updatedRegistrations = await db
+      .collection("formsubmissions")
+      .find({
+        _id: { $in: registrationIds.map((id) => new ObjectId(id)) },
+        eventId: new ObjectId(params.id),
+      })
+      .toArray()
+
+    // Process each registration for email notification
+    for (const registration of updatedRegistrations) {
+      try {
+        // Find attendee data if provided
+        const attendee = attendeeData?.find((a) => a.id === registration._id.toString())
+
+        // Extract email and name from registration or provided attendee data
+        const formData = registration.data || {}
+
+        const email =
+          attendee?.email ||
+          formData.email ||
+          formData.corporateEmail ||
+          formData.userEmail ||
+          formData.emailAddress ||
+          formData.email_address ||
+          formData.corporate_email ||
+          formData.user_email ||
+          formData.Email ||
+          formData.CorporateEmail ||
+          formData.UserEmail ||
+          formData.EmailAddress ||
+          registration.userEmail
+
+        const name =
+          attendee?.name ||
+          formData.name ||
+          formData.fullName ||
+          formData.full_name ||
+          formData.Name ||
+          formData.FullName ||
+          ((formData.firstName || formData.first_name || formData.FirstName) &&
+          (formData.lastName || formData.last_name || formData.LastName)
+            ? `${formData.firstName || formData.first_name || formData.FirstName} ${
+                formData.lastName || formData.last_name || formData.LastName
+              }`
+            : formData.firstName || formData.first_name || formData.FirstName) ||
+          registration.userName ||
+          "Attendee"
+
+        if (email) {
+          console.log(`Sending approval email to ${name} (${email})`)
+
+          const emailSent = await sendRegistrationApprovalEmail({
+            eventName: event.title,
+            attendeeEmail: email,
+            attendeeName: name,
+            eventDetails: event,
+            eventId: params.id,
+          })
+
+          if (emailSent) {
+            successfulEmails.push(email)
+            emailResults.push({ id: registration._id.toString(), email, name, success: true })
+          } else {
+            failedEmails.push(email)
+            emailResults.push({ id: registration._id.toString(), email, name, success: false })
+          }
+        } else {
+          console.warn(`No email found for registration ${registration._id}`)
+          emailResults.push({ id: registration._id.toString(), success: false, reason: "No email address found" })
+        }
+      } catch (error) {
+        console.error(`Error sending email for registration ${registration._id}:`, error)
+        emailResults.push({
+          id: registration._id.toString(),
+          success: false,
+          reason: error instanceof Error ? error.message : "Unknown error",
+        })
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      message: `${result.modifiedCount} registrations approved successfully`,
-      modifiedCount: result.modifiedCount,
+      message: `${updateResult.modifiedCount} registrations approved`,
+      emailResults: {
+        total: emailResults.length,
+        successful: successfulEmails.length,
+        failed: failedEmails.length,
+        details: emailResults,
+      },
     })
   } catch (error) {
     console.error("Error bulk approving registrations:", error)
-    return NextResponse.json({ error: "Failed to approve registrations" }, { status: 500 })
+    return NextResponse.json({ error: "An error occurred while bulk approving registrations" }, { status: 500 })
   }
 }

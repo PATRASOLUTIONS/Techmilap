@@ -382,7 +382,12 @@ export default function EventFormPage() {
   if (isSuccess) {
     return (
       <div className="container mx-auto py-8 max-w-3xl">
-        <FormSuccessMessage title={successTitle} message={successMessage} eventId={eventIdOrSlug} formType={formType} />
+        <FormSuccessMessage
+          title={successTitle}
+          message={successMessage}
+          eventId={eventIdOrSlug}
+          formType={apiEndpoint}
+        />
       </div>
     )
   }
