@@ -656,49 +656,7 @@ export default function EventFormPage() {
           />
 
           {/* Terms and Conditions Checkbox */}
-          <div className="mt-6 border-t pt-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox id="terms" checked={termsAccepted} onCheckedChange={(checked) => setTermsAccepted(!!checked)} />
-              <label htmlFor="terms" className="text-sm text-muted-foreground">
-                I agree to the{" "}
-                <Link
-                  href="/event-terms"
-                  className="text-primary hover:underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Terms and Conditions
-                </Link>
-              </label>
-            </div>
-            {submitting && !termsAccepted && (
-              <p className="text-sm text-red-500 mt-1">You must accept the terms and conditions to continue</p>
-            )}
-          </div>
-
-          <Button
-            type="submit"
-            className="w-full mt-4"
-            disabled={submitting || !termsAccepted}
-            onClick={() => {
-              if (!termsAccepted) {
-                toast({
-                  title: "Terms and Conditions Required",
-                  description: "Please accept the terms and conditions to continue.",
-                  variant: "destructive",
-                })
-              }
-            }}
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Submitting...
-              </>
-            ) : (
-              submitText
-            )}
-          </Button>
+          
         </CardContent>
       </Card>
     </div>
