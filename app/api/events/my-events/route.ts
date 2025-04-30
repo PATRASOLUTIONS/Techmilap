@@ -47,8 +47,24 @@ export async function GET(req: NextRequest) {
             { "registrations.user": new mongoose.Types.ObjectId(userId) },
             { "submissions.userId": new mongoose.Types.ObjectId(userId) },
           ],
-          // Filter by date based on isPastEvents flag
-          ...(isPastEvents ? { date: { $lt: currentDate } } : { date: { $gte: currentDate } }),
+          // Filter by date based on isPastEvents flag - convert date strings to Date objects for proper comparison
+          ...(isPastEvents
+            ? {
+                $expr: {
+                  $lt: [
+                    { $ifNull: ["$date", new Date(0)] }, // Handle null dates
+                    currentDate,
+                  ],
+                },
+              }
+            : {
+                $expr: {
+                  $gte: [
+                    { $ifNull: ["$date", new Date(0)] }, // Handle null dates
+                    currentDate,
+                  ],
+                },
+              }),
         },
       },
       {

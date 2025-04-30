@@ -83,7 +83,11 @@ export default function MyEventsPage() {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
-        const response = await fetch(`/api/events/my-events${filterPast ? "?past=true" : ""}`, {
+        // Make sure we're passing the correct past parameter
+        const pastParam = filterPast ? "?past=true" : "?past=false"
+        console.log(`Fetching with params: ${pastParam}`)
+
+        const response = await fetch(`/api/events/my-events${pastParam}`, {
           signal: controller.signal,
           cache: "no-store", // Prevent caching issues
         })
