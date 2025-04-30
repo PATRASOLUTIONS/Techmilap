@@ -11,6 +11,7 @@ import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { FormSuccessMessage } from "@/components/ui/form-success-message"
 import { getValidationType } from "@/lib/form-validation"
+import { Checkbox } from "@/components/ui/checkbox"
 
 // Map form types to their display names and descriptions
 const formTypeConfig = {
@@ -129,6 +130,7 @@ export default function EventFormPage() {
   const [submitting, setSubmitting] = useState(false)
   const [isEventExpired, setIsEventExpired] = useState(false)
   const [isFormNotPublished, setIsFormNotPublished] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
 
   useEffect(() => {
     if (formTypeConfig[formType]) {
@@ -245,6 +247,15 @@ export default function EventFormPage() {
 
   const handleSubmit = async (data) => {
     try {
+      if (!termsAccepted) {
+        toast({
+          title: "Terms and Conditions Required",
+          description: "Please accept the terms and conditions to continue.",
+          variant: "destructive",
+        })
+        return
+      }
+
       setSubmitting(true)
 
       if (!event || !event._id) {
@@ -320,6 +331,9 @@ export default function EventFormPage() {
         cleanData.name = data.name || extractedName || session?.user?.name || ""
         cleanData.email = data.email || extractedEmail || session?.user?.email || ""
       }
+
+      // Add terms acceptance to the data
+      cleanData.termsAccepted = termsAccepted
 
       console.log("Form data prepared:", cleanData)
 
@@ -640,6 +654,51 @@ export default function EventFormPage() {
             submitButtonText={submitText}
             isSubmitting={submitting}
           />
+
+          {/* Terms and Conditions Checkbox */}
+          <div className="mt-6 border-t pt-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox id="terms" checked={termsAccepted} onCheckedChange={(checked) => setTermsAccepted(!!checked)} />
+              <label htmlFor="terms" className="text-sm text-muted-foreground">
+                I agree to the{" "}
+                <Link
+                  href="/event-terms"
+                  className="text-primary hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Terms and Conditions
+                </Link>
+              </label>
+            </div>
+            {submitting && !termsAccepted && (
+              <p className="text-sm text-red-500 mt-1">You must accept the terms and conditions to continue</p>
+            )}
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full mt-4"
+            disabled={submitting || !termsAccepted}
+            onClick={() => {
+              if (!termsAccepted) {
+                toast({
+                  title: "Terms and Conditions Required",
+                  description: "Please accept the terms and conditions to continue.",
+                  variant: "destructive",
+                })
+              }
+            }}
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              submitText
+            )}
+          </Button>
         </CardContent>
       </Card>
     </div>

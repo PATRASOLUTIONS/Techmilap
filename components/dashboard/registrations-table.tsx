@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -900,6 +900,204 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
         </CardContent>
       </Card>
     )
+  }
+
+  // Define columns based on form type
+  const formType = "attendee" // Assuming formType is always 'attendee' for this component
+  const handleViewDetails = () => {} // Placeholder for handleViewDetails
+  const handleApprove = () => {} // Placeholder for handleApprove
+  const handleReject = () => {} // Placeholder for handleReject
+
+  const ApprovalActions = () => {
+    return null
+  } // Placeholder for ApprovalActions
+
+  const baseColumns = useMemo(
+    () => [
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => {
+          const status = row.original.status as string
+          return <Badge variant={getStatusVariant(status)}>{status}</Badge>
+        },
+      },
+      {
+        accessorKey: "createdAt",
+        header: "Submitted",
+        cell: ({ row }) => {
+          return formatDate(row.original.createdAt)
+        },
+      },
+    ],
+    [],
+  )
+
+  const attendeeColumns = useMemo(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: ({ row }) => {
+          const submission = row.original as any
+          return submission.data?.name || "N/A"
+        },
+      },
+      {
+        accessorKey: "email",
+        header: "Email ID",
+        cell: ({ row }) => {
+          const submission = row.original as any
+          return submission.data?.email || "N/A"
+        },
+      },
+      {
+        accessorKey: "corporateEmail",
+        header: "Corporate Email ID",
+        cell: ({ row }) => {
+          const submission = row.original as any
+          return submission.data?.corporateEmail || "N/A"
+        },
+        meta: {
+          className: "hidden md:table-cell",
+        },
+      },
+      {
+        accessorKey: "designation",
+        header: "Designation",
+        cell: ({ row }) => {
+          const submission = row.original as any
+          return submission.data?.designation || "N/A"
+        },
+        meta: {
+          className: "hidden md:table-cell",
+        },
+      },
+      {
+        accessorKey: "linkedinId",
+        header: "LinkedIn ID",
+        cell: ({ row }) => {
+          const submission = row.original as any
+          return submission.data?.linkedinId || "N/A"
+        },
+        meta: {
+          className: "hidden md:table-cell",
+        },
+      },
+      {
+        accessorKey: "githubId",
+        header: "GitHub ID",
+        cell: ({ row }) => {
+          const submission = row.original as any
+          return submission.data?.githubId || "N/A"
+        },
+        meta: {
+          className: "hidden md:table-cell",
+        },
+      },
+      {
+        accessorKey: "socialMediaId",
+        header: "Social Media ID",
+        cell: ({ row }) => {
+          const submission = row.original as any
+          return submission.data?.socialMediaId || "N/A"
+        },
+        meta: {
+          className: "hidden md:table-cell",
+        },
+      },
+      {
+        accessorKey: "mobileNumber",
+        header: "Mobile Number",
+        cell: ({ row }) => {
+          const submission = row.original as any
+          return submission.data?.mobileNumber || "N/A"
+        },
+        meta: {
+          className: "hidden md:table-cell",
+        },
+      },
+      ...baseColumns,
+      {
+        id: "actions",
+        cell: ({ row }) => {
+          return (
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm" onClick={() => handleViewDetails()}>
+                View
+              </Button>
+              {formType === "attendee" && (
+                <ApprovalActions submission={row.original as any} onApprove={handleApprove} onReject={handleReject} />
+              )}
+            </div>
+          )
+        },
+      },
+    ],
+    [baseColumns],
+  )
+
+  // For other form types, keep the existing columns
+  const columns =
+    formType === "attendee"
+      ? attendeeColumns
+      : useMemo(
+          () => [
+            {
+              accessorKey: "name",
+              header: "Name",
+              cell: ({ row }) => {
+                const submission = row.original as any
+                return submission.data?.name || "N/A"
+              },
+            },
+            {
+              accessorKey: "email",
+              header: "Email",
+              cell: ({ row }) => {
+                const submission = row.original as any
+                return submission.data?.email || "N/A"
+              },
+            },
+            ...baseColumns,
+            {
+              id: "actions",
+              cell: ({ row }) => {
+                return (
+                  <div className="flex items-center space-x-2">
+                    <Button variant="outline" size="sm" onClick={() => handleViewDetails()}>
+                      View
+                    </Button>
+                    {formType === "attendee" && (
+                      <ApprovalActions
+                        submission={row.original as any}
+                        onApprove={handleApprove}
+                        onReject={handleReject}
+                      />
+                    )}
+                  </div>
+                )
+              },
+            },
+          ],
+          [baseColumns],
+        )
+
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case "approved":
+        return "success"
+      case "rejected":
+        return "destructive"
+      case "pending":
+      default:
+        return "outline"
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return formatDistanceToNow(date, { addSuffix: true })
   }
 
   return (
