@@ -1,7 +1,6 @@
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { sendEmail } from "@/lib/email-service"
-import { format } from "date-fns"
 
 export async function handleFormSubmission(
   eventIdOrSlug: string,
@@ -82,7 +81,9 @@ export async function handleFormSubmission(
   }
 }
 
-// Function to format date properly
+// Replace the formatEventDate function with this updated version that handles timezone correctly
+
+// Function to format date properly with timezone consideration
 function formatEventDate(date) {
   if (!date) return "TBD"
 
@@ -93,8 +94,37 @@ function formatEventDate(date) {
     // Check if valid date
     if (isNaN(dateObj.getTime())) return "TBD"
 
-    // Format the date
-    return format(dateObj, "MMMM d, yyyy h:mm a")
+    // Get the date components in UTC to avoid timezone shifts
+    const year = dateObj.getUTCFullYear()
+    const month = dateObj.getUTCMonth()
+    const day = dateObj.getUTCDate()
+    const hours = dateObj.getUTCHours()
+    const minutes = dateObj.getUTCMinutes()
+
+    // Month names for formatting
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ]
+
+    // Format time (12-hour format with AM/PM)
+    let hour12 = hours % 12
+    if (hour12 === 0) hour12 = 12
+    const ampm = hours >= 12 ? "PM" : "AM"
+    const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes
+
+    // Construct the formatted date string
+    return `${monthNames[month]} ${day}, ${year} ${hour12}:${formattedMinutes} ${ampm} UTC`
   } catch (error) {
     console.error("Error formatting date:", error)
     return String(date) || "TBD"
