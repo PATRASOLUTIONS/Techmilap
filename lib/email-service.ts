@@ -17,6 +17,75 @@
 //   })
 // }
 
+// Function to format date in Indian Standard Time (IST)
+function formatEventDate(dateInput, startTime, endTime) {
+  if (!dateInput) return "TBD"
+
+  try {
+    // Handle MongoDB date format if present
+    let dateObj
+    if (typeof dateInput === "object" && dateInput.$date) {
+      dateObj = new Date(dateInput.$date)
+    } else if (typeof dateInput === "string") {
+      dateObj = new Date(dateInput)
+    } else {
+      dateObj = dateInput
+    }
+
+    // Check if valid date
+    if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
+      return "TBD"
+    }
+
+    // Convert to Indian Standard Time (UTC+5:30)
+    const istOffsetHours = 5
+    const istOffsetMinutes = 30
+
+    // Create a new date object with IST offset
+    const istDate = new Date(dateObj.getTime() + (istOffsetHours * 60 + istOffsetMinutes) * 60 * 1000)
+
+    // Month names for formatting
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ]
+
+    // Format date components
+    const day = istDate.getUTCDate()
+    const month = monthNames[istDate.getUTCMonth()]
+    const year = istDate.getUTCFullYear()
+
+    // Format time if provided separately
+    let timeStr = ""
+    if (startTime && endTime) {
+      // Convert 24-hour format to 12-hour format with AM/PM
+      const formatTimeStr = (timeStr) => {
+        const [hours, minutes] = timeStr.split(":").map(Number)
+        const period = hours >= 12 ? "PM" : "AM"
+        const hours12 = hours % 12 || 12
+        return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`
+      }
+
+      timeStr = `, ${formatTimeStr(startTime)} - ${formatTimeStr(endTime)} IST`
+    }
+
+    return `${month} ${day}, ${year}${timeStr}`
+  } catch (error) {
+    console.error("Error formatting date:", error)
+    return String(dateInput) || "TBD"
+  }
+}
+
 // New email service using the provided API
 async function sendEmailViaAPI({ to, subject, text, html }) {
   try {
@@ -141,6 +210,7 @@ export async function sendFormSubmissionNotification({
   eventId,
   submissionId,
   emailSubject = null, // Add optional emailSubject parameter
+  eventDetails = null, // Add event details parameter
 }: {
   eventName: string
   formType: string
@@ -150,21 +220,57 @@ export async function sendFormSubmissionNotification({
   eventId: string
   submissionId: string
   emailSubject?: string // Add type for emailSubject
+  eventDetails?: any // Add type for eventDetails
 }) {
   try {
     // Format the form type for display
     const formTypeFormatted = formType.charAt(0).toUpperCase() + formType.slice(1)
 
-    // Create a summary of the submission data
+    // Format event date if details are provided
+    let formattedDate = "TBD"
+    if (eventDetails) {
+      formattedDate = formatEventDate(
+        eventDetails.date || eventDetails.startDate,
+        eventDetails.startTime,
+        eventDetails.endTime,
+      )
+    }
+
+    // Create a summary of the submission data in markdown format
     let submissionSummary = ""
     if (submissionData && typeof submissionData === "object") {
       // Extract key information for the email summary
       const keyFields = ["name", "email", "phone", "message", "interests", "availability"]
 
+      // Look for dynamic field names with patterns like question_name_123456
+      const dynamicFields = Object.keys(submissionData).filter(
+        (key) => key.startsWith("question_") && !key.includes("csrf") && submissionData[key],
+      )
+
+      // Process standard fields first
       for (const key of Object.keys(submissionData)) {
-        if (keyFields.includes(key) && submissionData[key]) {
+        if (
+          (keyFields.includes(key) || key.toLowerCase().includes("email") || key.toLowerCase().includes("name")) &&
+          submissionData[key] &&
+          !key.startsWith("question_") // Skip dynamic fields for now
+        ) {
           const value = Array.isArray(submissionData[key]) ? submissionData[key].join(", ") : submissionData[key]
           submissionSummary += `<p><strong>${key.charAt(0).toUpperCase() + key.slice(1)}:</strong> ${value}</p>`
+        }
+      }
+
+      // Process dynamic fields
+      for (const key of dynamicFields) {
+        // Extract the field name from the dynamic key (e.g., "name" from "question_name_123456")
+        const fieldNameMatch = key.match(/question_([^_]+)_/)
+        if (fieldNameMatch && fieldNameMatch[1]) {
+          const fieldName = fieldNameMatch[1]
+          const value = Array.isArray(submissionData[key]) ? submissionData[key].join(", ") : submissionData[key]
+
+          // Format field name for display (capitalize first letter)
+          const displayName = fieldName.charAt(0).toUpperCase() + fieldName.slice(1)
+
+          submissionSummary += `<p><strong>${displayName}:</strong> ${value}</p>`
         }
       }
     }
@@ -184,6 +290,10 @@ export async function sendFormSubmissionNotification({
       
       You have received a new ${formType} submission for your event "${eventName}".
       
+      Event Details:
+      - Event: ${eventName}
+      - Date: ${formattedDate}
+      
       Submission ID: ${submissionId}
       
       To view all submissions, please visit: ${viewSubmissionUrl}
@@ -196,6 +306,12 @@ export async function sendFormSubmissionNotification({
         <h2 style="color: #4f46e5;">New ${formTypeFormatted} Submission</h2>
         <p>Hello ${recipientName || "Event Organizer"},</p>
         <p>You have received a new ${formType} submission for your event <strong>"${eventName}"</strong>.</p>
+        
+        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="margin-top: 0;">Event Details</h3>
+          <p><strong>Event:</strong> ${eventName}</p>
+          <p><strong>Date:</strong> ${formattedDate}</p>
+        </div>
         
         <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <h3 style="margin-top: 0;">Submission Summary</h3>
@@ -250,9 +366,14 @@ export async function sendRegistrationApprovalEmail({
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
     const eventUrl = `${appUrl}/events/${eventId}`
 
-    const eventDate = eventDetails.startDate ? new Date(eventDetails.startDate).toLocaleDateString() : "TBD"
-    const eventTime = eventDetails.startTime || "TBD"
-    const eventLocation = eventDetails.location || "TBD"
+    // Format the event date in IST
+    const formattedDate = formatEventDate(
+      eventDetails.date || eventDetails.startDate,
+      eventDetails.startTime,
+      eventDetails.endTime,
+    )
+
+    const eventLocation = eventDetails.location || eventDetails.venue || "TBD"
     const eventDescription = eventDetails.description || "No description provided."
 
     // Use custom subject if provided, otherwise use default
@@ -264,8 +385,7 @@ export async function sendRegistrationApprovalEmail({
       Great news! Your registration for "${eventName}" has been approved.
       
       Event Details:
-      - Date: ${eventDate}
-      - Time: ${eventTime}
+      - Date: ${formattedDate}
       - Location: ${eventLocation}
       - Description: ${eventDescription}
       
@@ -285,8 +405,7 @@ export async function sendRegistrationApprovalEmail({
         
         <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <h3 style="margin-top: 0;">Event Details</h3>
-          <p><strong>Date:</strong> ${eventDate}</p>
-          <p><strong>Time:</strong> ${eventTime}</p>
+          <p><strong>Date:</strong> ${formattedDate}</p>
           <p><strong>Location:</strong> ${eventLocation}</p>
           <p><strong>Description:</strong> ${eventDescription}</p>
         </div>
@@ -320,8 +439,7 @@ export async function sendRegistrationApprovalEmail({
         
         <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <h3 style="margin-top: 0;">Event Details</h3>
-          <p><strong>Date:</strong> ${eventDate}</p>
-          <p><strong>Time:</strong> ${eventTime}</p>
+          <p><strong>Date:</strong> ${formattedDate}</p>
           <p><strong>Location:</strong> ${eventLocation}</p>
           <p><strong>Attendee:</strong> ${attendeeName} (${attendeeEmail})</p>
         </div>
@@ -351,8 +469,7 @@ export async function sendRegistrationApprovalEmail({
           
           <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <h3 style="margin-top: 0;">Event Details</h3>
-            <p><strong>Date:</strong> ${eventDate}</p>
-            <p><strong>Time:</strong> ${eventTime}</p>
+            <p><strong>Date:</strong> ${formattedDate}</p>
             <p><strong>Location:</strong> ${eventLocation}</p>
             <p><strong>Attendee:</strong> ${attendeeName} (${attendeeEmail})</p>
           </div>
