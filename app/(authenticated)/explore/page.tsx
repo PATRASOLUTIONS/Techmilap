@@ -1,13 +1,15 @@
-import { getServerSession } from "@/lib/auth"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
 import { EventList } from "@/components/events/event-list"
 import { EventEmptyState } from "@/components/events/event-empty-state"
 import { EventFilters } from "@/components/events/event-filters"
 import { connectToDatabase } from "@/lib/mongodb"
 import Event from "@/models/Event"
+import User from "@/models/User" // Import User model to ensure it's registered
 
 export default async function ExplorePage({ searchParams }: { searchParams: { category?: string; search?: string } }) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
 
     if (!session || !session.user) {
       return (
@@ -38,8 +40,21 @@ export default async function ExplorePage({ searchParams }: { searchParams: { ca
       query.$or = [{ title: { $regex: search, $options: "i" } }, { description: { $regex: search, $options: "i" } }]
     }
 
-    // Find published events
-    const events = await Event.find(query).populate("organizer", "firstName lastName email").sort({ date: 1 }).lean()
+    // Find published events - avoid using populate to prevent User model issues
+    const events = await Event.find(query).lean()
+
+    // Get organizer information separately to avoid populate issues
+    const organizerIds = events.map((event) => event.organizer).filter(Boolean)
+    const organizers = organizerIds.length > 0 ? await User.find({ _id: { $in: organizerIds } }).lean() : []
+
+    // Create a map of organizer data for quick lookup
+    const organizerMap = organizers.reduce(
+      (map, organizer) => {
+        map[organizer._id.toString()] = organizer
+        return map
+      },
+      {} as Record<string, any>,
+    )
 
     // Filter out past events
     const currentDate = new Date()
@@ -58,19 +73,24 @@ export default async function ExplorePage({ searchParams }: { searchParams: { ca
     const categories = await Event.distinct("category", { status: { $in: ["published", "active"] } })
 
     // Format events to ensure consistent structure
-    const formattedEvents = upcomingEvents.map((event) => ({
-      ...event,
-      _id: event._id.toString(),
-      id: event._id.toString(),
-      organizer: event.organizer
-        ? {
-            id: event.organizer._id?.toString(),
-            firstName: event.organizer.firstName || "Event",
-            lastName: event.organizer.lastName || "Organizer",
-            email: event.organizer.email || "",
-          }
-        : { firstName: "Event", lastName: "Organizer", email: "" },
-    }))
+    const formattedEvents = upcomingEvents.map((event) => {
+      const organizerId = event.organizer ? event.organizer.toString() : null
+      const organizer = organizerId && organizerMap[organizerId] ? organizerMap[organizerId] : null
+
+      return {
+        ...event,
+        _id: event._id.toString(),
+        id: event._id.toString(),
+        organizer: organizer
+          ? {
+              id: organizer._id.toString(),
+              firstName: organizer.firstName || "Event",
+              lastName: organizer.lastName || "Organizer",
+              email: organizer.email || "",
+            }
+          : { firstName: "Event", lastName: "Organizer", email: "" },
+      }
+    })
 
     // Store user email in client-side script for comparison
     const userEmail = session.user.email
@@ -92,7 +112,7 @@ export default async function ExplorePage({ searchParams }: { searchParams: { ca
               dangerouslySetInnerHTML={{
                 __html: `
                   if (typeof sessionStorage !== 'undefined') {
-                    sessionStorage.setItem('userEmail', '${userEmail}');
+                    sessionStorage.setItem('userEmail', '${userEmail || ""}');
                   }
                 `,
               }}
