@@ -285,7 +285,7 @@ export default function MyEventsPage() {
             href="/my-events"
             className={`${
               !filterPast ? "bg-primary text-primary-foreground" : "bg-secondary/20"
-            } px-4 py-2 rounded-md text-sm font-medium`}
+            } px-4 py-2 rounded-md text-sm font-medium transition-colors hover:bg-primary/90 hover:text-primary-foreground`}
           >
             Upcoming
           </Link>
@@ -293,7 +293,7 @@ export default function MyEventsPage() {
             href="/my-events?filter=past"
             className={`${
               filterPast ? "bg-primary text-primary-foreground" : "bg-secondary/20"
-            } px-4 py-2 rounded-md text-sm font-medium`}
+            } px-4 py-2 rounded-md text-sm font-medium transition-colors hover:bg-primary/90 hover:text-primary-foreground`}
           >
             Past
           </Link>
