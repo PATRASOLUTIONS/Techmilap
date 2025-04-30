@@ -3,28 +3,26 @@ import { connectToDatabase } from "@/lib/mongodb"
 import Event from "@/models/Event"
 import User from "@/models/User"
 
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    // Connect to the database
     await connectToDatabase()
 
-    // Get query parameters
-    const searchParams = request.nextUrl.searchParams
-    const search = searchParams.get("search") || ""
-    const category = searchParams.get("category") || ""
-    const page = Number.parseInt(searchParams.get("page") || "1", 10)
-    const limit = Number.parseInt(searchParams.get("limit") || "12", 10)
+    const searchParams = req.nextUrl.searchParams
+    const search = searchParams.get("search")
+    const category = searchParams.get("category")
+    const debug = searchParams.get("debug") === "true"
+
+    // Get pagination parameters
+    const limit = Number.parseInt(searchParams.get("limit") || "12")
+    const page = Number.parseInt(searchParams.get("page") || "1")
     const skip = (page - 1) * limit
 
-    // Build the query
-    const query: any = {
-      status: "published", // Only show published events
-      isActive: true, // Only show active events
-    }
+    // Build query
+    const query: any = {}
 
-    // Add category filter if provided
-    if (category && category !== "all") {
-      query.category = category
+    // Only show published and active events by default
+    if (!debug) {
+      query.status = { $in: ["published", "active"] }
     }
 
     // Add search filter if provided
@@ -36,99 +34,126 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    // Get the current date
-    const now = new Date()
+    // Add category filter if provided and not "all"
+    if (category && category !== "all") {
+      query.category = category
+    }
 
-    // Count total documents for pagination
-    const totalEvents = await Event.countDocuments(query)
+    console.log("Public events query:", JSON.stringify(query))
 
-    // Fetch events
+    // First, get total count for pagination
+    const total = await Event.countDocuments(query)
+
+    // Get events with pagination
     const events = await Event.find(query)
-      .sort({ date: 1 }) // Sort by date ascending
+      .sort({ date: 1 }) // Sort by date ascending (upcoming first)
       .skip(skip)
       .limit(limit)
       .lean()
 
-    // Get unique organizer IDs
-    const organizerIds = [...new Set(events.map((event) => event.organizer).filter(Boolean))]
-
-    // Fetch organizers in a single query
-    const organizers = organizerIds.length
-      ? await User.find({ _id: { $in: organizerIds } }, { name: 1, email: 1 }).lean()
-      : []
-
-    // Create a map for quick lookup
-    const organizerMap = organizers.reduce(
-      (map, user) => {
-        map[user._id.toString()] = user
-        return map
-      },
-      {} as Record<string, any>,
-    )
+    // Get the current date for comparison
+    const now = new Date()
 
     // Categorize events
     const upcomingEvents = []
     const runningEvents = []
     const pastEvents = []
 
-    for (const event of events) {
-      // Add organizer info
-      if (event.organizer) {
-        const organizerId = event.organizer.toString()
-        event.organizerInfo = organizerMap[organizerId] || null
+    // Get organizer info for each event
+    const organizerIds = events.map((event) => event.organizer).filter(Boolean)
+    const organizers =
+      organizerIds.length > 0 ? await User.find({ _id: { $in: organizerIds } }, { name: 1, email: 1 }).lean() : []
+
+    // Create a map of organizer info for quick lookup
+    const organizerMap = {}
+    organizers.forEach((org) => {
+      organizerMap[org._id.toString()] = {
+        name: org.name,
+        email: org.email,
       }
+    })
 
+    for (const event of events) {
       try {
-        const eventDate = event.date ? new Date(event.date) : null
-        const eventEndDate = event.endDate ? new Date(event.endDate) : null
+        // Add organizer info to event
+        if (event.organizer) {
+          const organizerId = event.organizer.toString()
+          event.organizerInfo = organizerMap[organizerId] || { name: "Event Organizer" }
+        }
 
-        // If no dates are provided, consider it an upcoming event
-        if (!eventDate) {
+        // Handle missing or invalid dates
+        if (!event.date) {
           upcomingEvents.push(event)
           continue
         }
 
-        // Check if the event is running (started but not ended)
-        if (eventDate <= now && (!eventEndDate || eventEndDate >= now)) {
-          runningEvents.push(event)
+        const eventDate = new Date(event.date)
+        if (isNaN(eventDate.getTime())) {
+          upcomingEvents.push(event)
           continue
         }
 
-        // Check if the event is past (ended)
-        if ((eventEndDate && eventEndDate < now) || (eventDate < now && !eventEndDate)) {
+        // Determine end date - use endDate if available, otherwise use date + 1 day
+        let eventEndDate
+        if (event.endDate) {
+          eventEndDate = new Date(event.endDate)
+          if (isNaN(eventEndDate.getTime())) {
+            eventEndDate = new Date(eventDate)
+            eventEndDate.setDate(eventEndDate.getDate() + 1)
+          }
+        } else {
+          // No end date specified, assume event ends at the end of the day
+          eventEndDate = new Date(eventDate)
+          eventEndDate.setHours(23, 59, 59, 999)
+        }
+
+        // Categorize based on date
+        if (eventDate > now) {
+          upcomingEvents.push(event)
+        } else if (eventEndDate < now) {
           pastEvents.push(event)
-          continue
+        } else {
+          runningEvents.push(event)
         }
-
-        // Otherwise, it's an upcoming event
-        upcomingEvents.push(event)
       } catch (error) {
         console.error(`Error processing event ${event._id}:`, error)
-        // If there's an error processing dates, consider it an upcoming event
         upcomingEvents.push(event)
       }
     }
 
-    // Return the response
+    // Format events for response
+    const formatEvent = (event: any) => ({
+      ...event,
+      id: event._id.toString(),
+      _id: event._id.toString(),
+      slug: event.slug || event._id.toString(),
+      attendeeCount: event.attendees?.length || 0,
+      hasAttendeeForm: event.attendeeForm?.status === "published",
+      hasVolunteerForm: event.volunteerForm?.status === "published",
+      hasSpeakerForm: event.speakerForm?.status === "published",
+      organizer: event.organizer ? event.organizer.toString() : null,
+    })
+
     return NextResponse.json({
       success: true,
-      upcomingEvents,
-      runningEvents,
-      pastEvents,
+      events: events.map(formatEvent),
+      upcomingEvents: upcomingEvents.map(formatEvent),
+      runningEvents: runningEvents.map(formatEvent),
+      pastEvents: pastEvents.map(formatEvent),
       pagination: {
-        total: totalEvents,
+        total,
         page,
         limit,
-        pages: Math.ceil(totalEvents / limit),
+        pages: Math.ceil(total / limit),
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching public events:", error)
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to fetch events",
-        details: process.env.NODE_ENV === "development" ? (error as Error).message : undefined,
+        error: error.message || "An error occurred while fetching events",
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
       },
       { status: 500 },
     )
