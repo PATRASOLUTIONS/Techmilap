@@ -104,14 +104,32 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     {} as Record<string, QuestionType[]>,
   )
 
-  // Enhanced field extraction functions
+  // Update the field extraction functions to handle dynamic field names with numeric suffixes
+
+  // Replace the existing getFieldValue function with this enhanced version
   const getFieldValue = (registration: any, fieldNames: string[], defaultValue = "N/A") => {
     if (!registration) return defaultValue
 
     // First check in data object
     if (registration.data) {
+      // Check for dynamic field names with patterns like question_fieldname_123456789
+      for (const key of Object.keys(registration.data)) {
+        for (const fieldName of fieldNames) {
+          // Check if the key matches the pattern question_fieldname_*
+          if (key.startsWith(`question_${fieldName.toLowerCase()}_`) || key.startsWith(`question_${fieldName}_`)) {
+            if (
+              registration.data[key] !== undefined &&
+              registration.data[key] !== null &&
+              registration.data[key] !== ""
+            ) {
+              return registration.data[key]
+            }
+          }
+        }
+      }
+
+      // Then check for exact match
       for (const fieldName of fieldNames) {
-        // Check for exact match
         if (
           registration.data[fieldName] !== undefined &&
           registration.data[fieldName] !== null &&
@@ -167,6 +185,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     return defaultValue
   }
 
+  // Update the getAttendeeEmail function
   const getAttendeeEmail = (registration: any) => {
     return getFieldValue(
       registration,
@@ -191,6 +210,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     )
   }
 
+  // Update the getAttendeeName function
   const getAttendeeName = (registration: any) => {
     // Try to get full name first
     const fullName = getFieldValue(
@@ -221,6 +241,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     return "Anonymous"
   }
 
+  // Update the getCorporateEmail function
   const getCorporateEmail = (registration: any) => {
     return getFieldValue(registration, [
       "corporateEmail",
@@ -244,6 +265,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     ])
   }
 
+  // Update the getDesignation function
   const getDesignation = (registration: any) => {
     return getFieldValue(registration, [
       "designation",
@@ -266,6 +288,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     ])
   }
 
+  // Update the getLinkedIn function
   const getLinkedIn = (registration: any) => {
     return getFieldValue(registration, [
       "linkedin",
@@ -289,6 +312,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     ])
   }
 
+  // Update the getGitHub function
   const getGitHub = (registration: any) => {
     return getFieldValue(registration, [
       "github",
@@ -310,22 +334,28 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     ])
   }
 
+  // Update the getOtherSocialMedia function
   const getOtherSocialMedia = (registration: any) => {
     return getFieldValue(registration, [
       "otherSocialMedia",
+      "otherSocialMediaId",
       "other_social_media",
+      "other_social_media_id",
       "socialMedia",
       "social_media",
       "twitter",
       "facebook",
       "instagram",
       "OtherSocialMedia",
+      "OtherSocialMediaId",
       "SocialMedia",
       "Twitter",
       "Facebook",
       "Instagram",
       "data.otherSocialMedia",
+      "data.otherSocialMediaId",
       "data.other_social_media",
+      "data.other_social_media_id",
       "data.socialMedia",
       "data.social_media",
       "data.twitter",
@@ -334,6 +364,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     ])
   }
 
+  // Update the getMobileNumber function
   const getMobileNumber = (registration: any) => {
     return getFieldValue(registration, [
       "mobile",
