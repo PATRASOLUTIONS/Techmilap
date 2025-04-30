@@ -208,7 +208,7 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
       
       Event Details:
       - Event: ${event.title || event.name}
-      - Date: ${formattedDate}${timeInfo}
+      - Date: 10 May 2025
       - Location: ${event.location || event.venue || "TBD"}
       
       Your submission is currently under review. We will notify you once it has been processed.
