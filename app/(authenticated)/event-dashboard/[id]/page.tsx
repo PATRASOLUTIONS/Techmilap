@@ -10,6 +10,9 @@ import { ArrowLeft, Users, Eye, Mic, HandHelping } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import ReactMarkdown from "react-markdown"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import MarkdownEditor from "@/components/markdown-editor"
 
 export default function EventDashboardPage() {
   const { id } = useParams() || {}
@@ -31,6 +34,15 @@ export default function EventDashboardPage() {
     attendee: "",
     volunteer: "",
     speaker: "",
+  })
+
+  // Add these state variables after the existing useState declarations
+  const [isEditingDetails, setIsEditingDetails] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [editFormData, setEditFormData] = useState({
+    location: "",
+    category: "",
+    description: "",
   })
 
   // In the useEffect where you fetch the event data, add code to generate the URLs
@@ -64,6 +76,13 @@ export default function EventDashboardPage() {
         }
 
         setEvent(data.event)
+
+        // Initialize edit form data
+        setEditFormData({
+          location: data.event.location || "",
+          category: data.event.category || "",
+          description: data.event.description || "",
+        })
 
         // Generate form URLs
         const baseUrl = window.location.origin
@@ -99,6 +118,17 @@ export default function EventDashboardPage() {
 
     fetchEvent()
   }, [eventId, toast])
+
+  // Add this useEffect to initialize the edit form data when the event data is loaded
+  useEffect(() => {
+    if (event) {
+      setEditFormData({
+        location: event.location || "",
+        category: event.category || "",
+        description: event.description || "",
+      })
+    }
+  }, [event])
 
   const fetchSubmissionCounts = async (eventId: string) => {
     if (!eventId) return
@@ -185,6 +215,51 @@ export default function EventDashboardPage() {
     if (!eventId) return
     // Redirect to the dedicated edit page for this event
     router.push(`/event-dashboard/${eventId}/edit`)
+  }
+
+  // Add this function to handle the form submission
+  const handleUpdateDetails = async (e) => {
+    e.preventDefault()
+    if (!eventId) return
+
+    try {
+      setIsUpdating(true)
+
+      const response = await fetch(`/api/events/${eventId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          location: editFormData.location,
+          category: editFormData.category,
+          description: editFormData.description,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update event details")
+      }
+
+      const data = await response.json()
+      setEvent(data.event)
+
+      toast({
+        title: "Event Updated",
+        description: "Your event details have been updated successfully.",
+      })
+
+      setIsEditingDetails(false)
+    } catch (error) {
+      console.error("Error updating event details:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update event details. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUpdating(false)
+    }
   }
 
   if (loading) {
@@ -324,34 +399,79 @@ export default function EventDashboardPage() {
           </div>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Event Details</CardTitle>
+              <Button variant="outline" size="sm" onClick={() => setIsEditingDetails(!isEditingDetails)}>
+                {isEditingDetails ? "Cancel" : "Edit Details"}
+              </Button>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Date & Time</h3>
-                <p className="font-medium">
-                  {eventDate} • {eventStartTime} - {eventEndTime}
-                </p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Location</h3>
-                <p className="font-medium">{eventLocation}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Type</h3>
-                <p className="font-medium">{eventType}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Category</h3>
-                <p className="font-medium">{eventCategory}</p>
-              </div>
-              <div className="md:col-span-2">
-                <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
-                <div className="font-medium mt-2 prose prose-sm max-w-none">
-                  <ReactMarkdown>{eventDescription}</ReactMarkdown>
+            <CardContent>
+              {isEditingDetails ? (
+                <form onSubmit={handleUpdateDetails} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="edit-location">Location</Label>
+                      <Input
+                        id="edit-location"
+                        value={editFormData.location || ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-category">Category</Label>
+                      <Input
+                        id="edit-category"
+                        value={editFormData.category || ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="edit-description">Description</Label>
+                      <MarkdownEditor
+                        value={editFormData.description || ""}
+                        onChange={(value) => setEditFormData({ ...editFormData, description: value })}
+                        placeholder="Event description..."
+                        minHeight="200px"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => setIsEditingDetails(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isUpdating}>
+                      {isUpdating ? "Updating..." : "Save Changes"}
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Date & Time</h3>
+                    <p className="font-medium">
+                      {eventDate} • {eventStartTime} - {eventEndTime}
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Location</h3>
+                    <p className="font-medium">{eventLocation}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Type</h3>
+                    <p className="font-medium">{eventType}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Category</h3>
+                    <p className="font-medium">{eventCategory}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
+                    <div className="font-medium mt-2 prose prose-sm max-w-none">
+                      <ReactMarkdown>{eventDescription}</ReactMarkdown>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

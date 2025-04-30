@@ -104,14 +104,14 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
         <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <h3 style="margin-top: 0;">Event Details</h3>
           <p><strong>Event:</strong> ${event.title}</p>
-          <p><strong>Date:</strong> ${new Date(event.date).toLocaleDateString()}</p>
+          <p><strong>Date:</strong> ${event.date}</p>
           <p><strong>Location:</strong> ${event.location || "TBD"}</p>
         </div>
         
         <p>Your submission is currently under review. We will notify you once it has been processed.</p>
         
         <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
-          Best regards,<br>
+          Best regards,<br />
           The Tech Milap Team
         </p>
       </div>
@@ -124,7 +124,7 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
       
       Event Details:
       - Event: ${event.title}
-      - Date: ${new Date(event.date).toLocaleDateString()}
+      - Date: ${event.date}
       - Location: ${event.location || "TBD"}
       
       Your submission is currently under review. We will notify you once it has been processed.
