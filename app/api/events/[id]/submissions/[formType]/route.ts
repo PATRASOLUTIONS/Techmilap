@@ -212,7 +212,7 @@ async function sendConfirmationEmail(event, formType, userName, userEmail, email
       <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
         <h3 style="margin-top: 0;">Event Details</h3>
         <p><strong>Event:</strong> ${event.title}</p>
-        <p><strong>Date:</strong> ${new Date(event.date).toLocaleDateString()}</p>
+        <p><strong>Date:</strong> 10 May 2025</p>
         <p><strong>Location:</strong> ${event.location || "TBD"}</p>
       </div>
       
@@ -232,7 +232,7 @@ async function sendConfirmationEmail(event, formType, userName, userEmail, email
     
     Event Details:
     - Event: ${event.title}
-    - Date: ${new Date(event.date).toLocaleDateString()}
+    - Date: 10 May 2025
     - Location: ${event.location || "TBD"}
     
     Your submission is currently under review. We will notify you once it has been processed.
