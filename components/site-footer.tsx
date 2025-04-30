@@ -45,6 +45,11 @@ export function SiteFooter() {
                 </Link>
               </li>
               <li>
+                <Link href="/event-terms" className="text-gray-600 hover:text-gray-900">
+                  Event Terms & Conditions
+                </Link>
+              </li>
+              <li>
                 <Link href="/privacy" className="text-gray-600 hover:text-gray-900">
                   Privacy Policy
                 </Link>
