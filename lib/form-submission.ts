@@ -2,6 +2,75 @@ import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { sendEmail } from "@/lib/email-service"
 
+// Function to format date in Indian Standard Time (IST)
+function formatEventDate(dateInput, startTime, endTime) {
+  if (!dateInput) return "TBD"
+
+  try {
+    // Handle MongoDB date format if present
+    let dateObj
+    if (typeof dateInput === "object" && dateInput.$date) {
+      dateObj = new Date(dateInput.$date)
+    } else if (typeof dateInput === "string") {
+      dateObj = new Date(dateInput)
+    } else {
+      dateObj = dateInput
+    }
+
+    // Check if valid date
+    if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
+      return "TBD"
+    }
+
+    // Convert to Indian Standard Time (UTC+5:30)
+    const istOffsetHours = 5
+    const istOffsetMinutes = 30
+
+    // Create a new date object with IST offset
+    const istDate = new Date(dateObj.getTime() + (istOffsetHours * 60 + istOffsetMinutes) * 60 * 1000)
+
+    // Month names for formatting
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ]
+
+    // Get date components directly from the IST date
+    const day = istDate.getDate() // Use getDate() instead of getUTCDate()
+    const month = monthNames[istDate.getMonth()] // Use getMonth() instead of getUTCMonth()
+    const year = istDate.getFullYear() // Use getFullYear() instead of getUTCFullYear()
+
+    // Format time if provided separately
+    let timeStr = ""
+    if (startTime && endTime) {
+      // Convert 24-hour format to 12-hour format with AM/PM
+      const formatTimeStr = (timeStr) => {
+        const [hours, minutes] = timeStr.split(":").map(Number)
+        const period = hours >= 12 ? "PM" : "AM"
+        const hours12 = hours % 12 || 12
+        return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`
+      }
+
+      timeStr = `, ${formatTimeStr(startTime)} - ${formatTimeStr(endTime)} IST`
+    }
+
+    return `${month} ${day}, ${year}${timeStr}`
+  } catch (error) {
+    console.error("Error formatting date:", error)
+    return String(dateInput) || "TBD"
+  }
+}
+
 export async function handleFormSubmission(
   eventIdOrSlug: string,
   formType: string,
@@ -78,75 +147,6 @@ export async function handleFormSubmission(
       success: false,
       message: error instanceof Error ? error.message : "Unknown error occurred",
     }
-  }
-}
-
-// Function to format date in Indian Standard Time (IST)
-function formatEventDate(dateInput, startTime, endTime) {
-  if (!dateInput) return "TBD"
-
-  try {
-    // Handle MongoDB date format if present
-    let dateObj
-    if (typeof dateInput === "object" && dateInput.$date) {
-      dateObj = new Date(dateInput.$date)
-    } else if (typeof dateInput === "string") {
-      dateObj = new Date(dateInput)
-    } else {
-      dateObj = dateInput
-    }
-
-    // Check if valid date
-    if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
-      return "TBD"
-    }
-
-    // Convert to Indian Standard Time (UTC+5:30)
-    const istOffsetHours = 5
-    const istOffsetMinutes = 30
-
-    // Create a new date object with IST offset
-    const istDate = new Date(dateObj.getTime() + (istOffsetHours * 60 + istOffsetMinutes) * 60 * 1000)
-
-    // Month names for formatting
-    const monthNames = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ]
-
-    // Format date components
-    const day = istDate.getUTCDate()
-    const month = monthNames[istDate.getUTCMonth()]
-    const year = istDate.getUTCFullYear()
-
-    // Format time if provided separately
-    let timeStr = ""
-    if (startTime && endTime) {
-      // Convert 24-hour format to 12-hour format with AM/PM
-      const formatTimeStr = (timeStr) => {
-        const [hours, minutes] = timeStr.split(":").map(Number)
-        const period = hours >= 12 ? "PM" : "AM"
-        const hours12 = hours % 12 || 12
-        return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`
-      }
-
-      timeStr = `, ${formatTimeStr(startTime)} - ${formatTimeStr(endTime)} IST`
-    }
-
-    return `${month} ${day}, ${year}${timeStr}`
-  } catch (error) {
-    console.error("Error formatting date:", error)
-    return String(dateInput) || "TBD"
   }
 }
 
