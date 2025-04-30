@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2, Eye, CheckCircle, XCircle, Search, X, Download, Mail, Filter, Calendar } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow, format } from "date-fns"
-import { registrationsToCSV, downloadCSV } from "@/lib/csv-export"
 import {
   Dialog,
   DialogContent,
@@ -91,6 +90,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
   const [shouldRetry, setShouldRetry] = useState(false)
   const MAX_RETRIES = 3
   const RETRY_DELAY = 5000 // 5 seconds
+  const [rawData, setRawData] = useState<any[]>([])
 
   // Group questions by type for better organization
   const questionsByType = customQuestions.reduce(
@@ -104,14 +104,56 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     {} as Record<string, QuestionType[]>,
   )
 
+  // Deep search function to find values in nested objects
+  const deepSearch = (obj: any, searchKeys: string[]): any => {
+    if (!obj || typeof obj !== "object") return null
+
+    // Direct property match
+    for (const key of searchKeys) {
+      if (obj[key] !== undefined && obj[key] !== null && obj[key] !== "") {
+        return obj[key]
+      }
+    }
+
+    // Case-insensitive match
+    for (const objKey of Object.keys(obj)) {
+      for (const searchKey of searchKeys) {
+        if (
+          objKey.toLowerCase() === searchKey.toLowerCase() &&
+          obj[objKey] !== undefined &&
+          obj[objKey] !== null &&
+          obj[objKey] !== ""
+        ) {
+          return obj[objKey]
+        }
+      }
+    }
+
+    // Search in nested objects
+    for (const key of Object.keys(obj)) {
+      if (typeof obj[key] === "object" && obj[key] !== null) {
+        const result = deepSearch(obj[key], searchKeys)
+        if (result) return result
+      }
+    }
+
+    return null
+  }
+
   // Enhanced field extraction functions
   const getFieldValue = (registration: any, fieldNames: string[], defaultValue = "N/A") => {
     if (!registration) return defaultValue
 
-    // First check in data object
+    // Try direct access first
+    for (const fieldName of fieldNames) {
+      if (registration[fieldName] !== undefined && registration[fieldName] !== null && registration[fieldName] !== "") {
+        return registration[fieldName]
+      }
+    }
+
+    // Check in data object
     if (registration.data) {
       for (const fieldName of fieldNames) {
-        // Check for exact match
         if (
           registration.data[fieldName] !== undefined &&
           registration.data[fieldName] !== null &&
@@ -119,50 +161,37 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
         ) {
           return registration.data[fieldName]
         }
+      }
+    }
 
-        // Check for case-insensitive match
-        const lowerFieldName = fieldName.toLowerCase()
-        for (const key of Object.keys(registration.data)) {
-          if (
-            key.toLowerCase() === lowerFieldName &&
-            registration.data[key] !== undefined &&
-            registration.data[key] !== null &&
-            registration.data[key] !== ""
-          ) {
-            return registration.data[key]
-          }
+    // Check in formData or answers
+    if (registration.formData) {
+      for (const fieldName of fieldNames) {
+        if (
+          registration.formData[fieldName] !== undefined &&
+          registration.formData[fieldName] !== null &&
+          registration.formData[fieldName] !== ""
+        ) {
+          return registration.formData[fieldName]
         }
       }
     }
 
-    // Then check in the registration object itself
-    for (const fieldName of fieldNames) {
-      if (registration[fieldName] !== undefined && registration[fieldName] !== null && registration[fieldName] !== "") {
-        return registration[fieldName]
-      }
-    }
-
-    // Check for nested objects
-    for (const fieldName of fieldNames) {
-      const parts = fieldName.split(".")
-      if (parts.length > 1) {
-        let obj = registration
-        let found = true
-
-        for (const part of parts) {
-          if (obj && obj[part] !== undefined) {
-            obj = obj[part]
-          } else {
-            found = false
-            break
-          }
-        }
-
-        if (found && obj !== undefined && obj !== null && obj !== "") {
-          return obj
+    if (registration.answers) {
+      for (const fieldName of fieldNames) {
+        if (
+          registration.answers[fieldName] !== undefined &&
+          registration.answers[fieldName] !== null &&
+          registration.answers[fieldName] !== ""
+        ) {
+          return registration.answers[fieldName]
         }
       }
     }
+
+    // Deep search in the entire object
+    const result = deepSearch(registration, fieldNames)
+    if (result) return result
 
     return defaultValue
   }
@@ -182,10 +211,6 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
         "EmailAddress",
         "CorporateEmail",
         "UserEmail",
-        "data.email",
-        "data.emailAddress",
-        "data.corporateEmail",
-        "data.userEmail",
       ],
       "N/A",
     )
@@ -193,26 +218,14 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
 
   const getAttendeeName = (registration: any) => {
     // Try to get full name first
-    const fullName = getFieldValue(
-      registration,
-      ["name", "fullName", "full_name", "Name", "FullName", "data.name", "data.fullName", "data.full_name", "userName"],
-      "",
-    )
+    const fullName = getFieldValue(registration, ["name", "fullName", "full_name", "Name", "FullName", "userName"], "")
 
     if (fullName) return fullName
 
     // Try to combine first and last name
-    const firstName = getFieldValue(
-      registration,
-      ["firstName", "first_name", "FirstName", "data.firstName", "data.first_name", "data.FirstName"],
-      "",
-    )
+    const firstName = getFieldValue(registration, ["firstName", "first_name", "FirstName"], "")
 
-    const lastName = getFieldValue(
-      registration,
-      ["lastName", "last_name", "LastName", "data.lastName", "data.last_name", "data.LastName"],
-      "",
-    )
+    const lastName = getFieldValue(registration, ["lastName", "last_name", "LastName"], "")
 
     if (firstName || lastName) {
       return `${firstName} ${lastName}`.trim()
@@ -235,12 +248,6 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
       "WorkEmail",
       "CompanyEmail",
       "BusinessEmail",
-      "data.corporateEmail",
-      "data.corporate_email",
-      "data.workEmail",
-      "data.work_email",
-      "data.companyEmail",
-      "data.company_email",
     ])
   }
 
@@ -257,12 +264,6 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
       "JobTitle",
       "Position",
       "Title",
-      "data.designation",
-      "data.role",
-      "data.jobTitle",
-      "data.job_title",
-      "data.position",
-      "data.title",
     ])
   }
 
@@ -279,13 +280,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
       "LinkedInId",
       "LinkedInUrl",
       "LinkedInProfile",
-      "data.linkedin",
-      "data.linkedinId",
-      "data.linkedInUrl",
-      "data.linkedin_url",
-      "data.linkedinUrl",
-      "data.linkedInProfile",
-      "data.linkedin_profile",
+      "Linkedin Id",
     ])
   }
 
@@ -301,12 +296,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
       "GitHubId",
       "GitHubUrl",
       "GitHubProfile",
-      "data.github",
-      "data.githubId",
-      "data.githubUrl",
-      "data.github_url",
-      "data.githubProfile",
-      "data.github_profile",
+      "Github Id",
     ])
   }
 
@@ -324,13 +314,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
       "Twitter",
       "Facebook",
       "Instagram",
-      "data.otherSocialMedia",
-      "data.other_social_media",
-      "data.socialMedia",
-      "data.social_media",
-      "data.twitter",
-      "data.facebook",
-      "data.instagram",
+      "Other Social Media Id",
     ])
   }
 
@@ -351,15 +335,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
       "PhoneNumber",
       "Contact",
       "ContactNumber",
-      "data.mobile",
-      "data.mobileNumber",
-      "data.mobile_number",
-      "data.phone",
-      "data.phoneNumber",
-      "data.phone_number",
-      "data.contact",
-      "data.contactNumber",
-      "data.contact_number",
+      "Mobile Number",
     ])
   }
 
@@ -371,6 +347,29 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
       console.log("Data fields:", Object.keys(registration.data))
     }
     console.log("Full registration object:", registration)
+  }
+
+  // Fetch registrations with additional details
+  const fetchRegistrationDetails = async (registrationId: string) => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/registrations/${registrationId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch registration details (Status: ${response.status})`)
+      }
+
+      const data = await response.json()
+      return data.registration
+    } catch (error) {
+      console.error(`Error fetching registration details:`, error)
+      return null
+    }
   }
 
   // Modify the useEffect that fetches registrations to include retry logic
@@ -433,33 +432,70 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
         const data = await response.json()
         console.log(`Registrations data:`, data)
 
+        // Store raw data for debugging
+        setRawData(data.registrations || [])
+
         // Debug: Log the first registration to see its structure
         if (data.registrations && data.registrations.length > 0) {
           logRegistrationStructure(data.registrations[0])
         }
 
-        // Process each registration to ensure name and email are properly set
-        const processedRegistrations =
-          data.registrations?.map((reg: any) => {
+        // Fetch detailed data for each registration if needed
+        const detailedRegistrations = await Promise.all(
+          (data.registrations || []).map(async (reg: any) => {
             // Make sure the registration has a data object
             if (!reg.data) reg.data = {}
 
-            // Extract email and name from the registration data
-            const email = getAttendeeEmail(reg)
-            const name = getAttendeeName(reg)
+            // If the registration doesn't have enough data, fetch more details
+            const hasDetailedData =
+              getCorporateEmail(reg) !== "N/A" ||
+              getDesignation(reg) !== "N/A" ||
+              getLinkedIn(reg) !== "N/A" ||
+              getGitHub(reg) !== "N/A" ||
+              getOtherSocialMedia(reg) !== "N/A" ||
+              getMobileNumber(reg) !== "N/A"
 
-            // Update the registration object with the extracted email and name
-            return {
-              ...reg,
-              userEmail: email !== "N/A" ? email : reg.userEmail,
-              userName: name !== "Anonymous" ? name : reg.userName,
-              data: {
-                ...reg.data,
-                email: email !== "N/A" ? email : reg.data.email,
-                name: name !== "Anonymous" ? name : reg.data.name,
-              },
+            if (!hasDetailedData) {
+              try {
+                const detailedReg = await fetchRegistrationDetails(reg._id)
+                if (detailedReg) {
+                  // Merge the detailed data with the existing registration
+                  return {
+                    ...reg,
+                    ...detailedReg,
+                    data: {
+                      ...reg.data,
+                      ...(detailedReg.data || {}),
+                    },
+                  }
+                }
+              } catch (error) {
+                console.error(`Error fetching details for registration ${reg._id}:`, error)
+              }
             }
-          }) || []
+
+            return reg
+          }),
+        )
+
+        // Process each registration to ensure name and email are properly set
+        const processedRegistrations = detailedRegistrations.map((reg: any) => {
+          // Extract email and name from the registration data
+          const email = getAttendeeEmail(reg)
+          const name = getAttendeeName(reg)
+
+          // Update the registration object with the extracted email and name
+          return {
+            ...reg,
+            userEmail: email !== "N/A" ? email : reg.userEmail,
+            userName: name !== "Anonymous" ? name : reg.userName,
+            data: {
+              ...reg.data,
+              email: email !== "N/A" ? email : reg.data.email,
+              name: name !== "Anonymous" ? name : reg.data.name,
+            },
+          }
+        })
 
         setRegistrations(processedRegistrations)
         setShouldRetry(false) // Reset retry flag on success
@@ -989,14 +1025,25 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
       }))
 
       // Convert to CSV string
-      const csvString = registrationsToCSV(csvData)
+      const csvString = [
+        Object.keys(csvData[0]).join(","),
+        ...csvData.map((row) =>
+          Object.values(row)
+            .map((value) => `"${value}"`)
+            .join(","),
+        ),
+      ].join("\n")
 
       // Generate filename with event ID and date
       const date = new Date().toISOString().split("T")[0]
       const filename = `event-${eventId}-attendees-${date}.csv`
 
       // Download the CSV
-      downloadCSV(csvString, filename)
+      const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" })
+      const link = document.createElement("a")
+      link.href = URL.createObjectURL(blob)
+      link.download = filename
+      link.click()
 
       toast({
         title: "Export Successful",
@@ -1454,12 +1501,12 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
                     </TableCell>
                     <TableCell>{getAttendeeName(registration)}</TableCell>
                     <TableCell>{getAttendeeEmail(registration)}</TableCell>
-                    <TableCell>{getCorporateEmail(registration) || "N/A"}</TableCell>
-                    <TableCell>{getDesignation(registration) || "N/A"}</TableCell>
-                    <TableCell>{getLinkedIn(registration) || "N/A"}</TableCell>
-                    <TableCell>{getGitHub(registration) || "N/A"}</TableCell>
-                    <TableCell>{getOtherSocialMedia(registration) || "N/A"}</TableCell>
-                    <TableCell>{getMobileNumber(registration) || "N/A"}</TableCell>
+                    <TableCell>{getCorporateEmail(registration)}</TableCell>
+                    <TableCell>{getDesignation(registration)}</TableCell>
+                    <TableCell>{getLinkedIn(registration)}</TableCell>
+                    <TableCell>{getGitHub(registration)}</TableCell>
+                    <TableCell>{getOtherSocialMedia(registration)}</TableCell>
+                    <TableCell>{getMobileNumber(registration)}</TableCell>
                     <TableCell>{formatDistanceToNow(new Date(registration.createdAt), { addSuffix: true })}</TableCell>
                     <TableCell>{getStatusBadge(registration.status)}</TableCell>
                     <TableCell className="text-right">
