@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowDown, ArrowUp, Check, Download, Eye, Mail, Search, X } from "lucide-react"
-import { format } from "date-fns"
+import { format, formatDistanceToNow } from "date-fns"
 import { toast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { objectsToCSV } from "@/lib/csv-export"
 
 type SortDirection = "asc" | "desc" | null
 type SortField = "name" | "email" | "mobileNumber" | "designation" | "createdAt" | "status" | null
@@ -35,12 +36,13 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
   const [loading, setLoading] = useState(true)
   const [selectedRegistrations, setSelectedRegistrations] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [sortField, setSortField] = useState<SortField>(null)
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null)
+  const [sortField, setSortField] = useState<SortField>("createdAt")
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
   const [emailDialogOpen, setEmailDialogOpen] = useState(false)
   const [emailSubject, setEmailSubject] = useState("")
   const [emailBody, setEmailBody] = useState("")
   const [sendingEmail, setSendingEmail] = useState(false)
+  const [bulkApproving, setBulkApproving] = useState(false)
 
   // Fetch registrations
   useEffect(() => {
@@ -52,7 +54,7 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
           throw new Error("Failed to fetch registrations")
         }
         const data = await response.json()
-        setRegistrations(data)
+        setRegistrations(data.registrations || [])
       } catch (error) {
         console.error("Error fetching registrations:", error)
         toast({
@@ -71,7 +73,7 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
   // Handle select all
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedRegistrations(filteredRegistrations.map((reg) => reg._id))
+      setSelectedRegistrations(filteredRegistrations.map((reg) => reg.id || reg._id))
     } else {
       setSelectedRegistrations([])
     }
@@ -91,6 +93,7 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
     if (selectedRegistrations.length === 0) return
 
     try {
+      setBulkApproving(true)
       const response = await fetch(`/api/events/${eventId}/registrations/bulk-approve`, {
         method: "POST",
         headers: {
@@ -106,7 +109,8 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
       // Update local state
       setRegistrations(
         registrations.map((reg) => {
-          if (selectedRegistrations.includes(reg._id)) {
+          const regId = reg.id || reg._id
+          if (selectedRegistrations.includes(regId)) {
             return { ...reg, status: "approved" }
           }
           return reg
@@ -125,6 +129,8 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
         description: "Failed to approve registrations. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setBulkApproving(false)
     }
   }
 
@@ -146,7 +152,8 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
       // Update local state
       setRegistrations(
         registrations.map((reg) => {
-          if (reg._id === id) {
+          const regId = reg.id || reg._id
+          if (regId === id) {
             return { ...reg, status }
           }
           return reg
@@ -175,33 +182,98 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
 
   // Handle CSV export
   const handleExportCSV = () => {
-    // Create CSV content
-    const headers = ["Name", "Email", "Mobile Number", "Designation", "Registration Date", "Status"]
+    try {
+      // Get all fields from the first registration to use as headers
+      const allFields = new Set<string>()
 
-    const csvContent = [
-      headers.join(","),
-      ...filteredRegistrations.map((reg) => {
-        const name = `${reg.firstName || ""} ${reg.lastName || ""}`.trim()
-        const email = reg.email || ""
-        const mobileNumber = reg.mobileNumber || reg.phoneNumber || reg.phone || ""
-        const designation = reg.designation || reg.jobTitle || reg.role || ""
-        const date = reg.createdAt ? format(new Date(reg.createdAt), "yyyy-MM-dd") : ""
-        const status = reg.status || "pending"
+      // Add standard fields first
+      const standardFields = [
+        "name",
+        "email",
+        "mobileNumber",
+        "phoneNumber",
+        "phone",
+        "designation",
+        "jobTitle",
+        "role",
+        "createdAt",
+        "status",
+      ]
+      standardFields.forEach((field) => allFields.add(field))
 
-        return [name, email, mobileNumber, designation, date, status].join(",")
-      }),
-    ].join("\n")
+      // Add all data fields
+      registrations.forEach((reg) => {
+        if (reg.data) {
+          Object.keys(reg.data).forEach((key) => allFields.add(`data.${key}`))
+        }
+      })
 
-    // Create and download the file
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `registrations-${format(new Date(), "yyyy-MM-dd")}.csv`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+      // Convert to array and sort
+      const fields = Array.from(allFields).sort()
+
+      // Format the data for CSV
+      const csvData = registrations.map((reg) => {
+        const row: Record<string, any> = {}
+
+        // Add standard fields
+        fields.forEach((field) => {
+          if (field.startsWith("data.")) {
+            // Handle nested data fields
+            const dataField = field.replace("data.", "")
+            row[field] = reg.data && reg.data[dataField] !== undefined ? reg.data[dataField] : ""
+          } else {
+            // Handle regular fields
+            row[field] = reg[field] !== undefined ? reg[field] : ""
+          }
+        })
+
+        // Format name field
+        row.name = `${reg.firstName || ""} ${reg.lastName || ""}`.trim() || reg.name || ""
+
+        // Format date
+        if (row.createdAt) {
+          row.createdAt = format(new Date(row.createdAt), "yyyy-MM-dd HH:mm:ss")
+        }
+
+        return row
+      })
+
+      // Generate CSV
+      const csv = objectsToCSV(csvData, {
+        fields: fields,
+        headers: fields.map((field) =>
+          field
+            .replace("data.", "")
+            .replace(/([A-Z])/g, " $1")
+            .replace(/_/g, " ")
+            .trim(),
+        ),
+        includeHeaders: true,
+      })
+
+      // Create and download the file
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+      const link = document.createElement("a")
+      const url = URL.createObjectURL(blob)
+      link.setAttribute("href", url)
+      link.setAttribute("download", `registrations-${format(new Date(), "yyyy-MM-dd")}.csv`)
+      link.style.visibility = "hidden"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast({
+        title: "Success",
+        description: "CSV file downloaded successfully.",
+      })
+    } catch (error) {
+      console.error("Error exporting CSV:", error)
+      toast({
+        title: "Error",
+        description: "Failed to export CSV. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   // Handle email sending
@@ -250,13 +322,8 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
   // Handle sorting
   const handleSort = (field: SortField) => {
     if (sortField === field) {
-      // Toggle direction or clear if already desc
-      if (sortDirection === "asc") {
-        setSortDirection("desc")
-      } else if (sortDirection === "desc") {
-        setSortField(null)
-        setSortDirection(null)
-      }
+      // Toggle direction
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
     } else {
       // New field, start with asc
       setSortField(field)
@@ -267,13 +334,13 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
   // Filter registrations based on search query
   const filteredRegistrations = registrations.filter((reg) => {
     const searchLower = searchQuery.toLowerCase()
-    const name = `${reg.firstName || ""} ${reg.lastName || ""}`.toLowerCase()
+    const name = `${reg.firstName || ""} ${reg.lastName || ""}`.trim() || reg.name || ""
     const email = (reg.email || "").toLowerCase()
     const phone = (reg.mobileNumber || reg.phoneNumber || reg.phone || "").toLowerCase()
     const designation = (reg.designation || reg.jobTitle || reg.role || "").toLowerCase()
 
     return (
-      name.includes(searchLower) ||
+      name.toLowerCase().includes(searchLower) ||
       email.includes(searchLower) ||
       phone.includes(searchLower) ||
       designation.includes(searchLower)
@@ -282,14 +349,16 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
 
   // Sort registrations
   const sortedRegistrations = [...filteredRegistrations].sort((a, b) => {
-    if (!sortField || !sortDirection) return 0
+    if (!sortField) return 0
 
     let valueA, valueB
 
     switch (sortField) {
       case "name":
-        valueA = `${a.firstName || ""} ${a.lastName || ""}`.toLowerCase()
-        valueB = `${b.firstName || ""} ${b.lastName || ""}`.toLowerCase()
+        valueA = `${a.firstName || ""} ${a.lastName || ""}`.trim() || a.name || ""
+        valueB = `${b.firstName || ""} ${b.lastName || ""}`.trim() || b.name || ""
+        valueA = valueA.toLowerCase()
+        valueB = valueB.toLowerCase()
         break
       case "email":
         valueA = (a.email || "").toLowerCase()
@@ -304,8 +373,8 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
         valueB = (b.designation || b.jobTitle || b.role || "").toLowerCase()
         break
       case "createdAt":
-        valueA = new Date(a.createdAt || 0).getTime()
-        valueB = new Date(b.createdAt || 0).getTime()
+        valueA = new Date(a.createdAt || a.registeredAt || 0).getTime()
+        valueB = new Date(b.createdAt || b.registeredAt || 0).getTime()
         break
       case "status":
         valueA = (a.status || "").toLowerCase()
@@ -327,6 +396,33 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
     if (sortField !== field) return null
 
     return sortDirection === "asc" ? <ArrowUp className="ml-1 h-4 w-4" /> : <ArrowDown className="ml-1 h-4 w-4" />
+  }
+
+  // Format registration time
+  const formatRegistrationTime = (timestamp: string | Date) => {
+    if (!timestamp) return "-"
+
+    const date = new Date(timestamp)
+
+    // If invalid date
+    if (isNaN(date.getTime())) return "-"
+
+    try {
+      // Show relative time if less than 24 hours ago
+      const now = new Date()
+      const diffMs = now.getTime() - date.getTime()
+      const diffHours = diffMs / (1000 * 60 * 60)
+
+      if (diffHours < 24) {
+        return formatDistanceToNow(date, { addSuffix: true })
+      }
+
+      // Otherwise show the date and time
+      return format(date, "MMM d, yyyy 'at' h:mm a")
+    } catch (error) {
+      console.error("Error formatting date:", error)
+      return "-"
+    }
   }
 
   // Render status badge
@@ -366,9 +462,15 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
                   <Mail className="mr-2 h-4 w-4" />
                   Email ({selectedRegistrations.length})
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleBulkApprove}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBulkApprove}
+                  disabled={bulkApproving}
+                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                >
                   <Check className="mr-2 h-4 w-4" />
-                  Approve ({selectedRegistrations.length})
+                  {bulkApproving ? "Processing..." : `Approve (${selectedRegistrations.length})`}
                 </Button>
               </>
             )}
@@ -445,57 +547,62 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
                   </TableCell>
                 </TableRow>
               ) : (
-                sortedRegistrations.map((registration) => (
-                  <TableRow key={registration._id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedRegistrations.includes(registration._id)}
-                        onCheckedChange={(checked) => handleSelectRegistration(registration._id, !!checked)}
-                        aria-label={`Select ${registration.firstName} ${registration.lastName}`}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {registration.firstName} {registration.lastName}
-                    </TableCell>
-                    <TableCell>{registration.email}</TableCell>
-                    <TableCell>
-                      {registration.mobileNumber || registration.phoneNumber || registration.phone || "-"}
-                    </TableCell>
-                    <TableCell>
-                      {registration.designation || registration.jobTitle || registration.role || "-"}
-                    </TableCell>
-                    <TableCell>
-                      {registration.createdAt ? format(new Date(registration.createdAt), "MMM d, yyyy") : "-"}
-                    </TableCell>
-                    <TableCell>{renderStatusBadge(registration.status || "pending")}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleViewRegistration(registration._id)}>
-                          <Eye className="h-4 w-4" />
-                          <span className="sr-only">View</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                          onClick={() => handleStatusChange(registration._id, "approved")}
-                        >
-                          <Check className="h-4 w-4" />
-                          <span className="sr-only">Approve</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleStatusChange(registration._id, "rejected")}
-                        >
-                          <X className="h-4 w-4" />
-                          <span className="sr-only">Reject</span>
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                sortedRegistrations.map((registration) => {
+                  const regId = registration.id || registration._id
+                  const name =
+                    `${registration.firstName || ""} ${registration.lastName || ""}`.trim() ||
+                    registration.name ||
+                    "Anonymous"
+                  const email = registration.email || "N/A"
+                  const phone = registration.mobileNumber || registration.phoneNumber || registration.phone || "-"
+                  const designation = registration.designation || registration.jobTitle || registration.role || "-"
+                  const timestamp = registration.createdAt || registration.registeredAt
+                  const status = registration.status || "pending"
+
+                  return (
+                    <TableRow key={regId}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedRegistrations.includes(regId)}
+                          onCheckedChange={(checked) => handleSelectRegistration(regId, !!checked)}
+                          aria-label={`Select ${name}`}
+                        />
+                      </TableCell>
+                      <TableCell>{name}</TableCell>
+                      <TableCell>{email}</TableCell>
+                      <TableCell>{phone}</TableCell>
+                      <TableCell>{designation}</TableCell>
+                      <TableCell>{formatRegistrationTime(timestamp)}</TableCell>
+                      <TableCell>{renderStatusBadge(status)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleViewRegistration(regId)}>
+                            <Eye className="h-4 w-4" />
+                            <span className="sr-only md:not-sr-only md:ml-2">View</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                            onClick={() => handleStatusChange(regId, "approved")}
+                          >
+                            <Check className="h-4 w-4" />
+                            <span className="sr-only md:not-sr-only md:ml-2">Accept</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleStatusChange(regId, "rejected")}
+                          >
+                            <X className="h-4 w-4" />
+                            <span className="sr-only md:not-sr-only md:ml-2">Reject</span>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>

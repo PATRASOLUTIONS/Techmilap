@@ -22,185 +22,203 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
   await connectToDatabase()
 
   // Try to find the event by slug first
-  let event = await Event.findOne({ slug: params.eventUrl }).populate("organizer", "firstName lastName email").lean()
+  let event = null
+  try {
+    // Try to find the event by slug first
+    event = await Event.findOne({ slug: params.eventUrl }).populate("organizer", "firstName lastName email").lean()
 
-  // If not found by slug, check if the eventUrl is a valid ObjectId and try to find by ID
-  if (!event && mongoose.Types.ObjectId.isValid(params.eventUrl)) {
-    event = await Event.findById(params.eventUrl).populate("organizer", "firstName lastName email").lean()
-  }
+    // If not found by slug, check if the eventUrl is a valid ObjectId and try to find by ID
+    if (!event && mongoose.Types.ObjectId.isValid(params.eventUrl)) {
+      event = await Event.findById(params.eventUrl).populate("organizer", "firstName lastName email").lean()
+    }
 
-  if (!event || event.status !== "published") {
-    return notFound()
-  }
+    if (!event) {
+      return notFound()
+    }
 
-  // Get attendees separately to avoid circular references
-  const attendees = await Event.findById(event._id)
-    .select("attendees")
-    .populate("attendees", "firstName lastName")
-    .lean()
+    // Get attendees separately to avoid circular references
+    const attendeesData = await Event.findById(event._id)
+      .select("attendees")
+      .populate("attendees", "firstName lastName")
+      .lean()
 
-  // Check if user is registered as an attendee
-  const isRegistered =
-    attendees?.attendees?.some(
+    // Safely access attendees array
+    const attendees = attendeesData?.attendees || []
+
+    // Check if user is registered as an attendee
+    const isRegistered = attendees.some(
       (attendee: any) =>
-        attendee._id?.toString() === session.user.id ||
+        (attendee._id && attendee._id.toString() === session.user.id) ||
         (attendee.userId && attendee.userId.toString() === session.user.id),
-    ) || false
+    )
 
-  // Check if user has submitted forms for this event
-  const userSubmissions = await FormSubmission.find({
-    eventId: event._id,
-    $or: [{ userId: session.user.id }, { userEmail: session.user.email }],
-  }).lean()
+    // Check if user has submitted forms for this event
+    const userSubmissions = await FormSubmission.find({
+      eventId: event._id,
+      $or: [{ userId: session.user.id }, { userEmail: session.user.email }],
+    }).lean()
 
-  // Determine user's role in this event
-  let userRole = "visitor"
-  if (event.organizer._id.toString() === session.user.id) {
-    userRole = "organizer"
-  } else if (isRegistered) {
-    userRole = "attendee"
-  }
-
-  // Check form submissions for other roles
-  for (const submission of userSubmissions) {
-    if (submission.formType === "speaker") {
-      userRole = "speaker"
-      break
-    } else if (submission.formType === "volunteer" && userRole !== "speaker") {
-      userRole = "volunteer"
-    } else if (submission.formType === "attendee" && userRole === "visitor") {
+    // Determine user's role in this event
+    let userRole = "visitor"
+    if (event.organizer && event.organizer._id && event.organizer._id.toString() === session.user.id) {
+      userRole = "organizer"
+    } else if (isRegistered) {
       userRole = "attendee"
     }
-  }
 
-  const isAtCapacity = (attendees?.attendees?.length || 0) >= (event.capacity || 0)
+    // Check form submissions for other roles
+    for (const submission of userSubmissions) {
+      if (submission.formType === "speaker") {
+        userRole = "speaker"
+        break
+      } else if (submission.formType === "volunteer" && userRole !== "speaker") {
+        userRole = "volunteer"
+      } else if (submission.formType === "attendee" && userRole === "visitor") {
+        userRole = "attendee"
+      }
+    }
 
-  // Check if forms are published
-  const hasAttendeeForm = true // Attendee registration is always available
-  const hasVolunteerForm = event.volunteerForm?.status === "published"
-  const hasSpeakerForm = event.speakerForm?.status === "published"
+    const isAtCapacity = attendees.length >= (event.capacity || 0)
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{event.title}</h1>
-          <p className="text-muted-foreground">
-            Organized by {event.organizer?.firstName || "Unknown"} {event.organizer?.lastName || ""}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-sm">
-            {event.category || "Uncategorized"}
-          </Badge>
-          {userRole !== "visitor" && (
-            <Badge
-              className={`
-              ${userRole === "organizer" ? "bg-primary/20 text-primary border-primary/30" : ""}
-              ${userRole === "speaker" ? "bg-secondary/20 text-secondary border-secondary/30" : ""}
-              ${userRole === "volunteer" ? "bg-amber-500/20 text-amber-600 border-amber-500/30" : ""}
-              ${userRole === "attendee" ? "bg-emerald-500/20 text-emerald-600 border-emerald-500/30" : ""}
-            `}
-            >
-              {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+    // Check if forms are published
+    const hasAttendeeForm = true // Attendee registration is always available
+    const hasVolunteerForm = event.volunteerForm?.status === "published"
+    const hasSpeakerForm = event.speakerForm?.status === "published"
+
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">{event.title}</h1>
+            <p className="text-muted-foreground">
+              Organized by {event.organizer?.firstName || "Unknown"} {event.organizer?.lastName || ""}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-sm">
+              {event.category || "Uncategorized"}
             </Badge>
-          )}
-          <EventRegisterButton
-            eventId={event._id.toString()}
-            isRegistered={isRegistered}
-            isAtCapacity={isAtCapacity}
-            hasAttendeeForm={hasAttendeeForm}
-            hasVolunteerForm={hasVolunteerForm}
-            hasSpeakerForm={hasSpeakerForm}
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-          <div className="relative aspect-video overflow-hidden rounded-lg">
-            <Image
-              src={event.image || "/community-celebration.png"}
-              alt={event.title}
-              fill
-              className="object-cover"
-              priority
+            {userRole !== "visitor" && (
+              <Badge
+                className={`
+                ${userRole === "organizer" ? "bg-primary/20 text-primary border-primary/30" : ""}
+                ${userRole === "speaker" ? "bg-secondary/20 text-secondary border-secondary/30" : ""}
+                ${userRole === "volunteer" ? "bg-amber-500/20 text-amber-600 border-amber-500/30" : ""}
+                ${userRole === "attendee" ? "bg-emerald-500/20 text-emerald-600 border-emerald-500/30" : ""}
+              `}
+              >
+                {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+              </Badge>
+            )}
+            <EventRegisterButton
+              eventId={event._id.toString()}
+              isRegistered={isRegistered}
+              isAtCapacity={isAtCapacity}
+              hasAttendeeForm={hasAttendeeForm}
+              hasVolunteerForm={hasVolunteerForm}
+              hasSpeakerForm={hasSpeakerForm}
             />
           </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>About this event</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-line">{event.description}</p>
-            </CardContent>
-          </Card>
         </div>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Event Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-start">
-                <Calendar className="h-5 w-5 mr-3 mt-0.5 text-muted-foreground" />
-                <div>
-                  <h3 className="font-medium">Date</h3>
-                  <p>{formatDate(event.date)}</p>
-                  {event.endDate && <p className="text-sm text-muted-foreground">to {formatDate(event.endDate)}</p>}
-                </div>
-              </div>
-              <div className="flex items-start">
-                <Clock className="h-5 w-5 mr-3 mt-0.5 text-muted-foreground" />
-                <div>
-                  <h3 className="font-medium">Time</h3>
-                  <p>{new Date(event.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
-                </div>
-              </div>
-              <div className="flex items-start">
-                <MapPin className="h-5 w-5 mr-3 mt-0.5 text-muted-foreground" />
-                <div>
-                  <h3 className="font-medium">Location</h3>
-                  <p>{event.location || "Online"}</p>
-                </div>
-              </div>
-              <div className="flex items-start">
-                <Users className="h-5 w-5 mr-3 mt-0.5 text-muted-foreground" />
-                <div>
-                  <h3 className="font-medium">Attendees</h3>
-                  <p>
-                    {attendees?.attendees?.length || 0} / {event.capacity || "Unlimited"}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-2 space-y-6">
+            <div className="relative aspect-video overflow-hidden rounded-lg">
+              <Image
+                src={event.image || "/community-celebration.png"}
+                alt={event.title}
+                fill
+                className="object-cover"
+                priority
+              />
+            </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Organizer</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="font-medium text-primary">
-                    {event.organizer?.firstName?.[0] || "?"}
-                    {event.organizer?.lastName?.[0] || ""}
-                  </span>
+            <Card>
+              <CardHeader>
+                <CardTitle>About this event</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="whitespace-pre-line">{event.description}</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Event Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-start">
+                  <Calendar className="h-5 w-5 mr-3 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <h3 className="font-medium">Date</h3>
+                    <p>{formatDate(event.date)}</p>
+                    {event.endDate && <p className="text-sm text-muted-foreground">to {formatDate(event.endDate)}</p>}
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium">
-                    {event.organizer?.firstName || "Unknown"} {event.organizer?.lastName || ""}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{event.organizer?.email || "No email provided"}</p>
+                <div className="flex items-start">
+                  <Clock className="h-5 w-5 mr-3 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <h3 className="font-medium">Time</h3>
+                    <p>
+                      {event.date
+                        ? new Date(event.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                        : "Not specified"}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="flex items-start">
+                  <MapPin className="h-5 w-5 mr-3 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <h3 className="font-medium">Location</h3>
+                    <p>{event.location || "Online"}</p>
+                  </div>
+                </div>
+                <div className="flex items-start">
+                  <Users className="h-5 w-5 mr-3 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <h3 className="font-medium">Attendees</h3>
+                    <p>
+                      {attendees.length || 0} / {event.capacity || "Unlimited"}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Organizer</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="font-medium text-primary">
+                      {event.organizer?.firstName?.[0] || "?"}
+                      {event.organizer?.lastName?.[0] || ""}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-medium">
+                      {event.organizer?.firstName || "Unknown"} {event.organizer?.lastName || ""}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{event.organizer?.email || "No email provided"}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
-    </div>
-  )
+    )
+  } catch (error) {
+    console.error("Error in EventDetailPage:", error)
+    return (
+      <div className="p-8 text-center">
+        <h2 className="text-2xl font-bold mb-4">Error Loading Event</h2>
+        <p>There was a problem loading this event. Please try again later.</p>
+      </div>
+    )
+  }
 }
