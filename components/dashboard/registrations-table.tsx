@@ -2,19 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowDown, ArrowUp, Check, Download, Filter, Mail, MoreHorizontal, Search, X } from "lucide-react"
+import { ArrowDown, ArrowUp, Check, Download, Eye, Mail, Search, X } from "lucide-react"
 import { format } from "date-fns"
 import { toast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
@@ -173,6 +165,12 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
         variant: "destructive",
       })
     }
+  }
+
+  // Handle view registration
+  const handleViewRegistration = (id: string) => {
+    // Open a dialog or navigate to a details page
+    router.push(`/event-dashboard/${eventId}/attendees/${id}`)
   }
 
   // Handle CSV export
@@ -471,30 +469,30 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
                     </TableCell>
                     <TableCell>{renderStatusBadge(registration.status || "pending")}</TableCell>
                     <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Open menu</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleStatusChange(registration._id, "approved")}>
-                            <Check className="mr-2 h-4 w-4" />
-                            Approve
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange(registration._id, "rejected")}>
-                            <X className="mr-2 h-4 w-4" />
-                            Reject
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange(registration._id, "waitlist")}>
-                            <Filter className="mr-2 h-4 w-4" />
-                            Move to Waitlist
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleViewRegistration(registration._id)}>
+                          <Eye className="h-4 w-4" />
+                          <span className="sr-only">View</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                          onClick={() => handleStatusChange(registration._id, "approved")}
+                        >
+                          <Check className="h-4 w-4" />
+                          <span className="sr-only">Approve</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleStatusChange(registration._id, "rejected")}
+                        >
+                          <X className="h-4 w-4" />
+                          <span className="sr-only">Reject</span>
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
