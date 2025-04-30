@@ -183,8 +183,26 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
     // Use custom subject if provided, otherwise use default
     const subject = emailSubject || `Your ${formTypeDisplay} for ${event.title || event.name} has been received`
 
+    // Manually adjust event date to IST by adding 5 hours and 30 minutes
+    let adjustedDate = event.date
+
+    if (adjustedDate) {
+      // Handle MongoDB date format
+      if (typeof adjustedDate === "object" && adjustedDate.$date) {
+        adjustedDate = new Date(adjustedDate.$date)
+      } else if (!(adjustedDate instanceof Date)) {
+        adjustedDate = new Date(adjustedDate)
+      }
+
+      // Add 5 hours and 30 minutes to convert to IST
+      if (adjustedDate instanceof Date && !isNaN(adjustedDate.getTime())) {
+        adjustedDate = new Date(adjustedDate.getTime() + (5 * 60 + 30) * 60 * 1000)
+        console.log(`Adjusted date for IST: ${adjustedDate.toISOString()}`)
+      }
+    }
+
     // Format the event date in IST
-    const formattedDate = formatEventDate(event.date, event.startTime, event.endTime)
+    const formattedDate = formatEventDate(adjustedDate, event.startTime, event.endTime)
     console.log(`Formatted date for email: ${formattedDate}`)
 
     const html = `
@@ -270,8 +288,25 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
     // Format the form type for display
     const formTypeFormatted = formType.charAt(0).toUpperCase() + formType.slice(1)
 
+    // Manually adjust event date to IST by adding 5 hours and 30 minutes
+    let adjustedDate = event.date
+
+    if (adjustedDate) {
+      // Handle MongoDB date format
+      if (typeof adjustedDate === "object" && adjustedDate.$date) {
+        adjustedDate = new Date(adjustedDate.$date)
+      } else if (!(adjustedDate instanceof Date)) {
+        adjustedDate = new Date(adjustedDate)
+      }
+
+      // Add 5 hours and 30 minutes to convert to IST
+      if (adjustedDate instanceof Date && !isNaN(adjustedDate.getTime())) {
+        adjustedDate = new Date(adjustedDate.getTime() + (5 * 60 + 30) * 60 * 1000)
+      }
+    }
+
     // Format the event date in IST
-    const formattedDate = formatEventDate(event.date, event.startTime, event.endTime)
+    const formattedDate = formatEventDate(adjustedDate, event.startTime, event.endTime)
 
     // Create a summary of the submission data in markdown format
     let submissionSummary = ""
