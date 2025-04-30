@@ -342,6 +342,30 @@ export function DynamicForm({
             )
           })}
 
+          <div className="mb-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="terms"
+                name="terms"
+                required
+                onCheckedChange={(checked) => {
+                  // You can add additional logic here if needed
+                }}
+              />
+              <label htmlFor="terms" className="text-sm">
+                I agree to the{" "}
+                <a
+                  href="/event-terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Terms and Conditions
+                </a>
+              </label>
+            </div>
+          </div>
+
           <Button type="submit" className="w-full" disabled={isSubmitting || localSubmitting}>
             {isSubmitting || localSubmitting ? (
               <>

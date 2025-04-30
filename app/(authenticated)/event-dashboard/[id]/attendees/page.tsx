@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
 import { RegistrationsTable } from "@/components/dashboard/registrations-table"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Filter } from "lucide-react"
 
 export default async function EventAttendeesPage({ params }: { params: { id: string } }) {
