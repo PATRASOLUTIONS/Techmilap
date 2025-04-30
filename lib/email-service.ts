@@ -60,10 +60,10 @@ function formatEventDate(dateInput, startTime, endTime) {
       "December",
     ]
 
-    // Format date components
-    const day = istDate.getUTCDate()
-    const month = monthNames[istDate.getUTCMonth()]
-    const year = istDate.getUTCFullYear()
+    // Get date components directly from the IST date
+    const day = istDate.getDate() // Use getDate() instead of getUTCDate()
+    const month = monthNames[istDate.getMonth()] // Use getMonth() instead of getUTCMonth()
+    const year = istDate.getFullYear() // Use getFullYear() instead of getUTCFullYear()
 
     // Format time if provided separately
     let timeStr = ""
