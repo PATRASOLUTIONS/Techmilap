@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { FormSuccessMessage } from "@/components/ui/form-success-message"
+import { getValidationType } from "@/lib/form-validation"
 
 // Map form types to their display names and descriptions
 const formTypeConfig = {
@@ -39,6 +40,65 @@ const formTypeConfig = {
     submitText: "Submit Application",
     apiEndpoint: "speaker",
   },
+}
+
+// Validation patterns
+const validationPatterns = {
+  email: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+  phone: /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/,
+  url: /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)$/,
+  linkedIn: /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+\/?$/,
+  github: /^(https?:\/\/)?(www\.)?github\.com\/[a-zA-Z0-9_-]+\/?$/,
+}
+
+// Function to enhance form fields with validation
+function enhanceFormFieldsWithValidation(fields) {
+  if (!Array.isArray(fields)) return []
+
+  return fields.map((field) => {
+    if (!field || !field.id || !field.type) return field
+
+    const enhancedField = { ...field }
+
+    // Add validation based on field type and label
+    if (field.type === "email") {
+      enhancedField.validation = {
+        pattern: validationPatterns.email,
+        message: "Please enter a valid email address",
+      }
+    } else if (
+      field.type === "phone" ||
+      field.label?.toLowerCase().includes("mobile") ||
+      field.label?.toLowerCase().includes("phone")
+    ) {
+      enhancedField.validation = {
+        pattern: validationPatterns.phone,
+        message: "Please enter a valid phone number",
+      }
+    } else if (field.label?.toLowerCase().includes("linkedin")) {
+      enhancedField.validation = {
+        pattern: validationPatterns.linkedIn,
+        message: "Please enter a valid LinkedIn profile URL",
+      }
+    } else if (field.label?.toLowerCase().includes("github")) {
+      enhancedField.validation = {
+        pattern: validationPatterns.github,
+        message: "Please enter a valid GitHub profile URL",
+      }
+    } else if (
+      field.label?.toLowerCase().includes("url") ||
+      field.label?.toLowerCase().includes("website") ||
+      field.label?.toLowerCase().includes("profile link") ||
+      field.label?.toLowerCase().includes("social media")
+    ) {
+      enhancedField.validation = {
+        pattern: validationPatterns.url,
+        message: "Please enter a valid URL",
+      }
+    }
+
+    return enhancedField
+  })
 }
 
 export default function EventFormPage() {
@@ -155,6 +215,9 @@ export default function EventFormPage() {
         // Ensure form has valid fields
         const form = formData.form || {}
         form.fields = Array.isArray(form.fields) ? form.fields : []
+
+        // Enhance fields with validation
+        form.fields = enhanceFormFieldsWithValidation(form.fields)
 
         setFormConfig(form)
       } catch (error) {
@@ -342,6 +405,125 @@ export default function EventFormPage() {
     }
   }
 
+  // Add this function inside the component before the return statement
+  const enhanceQuestionsWithValidation = (questions: any[]) => {
+    return questions.map((question) => {
+      // Determine validation type based on the question
+      const validationType = getValidationType(question)
+
+      // Add validation type to the question object
+      return {
+        ...question,
+        validationType,
+      }
+    })
+  }
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        console.log(`Fetching event data for ID/slug: ${eventIdOrSlug}`)
+
+        // Fetch event details
+        const eventResponse = await fetch(`/api/events/${eventIdOrSlug}`, {
+          headers: {
+            "x-public-request": "true",
+          },
+        })
+
+        if (!eventResponse.ok) {
+          const errorText = await eventResponse.text()
+          console.error(`Event fetch failed: ${eventResponse.status}`, errorText)
+          throw new Error(`Event not found or not available (${eventResponse.status})`)
+        }
+
+        const eventData = await eventResponse.json()
+
+        if (!eventData.event) {
+          console.error("Event data missing in response:", eventData)
+          throw new Error("Event data missing in response")
+        }
+
+        setEvent(eventData.event)
+
+        // Check if the event has expired
+        const eventEndDate = eventData.event.endDate
+          ? new Date(eventData.event.endDate)
+          : new Date(eventData.event.date)
+
+        const today = new Date()
+
+        if (eventEndDate < today) {
+          console.log("Event has expired:", eventEndDate, today)
+          setIsEventExpired(true)
+          setIsLoading(false)
+          return // Don't fetch form data if event has expired
+        }
+
+        const eventId = eventData.event._id // Use the actual MongoDB ID for form fetching
+
+        console.log(`Fetching form config for event ID: ${eventId}, form type: ${apiEndpoint}`)
+
+        // Fetch form configuration using the actual MongoDB ID
+        const formResponse = await fetch(`/api/events/${eventId}/forms/${apiEndpoint}/config`, {
+          headers: {
+            "x-public-request": "true",
+          },
+        })
+
+        if (!formResponse.ok) {
+          const errorText = await formResponse.text()
+          console.error(`Form fetch failed: ${formResponse.status}`, errorText)
+
+          if (formResponse.status === 404) {
+            throw new Error("form_not_published")
+          } else {
+            throw new Error(`Form not available (${formResponse.status})`)
+          }
+        }
+
+        const formData = await formResponse.json()
+
+        // Ensure form has valid fields
+        const form = formData.form || {}
+        form.fields = Array.isArray(form.fields) ? form.fields : []
+
+        // Enhance fields with validation
+        form.fields = enhanceFormFieldsWithValidation(form.fields)
+
+        // Enhance questions with validation
+        const enhancedQuestions = enhanceQuestionsWithValidation(formData.form.fields || [])
+
+        setFormConfig({
+          ...formData.form,
+          fields: enhancedQuestions,
+        })
+      } catch (error) {
+        console.error("Error fetching data:", error)
+
+        if (error.message === "form_not_published") {
+          setIsFormNotPublished(true)
+        } else {
+          setError(error.message || `Failed to load ${formType} form`)
+          toast({
+            title: "Error",
+            description: error.message || `Failed to load ${formType} form`,
+            variant: "destructive",
+          })
+        }
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    if (eventIdOrSlug && apiEndpoint) {
+      fetchData()
+    }
+  }, [eventIdOrSlug, apiEndpoint, formType, toast])
+
   if (!isValidFormType) {
     return (
       <div className="container mx-auto py-8 max-w-3xl">
@@ -349,7 +531,7 @@ export default function EventFormPage() {
           <h2 className="text-xl font-bold text-red-700 mb-2">Invalid Form Type</h2>
           <p className="text-red-600 mb-4">The requested form type is not valid.</p>
           <Button asChild variant="outline">
-            <Link href={`/events/details/${eventIdOrSlug}`}>Back to Event</Link>
+            <Link href={`/events/${eventIdOrSlug}`}>Back to Event</Link>
           </Button>
         </div>
       </div>

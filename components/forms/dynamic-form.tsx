@@ -17,6 +17,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { CalendarIcon, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { validateField, getValidationType } from "@/lib/form-validation"
 
 interface DynamicFormProps {
   formFields: any[]
@@ -39,6 +40,7 @@ export function DynamicForm({
 }: DynamicFormProps) {
   const [localSubmitting, setLocalSubmitting] = useState(false)
   const { toast } = useToast()
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
   // Ensure formFields is always an array
   const safeFormFields = Array.isArray(formFields) ? formFields : []
@@ -61,6 +63,36 @@ export function DynamicForm({
         fieldSchema = z.boolean().optional()
       } else if (field.type === "date") {
         fieldSchema = z.date().optional()
+      } else if (
+        field.type === "phone" ||
+        field.label?.toLowerCase().includes("phone") ||
+        field.label?.toLowerCase().includes("mobile")
+      ) {
+        fieldSchema = z
+          .string()
+          .regex(
+            /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/,
+            `${field.label} must be a valid phone number`,
+          )
+      } else if (field.label?.toLowerCase().includes("linkedin")) {
+        fieldSchema = z
+          .string()
+          .regex(
+            /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+\/?$/,
+            `${field.label} must be a valid LinkedIn profile URL`,
+          )
+      } else if (field.label?.toLowerCase().includes("github")) {
+        fieldSchema = z
+          .string()
+          .regex(
+            /^(https?:\/\/)?(www\.)?github\.com\/[a-zA-Z0-9_-]+\/?$/,
+            `${field.label} must be a valid GitHub profile URL`,
+          )
+      } else if (field.validation?.pattern) {
+        // Use custom validation pattern if provided
+        fieldSchema = z
+          .string()
+          .regex(field.validation.pattern, field.validation.message || `${field.label} is invalid`)
       }
 
       if (field.required && field.type !== "checkbox" && field.type !== "date") {
@@ -91,10 +123,34 @@ export function DynamicForm({
     },
   })
 
+  const validateForm = () => {
+    const errors: Record<string, string> = {}
+
+    safeFormFields.forEach((question) => {
+      const value = form.getValues(question.id) || ""
+      const validationType = getValidationType(question)
+      const error = validateField(validationType, value, question.required)
+
+      if (error) {
+        errors[question.id] = error
+      }
+    })
+
+    setValidationErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   const handleSubmit = async (values: any) => {
     try {
       setLocalSubmitting(true)
       console.log("Form submitted with values:", values)
+
+      // Validate the form
+      const isValid = validateForm()
+      if (!isValid) {
+        setLocalSubmitting(false)
+        return
+      }
 
       // Clean the data to ensure no undefined values
       const cleanData = {}
@@ -120,6 +176,132 @@ export function DynamicForm({
       })
     } finally {
       setLocalSubmitting(false)
+    }
+  }
+
+  const handleBlur = (questionId: string) => {
+    const question = safeFormFields.find((q) => q.id === questionId)
+    if (!question) return
+
+    const value = form.getValues(questionId) || ""
+    const validationType = getValidationType(question)
+    const error = validateField(validationType, value, question.required)
+
+    setValidationErrors((prev) => ({
+      ...prev,
+      [questionId]: error || "",
+    }))
+  }
+
+  const renderFormControl = (field: any, formField: any) => {
+    const error = validationErrors[field.id]
+
+    switch (field.type) {
+      case "text":
+      case "email":
+      case "password":
+      case "phone":
+        return (
+          <Input
+            type={field.type}
+            placeholder={field.placeholder}
+            {...formField}
+            onBlur={() => handleBlur(field.id)}
+            className={error ? "border-red-500" : ""}
+          />
+        )
+      case "textarea":
+        return (
+          <Textarea
+            placeholder={field.placeholder}
+            {...formField}
+            onBlur={() => handleBlur(field.id)}
+            className={error ? "border-red-500" : ""}
+          />
+        )
+      case "select":
+        return (
+          <Select
+            onValueChange={(value) => {
+              formField.onChange(value)
+              handleBlur(field.id)
+            }}
+            defaultValue={formField.value}
+          >
+            <FormControl>
+              <SelectTrigger className={error ? "border-red-500" : ""}>
+                <SelectValue placeholder={field.placeholder} />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              {field.options.map((option: any) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )
+      case "checkbox":
+        return (
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              checked={formField.value}
+              onCheckedChange={(checked) => {
+                formField.onChange(checked)
+                handleBlur(field.id)
+              }}
+              id={field.id}
+              className={error ? "border-red-500" : ""}
+            />
+            <label htmlFor={field.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
+              {field.label}
+            </label>
+          </div>
+        )
+      case "radio":
+        return (
+          <RadioGroup onValueChange={formField.onChange} defaultValue={formField.value}>
+            <div className="flex flex-col space-y-1">
+              {field.options.map((option: any) => (
+                <FormItem key={option.value} className="flex items-center space-x-2">
+                  <FormControl>
+                    <RadioGroupItem value={option.value} id={option.value} />
+                  </FormControl>
+                  <FormLabel htmlFor={option.value}>{option.label}</FormLabel>
+                </FormItem>
+              ))}
+            </div>
+          </RadioGroup>
+        )
+      case "date":
+        return (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-[240px] justify-start text-left font-normal",
+                  !formField.value && "text-muted-foreground",
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {formField.value ? format(formField.value, "PPP") : <span>Pick a date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={formField.value}
+                onSelect={formField.onChange}
+                disabled={(date) => date > new Date()}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        )
+      default:
+        return null
     }
   }
 
@@ -152,6 +334,7 @@ export function DynamicForm({
                       </FormLabel>
                     )}
                     <FormControl>{renderFormControl(field, formField)}</FormControl>
+                    {validationErrors[field.id] && <p className="text-sm text-red-500">{validationErrors[field.id]}</p>}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -173,135 +356,4 @@ export function DynamicForm({
       </Form>
     </div>
   )
-
-  // Helper function to render the appropriate form control based on field type
-  function renderFormControl(field: any, formField: any) {
-    // Safety check for field
-    if (!field || !field.type) {
-      return <Input {...formField} disabled placeholder="Invalid field configuration" />
-    }
-
-    switch (field.type) {
-      case "textarea":
-        return (
-          <Textarea
-            placeholder={field.placeholder || `Enter ${field.label?.toLowerCase() || "information"}`}
-            {...formField}
-            className="min-h-[100px]"
-            value={formField.value || ""}
-          />
-        )
-
-      case "select":
-        return (
-          <Select onValueChange={formField.onChange} defaultValue={formField.value}>
-            <SelectTrigger>
-              <SelectValue placeholder={field.placeholder || `Select ${field.label?.toLowerCase() || "option"}`} />
-            </SelectTrigger>
-            <SelectContent>
-              {(field.options || []).map((option: any) => {
-                // Safety check for option
-                if (!option) return null
-                const optionId = option.id || option.value || String(Math.random())
-                const optionValue = option.value || ""
-
-                return (
-                  <SelectItem key={optionId} value={optionValue}>
-                    {optionValue}
-                  </SelectItem>
-                )
-              })}
-            </SelectContent>
-          </Select>
-        )
-
-      case "radio":
-        return (
-          <RadioGroup
-            onValueChange={formField.onChange}
-            defaultValue={formField.value}
-            className="flex flex-col space-y-1"
-            value={formField.value || ""}
-          >
-            {(field.options || []).map((option: any) => {
-              // Safety check for option
-              if (!option) return null
-              const optionId = option.id || option.value || String(Math.random())
-              const optionValue = option.value || ""
-
-              return (
-                <div key={optionId} className="flex items-center space-x-2">
-                  <RadioGroupItem value={optionValue} id={`${field.id}-${optionId}`} />
-                  <label htmlFor={`${field.id}-${optionId}`}>{optionValue}</label>
-                </div>
-              )
-            })}
-          </RadioGroup>
-        )
-
-      case "checkbox":
-        return (
-          <div className="flex items-center space-x-2">
-            <Checkbox id={field.id} checked={formField.value || false} onCheckedChange={formField.onChange} />
-            <label
-              htmlFor={field.id}
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              {field.label || ""}
-              {field.required && <span className="text-destructive ml-1">*</span>}
-            </label>
-          </div>
-        )
-
-      case "date":
-        return (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !formField.value && "text-muted-foreground",
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {formField.value ? format(formField.value, "PPP") : field.placeholder || "Select a date"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={formField.value} onSelect={formField.onChange} initialFocus />
-            </PopoverContent>
-          </Popover>
-        )
-
-      case "email":
-        return (
-          <Input
-            type="email"
-            placeholder={field.placeholder || `Enter ${field.label?.toLowerCase() || "email"}`}
-            {...formField}
-            value={formField.value || ""}
-          />
-        )
-
-      case "phone":
-        return (
-          <Input
-            type="tel"
-            placeholder={field.placeholder || "Enter phone number"}
-            {...formField}
-            value={formField.value || ""}
-          />
-        )
-
-      default:
-        return (
-          <Input
-            placeholder={field.placeholder || `Enter ${field.label?.toLowerCase() || "information"}`}
-            {...formField}
-            value={formField.value || ""}
-          />
-        )
-    }
-  }
 }
