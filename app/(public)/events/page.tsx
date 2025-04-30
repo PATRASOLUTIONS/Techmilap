@@ -1,3 +1,5 @@
+"use client"
+
 import { Suspense } from "react"
 import { PublicEventList } from "@/components/events/public-event-list"
 import { Search, Filter, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
@@ -13,7 +15,7 @@ async function getPublicEvents(searchParams?: { search?: string; category?: stri
   try {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 
-    // Use the new API endpoint
+    // Use the API endpoint
     let url = `${baseUrl}/api/public-events`
 
     // Add query parameters if provided
@@ -136,7 +138,14 @@ export default async function PublicEventsPage({
             <form className="flex-1 min-w-[150px]" action="/events">
               {/* Preserve search param if it exists */}
               {searchParams?.search && <input type="hidden" name="search" value={searchParams.search} />}
-              <Select name="category" defaultValue={searchParams?.category || "all"}>
+              <Select
+                name="category"
+                defaultValue={searchParams?.category || "all"}
+                onValueChange={(value) => {
+                  const form = document.querySelector("form") as HTMLFormElement
+                  if (form) form.submit()
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Filter by category" />
                 </SelectTrigger>

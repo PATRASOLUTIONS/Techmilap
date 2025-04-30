@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import Event from "@/models/Event"
-import User from "@/models/User"
+import mongoose from "mongoose"
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,8 +18,7 @@ export async function GET(request: NextRequest) {
 
     // Build the query
     const query: any = {
-      status: "published", // Only show published events
-      isActive: true, // Only show active events
+      status: { $in: ["published", "active"] }, // Only show published or active events
     }
 
     // Add category filter if provided
@@ -49,12 +48,17 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .lean()
 
+    console.log(`Found ${events.length} events matching the query`)
+
     // Get unique organizer IDs
     const organizerIds = [...new Set(events.map((event) => event.organizer).filter(Boolean))]
 
     // Fetch organizers in a single query
     const organizers = organizerIds.length
-      ? await User.find({ _id: { $in: organizerIds } }, { name: 1, email: 1 }).lean()
+      ? await mongoose
+          .model("User")
+          .find({ _id: { $in: organizerIds } }, { name: 1, email: 1 })
+          .lean()
       : []
 
     // Create a map for quick lookup
@@ -78,40 +82,63 @@ export async function GET(request: NextRequest) {
         event.organizerInfo = organizerMap[organizerId] || null
       }
 
+      // Format the event for response
+      const formattedEvent = {
+        ...event,
+        id: event._id.toString(),
+        _id: event._id.toString(),
+        slug: event.slug || event._id.toString(),
+        attendeeCount: event.attendees?.length || 0,
+        hasAttendeeForm: event.attendeeForm?.status === "published",
+        hasVolunteerForm: event.volunteerForm?.status === "published",
+        hasSpeakerForm: event.speakerForm?.status === "published",
+        organizer: event.organizer ? event.organizer.toString() : null,
+      }
+
       try {
         const eventDate = event.date ? new Date(event.date) : null
         const eventEndDate = event.endDate ? new Date(event.endDate) : null
 
         // If no dates are provided, consider it an upcoming event
         if (!eventDate) {
-          upcomingEvents.push(event)
+          upcomingEvents.push(formattedEvent)
           continue
         }
 
         // Check if the event is running (started but not ended)
         if (eventDate <= now && (!eventEndDate || eventEndDate >= now)) {
-          runningEvents.push(event)
+          runningEvents.push(formattedEvent)
           continue
         }
 
         // Check if the event is past (ended)
         if ((eventEndDate && eventEndDate < now) || (eventDate < now && !eventEndDate)) {
-          pastEvents.push(event)
+          pastEvents.push(formattedEvent)
           continue
         }
 
         // Otherwise, it's an upcoming event
-        upcomingEvents.push(event)
+        upcomingEvents.push(formattedEvent)
       } catch (error) {
         console.error(`Error processing event ${event._id}:`, error)
         // If there's an error processing dates, consider it an upcoming event
-        upcomingEvents.push(event)
+        upcomingEvents.push(formattedEvent)
       }
     }
+
+    console.log(
+      `Categorized: ${upcomingEvents.length} upcoming, ${runningEvents.length} running, ${pastEvents.length} past`,
+    )
 
     // Return the response
     return NextResponse.json({
       success: true,
+      events: events.map((e) => ({
+        ...e,
+        id: e._id.toString(),
+        _id: e._id.toString(),
+        slug: e.slug || e._id.toString(),
+      })),
       upcomingEvents,
       runningEvents,
       pastEvents,

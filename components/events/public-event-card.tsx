@@ -7,6 +7,7 @@ import Image from "next/image"
 
 interface Event {
   _id: string
+  id?: string
   slug?: string
   title: string
   description?: string
@@ -41,16 +42,17 @@ export function PublicEventCard({ event }: { event: Event }) {
     console.error(`Error formatting date for event ${event._id}:`, error)
   }
 
-  const eventId = event.slug || event._id
+  const eventId = event.slug || event.id || event._id
 
   return (
     <Link href={`/events/${eventId}`} className="group">
       <Card className="overflow-hidden border-none shadow-md transition-all duration-200 hover:shadow-lg h-full">
         <div className="relative aspect-video overflow-hidden">
           <Image
-            src={event.image || "/placeholder.svg?height=400&width=600&query=tech+event"}
+            src={event.image || `/placeholder.svg?height=400&width=600&query=tech+event+${event.category || ""}`}
             alt={event.title}
-            fill
+            width={600}
+            height={400}
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
           {event.category && (
