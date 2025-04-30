@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2, Eye, CheckCircle, XCircle, Search, X, Download, Mail, Filter, Calendar } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow, format } from "date-fns"
+import { registrationsToCSV, downloadCSV } from "@/lib/csv-export"
 import {
   Dialog,
   DialogContent,
@@ -103,59 +104,273 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     {} as Record<string, QuestionType[]>,
   )
 
-  // Inside the RegistrationsTable component, add this helper function
-  const getAttendeeEmail = (registration: any) => {
-    if (!registration) return "N/A"
+  // Enhanced field extraction functions
+  const getFieldValue = (registration: any, fieldNames: string[], defaultValue = "N/A") => {
+    if (!registration) return defaultValue
 
-    // First check the data object for email fields
+    // First check in data object
     if (registration.data) {
-      const data = registration.data
-      return (
-        data.email ||
-        data.corporateEmail ||
-        data.userEmail ||
-        data.emailAddress ||
-        data.email_address ||
-        data.corporate_email ||
-        data.user_email ||
-        data.Email ||
-        data.CorporateEmail ||
-        data.UserEmail ||
-        data.EmailAddress ||
-        ""
-      )
-    }
+      for (const fieldName of fieldNames) {
+        // Check for exact match
+        if (
+          registration.data[fieldName] !== undefined &&
+          registration.data[fieldName] !== null &&
+          registration.data[fieldName] !== ""
+        ) {
+          return registration.data[fieldName]
+        }
 
-    // Then check the registration object itself
-    return registration.userEmail || registration.email || "N/A"
-  }
-
-  const getAttendeeName = (registration: any) => {
-    if (!registration) return "Anonymous"
-
-    // First check the data object for name fields
-    if (registration.data) {
-      const data = registration.data
-
-      // Check for full name fields
-      if (data.name) return data.name
-      if (data.fullName) return data.fullName
-      if (data.full_name) return data.full_name
-      if (data.Name) return data.Name
-      if (data.FullName) return data.FullName
-
-      // Check for first/last name combination
-      const firstName = data.firstName || data.first_name || data.FirstName || ""
-
-      const lastName = data.lastName || data.last_name || data.LastName || ""
-
-      if (firstName || lastName) {
-        return `${firstName} ${lastName}`.trim()
+        // Check for case-insensitive match
+        const lowerFieldName = fieldName.toLowerCase()
+        for (const key of Object.keys(registration.data)) {
+          if (
+            key.toLowerCase() === lowerFieldName &&
+            registration.data[key] !== undefined &&
+            registration.data[key] !== null &&
+            registration.data[key] !== ""
+          ) {
+            return registration.data[key]
+          }
+        }
       }
     }
 
-    // Then check the registration object itself
-    return registration.userName || "Anonymous"
+    // Then check in the registration object itself
+    for (const fieldName of fieldNames) {
+      if (registration[fieldName] !== undefined && registration[fieldName] !== null && registration[fieldName] !== "") {
+        return registration[fieldName]
+      }
+    }
+
+    // Check for nested objects
+    for (const fieldName of fieldNames) {
+      const parts = fieldName.split(".")
+      if (parts.length > 1) {
+        let obj = registration
+        let found = true
+
+        for (const part of parts) {
+          if (obj && obj[part] !== undefined) {
+            obj = obj[part]
+          } else {
+            found = false
+            break
+          }
+        }
+
+        if (found && obj !== undefined && obj !== null && obj !== "") {
+          return obj
+        }
+      }
+    }
+
+    return defaultValue
+  }
+
+  const getAttendeeEmail = (registration: any) => {
+    return getFieldValue(
+      registration,
+      [
+        "email",
+        "emailAddress",
+        "corporateEmail",
+        "userEmail",
+        "email_address",
+        "corporate_email",
+        "user_email",
+        "Email",
+        "EmailAddress",
+        "CorporateEmail",
+        "UserEmail",
+        "data.email",
+        "data.emailAddress",
+        "data.corporateEmail",
+        "data.userEmail",
+      ],
+      "N/A",
+    )
+  }
+
+  const getAttendeeName = (registration: any) => {
+    // Try to get full name first
+    const fullName = getFieldValue(
+      registration,
+      ["name", "fullName", "full_name", "Name", "FullName", "data.name", "data.fullName", "data.full_name", "userName"],
+      "",
+    )
+
+    if (fullName) return fullName
+
+    // Try to combine first and last name
+    const firstName = getFieldValue(
+      registration,
+      ["firstName", "first_name", "FirstName", "data.firstName", "data.first_name", "data.FirstName"],
+      "",
+    )
+
+    const lastName = getFieldValue(
+      registration,
+      ["lastName", "last_name", "LastName", "data.lastName", "data.last_name", "data.LastName"],
+      "",
+    )
+
+    if (firstName || lastName) {
+      return `${firstName} ${lastName}`.trim()
+    }
+
+    return "Anonymous"
+  }
+
+  const getCorporateEmail = (registration: any) => {
+    return getFieldValue(registration, [
+      "corporateEmail",
+      "corporate_email",
+      "workEmail",
+      "work_email",
+      "companyEmail",
+      "company_email",
+      "businessEmail",
+      "business_email",
+      "CorporateEmail",
+      "WorkEmail",
+      "CompanyEmail",
+      "BusinessEmail",
+      "data.corporateEmail",
+      "data.corporate_email",
+      "data.workEmail",
+      "data.work_email",
+      "data.companyEmail",
+      "data.company_email",
+    ])
+  }
+
+  const getDesignation = (registration: any) => {
+    return getFieldValue(registration, [
+      "designation",
+      "role",
+      "jobTitle",
+      "job_title",
+      "position",
+      "title",
+      "Designation",
+      "Role",
+      "JobTitle",
+      "Position",
+      "Title",
+      "data.designation",
+      "data.role",
+      "data.jobTitle",
+      "data.job_title",
+      "data.position",
+      "data.title",
+    ])
+  }
+
+  const getLinkedIn = (registration: any) => {
+    return getFieldValue(registration, [
+      "linkedin",
+      "linkedinId",
+      "linkedInUrl",
+      "linkedin_url",
+      "linkedinUrl",
+      "linkedInProfile",
+      "linkedin_profile",
+      "LinkedIn",
+      "LinkedInId",
+      "LinkedInUrl",
+      "LinkedInProfile",
+      "data.linkedin",
+      "data.linkedinId",
+      "data.linkedInUrl",
+      "data.linkedin_url",
+      "data.linkedinUrl",
+      "data.linkedInProfile",
+      "data.linkedin_profile",
+    ])
+  }
+
+  const getGitHub = (registration: any) => {
+    return getFieldValue(registration, [
+      "github",
+      "githubId",
+      "githubUrl",
+      "github_url",
+      "githubProfile",
+      "github_profile",
+      "GitHub",
+      "GitHubId",
+      "GitHubUrl",
+      "GitHubProfile",
+      "data.github",
+      "data.githubId",
+      "data.githubUrl",
+      "data.github_url",
+      "data.githubProfile",
+      "data.github_profile",
+    ])
+  }
+
+  const getOtherSocialMedia = (registration: any) => {
+    return getFieldValue(registration, [
+      "otherSocialMedia",
+      "other_social_media",
+      "socialMedia",
+      "social_media",
+      "twitter",
+      "facebook",
+      "instagram",
+      "OtherSocialMedia",
+      "SocialMedia",
+      "Twitter",
+      "Facebook",
+      "Instagram",
+      "data.otherSocialMedia",
+      "data.other_social_media",
+      "data.socialMedia",
+      "data.social_media",
+      "data.twitter",
+      "data.facebook",
+      "data.instagram",
+    ])
+  }
+
+  const getMobileNumber = (registration: any) => {
+    return getFieldValue(registration, [
+      "mobile",
+      "mobileNumber",
+      "mobile_number",
+      "phone",
+      "phoneNumber",
+      "phone_number",
+      "contact",
+      "contactNumber",
+      "contact_number",
+      "Mobile",
+      "MobileNumber",
+      "Phone",
+      "PhoneNumber",
+      "Contact",
+      "ContactNumber",
+      "data.mobile",
+      "data.mobileNumber",
+      "data.mobile_number",
+      "data.phone",
+      "data.phoneNumber",
+      "data.phone_number",
+      "data.contact",
+      "data.contactNumber",
+      "data.contact_number",
+    ])
+  }
+
+  // Debug function to log the structure of a registration
+  const logRegistrationStructure = (registration: any) => {
+    console.log("Registration ID:", registration._id)
+    console.log("Top-level fields:", Object.keys(registration))
+    if (registration.data) {
+      console.log("Data fields:", Object.keys(registration.data))
+    }
+    console.log("Full registration object:", registration)
   }
 
   // Modify the useEffect that fetches registrations to include retry logic
@@ -217,6 +432,11 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
 
         const data = await response.json()
         console.log(`Registrations data:`, data)
+
+        // Debug: Log the first registration to see its structure
+        if (data.registrations && data.registrations.length > 0) {
+          logRegistrationStructure(data.registrations[0])
+        }
 
         // Process each registration to ensure name and email are properly set
         const processedRegistrations =
@@ -758,36 +978,25 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
       const csvData = registrations.map((reg: any) => ({
         Name: getAttendeeName(reg),
         "Email ID": getAttendeeEmail(reg),
-        "Corporate Email ID": reg.data?.corporateEmail || reg.data?.corporate_email || "",
-        Designation: reg.data?.designation || reg.data?.role || reg.data?.jobTitle || "",
-        "LinkedIn ID": reg.data?.linkedin || reg.data?.linkedinId || reg.data?.linkedInUrl || "",
-        "GitHub ID": reg.data?.github || reg.data?.githubId || reg.data?.githubUrl || "",
-        "Other Social Media": reg.data?.otherSocialMedia || reg.data?.socialMedia || "",
-        "Mobile Number": reg.data?.mobile || reg.data?.mobileNumber || reg.data?.phone || "",
+        "Corporate Email ID": getCorporateEmail(reg),
+        Designation: getDesignation(reg),
+        "LinkedIn ID": getLinkedIn(reg),
+        "GitHub ID": getGitHub(reg),
+        "Other Social Media": getOtherSocialMedia(reg),
+        "Mobile Number": getMobileNumber(reg),
         Status: reg.status,
         "Registration Date": new Date(reg.createdAt).toLocaleDateString(),
       }))
 
       // Convert to CSV string
-      const csvString = [
-        Object.keys(csvData[0]).join(","),
-        ...csvData.map((row) =>
-          Object.values(row)
-            .map((value) => `"${value}"`)
-            .join(","),
-        ),
-      ].join("\n")
+      const csvString = registrationsToCSV(csvData)
 
       // Generate filename with event ID and date
       const date = new Date().toISOString().split("T")[0]
       const filename = `event-${eventId}-attendees-${date}.csv`
 
       // Download the CSV
-      const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" })
-      const link = document.createElement("a")
-      link.href = URL.createObjectURL(blob)
-      link.download = filename
-      link.click()
+      downloadCSV(csvString, filename)
 
       toast({
         title: "Export Successful",
@@ -1245,36 +1454,12 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
                     </TableCell>
                     <TableCell>{getAttendeeName(registration)}</TableCell>
                     <TableCell>{getAttendeeEmail(registration)}</TableCell>
-                    <TableCell>
-                      {registration.data?.corporateEmail || registration.data?.corporate_email || "N/A"}
-                    </TableCell>
-                    <TableCell>
-                      {registration.data?.designation ||
-                        registration.data?.role ||
-                        registration.data?.jobTitle ||
-                        "N/A"}
-                    </TableCell>
-                    <TableCell>
-                      {registration.data?.linkedin ||
-                        registration.data?.linkedinId ||
-                        registration.data?.linkedInUrl ||
-                        "N/A"}
-                    </TableCell>
-                    <TableCell>
-                      {registration.data?.github ||
-                        registration.data?.githubId ||
-                        registration.data?.githubUrl ||
-                        "N/A"}
-                    </TableCell>
-                    <TableCell>
-                      {registration.data?.otherSocialMedia || registration.data?.socialMedia || "N/A"}
-                    </TableCell>
-                    <TableCell>
-                      {registration.data?.mobile ||
-                        registration.data?.mobileNumber ||
-                        registration.data?.phone ||
-                        "N/A"}
-                    </TableCell>
+                    <TableCell>{getCorporateEmail(registration) || "N/A"}</TableCell>
+                    <TableCell>{getDesignation(registration) || "N/A"}</TableCell>
+                    <TableCell>{getLinkedIn(registration) || "N/A"}</TableCell>
+                    <TableCell>{getGitHub(registration) || "N/A"}</TableCell>
+                    <TableCell>{getOtherSocialMedia(registration) || "N/A"}</TableCell>
+                    <TableCell>{getMobileNumber(registration) || "N/A"}</TableCell>
                     <TableCell>{formatDistanceToNow(new Date(registration.createdAt), { addSuffix: true })}</TableCell>
                     <TableCell>{getStatusBadge(registration.status)}</TableCell>
                     <TableCell className="text-right">

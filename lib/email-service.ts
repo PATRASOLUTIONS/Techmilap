@@ -36,7 +36,7 @@ async function sendEmailViaAPI({ to, subject, text, html }) {
         body: JSON.stringify({
           email: to,
           emailbody: emailBody,
-          subject: subject || "Notification from Tech Milap", // Provide a default subject if none is given
+          emailsubject: subject || "Notification from Tech Milap", // Provide a default subject if none is given
         }),
       },
     )
