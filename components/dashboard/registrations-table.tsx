@@ -1,43 +1,30 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { format } from "date-fns"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, CheckCircle, XCircle, Search, X, Download, Mail, Filter, Calendar } from "lucide-react"
+import { Loader2, Download, Calendar } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { formatDistanceToNow, format } from "date-fns"
 import { registrationsToCSV, downloadCSV } from "@/lib/csv-export"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-  SheetFooter,
-} from "@/components/ui/sheet"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Slider } from "@/components/ui/slider"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ChevronDown, ChevronUp, MoreHorizontal, ArrowUpDown } from "lucide-react"
+
+type SortField = "name" | "email" | "mobileNumber" | "designation" | "createdAt" | "status"
+type SortDirection = "asc" | "desc"
 
 interface RegistrationsTableProps {
   eventId: string
+  initialRegistrations?: any[]
   title: string
   description: string
   filterStatus?: "pending" | "approved" | "rejected"
@@ -58,9 +45,16 @@ interface QuestionType {
   max?: number
 }
 
-export function RegistrationsTable({ eventId, title, description, filterStatus }: RegistrationsTableProps) {
-  const [registrations, setRegistrations] = useState([])
-  const [loading, setLoading] = useState(true)
+export function RegistrationsTable({
+  eventId,
+  title,
+  description,
+  filterStatus,
+  initialRegistrations = [],
+}: RegistrationsTableProps) {
+  const router = useRouter()
+  const [registrations, setRegistrations] = useState<any[]>(initialRegistrations)
+  const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedRegistration, setSelectedRegistration] = useState<any>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -77,6 +71,9 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     from: undefined,
     to: undefined,
   })
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "ascending" | "descending" } | null>(null)
+  const [sortField, setSortField] = useState<SortField>("createdAt")
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
 
   // Email dialog state
   const [emailDialogOpen, setEmailDialogOpen] = useState(false)
@@ -85,6 +82,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
   const [includeEventDetails, setIncludeEventDetails] = useState(true)
   const [sendingEmail, setSendingEmail] = useState(false)
   const [selectedAttendees, setSelectedAttendees] = useState<any[]>([])
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   // Add these variables near the top of the component function, after the state declarations
   const [retryCount, setRetryCount] = useState(0)
@@ -157,6 +155,103 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
 
     // Then check the registration object itself
     return registration.userName || "Anonymous"
+  }
+
+  const getAttendeeMobile = (registration: any) => {
+    if (!registration) return "N/A"
+
+    // Check the data object for mobile/phone fields
+    if (registration.data) {
+      const data = registration.data
+      return (
+        data.mobile ||
+        data.phone ||
+        data.phoneNumber ||
+        data.phone_number ||
+        data.mobileNumber ||
+        data.mobile_number ||
+        data.Mobile ||
+        data.Phone ||
+        data.PhoneNumber ||
+        "N/A"
+      )
+    }
+
+    return registration.mobile || registration.phone || "N/A"
+  }
+
+  const getAttendeeDesignation = (registration: any) => {
+    if (!registration) return "N/A"
+
+    // Check the data object for designation/job title fields
+    if (registration.data) {
+      const data = registration.data
+      return (
+        data.designation ||
+        data.jobTitle ||
+        data.job_title ||
+        data.position ||
+        data.role ||
+        data.title ||
+        data.Designation ||
+        data.JobTitle ||
+        data.Position ||
+        "N/A"
+      )
+    }
+
+    return registration.designation || registration.jobTitle || registration.position || "N/A"
+  }
+
+  const sortData = (data: any[]) => {
+    if (!sortConfig) return data
+
+    return [...data].sort((a, b) => {
+      // Get values based on the sort key
+      let aValue, bValue
+
+      if (sortConfig.key === "name") {
+        aValue = getAttendeeName(a)
+        bValue = getAttendeeName(b)
+      } else if (sortConfig.key === "email") {
+        aValue = getAttendeeEmail(a)
+        bValue = getAttendeeEmail(b)
+      } else if (sortConfig.key === "mobile") {
+        aValue = a.data?.mobile || a.data?.phone || a.data?.phoneNumber || ""
+        bValue = b.data?.mobile || b.data?.phone || b.data?.phoneNumber || ""
+      } else if (sortConfig.key === "designation") {
+        aValue = a.data?.designation || a.data?.jobTitle || a.data?.position || ""
+        bValue = b.data?.designation || b.data?.jobTitle || b.data?.position || ""
+      } else if (sortConfig.key === "registered") {
+        aValue = new Date(a.createdAt).getTime()
+        bValue = new Date(b.createdAt).getTime()
+      } else if (sortConfig.key === "status") {
+        aValue = a.status
+        bValue = b.status
+      } else {
+        aValue = a[sortConfig.key]
+        bValue = b[sortConfig.key]
+      }
+
+      // Compare the values
+      if (aValue < bValue) {
+        return sortConfig.direction === "ascending" ? -1 : 1
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === "ascending" ? 1 : -1
+      }
+      return 0
+    })
+  }
+
+  const requestSort = (key: string) => {
+    let direction: "ascending" | "descending" = "ascending"
+
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "ascending") {
+      direction = "descending"
+    }
+
+    setSortConfig({ key, direction })
   }
 
   // Modify the useEffect that fetches registrations to include retry logic
@@ -343,6 +438,172 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     fetchCustomQuestions()
   }, [eventId])
 
+  useEffect(() => {
+    fetchRegistrations()
+  }, [eventId, sortField, sortDirection])
+
+  const fetchRegistrations = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/events/${eventId}/registrations?sort=${sortField}&direction=${sortDirection}`)
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch registrations")
+      }
+
+      const data = await response.json()
+      setRegistrations(data.registrations || [])
+    } catch (error) {
+      console.error("Error fetching registrations:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load registrations. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSort = (field: SortField) => {
+    if (field === sortField) {
+      // Toggle direction if clicking the same field
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+    } else {
+      // Set new field and default to ascending
+      setSortField(field)
+      setSortDirection("asc")
+    }
+  }
+
+  const renderSortIcon = (field: SortField) => {
+    if (field !== sortField) {
+      return <ArrowUpDown className="ml-2 h-4 w-4" />
+    }
+    return sortDirection === "asc" ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(registrations.map((reg) => reg._id))
+    } else {
+      setSelectedIds([])
+    }
+  }
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds([...selectedIds, id])
+    } else {
+      setSelectedIds(selectedIds.filter((selectedId) => selectedId !== id))
+    }
+  }
+
+  const handleApprove = async (id: string) => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/registrations/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "approved" }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to approve registration")
+      }
+
+      // Update the local state
+      setRegistrations(registrations.map((reg) => (reg._id === id ? { ...reg, status: "approved" } : reg)))
+
+      toast({
+        title: "Success",
+        description: "Registration approved successfully",
+      })
+    } catch (error) {
+      console.error("Error approving registration:", error)
+      toast({
+        title: "Error",
+        description: "Failed to approve registration. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleReject = async (id: string) => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/registrations/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "rejected" }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to reject registration")
+      }
+
+      // Update the local state
+      setRegistrations(registrations.map((reg) => (reg._id === id ? { ...reg, status: "rejected" } : reg)))
+
+      toast({
+        title: "Success",
+        description: "Registration rejected successfully",
+      })
+    } catch (error) {
+      console.error("Error rejecting registration:", error)
+      toast({
+        title: "Error",
+        description: "Failed to reject registration. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleBulkApprove = async () => {
+    if (selectedIds.length === 0) {
+      toast({
+        title: "No selections",
+        description: "Please select at least one registration to approve.",
+      })
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/events/${eventId}/registrations/bulk-approve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ registrationIds: selectedIds }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to approve registrations")
+      }
+
+      // Update the local state
+      setRegistrations(
+        registrations.map((reg) => (selectedIds.includes(reg._id) ? { ...reg, status: "approved" } : reg)),
+      )
+
+      setSelectedIds([])
+
+      toast({
+        title: "Success",
+        description: `${selectedIds.length} registrations approved successfully`,
+      })
+    } catch (error) {
+      console.error("Error approving registrations:", error)
+      toast({
+        title: "Error",
+        description: "Failed to approve registrations. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleViewRegistration = (registration: any) => {
     // Make sure the registration has the latest extracted email and name
     const updatedRegistration = {
@@ -429,7 +690,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     }
   }
 
-  const handleBulkApprove = async () => {
+  const handleBulkApproveOld = async () => {
     if (selectedRegistrations.length === 0) {
       toast({
         title: "No registrations selected",
@@ -723,6 +984,18 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     }
   }
 
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "approved":
+        return "success"
+      case "rejected":
+        return "destructive"
+      case "pending":
+      default:
+        return "outline"
+    }
+  }
+
   const toggleRegistration = (registrationId: string) => {
     setSelectedRegistrations((prev) => {
       if (prev.includes(registrationId)) {
@@ -743,12 +1016,67 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     }
   }
 
+  const handleSelectAllOld = (checked: boolean) => {
+    if (checked) {
+      setSelectedRegistrations(registrations.map((reg: any) => reg._id))
+    } else {
+      setSelectedRegistrations([])
+    }
+  }
+
+  const handleSelectOneOld = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedRegistrations([...selectedRegistrations, id])
+    } else {
+      setSelectedRegistrations(selectedRegistrations.filter((selectedId) => selectedId !== id))
+    }
+  }
+
   // Replace the existing exportToCSV function with this improved version
   const exportToCSV = () => {
     if (registrations.length === 0) {
       toast({
         title: "No data to export",
         description: "There are no registrations to export.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Create CSV content
+    const headers = ["Name", "Email", "Mobile Number", "Designation", "Registered Date", "Status"]
+    const csvContent = [
+      headers.join(","),
+      ...registrations.map((reg) => {
+        const name = reg.userName || reg.data?.name || "N/A"
+        const email = reg.userEmail || reg.data?.email || "N/A"
+        const mobileNumber = reg.data?.mobileNumber || reg.data?.phone || "N/A"
+        const designation = reg.data?.designation || reg.data?.jobTitle || "N/A"
+        const registeredDate = reg.createdAt ? format(new Date(reg.createdAt), "yyyy-MM-dd") : "N/A"
+        const status = reg.status || "pending"
+
+        return [name, email, mobileNumber, designation, registeredDate, status].join(",")
+      }),
+    ].join("\n")
+
+    // Create a blob and download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.setAttribute("href", url)
+    link.setAttribute("download", `registrations-${eventId}-${new Date().toISOString().split("T")[0]}.csv`)
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  // New function to open the email dialog
+  const openEmailDialog = () => {
+    if (selectedRegistrations.length === 0) {
+      toast({
+        title: "No attendees selected",
+        description: "Please select at least one attendee to email.",
         variant: "destructive",
       })
       return
@@ -779,29 +1107,30 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     }
   }
 
+  // Remove the duplicate function declaration
   // New function to open the email dialog
-  const openEmailDialog = () => {
-    if (selectedRegistrations.length === 0) {
-      toast({
-        title: "No attendees selected",
-        description: "Please select at least one attendee to email.",
-        variant: "destructive",
-      })
-      return
-    }
+  // const openEmailDialog = () => {
+  //   if (selectedRegistrations.length === 0) {
+  //     toast({
+  //       title: "No attendees selected",
+  //       description: "Please select at least one attendee to email.",
+  //       variant: "destructive",
+  //     })
+  //     return
+  //   }
 
-    // Get the selected attendee data for preview
-    const selected = registrations.filter((reg: any) => selectedRegistrations.includes(reg._id))
-    setSelectedAttendees(selected)
+  // Get the selected attendee data for preview
+  const selected = registrations.filter((reg: any) => selectedRegistrations.includes(reg._id))
+  setSelectedAttendees(selected)
 
-    // Reset the form
-    setEmailSubject("")
-    setEmailMessage("")
-    setIncludeEventDetails(true)
+  // Reset the form
+  setEmailSubject("")
+  setEmailMessage("")
+  setIncludeEventDetails(true)
 
-    // Open the dialog
-    setEmailDialogOpen(true)
-  }
+  // Open the dialog
+  setEmailDialogOpen(true)
+  // }
 
   // Function to send emails
   const sendEmails = async () => {
@@ -871,6 +1200,14 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     }
   }
 
+  if (loading && registrations.length === 0) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <Card>
@@ -903,450 +1240,125 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {selectedRegistrations.length > 0 && (
-            <>
-              <Button
-                variant="default"
-                className="bg-green-600 hover:bg-green-700 text-white"
-                onClick={handleBulkApprove}
-              >
-                <CheckCircle className="h-4 w-4 mr-1" />
-                Approve Selected ({selectedRegistrations.length})
-              </Button>
-
-              {/* Add Email button */}
-              <Button variant="outline" onClick={openEmailDialog}>
-                <Mail className="h-4 w-4 mr-1" />
-                Email Selected ({selectedRegistrations.length})
-              </Button>
-            </>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-medium">Registrations</h3>
+        <div className="flex space-x-2">
+          {selectedIds.length > 0 && (
+            <Button onClick={handleBulkApprove} size="sm" variant="outline">
+              Approve Selected ({selectedIds.length})
+            </Button>
           )}
-
-          <Button variant="outline" onClick={exportToCSV}>
-            <Download className="h-4 w-4 mr-1" />
+          <Button onClick={exportToCSV} size="sm" variant="outline">
+            <Download className="h-4 w-4 mr-2" />
             Export CSV
           </Button>
-
-          <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
-            <SheetTrigger asChild>
-              <Button variant="secondary" className="relative">
-                <Filter className="h-4 w-4 mr-1" />
-                Advanced Filters
-                {activeFilters.length > 0 && (
-                  <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full">
-                    {activeFilters.length}
-                  </Badge>
-                )}
-              </Button>
-            </SheetTrigger>
-            <SheetContent className="w-[350px] sm:w-[450px] overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>Advanced Filters</SheetTitle>
-                <SheetDescription>Filter attendees based on registration data</SheetDescription>
-              </SheetHeader>
-
-              <Tabs defaultValue="basic" value={filterTab} onValueChange={setFilterTab} className="mt-4">
-                <TabsList className="grid grid-cols-3 mb-4">
-                  <TabsTrigger value="basic">Basic</TabsTrigger>
-                  <TabsTrigger value="date">Date & Time</TabsTrigger>
-                  <TabsTrigger value="custom">Custom Fields</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="basic" className="space-y-4">
-                  <div className="mb-4">
-                    <label className="text-sm font-medium mb-1 block">Status</label>
-                    <Select
-                      value={filters.status?.toString() || ""}
-                      onValueChange={(value) => {
-                        if (value === "all") {
-                          handleFilterChange("status", null)
-                        } else {
-                          handleFilterChange("status", value)
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Filter by status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="approved">Approved</SelectItem>
-                        <SelectItem value="rejected">Rejected</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="mb-4">
-                    <label className="text-sm font-medium mb-1 block">Search</label>
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search by name or email..."
-                        className="pl-8"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">Searches through names and email addresses</p>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="date" className="space-y-4">
-                  <div className="mb-4">
-                    <label className="text-sm font-medium mb-1 block">Registration Date Range</label>
-                    <div className="grid gap-2">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button id="date" variant="outline" className="w-full justify-start text-left font-normal">
-                            <Calendar className="mr-2 h-4 w-4" />
-                            {dateRange.from ? (
-                              dateRange.to ? (
-                                <>
-                                  {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
-                                </>
-                              ) : (
-                                format(dateRange.from, "LLL dd, y")
-                              )
-                            ) : (
-                              <span>Pick a date range</span>
-                            )}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <CalendarComponent
-                            initialFocus
-                            mode="range"
-                            defaultMonth={dateRange.from}
-                            selected={dateRange}
-                            onSelect={(range) => {
-                              setDateRange(range)
-                              if (range?.from) {
-                                handleFilterChange("registrationDate", range)
-                              } else {
-                                handleFilterChange("registrationDate", null)
-                              }
-                            }}
-                            numberOfMonths={2}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">Filter attendees by when they registered</p>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="custom" className="space-y-4">
-                  {customQuestions.length === 0 ? (
-                    <div className="text-center py-4 text-muted-foreground">
-                      <p>No custom questions found for this event.</p>
-                    </div>
-                  ) : (
-                    <>
-                      {Object.entries(questionsByType).map(([type, questions]) => (
-                        <div key={type} className="mb-6">
-                          <h3 className="text-sm font-medium mb-3 capitalize border-b pb-1">{type} Questions</h3>
-                          {questions.map((question) => renderFilterOptions(question))}
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </TabsContent>
-              </Tabs>
-
-              {activeFilters.length > 0 && (
-                <div className="mt-6 border-t pt-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-medium">Active Filters</h3>
-                    <Button variant="ghost" size="sm" onClick={clearAllFilters}>
-                      Clear All
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {activeFilters.map((field) => {
-                      const value = filters[field]
-                      const displayValue = getFilterDisplayValue(field, value)
-                      return (
-                        <Badge key={field} variant="secondary" className="flex items-center gap-1">
-                          {formatFieldName(field)}: {displayValue}
-                          <X className="h-3 w-3 cursor-pointer" onClick={() => clearFilter(field)} />
-                        </Badge>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <SheetFooter className="mt-6">
-                <Button variant="outline" onClick={() => setFilterSheetOpen(false)}>
-                  Apply Filters
-                </Button>
-              </SheetFooter>
-            </SheetContent>
-          </Sheet>
-
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or email..."
-              className="pl-8 max-w-sm"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
         </div>
-      </CardHeader>
-      {activeFilters.length > 0 && (
-        <div className="px-6 py-2 bg-muted/20 border-t border-b">
-          <div className="flex items-center flex-wrap gap-2">
-            <span className="text-sm font-medium">Active filters:</span>
-            {activeFilters.map((field) => {
-              const value = filters[field]
-              const displayValue = getFilterDisplayValue(field, value)
-              return (
-                <Badge key={field} variant="secondary" className="flex items-center gap-1">
-                  {formatFieldName(field)}: {displayValue}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => clearFilter(field)} />
-                </Badge>
-              )
-            })}
-            <Button variant="ghost" size="sm" onClick={clearAllFilters} className="ml-auto">
-              Clear All
-            </Button>
-          </div>
+      </div>
+
+      {registrations.length === 0 ? (
+        <div className="text-center p-8 border rounded-md bg-gray-50">
+          <p className="text-gray-500">No registrations found for this event.</p>
         </div>
-      )}
-      <CardContent>
-        {registrations.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No registrations found.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
-                    <Checkbox checked={allSelected} onCheckedChange={() => toggleSelectAll()} aria-label="Select all" />
-                  </TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Registered</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {registrations.map((registration: any) => (
+      ) : (
+        <div className="border rounded-md overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedIds.length === registrations.length}
+                    onCheckedChange={handleSelectAll}
+                    aria-label="Select all"
+                  />
+                </TableHead>
+                <TableHead className="cursor-pointer" onClick={() => handleSort("name")}>
+                  Name {renderSortIcon("name")}
+                </TableHead>
+                <TableHead className="cursor-pointer" onClick={() => handleSort("email")}>
+                  Email {renderSortIcon("email")}
+                </TableHead>
+                <TableHead className="cursor-pointer" onClick={() => handleSort("mobileNumber")}>
+                  Mobile Number {renderSortIcon("mobileNumber")}
+                </TableHead>
+                <TableHead className="cursor-pointer" onClick={() => handleSort("designation")}>
+                  Designation {renderSortIcon("designation")}
+                </TableHead>
+                <TableHead className="cursor-pointer" onClick={() => handleSort("createdAt")}>
+                  Registered {renderSortIcon("createdAt")}
+                </TableHead>
+                <TableHead className="cursor-pointer" onClick={() => handleSort("status")}>
+                  Status {renderSortIcon("status")}
+                </TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {registrations.map((registration) => {
+                const name = registration.userName || registration.data?.name || "N/A"
+                const email = registration.userEmail || registration.data?.email || "N/A"
+                const mobileNumber = registration.data?.mobileNumber || registration.data?.phone || "N/A"
+                const designation = registration.data?.designation || registration.data?.jobTitle || "N/A"
+
+                return (
                   <TableRow key={registration._id}>
                     <TableCell>
                       <Checkbox
-                        checked={selectedRegistrations.includes(registration._id)}
-                        onCheckedChange={() => toggleRegistration(registration._id)}
-                        aria-label="Select row"
+                        checked={selectedIds.includes(registration._id)}
+                        onCheckedChange={(checked) => handleSelectOne(registration._id, !!checked)}
+                        aria-label={`Select ${name}`}
                       />
                     </TableCell>
-                    <TableCell>{getAttendeeName(registration)}</TableCell>
-                    <TableCell>{getAttendeeEmail(registration)}</TableCell>
-                    <TableCell>{formatDistanceToNow(new Date(registration.createdAt), { addSuffix: true })}</TableCell>
-                    <TableCell>{getStatusBadge(registration.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleViewRegistration(registration)}>
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                        {registration.status === "pending" && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-green-600 hover:text-green-700"
-                              onClick={() => handleUpdateStatus(registration._id, "approved")}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => handleUpdateStatus(registration._id, "rejected")}
-                            >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                      </div>
+                    <TableCell className="font-medium">{name}</TableCell>
+                    <TableCell>{email}</TableCell>
+                    <TableCell>{mobileNumber}</TableCell>
+                    <TableCell>{designation}</TableCell>
+                    <TableCell>
+                      {registration.createdAt ? format(new Date(registration.createdAt), "MMM d, yyyy") : "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusBadgeVariant(registration.status || "pending")}>
+                        {registration.status || "pending"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => handleApprove(registration._id)}
+                            disabled={registration.status === "approved"}
+                          >
+                            Approve
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleReject(registration._id)}
+                            disabled={registration.status === "rejected"}
+                          >
+                            Reject
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              router.push(`/event-dashboard/${eventId}/attendees/${registration._id}`)
+                            }}
+                          >
+                            View Details
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-
-      {/* Registration Detail Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Registration Details</DialogTitle>
-            <DialogDescription>
-              Submitted{" "}
-              {selectedRegistration &&
-                selectedRegistration.createdAt &&
-                formatDistanceToNow(new Date(selectedRegistration.createdAt), { addSuffix: true })}
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedRegistration && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Name</h3>
-                  <p>{getAttendeeName(selectedRegistration)}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Email</h3>
-                  <p>{getAttendeeEmail(selectedRegistration)}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
-                  <p>{getStatusBadge(selectedRegistration.status)}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Registration ID</h3>
-                  <p className="text-xs">{selectedRegistration._id}</p>
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <h3 className="font-medium mb-2">Form Responses</h3>
-                <div className="space-y-3">
-                  {selectedRegistration.data &&
-                    Object.entries(selectedRegistration.data).map(([key, value]) => (
-                      <div key={key} className="grid grid-cols-3 gap-2">
-                        <div className="font-medium text-sm">{formatFieldName(key)}</div>
-                        <div className="col-span-2">{String(value)}</div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-
-              {selectedRegistration.status === "pending" && (
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button
-                    variant="outline"
-                    className="text-green-600 hover:text-green-700"
-                    onClick={() => {
-                      handleUpdateStatus(selectedRegistration._id, "approved")
-                      setDialogOpen(false)
-                    }}
-                  >
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Approve
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="text-red-600 hover:text-red-700"
-                    onClick={() => {
-                      handleUpdateStatus(selectedRegistration._id, "rejected")
-                      setDialogOpen(false)
-                    }}
-                  >
-                    <XCircle className="h-4 w-4 mr-1" />
-                    Reject
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Email Dialog */}
-      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Send Email to Attendees</DialogTitle>
-            <DialogDescription>
-              Compose an email to send to {selectedRegistrations.length} selected attendee(s)
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div>
-              <Label htmlFor="email-subject">Subject</Label>
-              <Input
-                id="email-subject"
-                placeholder="Email subject"
-                value={emailSubject}
-                onChange={(e) => setEmailSubject(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="email-message">Message</Label>
-              <Textarea
-                id="email-message"
-                placeholder="Enter your message here. Use {name} to include the recipient's name."
-                className="min-h-[200px]"
-                value={emailMessage}
-                onChange={(e) => setEmailMessage(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Use {"{name}"} to personalize the email with the attendee's name.
-              </p>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="include-event-details"
-                checked={includeEventDetails}
-                onCheckedChange={(checked) => setIncludeEventDetails(!!checked)}
-              />
-              <Label htmlFor="include-event-details">Include event details in the email</Label>
-            </div>
-
-            <div className="border rounded-md p-4">
-              <h3 className="text-sm font-medium mb-2">Recipients ({selectedAttendees.length})</h3>
-              <div className="max-h-[100px] overflow-y-auto">
-                {selectedAttendees.map((attendee) => (
-                  <div key={attendee._id} className="text-sm py-1 flex justify-between">
-                    <span>{getAttendeeName(attendee)}</span>
-                    <span className="text-muted-foreground">{getAttendeeEmail(attendee)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={sendEmails} disabled={sendingEmail || !emailSubject || !emailMessage}>
-              {sendingEmail ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                "Send Email"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Card>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
   )
 }
