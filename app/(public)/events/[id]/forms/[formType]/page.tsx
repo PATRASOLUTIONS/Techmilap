@@ -11,7 +11,6 @@ import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { FormSuccessMessage } from "@/components/ui/form-success-message"
 import { getValidationType } from "@/lib/form-validation"
-import { Checkbox } from "@/components/ui/checkbox"
 
 // Map form types to their display names and descriptions
 const formTypeConfig = {
@@ -247,15 +246,6 @@ export default function EventFormPage() {
 
   const handleSubmit = async (data) => {
     try {
-      if (!termsAccepted) {
-        toast({
-          title: "Terms and Conditions Required",
-          description: "Please accept the terms and conditions to continue.",
-          variant: "destructive",
-        })
-        return
-      }
-
       setSubmitting(true)
 
       if (!event || !event._id) {
@@ -656,7 +646,6 @@ export default function EventFormPage() {
           />
 
           {/* Terms and Conditions Checkbox */}
-          
         </CardContent>
       </Card>
     </div>

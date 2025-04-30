@@ -18,6 +18,7 @@ import {
   User,
   MapPin,
   ChevronRight,
+  Clock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -60,17 +61,29 @@ interface Event {
 export default function MyEventsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [events, setEvents] = useState<Event[]>([])
+  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([])
+  const [pastEvents, setPastEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [currentTime, setCurrentTime] = useState(new Date())
   const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
   const roleParam = searchParams.get("role")
   const [activeTab, setActiveTab] = useState(roleParam || "all")
   const filterPast = searchParams.get("filter") === "past"
+
+  // Update current time every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 60000) // Update every minute
+
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -83,11 +96,8 @@ export default function MyEventsPage() {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
-        // Make sure we're passing the correct past parameter
-        const pastParam = filterPast ? "?past=true" : "?past=false"
-        console.log(`Fetching with params: ${pastParam}`)
-
-        const response = await fetch(`/api/events/my-events${pastParam}`, {
+        // Fetch all events (both past and upcoming)
+        const response = await fetch(`/api/events/my-events/all`, {
           signal: controller.signal,
           cache: "no-store", // Prevent caching issues
         })
@@ -130,6 +140,9 @@ export default function MyEventsPage() {
         }))
 
         setEvents(sanitizedEvents)
+
+        // Sort events into upcoming and past based on current time
+        sortEvents(sanitizedEvents, currentTime)
       } catch (error) {
         console.error("Error fetching events:", error)
         const errorMessage =
@@ -147,7 +160,31 @@ export default function MyEventsPage() {
     }
 
     fetchEvents()
-  }, [toast, filterPast])
+  }, [toast, currentTime])
+
+  // Function to sort events into upcoming and past
+  const sortEvents = (events: Event[], currentDate: Date) => {
+    const upcoming: Event[] = []
+    const past: Event[] = []
+
+    events.forEach((event) => {
+      const eventDate = new Date(event.date)
+      if (eventDate >= currentDate) {
+        upcoming.push(event)
+      } else {
+        past.push(event)
+      }
+    })
+
+    // Sort upcoming events by date (closest first)
+    upcoming.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
+    // Sort past events by date (most recent first)
+    past.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+    setUpcomingEvents(upcoming)
+    setPastEvents(past)
+  }
 
   // Handle tab change
   const handleTabChange = (value: string) => {
@@ -165,19 +202,24 @@ export default function MyEventsPage() {
   }
 
   // Filter events based on search term and active tab
-  const filteredEvents = events.filter((event) => {
-    // First filter by search term
-    const matchesSearch =
-      event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.location.toLowerCase().includes(searchTerm.toLowerCase())
+  const getFilteredEvents = (eventsList: Event[]) => {
+    return eventsList.filter((event) => {
+      // First filter by search term
+      const matchesSearch =
+        event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        event.location.toLowerCase().includes(searchTerm.toLowerCase())
 
-    // Then filter by active tab
-    if (activeTab === "all") {
-      return matchesSearch
-    } else {
-      return matchesSearch && event.userRole === activeTab
-    }
-  })
+      // Then filter by active tab
+      if (activeTab === "all") {
+        return matchesSearch
+      } else {
+        return matchesSearch && event.userRole === activeTab
+      }
+    })
+  }
+
+  const filteredUpcomingEvents = getFilteredEvents(upcomingEvents)
+  const filteredPastEvents = getFilteredEvents(pastEvents)
 
   // Update the handleEventClick function to use the event slug if available
   const handleEventClick = (eventId: string, userRole: string, eventSlug?: string) => {
@@ -230,6 +272,8 @@ export default function MyEventsPage() {
 
       // Remove the deleted event from the state
       setEvents(events.filter((event) => event._id !== eventToDelete._id))
+      setUpcomingEvents(upcomingEvents.filter((event) => event._id !== eventToDelete._id))
+      setPastEvents(pastEvents.filter((event) => event._id !== eventToDelete._id))
 
       toast({
         title: "Event deleted",
@@ -318,6 +362,10 @@ export default function MyEventsPage() {
             className="w-full"
           />
         </div>
+        <div className="flex items-center text-sm text-muted-foreground">
+          <Clock className="h-4 w-4 mr-1" />
+          <span>Last updated: {currentTime.toLocaleTimeString()}</span>
+        </div>
       </div>
 
       <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
@@ -332,20 +380,57 @@ export default function MyEventsPage() {
         <TabsContent value={activeTab} className="mt-6">
           {loading ? (
             <EventsLoadingSkeleton />
-          ) : filteredEvents.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredEvents.map((event) => (
-                <EventCard
-                  key={`${event._id}-${event.userRole}`}
-                  event={event}
-                  onClick={() => handleEventClick(event._id, event.userRole || "attendee", event.slug)}
-                  onManageClick={(e) => handleManageClick(e, event._id)}
-                  onDeleteClick={(e) => handleDeleteClick(e, event)}
-                />
-              ))}
-            </div>
           ) : (
-            <EmptyState role={activeTab === "all" ? "any" : activeTab} />
+            <div className="space-y-10">
+              {!filterPast && (
+                <div>
+                  <h2 className="text-xl font-semibold mb-4 flex items-center">
+                    <Calendar className="h-5 w-5 mr-2 text-primary" />
+                    Upcoming Events ({filteredUpcomingEvents.length})
+                  </h2>
+                  {filteredUpcomingEvents.length > 0 ? (
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      {filteredUpcomingEvents.map((event) => (
+                        <EventCard
+                          key={`${event._id}-${event.userRole}`}
+                          event={event}
+                          onClick={() => handleEventClick(event._id, event.userRole || "attendee", event.slug)}
+                          onManageClick={(e) => handleManageClick(e, event._id)}
+                          onDeleteClick={(e) => handleDeleteClick(e, event)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <EmptyState role={activeTab === "all" ? "any" : activeTab} type="upcoming" />
+                  )}
+                </div>
+              )}
+
+              {filterPast && (
+                <div>
+                  <h2 className="text-xl font-semibold mb-4 flex items-center">
+                    <Calendar className="h-5 w-5 mr-2 text-secondary" />
+                    Past Events ({filteredPastEvents.length})
+                  </h2>
+                  {filteredPastEvents.length > 0 ? (
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      {filteredPastEvents.map((event) => (
+                        <EventCard
+                          key={`${event._id}-${event.userRole}`}
+                          event={event}
+                          onClick={() => handleEventClick(event._id, event.userRole || "attendee", event.slug)}
+                          onManageClick={(e) => handleManageClick(e, event._id)}
+                          onDeleteClick={(e) => handleDeleteClick(e, event)}
+                          isPast={true}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <EmptyState role={activeTab === "all" ? "any" : activeTab} type="past" />
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </TabsContent>
       </Tabs>
@@ -379,7 +464,7 @@ export default function MyEventsPage() {
   )
 }
 
-function EventCard({ event, onClick, onManageClick, onDeleteClick }) {
+function EventCard({ event, onClick, onManageClick, onDeleteClick, isPast = false }) {
   // Safely format the date with fallback
   const formattedDate = event.date
     ? new Date(event.date).toLocaleDateString("en-US", {
@@ -399,19 +484,22 @@ function EventCard({ event, onClick, onManageClick, onDeleteClick }) {
   // Safely get attendees count
   const attendeesCount = event.attendees && Array.isArray(event.attendees) ? event.attendees.length : 0
 
-  // Determine card style based on user role
+  // Determine card style based on user role and past status
   const getRoleStyles = () => {
+    // Add opacity for past events
+    const pastModifier = isPast ? "opacity-75 " : ""
+
     switch (event.userRole) {
       case "organizer":
-        return "border-primary/30 bg-primary/5"
+        return `${pastModifier}border-primary/30 bg-primary/5`
       case "speaker":
-        return "border-secondary/30 bg-secondary/5"
+        return `${pastModifier}border-secondary/30 bg-secondary/5`
       case "volunteer":
-        return "border-amber-500/30 bg-amber-500/5"
+        return `${pastModifier}border-amber-500/30 bg-amber-500/5`
       case "attendee":
-        return "border-emerald-500/30 bg-emerald-500/5"
+        return `${pastModifier}border-emerald-500/30 bg-emerald-500/5`
       default:
-        return ""
+        return pastModifier
     }
   }
 
@@ -451,6 +539,15 @@ function EventCard({ event, onClick, onManageClick, onDeleteClick }) {
   const getStatusBadge = () => {
     if (!event.status) return null
 
+    // If the event is in the past, show a "Completed" badge regardless of status
+    if (isPast && event.status.toLowerCase() !== "cancelled") {
+      return (
+        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+          Completed
+        </Badge>
+      )
+    }
+
     switch (event.status.toLowerCase()) {
       case "published":
       case "active":
@@ -484,17 +581,19 @@ function EventCard({ event, onClick, onManageClick, onDeleteClick }) {
 
   // Format participation status message
   const getParticipationStatus = () => {
+    const pastPrefix = isPast ? "You were " : "You're "
+
     switch (event.userRole) {
       case "organizer":
-        return "You're organizing this event"
+        return `${pastPrefix}organizing this event`
       case "speaker":
-        return "You're speaking at this event"
+        return `${pastPrefix}speaking at this event`
       case "volunteer":
-        return "You're volunteering at this event"
+        return `${pastPrefix}volunteering at this event`
       case "attendee":
-        return "You're attending this event"
+        return `${pastPrefix}attending this event`
       default:
-        return "You're registered for this event"
+        return `${pastPrefix}registered for this event`
     }
   }
 
@@ -608,28 +707,43 @@ function EventCard({ event, onClick, onManageClick, onDeleteClick }) {
   )
 }
 
-function EmptyState({ role = "any" }) {
-  let message = "You haven't registered for any events yet."
+function EmptyState({ role = "any", type = "upcoming" }) {
+  let message = `You haven't registered for any ${type} events yet.`
   let icon = <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
   let actionText = "Explore Events"
   let actionLink = "/explore"
 
+  if (type === "past") {
+    message = `You don't have any past events.`
+  }
+
   switch (role) {
     case "attendee":
       message =
-        "You haven't registered as an attendee for any events yet. Browse our event listings to find events to attend."
+        type === "upcoming"
+          ? "You haven't registered as an attendee for any upcoming events yet. Browse our event listings to find events to attend."
+          : "You haven't attended any past events yet."
       icon = <User className="h-12 w-12 text-emerald-500/70 mb-4" />
       break
     case "volunteer":
-      message = "You haven't signed up as a volunteer for any events yet. Check out events that need volunteers."
+      message =
+        type === "upcoming"
+          ? "You haven't signed up as a volunteer for any upcoming events yet. Check out events that need volunteers."
+          : "You haven't volunteered at any past events yet."
       icon = <HandHelping className="h-12 w-12 text-amber-500/70 mb-4" />
       break
     case "speaker":
-      message = "You haven't registered as a speaker for any events yet. Find events looking for speakers."
+      message =
+        type === "upcoming"
+          ? "You haven't registered as a speaker for any upcoming events yet. Find events looking for speakers."
+          : "You haven't spoken at any past events yet."
       icon = <Mic className="h-12 w-12 text-secondary/70 mb-4" />
       break
     case "organizer":
-      message = "You haven't created any events yet. Start organizing your first event!"
+      message =
+        type === "upcoming"
+          ? "You haven't created any upcoming events yet. Start organizing your first event!"
+          : "You haven't organized any past events yet."
       icon = <Edit className="h-12 w-12 text-primary/70 mb-4" />
       actionText = "Create Event"
       actionLink = "/create-event"
@@ -639,13 +753,13 @@ function EmptyState({ role = "any" }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
       {icon}
-      <h3 className="text-lg font-medium">No events found</h3>
+      <h3 className="text-lg font-medium">No {type} events found</h3>
       <p className="text-muted-foreground mt-2 max-w-md">{message}</p>
       <div className="flex gap-4 mt-6">
         <Button asChild variant="outline">
           <Link href="/explore">Explore Events</Link>
         </Button>
-        {(role === "any" || role === "organizer") && (
+        {(role === "any" || role === "organizer") && type === "upcoming" && (
           <Button asChild>
             <Link href="/create-event">Create an Event</Link>
           </Button>
