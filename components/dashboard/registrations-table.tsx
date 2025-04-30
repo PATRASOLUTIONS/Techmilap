@@ -43,6 +43,7 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
   const [emailBody, setEmailBody] = useState("")
   const [sendingEmail, setSendingEmail] = useState(false)
   const [bulkApproving, setBulkApproving] = useState(false)
+  const [currentRegistration, setCurrentRegistration] = useState<any>(null)
 
   // Fetch registrations
   useEffect(() => {
@@ -135,14 +136,19 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
   }
 
   // Handle status change
-  const handleStatusChange = async (id: string, status: string) => {
+  const handleStatusChange = async (id: string, status: string, registration: any) => {
     try {
       const response = await fetch(`/api/events/${eventId}/registrations/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({
+          status,
+          attendeeEmail: registration.email,
+          attendeeName:
+            `${registration.firstName || ""} ${registration.lastName || ""}`.trim() || registration.name || "Attendee",
+        }),
       })
 
       if (!response.ok) {
@@ -162,7 +168,7 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
 
       toast({
         title: "Success",
-        description: `Registration ${status} successfully.`,
+        description: `Registration ${status} successfully. Email notification sent.`,
       })
     } catch (error) {
       console.error("Error updating registration status:", error)
@@ -584,7 +590,8 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
                             variant="outline"
                             size="sm"
                             className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                            onClick={() => handleStatusChange(regId, "approved")}
+                            onClick={() => handleStatusChange(regId, "approved", registration)}
+                            disabled={status === "approved"}
                           >
                             <Check className="h-4 w-4" />
                             <span className="sr-only md:not-sr-only md:ml-2">Accept</span>
@@ -593,7 +600,8 @@ export function RegistrationsTable({ eventId, title = "Registrations", descripti
                             variant="outline"
                             size="sm"
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => handleStatusChange(regId, "rejected")}
+                            onClick={() => handleStatusChange(regId, "rejected", registration)}
+                            disabled={status === "rejected"}
                           >
                             <X className="h-4 w-4" />
                             <span className="sr-only md:not-sr-only md:ml-2">Reject</span>
