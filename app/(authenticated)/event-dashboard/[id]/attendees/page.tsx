@@ -1,9 +1,10 @@
 import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
-import { RegistrationsTable } from "@/components/dashboard/registrations-table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Filter } from "lucide-react"
+import { Suspense } from "react"
+import { RegistrationsTableWrapper } from "@/components/dashboard/registrations-table-wrapper"
 
 export default async function EventAttendeesPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
@@ -31,24 +32,24 @@ export default async function EventAttendeesPage({ params }: { params: { id: str
           <div className="flex items-center">
             <Filter className="h-5 w-5 mr-2" />
             <div>
-              <CardTitle>Attendee Filtering</CardTitle>
+              <CardTitle>Attendee Management</CardTitle>
               <CardDescription>
-                Use the filter button to find specific attendees based on their registration information. When you
-                approve or reject an attendee, they will automatically receive an email notification.
+                View and manage attendees for your event. You can approve, reject, or contact attendees directly.
               </CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <p>You can sort attendees by clicking on column headers. Use the search box to find specific attendees.</p>
+          <p>
+            Use the filters and search to find specific attendees. Click on column headers to sort the data. Select
+            multiple attendees to perform bulk actions.
+          </p>
         </CardContent>
       </Card>
 
-      <RegistrationsTable
-        eventId={eventId}
-        title="Event Attendees"
-        description="Manage your event attendees. Use filters to find specific attendees based on their registration information."
-      />
+      <Suspense fallback={<div className="text-center py-10">Loading attendee data...</div>}>
+        <RegistrationsTableWrapper eventId={eventId} />
+      </Suspense>
     </div>
   )
 }
