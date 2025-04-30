@@ -1,6 +1,7 @@
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { sendEmail } from "@/lib/email-service"
+import { format } from "date-fns"
 
 export async function handleFormSubmission(
   eventIdOrSlug: string,
@@ -81,6 +82,25 @@ export async function handleFormSubmission(
   }
 }
 
+// Function to format date properly
+function formatEventDate(date) {
+  if (!date) return "TBD"
+
+  try {
+    // If date is a string, convert to Date object
+    const dateObj = typeof date === "string" ? new Date(date) : date
+
+    // Check if valid date
+    if (isNaN(dateObj.getTime())) return "TBD"
+
+    // Format the date
+    return format(dateObj, "MMMM d, yyyy h:mm a")
+  } catch (error) {
+    console.error("Error formatting date:", error)
+    return String(date) || "TBD"
+  }
+}
+
 // Function to send confirmation email to the user
 async function sendConfirmationEmailToUser(event, formType, userName, userEmail, emailSubject = null) {
   try {
@@ -95,6 +115,9 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
     // Use custom subject if provided, otherwise use default
     const subject = emailSubject || `Your ${formTypeDisplay} for ${event.title} has been received`
 
+    // Format the event date
+    const formattedDate = formatEventDate(event.date)
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
         <h2 style="color: #4f46e5;">Submission Received</h2>
@@ -104,7 +127,7 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
         <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <h3 style="margin-top: 0;">Event Details</h3>
           <p><strong>Event:</strong> ${event.title}</p>
-          <p><strong>Date:</strong> ${event.date}</p>
+          <p><strong>Date:</strong> ${formattedDate}</p>
           <p><strong>Location:</strong> ${event.location || "TBD"}</p>
         </div>
         
@@ -124,7 +147,7 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
       
       Event Details:
       - Event: ${event.title}
-      - Date: ${event.date}
+      - Date: ${formattedDate}
       - Location: ${event.location || "TBD"}
       
       Your submission is currently under review. We will notify you once it has been processed.
@@ -178,7 +201,10 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
     // Format the form type for display
     const formTypeFormatted = formType.charAt(0).toUpperCase() + formType.slice(1)
 
-    // Create a summary of the submission data
+    // Format the event date
+    const formattedDate = formatEventDate(event.date)
+
+    // Create a summary of the submission data in markdown format
     let submissionSummary = ""
     if (submission.data && typeof submission.data === "object") {
       // Extract key information for the email summary
@@ -194,13 +220,35 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
         "availability",
       ]
 
+      // Look for dynamic field names with patterns like question_name_123456
+      const dynamicFields = Object.keys(submission.data).filter(
+        (key) => key.startsWith("question_") && !key.includes("csrf") && submission.data[key],
+      )
+
+      // Process standard fields first
       for (const key of Object.keys(submission.data)) {
         if (
           (keyFields.includes(key) || key.toLowerCase().includes("email") || key.toLowerCase().includes("name")) &&
-          submission.data[key]
+          submission.data[key] &&
+          !key.startsWith("question_") // Skip dynamic fields for now
         ) {
           const value = Array.isArray(submission.data[key]) ? submission.data[key].join(", ") : submission.data[key]
           submissionSummary += `<p><strong>${key.charAt(0).toUpperCase() + key.slice(1)}:</strong> ${value}</p>`
+        }
+      }
+
+      // Process dynamic fields
+      for (const key of dynamicFields) {
+        // Extract the field name from the dynamic key (e.g., "name" from "question_name_123456")
+        const fieldNameMatch = key.match(/question_([^_]+)_/)
+        if (fieldNameMatch && fieldNameMatch[1]) {
+          const fieldName = fieldNameMatch[1]
+          const value = Array.isArray(submission.data[key]) ? submission.data[key].join(", ") : submission.data[key]
+
+          // Format field name for display (capitalize first letter)
+          const displayName = fieldName.charAt(0).toUpperCase() + fieldName.slice(1)
+
+          submissionSummary += `<p><strong>${displayName}:</strong> ${value}</p>`
         }
       }
     }
@@ -220,6 +268,12 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
         <h2 style="color: #4f46e5;">New ${formTypeFormatted} Submission</h2>
         <p>Hello Event Organizer,</p>
         <p>You have received a new ${formType} submission for your event <strong>"${event.title}"</strong>.</p>
+        
+        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="margin-top: 0;">Event Details</h3>
+          <p><strong>Event:</strong> ${event.title}</p>
+          <p><strong>Date:</strong> ${formattedDate}</p>
+        </div>
         
         <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <h3 style="margin-top: 0;">Submission Summary</h3>
@@ -242,6 +296,10 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
       Hello Event Organizer,
       
       You have received a new ${formType} submission for your event "${event.title}".
+      
+      Event Details:
+      - Event: ${event.title}
+      - Date: ${formattedDate}
       
       Submission ID: ${submissionId}
       
