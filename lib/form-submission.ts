@@ -22,12 +22,18 @@ function formatEventDate(dateInput, startTime, endTime) {
       return "TBD"
     }
 
+    // Log original date for debugging
+    console.log(`Original GMT date: ${dateObj.toISOString()}`)
+
     // Convert to Indian Standard Time (UTC+5:30)
     const istOffsetHours = 5
     const istOffsetMinutes = 30
 
     // Create a new date object with IST offset
     const istDate = new Date(dateObj.getTime() + (istOffsetHours * 60 + istOffsetMinutes) * 60 * 1000)
+
+    // Log IST date for debugging
+    console.log(`Converted IST date: ${istDate.toISOString()}`)
 
     // Month names for formatting
     const monthNames = [
@@ -46,11 +52,21 @@ function formatEventDate(dateInput, startTime, endTime) {
     ]
 
     // Get date components directly from the IST date
-    const day = istDate.getDate() // Use getDate() instead of getUTCDate()
-    const month = monthNames[istDate.getMonth()] // Use getMonth() instead of getUTCMonth()
-    const year = istDate.getFullYear() // Use getFullYear() instead of getUTCFullYear()
+    const day = istDate.getUTCDate()
+    const month = monthNames[istDate.getUTCMonth()]
+    const year = istDate.getUTCFullYear()
 
-    // Format time if provided separately
+    // Get time components for display
+    const hours = istDate.getUTCHours()
+    const minutes = istDate.getUTCMinutes()
+    const period = hours >= 12 ? "PM" : "AM"
+    const hours12 = hours % 12 || 12
+    const formattedMinutes = minutes.toString().padStart(2, "0")
+
+    // Format the time string
+    const timeString = `${hours12}:${formattedMinutes} ${period}`
+
+    // Format time if provided separately as strings
     let timeStr = ""
     if (startTime && endTime) {
       // Convert 24-hour format to 12-hour format with AM/PM
@@ -61,10 +77,13 @@ function formatEventDate(dateInput, startTime, endTime) {
         return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`
       }
 
-      timeStr = `, ${formatTimeStr(startTime)} - ${formatTimeStr(endTime)} IST`
+      timeStr = `, ${formatTimeStr(startTime)} - ${formatTimeStr(endTime)}`
+    } else {
+      // Use the time from the date object
+      timeStr = `, ${timeString}`
     }
 
-    return `${month} ${day}, ${year}${timeStr}`
+    return `${month} ${day}, ${year}${timeStr} IST`
   } catch (error) {
     console.error("Error formatting date:", error)
     return String(dateInput) || "TBD"
@@ -166,6 +185,7 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
 
     // Format the event date in IST
     const formattedDate = formatEventDate(event.date, event.startTime, event.endTime)
+    console.log(`Formatted date for email: ${formattedDate}`)
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
