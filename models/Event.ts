@@ -36,8 +36,14 @@ const EventSchema = new mongoose.Schema(
     displayName: { type: String },
     slug: { type: String, unique: true, sparse: true },
     description: { type: String, required: true },
-    date: { type: Date, required: true },
-    endDate: { type: Date },
+    date: {
+      type: Date,
+      required: true,
+    },
+    endDate: {
+      type: Date,
+      required: false,
+    },
     startTime: { type: String },
     endTime: { type: String },
     location: { type: String, required: true },
@@ -57,6 +63,18 @@ const EventSchema = new mongoose.Schema(
       required: true,
     },
     attendees: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    volunteers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    speakers: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
