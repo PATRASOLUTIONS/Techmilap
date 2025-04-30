@@ -1,11 +1,12 @@
 import { Suspense } from "react"
 import { PublicEventList } from "@/components/events/public-event-list"
 import { PastEventsSection } from "@/components/events/past-events-section"
-import { Search, Filter } from "lucide-react"
+import { Search, Filter, AlertCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { EventListSkeleton } from "@/components/events/event-list-skeleton"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // This function runs on the server with optimized caching
 async function getPublicEvents(searchParams?: { search?: string; category?: string }) {
@@ -32,7 +33,7 @@ async function getPublicEvents(searchParams?: { search?: string; category?: stri
     // Use different caching strategies based on the type of data
     const cacheOptions = {
       next: {
-        revalidate: 300, // Cache for 5 minutes
+        revalidate: 60, // Cache for 1 minute in development to see changes faster
       },
     }
 
@@ -48,11 +49,18 @@ async function getPublicEvents(searchParams?: { search?: string; category?: stri
       `Fetched ${data.events?.length || 0} events, ${data.upcomingEvents?.length || 0} upcoming, ${data.runningEvents?.length || 0} running, ${data.pastEvents?.length || 0} past`,
     )
 
+    // If we have debug info, log it
+    if (data.debug) {
+      console.log("Debug info:", data.debug)
+    }
+
     return {
       events: data.events || [],
       upcomingEvents: data.upcomingEvents || [],
       runningEvents: data.runningEvents || [],
       pastEvents: data.pastEvents || [],
+      pagination: data.pagination,
+      debug: data.debug,
     }
   } catch (error) {
     console.error("Error fetching public events:", error)
@@ -94,7 +102,10 @@ export default async function PublicEventsPage({
   // Fetch data in parallel for better performance
   const [eventsData, categories] = await Promise.all([getPublicEvents(searchParams), getCategories()])
 
-  const { upcomingEvents = [], runningEvents = [], pastEvents = [], error } = eventsData
+  const { upcomingEvents = [], runningEvents = [], pastEvents = [], error, debug } = eventsData
+
+  // For development, show some debug info
+  const showDebug = process.env.NODE_ENV === "development" && debug
 
   return (
     <div className="pt-16">
@@ -144,9 +155,18 @@ export default async function PublicEventsPage({
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4 mb-8">
-            <h3 className="font-semibold">Error Loading Events</h3>
-            <p>{error}</p>
+          <Alert variant="destructive" className="mb-8">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error Loading Events</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Debug info for development */}
+        {showDebug && (
+          <div className="bg-slate-100 p-4 rounded-md mb-8 text-sm">
+            <h3 className="font-semibold mb-2">Debug Information</h3>
+            <pre className="whitespace-pre-wrap">{JSON.stringify(debug, null, 2)}</pre>
           </div>
         )}
 
@@ -169,7 +189,9 @@ export default async function PublicEventsPage({
                         view all events
                       </a>
                     </p>
-                  ) : null}
+                  ) : (
+                    <p className="mt-2">Check back soon for new events!</p>
+                  )}
                 </div>
               )}
             </Suspense>
