@@ -1,45 +1,86 @@
-import nodemailer from "nodemailer"
+// import nodemailer from "nodemailer"
 
 // Function to create a nodemailer transporter
-function createTransporter() {
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: Number.parseInt(process.env.EMAIL_PORT || "587", 10),
-    secure: process.env.EMAIL_SECURE === "true",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-    tls: {
-      // Do not fail on invalid certs
-      rejectUnauthorized: false,
-    },
-  })
+// function createTransporter() {
+//   return nodemailer.createTransport({
+//     host: process.env.EMAIL_HOST,
+//     port: Number.parseInt(process.env.EMAIL_PORT || "587", 10),
+//     secure: process.env.EMAIL_SECURE === "true",
+//     auth: {
+//       user: process.env.EMAIL_USER,
+//       pass: process.env.EMAIL_PASSWORD,
+//     },
+//     tls: {
+//       // Do not fail on invalid certs
+//       rejectUnauthorized: false,
+//     },
+//   })
+// }
+
+// New email service using the provided API
+async function sendEmailViaAPI({ to, subject, text, html }) {
+  try {
+    console.log(`Sending email to ${to} with subject: ${subject} via API`)
+
+    // Prepare email body
+    const emailBody = html || text || `Subject: ${subject}`
+
+    // Make API request
+    const response = await fetch(
+      "https://prod-22.southindia.logic.azure.com:443/workflows/6df0b999ee0c4e67b8c86d428bbc0eb6/triggers/When_a_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_a_HTTP_request_is_received%2Frun&sv=1.0&sig=mUyOOITrrkN_fiKdv12Yp11TJmNA_eZNzJ_-gQYpuDU",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: to,
+          emailbody: emailBody,
+          subject: subject,
+        }),
+      },
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`API responded with status ${response.status}: ${errorText}`)
+      return false
+    }
+
+    console.log(`Email sent successfully to ${to}`)
+    return true
+  } catch (error) {
+    console.error(`Error sending email to ${to}:`, error)
+    return false
+  }
 }
 
 // Generic function to send emails - exported as required
 export async function sendEmail({ to, subject, text, html }) {
-  try {
-    console.log(`Creating email transporter with host: ${process.env.EMAIL_HOST}, port: ${process.env.EMAIL_PORT}`)
-    const transporter = createTransporter()
+  return sendEmailViaAPI({ to, subject, text, html })
 
-    const mailOptions = {
-      from: `"Tech Milap" <${process.env.EMAIL_USER}>`,
-      to,
-      subject,
-      text,
-      html,
-    }
+  // Original nodemailer implementation (commented out)
+  // try {
+  //   console.log(`Creating email transporter with host: ${process.env.EMAIL_HOST}, port: ${process.env.EMAIL_PORT}`)
+  //   const transporter = createTransporter()
 
-    console.log(`Sending email to ${to} with subject: ${subject}`)
-    const info = await transporter.sendMail(mailOptions)
-    console.log(`Email sent to ${to} with subject ${subject}. Message ID: ${info.messageId}`)
-    return true
-  } catch (error) {
-    console.error(`Error sending email to ${to}:`, error)
-    console.error(`Error details:`, error)
-    return false
-  }
+  //   const mailOptions = {
+  //     from: `"Tech Milap" <${process.env.EMAIL_USER}>`,
+  //     to,
+  //     subject,
+  //     text,
+  //     html,
+  //   }
+
+  //   console.log(`Sending email to ${to} with subject: ${subject}`)
+  //   const info = await transporter.sendMail(mailOptions)
+  //   console.log(`Email sent to ${to} with subject ${subject}. Message ID: ${info.messageId}`)
+  //   return true
+  // } catch (error) {
+  //   console.error(`Error sending email to ${to}:`, error)
+  //   console.error(`Error details:`, error)
+  //   return false
+  // }
 }
 
 // Function to send verification email

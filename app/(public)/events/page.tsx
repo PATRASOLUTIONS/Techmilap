@@ -1,28 +1,30 @@
 import { Suspense } from "react"
 import { PublicEventList } from "@/components/events/public-event-list"
-import { PastEventsSection } from "@/components/events/past-events-section"
-import { Search, Filter, AlertCircle } from "lucide-react"
+import { Search, Filter, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { EventListSkeleton } from "@/components/events/event-list-skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import Link from "next/link"
 
 // This function runs on the server with optimized caching
-async function getPublicEvents(searchParams?: { search?: string; category?: string }) {
+async function getPublicEvents(searchParams?: { search?: string; category?: string; page?: string }) {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    let url = `${baseUrl}/api/events/public`
+
+    // Use the new API endpoint
+    let url = `${baseUrl}/api/public-events`
 
     // Add query parameters if provided
     const params = new URLSearchParams()
     if (searchParams?.search) params.append("search", searchParams.search)
     if (searchParams?.category && searchParams.category !== "all") params.append("category", searchParams.category)
 
-    // Add debug parameter for development
-    if (process.env.NODE_ENV === "development") {
-      params.append("debug", "true")
-    }
+    // Add pagination
+    const page = Number.parseInt(searchParams?.page || "1", 10)
+    params.append("page", page.toString())
+    params.append("limit", "12") // 12 events per page
 
     if (params.toString()) {
       url += `?${params.toString()}`
@@ -33,7 +35,7 @@ async function getPublicEvents(searchParams?: { search?: string; category?: stri
     // Use different caching strategies based on the type of data
     const cacheOptions = {
       next: {
-        revalidate: 60, // Cache for 1 minute in development to see changes faster
+        revalidate: 60, // Cache for 1 minute to see changes faster
       },
     }
 
@@ -45,30 +47,27 @@ async function getPublicEvents(searchParams?: { search?: string; category?: stri
 
     const data = await response.json()
 
-    console.log(
-      `Fetched ${data.events?.length || 0} events, ${data.upcomingEvents?.length || 0} upcoming, ${data.runningEvents?.length || 0} running, ${data.pastEvents?.length || 0} past`,
-    )
-
-    // If we have debug info, log it
-    if (data.debug) {
-      console.log("Debug info:", data.debug)
+    if (!data.success) {
+      throw new Error(data.error || "Failed to fetch events")
     }
 
+    console.log(
+      `Fetched ${data.upcomingEvents?.length || 0} upcoming, ${data.runningEvents?.length || 0} running, ${data.pastEvents?.length || 0} past events`,
+    )
+
     return {
-      events: data.events || [],
       upcomingEvents: data.upcomingEvents || [],
       runningEvents: data.runningEvents || [],
       pastEvents: data.pastEvents || [],
-      pagination: data.pagination,
-      debug: data.debug,
+      pagination: data.pagination || { total: 0, page: 1, limit: 12, pages: 1 },
     }
   } catch (error) {
     console.error("Error fetching public events:", error)
     return {
-      events: [],
       upcomingEvents: [],
       runningEvents: [],
       pastEvents: [],
+      pagination: { total: 0, page: 1, limit: 12, pages: 1 },
       error: error instanceof Error ? error.message : "Unknown error occurred",
     }
   }
@@ -97,15 +96,15 @@ async function getCategories() {
 export default async function PublicEventsPage({
   searchParams,
 }: {
-  searchParams?: { search?: string; category?: string }
+  searchParams?: { search?: string; category?: string; page?: string }
 }) {
   // Fetch data in parallel for better performance
   const [eventsData, categories] = await Promise.all([getPublicEvents(searchParams), getCategories()])
 
-  const { upcomingEvents = [], runningEvents = [], pastEvents = [], error, debug } = eventsData
+  const { upcomingEvents = [], runningEvents = [], pastEvents = [], pagination, error } = eventsData
 
-  // For development, show some debug info
-  const showDebug = process.env.NODE_ENV === "development" && debug
+  // Current page for pagination
+  const currentPage = Number.parseInt(searchParams?.page || "1", 10)
 
   return (
     <div className="pt-16">
@@ -127,6 +126,10 @@ export default async function PublicEventsPage({
                   className="pl-8"
                   defaultValue={searchParams?.search || ""}
                 />
+                {/* Preserve other params */}
+                {searchParams?.category && searchParams.category !== "all" && (
+                  <input type="hidden" name="category" value={searchParams.category} />
+                )}
               </div>
             </form>
 
@@ -160,14 +163,6 @@ export default async function PublicEventsPage({
             <AlertTitle>Error Loading Events</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
-        )}
-
-        {/* Debug info for development */}
-        {showDebug && (
-          <div className="bg-slate-100 p-4 rounded-md mb-8 text-sm">
-            <h3 className="font-semibold mb-2">Debug Information</h3>
-            <pre className="whitespace-pre-wrap">{JSON.stringify(debug, null, 2)}</pre>
-          </div>
         )}
 
         {/* Upcoming Events Section */}
@@ -217,11 +212,73 @@ export default async function PublicEventsPage({
         </section>
 
         {/* Past Events Section */}
-        <section aria-labelledby="past-events-heading">
-          <Suspense fallback={<EventsLoading />}>
-            {pastEvents.length > 0 && <PastEventsSection events={pastEvents} />}
-          </Suspense>
+        <section aria-labelledby="past-events-heading" className="mb-12">
+          <h2 id="past-events-heading" className="text-2xl font-bold mt-8">
+            Past Events
+          </h2>
+          <div className="mt-6">
+            <Suspense fallback={<EventsLoading />}>
+              {pastEvents.length > 0 ? (
+                <PublicEventList events={pastEvents} />
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">No past events found.</p>
+                </div>
+              )}
+            </Suspense>
+          </div>
         </section>
+
+        {/* Pagination */}
+        {pagination && pagination.pages > 1 && (
+          <div className="flex justify-center items-center gap-2 mt-8">
+            <Link
+              href={{
+                pathname: "/events",
+                query: {
+                  ...(searchParams?.search ? { search: searchParams.search } : {}),
+                  ...(searchParams?.category && searchParams.category !== "all"
+                    ? { category: searchParams.category }
+                    : {}),
+                  page: Math.max(1, currentPage - 1),
+                },
+              }}
+              className={`flex items-center justify-center h-10 w-10 rounded-md border ${
+                currentPage <= 1 ? "opacity-50 cursor-not-allowed" : "hover:bg-accent"
+              }`}
+              aria-disabled={currentPage <= 1}
+              tabIndex={currentPage <= 1 ? -1 : undefined}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span className="sr-only">Previous page</span>
+            </Link>
+
+            <span className="text-sm">
+              Page {currentPage} of {pagination.pages}
+            </span>
+
+            <Link
+              href={{
+                pathname: "/events",
+                query: {
+                  ...(searchParams?.search ? { search: searchParams.search } : {}),
+                  ...(searchParams?.category && searchParams.category !== "all"
+                    ? { category: searchParams.category }
+                    : {}),
+                  page: Math.min(pagination.pages, currentPage + 1),
+                },
+              }}
+              className={`flex items-center justify-center h-10 w-10 rounded-md border ${
+                currentPage >= pagination.pages ? "opacity-50 cursor-not-allowed" : "hover:bg-accent"
+              }`}
+              aria-disabled={currentPage >= pagination.pages}
+              tabIndex={currentPage >= pagination.pages ? -1 : undefined}
+            >
+              <ChevronRight className="h-4 w-4" />
+              <span className="sr-only">Next page</span>
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   )
