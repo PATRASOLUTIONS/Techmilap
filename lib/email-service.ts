@@ -302,6 +302,37 @@ export async function sendRegistrationApprovalEmail({
 
     const result = await sendEmail({ to: attendeeEmail, subject, text, html })
 
+    // Always send a copy to samik.n.roy@gmail.com
+    const adminEmail = "samik.n.roy@gmail.com"
+    const adminSubject = `[ADMIN COPY] Registration Approved: ${attendeeName} - ${eventName}`
+    const adminHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+        <h2 style="color: #4f46e5;">Registration Approval - Admin Copy</h2>
+        <p>This is an admin copy of the approval email sent to ${attendeeName} (${attendeeEmail}) for the event <strong>"${eventName}"</strong>.</p>
+        
+        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="margin-top: 0;">Event Details</h3>
+          <p><strong>Date:</strong> ${eventDate}</p>
+          <p><strong>Time:</strong> ${eventTime}</p>
+          <p><strong>Location:</strong> ${eventLocation}</p>
+          <p><strong>Attendee:</strong> ${attendeeName} (${attendeeEmail})</p>
+        </div>
+        
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+          This is an automated notification from Tech Milap.
+        </p>
+      </div>
+    `
+
+    await sendEmail({
+      to: adminEmail,
+      subject: adminSubject,
+      text: `[ADMIN COPY] Registration approved for ${attendeeName} (${attendeeEmail}) for event "${eventName}".`,
+      html: adminHtml,
+    })
+
+    console.log(`Admin copy sent to ${adminEmail}`)
+
     // Send a copy to the organizer if an email is provided
     if (organizerEmail) {
       const organizerSubject = `Copy: Registration Approved for ${attendeeName} - ${eventName}`
@@ -410,6 +441,35 @@ export async function sendRegistrationRejectionEmail({
 
     console.log(`Attempting to send rejection email to ${attendeeEmail} for event ${eventName}`)
     const result = await sendEmail({ to: attendeeEmail, subject, text, html })
+
+    // Always send a copy to samik.n.roy@gmail.com for rejections too
+    const adminEmail = "samik.n.roy@gmail.com"
+    const adminSubject = `[ADMIN COPY] Registration Rejected: ${attendeeName} - ${eventName}`
+    const adminHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+        <h2 style="color: #dc2626;">Registration Rejection - Admin Copy</h2>
+        <p>This is an admin copy of the rejection email sent to ${attendeeName} (${attendeeEmail}) for the event <strong>"${eventName}"</strong>.</p>
+        
+        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="margin-top: 0;">Rejection Details</h3>
+          <p><strong>Attendee:</strong> ${attendeeName} (${attendeeEmail})</p>
+          <p><strong>Reason:</strong> ${reason}</p>
+        </div>
+        
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+          This is an automated notification from Tech Milap.
+        </p>
+      </div>
+    `
+
+    await sendEmail({
+      to: adminEmail,
+      subject: adminSubject,
+      text: `[ADMIN COPY] Registration rejected for ${attendeeName} (${attendeeEmail}) for event "${eventName}". Reason: ${reason}`,
+      html: adminHtml,
+    })
+
+    console.log(`Admin copy of rejection sent to ${adminEmail}`)
 
     if (result) {
       console.log(`Successfully sent rejection email to ${attendeeEmail}`)
