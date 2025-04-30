@@ -47,26 +47,8 @@ export async function GET(req: NextRequest) {
             { "registrations.user": new mongoose.Types.ObjectId(userId) },
             { "submissions.userId": new mongoose.Types.ObjectId(userId) },
           ],
-          // Updated date filtering logic
-          ...(isPastEvents
-            ? {
-                $or: [
-                  // Events with end date in the past
-                  { endDate: { $lt: currentDate } },
-                  // Events with no end date but start date in the past
-                  { $and: [{ endDate: { $exists: false } }, { date: { $lt: currentDate } }] },
-                ],
-              }
-            : {
-                $or: [
-                  // Events with end date in the future
-                  { endDate: { $gte: currentDate } },
-                  // Events with no end date but start date in the future
-                  { $and: [{ endDate: { $exists: false } }, { date: { $gte: currentDate } }] },
-                  // Events with start date in the past but end date in the future
-                  { $and: [{ date: { $lt: currentDate } }, { endDate: { $gte: currentDate } }] },
-                ],
-              }),
+          // Filter by date based on isPastEvents flag
+          ...(isPastEvents ? { date: { $lt: currentDate } } : { date: { $gte: currentDate } }),
         },
       },
       {
