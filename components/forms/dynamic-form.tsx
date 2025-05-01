@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useForm } from "react"
+import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
@@ -41,6 +41,7 @@ export function DynamicForm({
   const [localSubmitting, setLocalSubmitting] = useState(false)
   const { toast } = useToast()
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  const [termsAccepted, setTermsAccepted] = useState(false)
 
   // Ensure formFields is always an array
   const safeFormFields = Array.isArray(formFields) ? formFields : []
@@ -60,7 +61,8 @@ export function DynamicForm({
       if (field.type === "email") {
         fieldSchema = z.string().email(`${field.label} must be a valid email`)
       } else if (field.type === "checkbox") {
-        fieldSchema = z.boolean().optional()
+        // For checkbox fields, we accept boolean, string, or array
+        fieldSchema = z.union([z.boolean(), z.string(), z.array(z.string())]).optional()
       } else if (field.type === "date") {
         fieldSchema = z.date().optional()
       } else if (
@@ -98,9 +100,18 @@ export function DynamicForm({
       if (field.required && field.type !== "checkbox" && field.type !== "date") {
         fieldSchema = fieldSchema.min(1, `${field.label} is required`)
       } else if (field.required && field.type === "checkbox") {
-        fieldSchema = z.literal(true, {
-          errorMap: () => ({ message: `${field.label} is required` }),
-        })
+        // For required checkboxes, we need special handling
+        if (field.options && field.options.length > 0) {
+          // For multi-checkboxes, at least one must be selected
+          fieldSchema = z.union([z.literal(true), z.string().min(1), z.array(z.string()).min(1)], {
+            errorMap: () => ({ message: `${field.label} is required` }),
+          })
+        } else {
+          // For single checkboxes, it must be true
+          fieldSchema = z.literal(true, {
+            errorMap: () => ({ message: `${field.label} is required` }),
+          })
+        }
       } else if (field.required && field.type === "date") {
         fieldSchema = z.date({
           required_error: `${field.label} is required`,
@@ -164,6 +175,9 @@ export function DynamicForm({
           cleanData[key] = values[key]
         }
       })
+
+      // Add terms acceptance
+      cleanData["termsAccepted"] = termsAccepted
 
       console.log("Sending data to parent component:", cleanData)
       await onSubmit(cleanData)
@@ -247,18 +261,19 @@ export function DynamicForm({
         if (!field.options || !Array.isArray(field.options) || field.options.length === 0) {
           return (
             <div className="flex items-center space-x-2">
-              <Checkbox
-                id={field.id}
-                checked={formField.value === true}
-                onCheckedChange={(checked) => {
-                  formField.onChange(checked)
-                  handleBlur(field.id)
-                }}
-                className={error ? "border-red-500" : ""}
-              />
-              <label htmlFor={field.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
-                {field.label}
-              </label>
+              <FormControl>
+                <Checkbox
+                  checked={!!formField.value}
+                  onCheckedChange={formField.onChange}
+                  className={error ? "border-red-500" : ""}
+                />
+              </FormControl>
+              <div className="space-y-1 leading-none">
+                <FormLabel>
+                  {field.label}
+                  {field.required && <span className="text-destructive ml-1">*</span>}
+                </FormLabel>
+              </div>
             </div>
           )
         }
@@ -266,50 +281,61 @@ export function DynamicForm({
         // Handle multiple checkboxes (options array)
         return (
           <div className="flex flex-col space-y-2">
-            {field.options.map((option) => {
-              // Ensure we're working with arrays for checkbox values
-              const currentValues = formField.value
-                ? typeof formField.value === "string"
-                  ? formField.value.split(",")
-                  : Array.isArray(formField.value)
-                    ? formField.value
-                    : [formField.value]
-                : []
+            {field.options.map((option: any) => {
+              const optionValue = option.value || option.id || ""
+              const optionLabel = option.label || option.value || ""
 
               return (
-                <div key={option.value || option.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`${field.id}-${option.value || option.id}`}
-                    onCheckedChange={(checked) => {
-                      try {
-                        // Create a new array from current values
-                        const valueArray = [...currentValues]
+                <div key={optionValue} className="flex items-center space-x-2">
+                  <FormControl>
+                    <Checkbox
+                      checked={
+                        Array.isArray(formField.value)
+                          ? formField.value.includes(optionValue)
+                          : typeof formField.value === "string"
+                            ? formField.value.split(",").includes(optionValue)
+                            : false
+                      }
+                      onCheckedChange={(checked) => {
+                        let newValue
 
-                        if (checked) {
-                          // Add value if not already present
-                          if (!valueArray.includes(option.value)) {
-                            valueArray.push(option.value)
-                          }
-                        } else {
-                          // Remove value if present
-                          const index = valueArray.indexOf(option.value)
-                          if (index !== -1) {
-                            valueArray.splice(index, 1)
+                        // Handle array values
+                        if (Array.isArray(formField.value)) {
+                          newValue = [...formField.value]
+                          if (checked) {
+                            if (!newValue.includes(optionValue)) {
+                              newValue.push(optionValue)
+                            }
+                          } else {
+                            newValue = newValue.filter((v) => v !== optionValue)
                           }
                         }
+                        // Handle string values (comma-separated)
+                        else if (typeof formField.value === "string") {
+                          const values = formField.value ? formField.value.split(",") : []
+                          if (checked) {
+                            if (!values.includes(optionValue)) {
+                              values.push(optionValue)
+                            }
+                          } else {
+                            const index = values.indexOf(optionValue)
+                            if (index !== -1) {
+                              values.splice(index, 1)
+                            }
+                          }
+                          newValue = values.join(",")
+                        }
+                        // Handle empty/undefined values
+                        else {
+                          newValue = checked ? optionValue : ""
+                        }
 
-                        // Join back to string and update
-                        formField.onChange(valueArray.join(","))
-                        handleBlur(field.id)
-                      } catch (error) {
-                        console.error("Error handling checkbox change:", error)
-                      }
-                    }}
-                    checked={currentValues.includes(option.value)}
-                  />
-                  <label htmlFor={`${field.id}-${option.value || option.id}`} className="text-sm">
-                    {option.label || option.value}
-                  </label>
+                        formField.onChange(newValue)
+                      }}
+                      className={error ? "border-red-500" : ""}
+                    />
+                  </FormControl>
+                  <FormLabel className="text-sm font-normal">{optionLabel}</FormLabel>
                 </div>
               )
             })}
@@ -404,8 +430,9 @@ export function DynamicForm({
                 id="terms"
                 name="terms"
                 required
+                checked={termsAccepted}
                 onCheckedChange={(checked) => {
-                  // You can add additional logic here if needed
+                  setTermsAccepted(checked === true)
                 }}
               />
               <label htmlFor="terms" className="text-sm">
