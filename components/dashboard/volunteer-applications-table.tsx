@@ -11,7 +11,6 @@ import { formatDistanceToNow } from "date-fns"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface VolunteerApplicationsTableProps {
   eventId: string
@@ -28,7 +27,6 @@ export function VolunteerApplicationsTable({ eventId, title, description }: Volu
   const [searchQuery, setSearchQuery] = useState("")
   const { toast } = useToast()
   const [selectedSubmissions, setSelectedSubmissions] = useState<string[]>([])
-  const [viewMode, setViewMode] = useState<"table" | "cards">("table")
 
   useEffect(() => {
     const fetchSubmissions = async () => {
@@ -349,205 +347,111 @@ export function VolunteerApplicationsTable({ eventId, title, description }: Volu
         </div>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="basic" className="mb-6">
-          <TabsList>
-            <TabsTrigger value="basic">Basic Info</TabsTrigger>
-            <TabsTrigger value="mvp">MVP Details</TabsTrigger>
-            <TabsTrigger value="events">Event Experience</TabsTrigger>
-            <TabsTrigger value="contact">Contact Info</TabsTrigger>
-          </TabsList>
-
-          {submissions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>No volunteer submissions found.</p>
-            </div>
-          ) : (
-            <>
-              <TabsContent value="basic" className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>
-                        <Checkbox
-                          checked={allSelected}
-                          onCheckedChange={() => toggleSelectAll()}
-                          aria-label="Select all"
-                        />
-                      </TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Corporate Email</TableHead>
-                      <TableHead>Designation</TableHead>
-                      <TableHead>Event Organizer</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Submitted</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {submissions.map((submission) => (
-                      <TableRow key={submission._id}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedSubmissions.includes(submission._id)}
-                            onCheckedChange={() => toggleSubmission(submission._id)}
-                            aria-label="Select row"
-                          />
-                        </TableCell>
-                        <TableCell>{getName(submission)}</TableCell>
-                        <TableCell>{getEmail(submission)}</TableCell>
-                        <TableCell>{getCorporateEmail(submission)}</TableCell>
-                        <TableCell>{getDesignation(submission)}</TableCell>
-                        <TableCell>{getEventOrganizer(submission)}</TableCell>
-                        <TableCell>{getStatusBadge(submission.status)}</TableCell>
-                        <TableCell>
-                          {submission.createdAt &&
-                            formatDistanceToNow(new Date(submission.createdAt), { addSuffix: true })}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleViewSubmission(submission)}>
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
+        {submissions.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No volunteer submissions found.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="sticky left-0 bg-white z-10">
+                    <Checkbox checked={allSelected} onCheckedChange={() => toggleSelectAll()} aria-label="Select all" />
+                  </TableHead>
+                  <TableHead className="sticky left-8 bg-white z-10">Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Corporate Email</TableHead>
+                  <TableHead>Designation</TableHead>
+                  <TableHead>Event Organizer</TableHead>
+                  <TableHead>Is Microsoft MVP</TableHead>
+                  <TableHead>MVP ID</TableHead>
+                  <TableHead>MVP Profile Link</TableHead>
+                  <TableHead>MVP Category</TableHead>
+                  <TableHead>Events Volunteered</TableHead>
+                  <TableHead>Meetup Event Name</TableHead>
+                  <TableHead>Event Details</TableHead>
+                  <TableHead>Meetup Page Details</TableHead>
+                  <TableHead>Contribution</TableHead>
+                  <TableHead>Organizer Name</TableHead>
+                  <TableHead>LinkedIn</TableHead>
+                  <TableHead>GitHub</TableHead>
+                  <TableHead>Other Social Media</TableHead>
+                  <TableHead>Mobile Number</TableHead>
+                  <TableHead>Submitted</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="sticky right-0 bg-white z-10">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {submissions.map((submission) => (
+                  <TableRow key={submission._id}>
+                    <TableCell className="sticky left-0 bg-white z-10">
+                      <Checkbox
+                        checked={selectedSubmissions.includes(submission._id)}
+                        onCheckedChange={() => toggleSubmission(submission._id)}
+                        aria-label="Select row"
+                      />
+                    </TableCell>
+                    <TableCell className="sticky left-8 bg-white z-10 font-medium">{getName(submission)}</TableCell>
+                    <TableCell>{getEmail(submission)}</TableCell>
+                    <TableCell>{getCorporateEmail(submission)}</TableCell>
+                    <TableCell>{getDesignation(submission)}</TableCell>
+                    <TableCell>{getEventOrganizer(submission)}</TableCell>
+                    <TableCell>{getIsMicrosoftMVP(submission)}</TableCell>
+                    <TableCell>{getMvpId(submission)}</TableCell>
+                    <TableCell className="max-w-[150px] truncate">{getMvpProfileLink(submission)}</TableCell>
+                    <TableCell>{getMvpCategory(submission)}</TableCell>
+                    <TableCell>{getHowManyEventsVolunteered(submission)}</TableCell>
+                    <TableCell>{getMeetupEventName(submission)}</TableCell>
+                    <TableCell className="max-w-[150px] truncate">{getEventDetails(submission)}</TableCell>
+                    <TableCell className="max-w-[150px] truncate">{getMeetupPageDetails(submission)}</TableCell>
+                    <TableCell>{getYourContribution(submission)}</TableCell>
+                    <TableCell className="max-w-[150px] truncate">{getOrganizerName(submission)}</TableCell>
+                    <TableCell className="max-w-[150px] truncate">{getLinkedIn(submission)}</TableCell>
+                    <TableCell className="max-w-[150px] truncate">{getGitHub(submission)}</TableCell>
+                    <TableCell>{getOtherSocialMedia(submission)}</TableCell>
+                    <TableCell>{getMobileNumber(submission)}</TableCell>
+                    <TableCell>
+                      {submission.createdAt && formatDistanceToNow(new Date(submission.createdAt), { addSuffix: true })}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(submission.status)}</TableCell>
+                    <TableCell className="sticky right-0 bg-white z-10">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleViewSubmission(submission)}>
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                        {submission.status === "pending" && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-green-600 hover:text-green-700"
+                              onClick={() => handleUpdateStatus(submission._id, "approved")}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Approve
                             </Button>
-                            {submission.status === "pending" && (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-green-600 hover:text-green-700"
-                                  onClick={() => handleUpdateStatus(submission._id, "approved")}
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Approve
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-red-600 hover:text-red-700"
-                                  onClick={() => handleUpdateStatus(submission._id, "rejected")}
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TabsContent>
-
-              <TabsContent value="mvp" className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Is Microsoft MVP</TableHead>
-                      <TableHead>MVP ID</TableHead>
-                      <TableHead>MVP Profile Link</TableHead>
-                      <TableHead>MVP Category</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {submissions.map((submission) => (
-                      <TableRow key={`mvp-${submission._id}`}>
-                        <TableCell>{getName(submission)}</TableCell>
-                        <TableCell>{getIsMicrosoftMVP(submission)}</TableCell>
-                        <TableCell>{getMvpId(submission)}</TableCell>
-                        <TableCell>{getMvpProfileLink(submission)}</TableCell>
-                        <TableCell>{getMvpCategory(submission)}</TableCell>
-                        <TableCell>{getStatusBadge(submission.status)}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="outline" size="sm" onClick={() => handleViewSubmission(submission)}>
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TabsContent>
-
-              <TabsContent value="events" className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Events Volunteered</TableHead>
-                      <TableHead>Meetup Event Name</TableHead>
-                      <TableHead>Event Details</TableHead>
-                      <TableHead>Meetup Page Details</TableHead>
-                      <TableHead>Contribution</TableHead>
-                      <TableHead>Organizer Name</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {submissions.map((submission) => (
-                      <TableRow key={`events-${submission._id}`}>
-                        <TableCell>{getName(submission)}</TableCell>
-                        <TableCell>{getHowManyEventsVolunteered(submission)}</TableCell>
-                        <TableCell>{getMeetupEventName(submission)}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{getEventDetails(submission)}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{getMeetupPageDetails(submission)}</TableCell>
-                        <TableCell>{getYourContribution(submission)}</TableCell>
-                        <TableCell>{getOrganizerName(submission)}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="outline" size="sm" onClick={() => handleViewSubmission(submission)}>
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TabsContent>
-
-              <TabsContent value="contact" className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>LinkedIn</TableHead>
-                      <TableHead>GitHub</TableHead>
-                      <TableHead>Other Social Media</TableHead>
-                      <TableHead>Mobile Number</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {submissions.map((submission) => (
-                      <TableRow key={`contact-${submission._id}`}>
-                        <TableCell>{getName(submission)}</TableCell>
-                        <TableCell>{getEmail(submission)}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{getLinkedIn(submission)}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{getGitHub(submission)}</TableCell>
-                        <TableCell>{getOtherSocialMedia(submission)}</TableCell>
-                        <TableCell>{getMobileNumber(submission)}</TableCell>
-                        <TableCell>{getStatusBadge(submission.status)}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="outline" size="sm" onClick={() => handleViewSubmission(submission)}>
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TabsContent>
-            </>
-          )}
-        </Tabs>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => handleUpdateStatus(submission._id, "rejected")}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </CardContent>
 
       {/* Submission Detail Dialog */}
