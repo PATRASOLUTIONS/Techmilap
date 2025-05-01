@@ -1,33 +1,19 @@
-import { getServerSession } from "next-auth/next"
-import { redirect } from "next/navigation"
-import { authOptions } from "@/lib/auth"
 import { VolunteerApplicationsTable } from "@/components/dashboard/volunteer-applications-table"
 
-export default async function EventVolunteersPage({ params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions)
-
-  if (!session) {
-    redirect("/login")
+interface VolunteersPageProps {
+  params: {
+    id: string
   }
+}
 
-  // Only event planners and super admins can access this page
-  if (session.user.role !== "event-planner" && session.user.role !== "super-admin") {
-    redirect("/dashboard")
-  }
-
-  const eventId = params.id
-
+export default function VolunteersPage({ params }: VolunteersPageProps) {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Volunteer Applications</h1>
-        <p className="text-muted-foreground">Manage volunteer applications for your event.</p>
-      </div>
-
+    <div className="container mx-auto py-6 space-y-6">
+      <h1 className="text-3xl font-bold">Volunteer Applications</h1>
       <VolunteerApplicationsTable
-        eventId={eventId}
+        eventId={params.id}
         title="Volunteer Applications"
-        description="Review and manage volunteer applications for your event. Use filters to find specific volunteers based on their application information."
+        description="Review and manage volunteer applications for this event"
       />
     </div>
   )
