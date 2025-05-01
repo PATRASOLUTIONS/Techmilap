@@ -244,19 +244,52 @@ export function DynamicForm({
         )
       case "checkbox":
         return (
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              checked={formField.value}
-              onCheckedChange={(checked) => {
-                formField.onChange(checked)
-                handleBlur(field.id)
-              }}
-              id={field.id}
-              className={error ? "border-red-500" : ""}
-            />
-            <label htmlFor={field.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
-              {field.label}
-            </label>
+          <div className="flex flex-col space-y-2">
+            {field.options?.map((option) => {
+              // Ensure we're working with arrays for checkbox values
+              const currentValues = formField.value
+                ? typeof formField.value === "string"
+                  ? formField.value.split(",")
+                  : [formField.value]
+                : []
+
+              return (
+                <div key={option.value || option.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`${field.id}-${option.value || option.id}`}
+                    onCheckedChange={(checked) => {
+                      try {
+                        // Create a new array from current values
+                        const valueArray = [...currentValues]
+
+                        if (checked) {
+                          // Add value if not already present
+                          if (!valueArray.includes(option.value)) {
+                            valueArray.push(option.value)
+                          }
+                        } else {
+                          // Remove value if present
+                          const index = valueArray.indexOf(option.value)
+                          if (index !== -1) {
+                            valueArray.splice(index, 1)
+                          }
+                        }
+
+                        // Join back to string and update
+                        formField.onChange(valueArray.join(","))
+                        handleBlur(field.id)
+                      } catch (error) {
+                        console.error("Error handling checkbox change:", error)
+                      }
+                    }}
+                    checked={currentValues.includes(option.value)}
+                  />
+                  <label htmlFor={`${field.id}-${option.value || option.id}`} className="text-sm">
+                    {option.label || option.value}
+                  </label>
+                </div>
+              )
+            })}
           </div>
         )
       case "radio":
