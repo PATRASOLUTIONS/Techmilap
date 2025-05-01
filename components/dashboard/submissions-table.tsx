@@ -25,12 +25,27 @@ interface FilterState {
   [key: string]: string | boolean | null | number[] | Date
 }
 
+// Add the fieldMappings prop to the interface
+interface RegistrationsTableProps {
+  eventId: string
+  title: string
+  description: string
+  filterStatus?: "pending" | "approved" | "rejected"
+  formType?: string
+  fieldMappings?: {
+    [key: string]: string[]
+  }
+}
+
 interface SubmissionsTableProps {
   eventId: string
   formType: "attendee" | "volunteer" | "speaker"
   title: string
   description: string
   filterStatus?: "pending" | "approved" | "rejected"
+  fieldMappings?: {
+    [key: string]: string[]
+  }
 }
 
 // Add these predefined questions for each form type
@@ -87,8 +102,329 @@ const PREDEFINED_QUESTIONS = {
   ],
 }
 
+// Update the getFieldValue function to handle dynamic field names with prefixes
+const getFieldValue = (registration: any, fieldNames: string[], defaultValue = "N/A") => {
+  if (!registration) return defaultValue
+
+  // First check in data object
+  if (registration.data) {
+    // Check for dynamic field names with patterns like question_fieldname_123456789
+    for (const key of Object.keys(registration.data)) {
+      for (const fieldName of fieldNames) {
+        // Check if the key starts with the field prefix
+        if (key.startsWith(fieldName)) {
+          if (
+            registration.data[key] !== undefined &&
+            registration.data[key] !== null &&
+            registration.data[key] !== ""
+          ) {
+            return registration.data[key]
+          }
+        }
+      }
+    }
+
+    // Then check for exact match
+    for (const fieldName of fieldNames) {
+      if (
+        registration.data[fieldName] !== undefined &&
+        registration.data[fieldName] !== null &&
+        registration.data[fieldName] !== ""
+      ) {
+        return registration.data[fieldName]
+      }
+
+      // Check for case-insensitive match
+      const lowerFieldName = fieldName.toLowerCase()
+      for (const key of Object.keys(registration.data)) {
+        if (
+          key.toLowerCase() === lowerFieldName &&
+          registration.data[key] !== undefined &&
+          registration.data[key] !== null &&
+          registration.data[key] !== ""
+        ) {
+          return registration.data[key]
+        }
+      }
+    }
+  }
+
+  // Then check in the registration object itself
+  for (const fieldName of fieldNames) {
+    if (registration[fieldName] !== undefined && registration[fieldName] !== null && registration[fieldName] !== "") {
+      return registration[fieldName]
+    }
+  }
+
+  // Check for nested objects
+  for (const fieldName of fieldNames) {
+    const parts = fieldName.split(".")
+    if (parts.length > 1) {
+      let obj = registration
+      let found = true
+
+      for (const part of parts) {
+        if (obj && obj[part] !== undefined) {
+          obj = obj[part]
+        } else {
+          found = false
+          break
+        }
+      }
+
+      if (found && obj !== undefined && obj !== null && obj !== "") {
+        return obj
+      }
+    }
+  }
+
+  return defaultValue
+}
+
+// Update the getAttendeeEmail function to use the fieldMappings if provided
+const getAttendeeEmail = (registration: any, fieldMappings?: { [key: string]: string[] }) => {
+  const defaultFields = [
+    "email",
+    "emailAddress",
+    "corporateEmail",
+    "userEmail",
+    "email_address",
+    "corporate_email",
+    "user_email",
+    "Email",
+    "EmailAddress",
+    "CorporateEmail",
+    "UserEmail",
+    "data.email",
+    "data.emailAddress",
+    "data.corporateEmail",
+    "data.userEmail",
+  ]
+
+  const emailFields = fieldMappings?.email || defaultFields
+  return getFieldValue(registration, emailFields, "N/A")
+}
+
+// Update the getAttendeeName function to use the fieldMappings if provided
+const getAttendeeName = (registration: any, fieldMappings?: { [key: string]: string[] }) => {
+  // Try to get full name first
+  const defaultNameFields = [
+    "name",
+    "fullName",
+    "full_name",
+    "Name",
+    "FullName",
+    "data.name",
+    "data.fullName",
+    "data.full_name",
+    "userName",
+  ]
+
+  const nameFields = fieldMappings?.name || defaultNameFields
+  const fullName = getFieldValue(registration, nameFields, "")
+
+  if (fullName) return fullName
+
+  // Try to combine first and last name
+  const firstName = getFieldValue(
+    registration,
+    ["firstName", "first_name", "FirstName", "data.firstName", "data.first_name", "data.FirstName"],
+    "",
+  )
+
+  const lastName = getFieldValue(
+    registration,
+    ["lastName", "last_name", "LastName", "data.lastName", "data.last_name", "data.LastName"],
+    "",
+  )
+
+  if (firstName || lastName) {
+    return `${firstName} ${lastName}`.trim()
+  }
+
+  return "Anonymous"
+}
+
+// Update the getCorporateEmail function to use the fieldMappings if provided
+const getCorporateEmail = (registration: any, fieldMappings?: { [key: string]: string[] }) => {
+  const defaultFields = [
+    "corporateEmail",
+    "corporate_email",
+    "workEmail",
+    "work_email",
+    "companyEmail",
+    "company_email",
+    "businessEmail",
+    "business_email",
+    "CorporateEmail",
+    "WorkEmail",
+    "CompanyEmail",
+    "BusinessEmail",
+    "data.corporateEmail",
+    "data.corporate_email",
+    "data.workEmail",
+    "data.work_email",
+    "data.companyEmail",
+    "data.company_email",
+  ]
+
+  const corporateEmailFields = fieldMappings?.corporateEmail || defaultFields
+  return getFieldValue(registration, corporateEmailFields)
+}
+
+// Update the getDesignation function to use the fieldMappings if provided
+const getDesignation = (registration: any, fieldMappings?: { [key: string]: string[] }) => {
+  const defaultFields = [
+    "designation",
+    "role",
+    "jobTitle",
+    "job_title",
+    "position",
+    "title",
+    "Designation",
+    "Role",
+    "JobTitle",
+    "Position",
+    "Title",
+    "data.designation",
+    "data.role",
+    "data.jobTitle",
+    "data.job_title",
+    "data.position",
+    "data.title",
+  ]
+
+  const designationFields = fieldMappings?.designation || defaultFields
+  return getFieldValue(registration, designationFields)
+}
+
+// Update the getLinkedIn function to use the fieldMappings if provided
+const getLinkedIn = (registration: any, fieldMappings?: { [key: string]: string[] }) => {
+  const defaultFields = [
+    "linkedin",
+    "linkedinId",
+    "linkedInUrl",
+    "linkedin_url",
+    "linkedinUrl",
+    "linkedInProfile",
+    "linkedin_profile",
+    "LinkedIn",
+    "LinkedInId",
+    "LinkedInUrl",
+    "LinkedInProfile",
+    "data.linkedin",
+    "data.linkedinId",
+    "data.linkedInUrl",
+    "data.linkedin_url",
+    "data.linkedinUrl",
+    "data.linkedInProfile",
+    "data.linkedin_profile",
+  ]
+
+  const linkedinFields = fieldMappings?.linkedinId || defaultFields
+  return getFieldValue(registration, linkedinFields)
+}
+
+// Update the getGitHub function to use the fieldMappings if provided
+const getGitHub = (registration: any, fieldMappings?: { [key: string]: string[] }) => {
+  const defaultFields = [
+    "github",
+    "githubId",
+    "githubUrl",
+    "github_url",
+    "githubProfile",
+    "github_profile",
+    "GitHub",
+    "GitHubId",
+    "GitHubUrl",
+    "GitHubProfile",
+    "data.github",
+    "data.githubId",
+    "data.githubUrl",
+    "data.github_url",
+    "data.githubProfile",
+    "data.github_profile",
+  ]
+
+  const githubFields = fieldMappings?.githubId || defaultFields
+  return getFieldValue(registration, githubFields)
+}
+
+// Update the getOtherSocialMedia function to use the fieldMappings if provided
+const getOtherSocialMedia = (registration: any, fieldMappings?: { [key: string]: string[] }) => {
+  const defaultFields = [
+    "otherSocialMedia",
+    "otherSocialMediaId",
+    "other_social_media",
+    "other_social_media_id",
+    "socialMedia",
+    "social_media",
+    "twitter",
+    "facebook",
+    "instagram",
+    "OtherSocialMedia",
+    "OtherSocialMediaId",
+    "SocialMedia",
+    "Twitter",
+    "Facebook",
+    "Instagram",
+    "data.otherSocialMedia",
+    "data.otherSocialMediaId",
+    "data.other_social_media",
+    "data.other_social_media_id",
+    "data.socialMedia",
+    "data.social_media",
+    "data.twitter",
+    "data.facebook",
+    "data.instagram",
+  ]
+
+  const otherSocialMediaFields = fieldMappings?.otherSocialMediaId || defaultFields
+  return getFieldValue(registration, otherSocialMediaFields)
+}
+
+// Update the getMobileNumber function to use the fieldMappings if provided
+const getMobileNumber = (registration: any, fieldMappings?: { [key: string]: string[] }) => {
+  const defaultFields = [
+    "mobile",
+    "mobileNumber",
+    "mobile_number",
+    "phone",
+    "phoneNumber",
+    "phone_number",
+    "contact",
+    "contactNumber",
+    "contact_number",
+    "Mobile",
+    "MobileNumber",
+    "Phone",
+    "PhoneNumber",
+    "Contact",
+    "ContactNumber",
+    "data.mobile",
+    "data.mobileNumber",
+    "data.mobile_number",
+    "data.phone",
+    "data.phoneNumber",
+    "data.phone_number",
+    "data.contact",
+    "data.contactNumber",
+    "data.contact_number",
+  ]
+
+  const mobileNumberFields = fieldMappings?.mobileNumber || defaultFields
+  return getFieldValue(registration, mobileNumberFields)
+}
+
 // Update the SubmissionsTable component to include filters
-export function SubmissionsTable({ eventId, formType, title, description, filterStatus }: SubmissionsTableProps) {
+export function SubmissionsTable({
+  eventId,
+  formType,
+  title,
+  description,
+  filterStatus,
+  fieldMappings,
+}: SubmissionsTableProps) {
   const [submissions, setSubmissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -595,12 +931,12 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
     {
       accessorKey: "data.name",
       header: "Name",
-      cell: ({ row }) => <div>{row.original.data?.name || row.original.data?.firstName || "Anonymous"}</div>,
+      cell: ({ row }) => <div>{getAttendeeName(row.original, fieldMappings)}</div>,
     },
     {
       accessorKey: "data.email",
       header: "Email",
-      cell: ({ row }) => <div>{row.original.data?.email || "N/A"}</div>,
+      cell: ({ row }) => <div>{getAttendeeEmail(row.original, fieldMappings)}</div>,
     },
     ...customQuestions.map((question) => {
       const fieldKey = question.id.startsWith("custom_") ? question.id : question.id
@@ -935,11 +1271,11 @@ export function SubmissionsTable({ eventId, formType, title, description, filter
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Name</h3>
-                  <p>{selectedSubmission.data?.firstName || selectedSubmission.data?.name || "Anonymous"}</p>
+                  <p>{getAttendeeName(selectedSubmission, fieldMappings)}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Email</h3>
-                  <p>{selectedSubmission.data?.email || "N/A"}</p>
+                  <p>{getAttendeeEmail(selectedSubmission, fieldMappings)}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Status</h3>

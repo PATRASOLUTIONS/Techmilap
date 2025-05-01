@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
-import { SubmissionsTable } from "@/components/dashboard/submissions-table"
+import { VolunteerApplicationsTable } from "@/components/dashboard/volunteer-applications-table"
 
 export default async function EventVolunteersPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
@@ -24,9 +24,8 @@ export default async function EventVolunteersPage({ params }: { params: { id: st
         <p className="text-muted-foreground">Manage volunteer applications for your event.</p>
       </div>
 
-      <SubmissionsTable
+      <VolunteerApplicationsTable
         eventId={eventId}
-        formType="volunteer"
         title="Volunteer Applications"
         description="Review and manage volunteer applications for your event. Use filters to find specific volunteers based on their application information."
       />
