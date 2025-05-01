@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
@@ -243,14 +243,37 @@ export function DynamicForm({
           </Select>
         )
       case "checkbox":
+        // Handle single checkbox (no options array)
+        if (!field.options || !Array.isArray(field.options) || field.options.length === 0) {
+          return (
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id={field.id}
+                checked={formField.value === true}
+                onCheckedChange={(checked) => {
+                  formField.onChange(checked)
+                  handleBlur(field.id)
+                }}
+                className={error ? "border-red-500" : ""}
+              />
+              <label htmlFor={field.id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
+                {field.label}
+              </label>
+            </div>
+          )
+        }
+
+        // Handle multiple checkboxes (options array)
         return (
           <div className="flex flex-col space-y-2">
-            {field.options?.map((option) => {
+            {field.options.map((option) => {
               // Ensure we're working with arrays for checkbox values
               const currentValues = formField.value
                 ? typeof formField.value === "string"
                   ? formField.value.split(",")
-                  : [formField.value]
+                  : Array.isArray(formField.value)
+                    ? formField.value
+                    : [formField.value]
                 : []
 
               return (
