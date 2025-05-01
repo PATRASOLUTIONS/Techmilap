@@ -138,9 +138,16 @@ export function DynamicForm({
     const errors: Record<string, string> = {}
 
     safeFormFields.forEach((question) => {
-      const value = form.getValues(question.id) || ""
+      const value = form.getValues(question.id)
       const validationType = getValidationType(question)
-      const error = validateField(validationType, value, question.required)
+
+      // Only call validateField with string values or convert to string
+      let valueToValidate = value
+      if (typeof value !== "string" && value !== null && value !== undefined) {
+        valueToValidate = String(value)
+      }
+
+      const error = validateField(validationType, valueToValidate, question.required)
 
       if (error) {
         errors[question.id] = error
@@ -197,9 +204,16 @@ export function DynamicForm({
     const question = safeFormFields.find((q) => q.id === questionId)
     if (!question) return
 
-    const value = form.getValues(questionId) || ""
+    const value = form.getValues(questionId)
     const validationType = getValidationType(question)
-    const error = validateField(validationType, value, question.required)
+
+    // Only call validateField with string values or convert to string
+    let valueToValidate = value
+    if (typeof value !== "string" && value !== null && value !== undefined) {
+      valueToValidate = String(value)
+    }
+
+    const error = validateField(validationType, valueToValidate, question.required)
 
     setValidationErrors((prev) => ({
       ...prev,
