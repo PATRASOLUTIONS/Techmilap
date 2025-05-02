@@ -11,55 +11,118 @@ import Link from "next/link"
 // This function runs on the server with optimized caching
 async function getPublicEvents(searchParams?: { search?: string; category?: string; page?: string }) {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    // Use direct database query instead of API call to avoid potential issues
+    await import("@/lib/mongodb").then((module) => module.connectToDatabase())
+    const Event = (await import("@/models/Event")).default
+    const User = (await import("@/models/User")).default
 
-    // Use the new API endpoint
-    let url = `${baseUrl}/api/public-events`
+    // Build the query
+    const query: any = {
+      isActive: true, // Only show active events
+    }
 
-    // Add query parameters if provided
-    const params = new URLSearchParams()
-    if (searchParams?.search) params.append("search", searchParams.search)
-    if (searchParams?.category && searchParams.category !== "all") params.append("category", searchParams.category)
+    // Add category filter if provided
+    if (searchParams?.category && searchParams.category !== "all") {
+      query.category = searchParams.category
+    }
+
+    // Add search filter if provided
+    if (searchParams?.search) {
+      query.$or = [
+        { title: { $regex: searchParams.search, $options: "i" } },
+        { description: { $regex: searchParams.search, $options: "i" } },
+        { location: { $regex: searchParams.search, $options: "i" } },
+      ]
+    }
+
+    // Get the current date
+    const now = new Date()
 
     // Add pagination
     const page = Number.parseInt(searchParams?.page || "1", 10)
-    params.append("page", page.toString())
-    params.append("limit", "12") // 12 events per page
+    const limit = 12 // 12 events per page
+    const skip = (page - 1) * limit
 
-    if (params.toString()) {
-      url += `?${params.toString()}`
-    }
+    // Count total documents for pagination
+    const totalEvents = await Event.countDocuments(query)
 
-    console.log("Fetching events from:", url)
+    // Fetch events
+    const events = await Event.find(query)
+      .sort({ date: 1 }) // Sort by date ascending
+      .skip(skip)
+      .limit(limit)
+      .lean()
 
-    // Use different caching strategies based on the type of data
-    const cacheOptions = {
-      next: {
-        revalidate: 60, // Cache for 1 minute to see changes faster
+    // Get unique organizer IDs
+    const organizerIds = [...new Set(events.map((event: any) => event.organizer).filter(Boolean))]
+
+    // Fetch organizers in a single query
+    const organizers = organizerIds.length
+      ? await User.find({ _id: { $in: organizerIds } }, { name: 1, email: 1 }).lean()
+      : []
+
+    // Create a map for quick lookup
+    const organizerMap = organizers.reduce(
+      (map: Record<string, any>, user: any) => {
+        map[user._id.toString()] = user
+        return map
       },
-    }
-
-    const response = await fetch(url, cacheOptions)
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch events: ${response.status}`)
-    }
-
-    const data = await response.json()
-
-    if (!data.success) {
-      throw new Error(data.error || "Failed to fetch events")
-    }
-
-    console.log(
-      `Fetched ${data.upcomingEvents?.length || 0} upcoming, ${data.runningEvents?.length || 0} running, ${data.pastEvents?.length || 0} past events`,
+      {} as Record<string, any>,
     )
 
+    // Categorize events
+    const upcomingEvents: any[] = []
+    const runningEvents: any[] = []
+    const pastEvents: any[] = []
+
+    for (const event of events) {
+      // Add organizer info
+      if (event.organizer) {
+        const organizerId = event.organizer.toString()
+        event.organizerInfo = organizerMap[organizerId] || null
+      }
+
+      try {
+        const eventDate = event.date ? new Date(event.date) : null
+        const eventEndDate = event.endDate ? new Date(event.endDate) : null
+
+        // If no dates are provided, consider it an upcoming event
+        if (!eventDate) {
+          upcomingEvents.push(event)
+          continue
+        }
+
+        // Check if the event is running (started but not ended)
+        if (eventDate <= now && (!eventEndDate || eventEndDate >= now)) {
+          runningEvents.push(event)
+          continue
+        }
+
+        // Check if the event is past (ended)
+        if ((eventEndDate && eventEndDate < now) || (eventDate < now && !eventEndDate)) {
+          pastEvents.push(event)
+          continue
+        }
+
+        // Otherwise, it's an upcoming event
+        upcomingEvents.push(event)
+      } catch (error) {
+        console.error(`Error processing event ${event._id}:`, error)
+        // If there's an error processing dates, consider it an upcoming event
+        upcomingEvents.push(event)
+      }
+    }
+
     return {
-      upcomingEvents: data.upcomingEvents || [],
-      runningEvents: data.runningEvents || [],
-      pastEvents: data.pastEvents || [],
-      pagination: data.pagination || { total: 0, page: 1, limit: 12, pages: 1 },
+      upcomingEvents,
+      runningEvents,
+      pastEvents,
+      pagination: {
+        total: totalEvents,
+        page,
+        limit,
+        pages: Math.ceil(totalEvents / limit),
+      },
     }
   } catch (error) {
     console.error("Error fetching public events:", error)
@@ -76,17 +139,12 @@ async function getPublicEvents(searchParams?: { search?: string; category?: stri
 // Get categories with longer cache time since they change less frequently
 async function getCategories() {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    const response = await fetch(`${baseUrl}/api/events/categories`, {
-      next: { revalidate: 3600 }, // Cache for 1 hour
-    })
+    await import("@/lib/mongodb").then((module) => module.connectToDatabase())
+    const Event = (await import("@/models/Event")).default
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch categories: ${response.status}`)
-    }
-
-    const data = await response.json()
-    return data.categories || []
+    // Get distinct categories
+    const categories = await Event.distinct("category")
+    return categories.filter(Boolean) // Filter out null/undefined values
   } catch (error) {
     console.error("Error fetching categories:", error)
     return ["Conference", "Workshop", "Meetup", "Webinar", "Other"] // Fallback categories
@@ -142,7 +200,7 @@ export default async function PublicEventsPage({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((category) => (
+                  {categories.map((category: string) => (
                     <SelectItem key={category} value={category}>
                       {category}
                     </SelectItem>

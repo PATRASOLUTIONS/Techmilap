@@ -18,7 +18,6 @@ export async function GET(request: NextRequest) {
 
     // Build the query
     const query: any = {
-      status: "published", // Only show published events
       isActive: true, // Only show active events
     }
 
