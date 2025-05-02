@@ -22,6 +22,7 @@ interface Event {
     name: string
     email: string
   }
+  eventType?: "recent" | "upcoming" | "past"
 }
 
 export function PublicEventCard({ event }: { event: Event }) {
@@ -57,11 +58,13 @@ export function PublicEventCard({ event }: { event: Event }) {
             priority={false}
             loading="lazy"
           />
-          {event.category && (
-            <div className="absolute top-3 left-3">
-              <Badge className="bg-primary/90 hover:bg-primary text-white">{event.category}</Badge>
-            </div>
-          )}
+          <div className="absolute top-3 left-3 flex flex-wrap gap-2">
+            {event.category && <Badge className="bg-primary/90 hover:bg-primary text-white">{event.category}</Badge>}
+            {event.eventType === "recent" && (
+              <Badge className="bg-green-500/90 hover:bg-green-500 text-white">New</Badge>
+            )}
+            {event.eventType === "past" && <Badge className="bg-gray-500/90 hover:bg-gray-500 text-white">Past</Badge>}
+          </div>
         </div>
         <CardContent className="p-5">
           <h3 className="text-xl font-bold mb-2 line-clamp-2 group-hover:text-primary transition-colors">

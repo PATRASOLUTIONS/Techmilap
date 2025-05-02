@@ -29,10 +29,12 @@ interface Event {
     email: string
   }
   isActive?: boolean
+  createdAt?: string
 }
 
 interface EventsResponse {
   events: Event[]
+  totalEvents: number
   error: string | null
   categories?: string[]
 }
@@ -53,7 +55,7 @@ async function getEventsDirectly(searchParams?: {
     const User = (await import("@/models/User")).default
 
     // Build query
-    const query: any = {} // Remove isActive filter as it might not exist in your schema
+    const query: any = {}
 
     // Add search filter if provided
     if (searchParams?.search) {
@@ -71,23 +73,66 @@ async function getEventsDirectly(searchParams?: {
 
     console.log("Fetching events with query:", JSON.stringify(query))
 
+    // Get the current date for categorizing events
+    const now = new Date()
+
+    // Count total events for pagination
+    const totalEvents = await Event.countDocuments(query)
+
     // Add pagination
     const page = Number.parseInt(searchParams?.page || "1", 10)
     const limit = 12 // 12 events per page
     const skip = (page - 1) * limit
 
-    // Fetch events with pagination
-    const events = await Event.find(query)
-      .sort({ date: 1 }) // Sort by date ascending
-      .skip(skip)
-      .limit(limit)
-      .lean()
-      .exec()
+    // Fetch all events first (without pagination) to categorize them
+    const allEvents = await Event.find(query).lean().exec()
 
-    console.log(`Found ${events.length} events in database`)
+    // Categorize events
+    const recentEvents: Event[] = []
+    const upcomingEvents: Event[] = []
+    const pastEvents: Event[] = []
 
-    // Get unique organizer IDs
-    const organizerIds = events
+    allEvents.forEach((event) => {
+      const eventDate = event.date ? new Date(event.date) : null
+      const eventEndDate = event.endDate ? new Date(event.endDate) : null
+      const createdAt = event.createdAt ? new Date(event.createdAt) : new Date(0)
+
+      // Recent events (created in the last 7 days)
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+      if (createdAt >= sevenDaysAgo) {
+        recentEvents.push(event)
+      }
+      // Upcoming events (start date is in the future)
+      else if (eventDate && eventDate > now) {
+        upcomingEvents.push(event)
+      }
+      // Past events (end date is in the past)
+      else if ((eventEndDate && eventEndDate < now) || (eventDate && eventDate < now && !eventEndDate)) {
+        pastEvents.push(event)
+      }
+      // Default to upcoming if we can't categorize
+      else {
+        upcomingEvents.push(event)
+      }
+    })
+
+    // Sort each category
+    recentEvents.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    upcomingEvents.sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime())
+    pastEvents.sort(
+      (a, b) => new Date(b.endDate || b.date || 0).getTime() - new Date(a.endDate || a.date || 0).getTime(),
+    )
+
+    // Combine all events in the desired order
+    const sortedEvents = [...recentEvents, ...upcomingEvents, ...pastEvents]
+
+    // Apply pagination to the sorted events
+    const paginatedEvents = sortedEvents.slice(skip, skip + limit)
+
+    // Get unique organizer IDs from paginated events
+    const organizerIds = paginatedEvents
       .map((event) => event.organizer)
       .filter(Boolean)
       .map((id) => id.toString())
@@ -109,12 +154,21 @@ async function getEventsDirectly(searchParams?: {
     }
 
     // Add organizer info to events
-    const processedEvents = events.map((event) => {
+    const processedEvents = paginatedEvents.map((event) => {
       const eventWithOrganizer = { ...event } as Event
 
       if (event.organizer) {
         const organizerId = event.organizer.toString()
         eventWithOrganizer.organizerInfo = organizerMap[organizerId] || null
+      }
+
+      // Add event type for UI display
+      if (recentEvents.some((e) => e._id.toString() === event._id.toString())) {
+        ;(eventWithOrganizer as any).eventType = "recent"
+      } else if (upcomingEvents.some((e) => e._id.toString() === event._id.toString())) {
+        ;(eventWithOrganizer as any).eventType = "upcoming"
+      } else {
+        ;(eventWithOrganizer as any).eventType = "past"
       }
 
       return eventWithOrganizer
@@ -126,6 +180,7 @@ async function getEventsDirectly(searchParams?: {
 
     return {
       events: processedEvents,
+      totalEvents,
       categories: validCategories,
       error: null,
     }
@@ -133,6 +188,7 @@ async function getEventsDirectly(searchParams?: {
     console.error("Error fetching events directly:", error)
     return {
       events: [],
+      totalEvents: 0,
       categories: [],
       error: error instanceof Error ? error.message : "Unknown error occurred while fetching events",
     }
@@ -145,14 +201,14 @@ export default async function EventsPage({
   searchParams?: { search?: string; category?: string; page?: string }
 }) {
   console.log("Rendering EventsPage component with params:", searchParams)
-  const { events, categories, error } = await getEventsDirectly(searchParams)
+  const { events, totalEvents, categories, error } = await getEventsDirectly(searchParams)
 
   // Current page for pagination
   const currentPage = Number.parseInt(searchParams?.page || "1", 10)
+  const limit = 12 // Same as in getEventsDirectly
 
-  // Calculate total pages - this is a placeholder since we don't have the total count
-  // In a real implementation, you would fetch the total count from the database
-  const totalPages = 5 // Placeholder
+  // Calculate total pages based on actual count
+  const totalPages = Math.ceil(totalEvents / limit)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -161,7 +217,10 @@ export default async function EventsPage({
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div>
               <h1 className="text-3xl font-bold">Discover Events</h1>
-              <p className="text-muted-foreground mt-2">Find and join exciting events in your area</p>
+              <p className="text-muted-foreground mt-2">
+                Find and join exciting events in your area
+                {totalEvents > 0 && ` (${totalEvents} events found)`}
+              </p>
             </div>
 
             <div className="w-full md:w-auto flex flex-col sm:flex-row gap-3">
@@ -217,7 +276,29 @@ export default async function EventsPage({
 
           <Suspense fallback={<EventsLoading />}>
             {events && events.length > 0 ? (
-              <PublicEventList events={events} />
+              <>
+                {/* Group events by type */}
+                {events.some((e) => (e as any).eventType === "recent") && (
+                  <div className="mb-10">
+                    <h2 className="text-2xl font-semibold mb-4">Recent Events</h2>
+                    <PublicEventList events={events.filter((e) => (e as any).eventType === "recent")} />
+                  </div>
+                )}
+
+                {events.some((e) => (e as any).eventType === "upcoming") && (
+                  <div className="mb-10">
+                    <h2 className="text-2xl font-semibold mb-4">Upcoming Events</h2>
+                    <PublicEventList events={events.filter((e) => (e as any).eventType === "upcoming")} />
+                  </div>
+                )}
+
+                {events.some((e) => (e as any).eventType === "past") && (
+                  <div className="mb-10">
+                    <h2 className="text-2xl font-semibold mb-4">Past Events</h2>
+                    <PublicEventList events={events.filter((e) => (e as any).eventType === "past")} />
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-center py-12 bg-white rounded-lg shadow-sm">
                 <p className="text-muted-foreground">{error ? "Failed to load events." : "No events found."}</p>

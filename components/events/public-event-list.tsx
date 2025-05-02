@@ -17,6 +17,7 @@ interface Event {
     name: string
     email: string
   }
+  eventType?: "recent" | "upcoming" | "past"
 }
 
 export function PublicEventList({ events = [] }: { events: Event[] }) {
