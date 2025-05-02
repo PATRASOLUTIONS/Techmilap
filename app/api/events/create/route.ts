@@ -5,9 +5,97 @@ import Ticket from "@/models/Ticket"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { ObjectId } from "mongodb"
+import { z } from "zod"
+import mongoose from "mongoose"
+
+// Define validation schema for event details
+const EventDetailsSchema = z.object({
+  name: z.string().min(1, "Event name is required").max(200, "Event name cannot exceed 200 characters"),
+  displayName: z.string().max(200, "Display name cannot exceed 200 characters").optional(),
+  description: z.string().min(1, "Event description is required"),
+  startDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Start date must be a valid date",
+  }),
+  endDate: z
+    .string()
+    .refine((val) => !isNaN(Date.parse(val)), {
+      message: "End date must be a valid date",
+    })
+    .optional(),
+  startTime: z
+    .string()
+    .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "Start time must be in HH:MM format")
+    .optional(),
+  endTime: z
+    .string()
+    .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "End time must be in HH:MM format")
+    .optional(),
+  type: z.enum(["Online", "Offline", "Hybrid"]),
+  visibility: z.enum(["Public", "Private"]).default("Public"),
+  venue: z.string().optional(),
+  address: z.string().optional(),
+  coverImageUrl: z.string().url("Cover image URL must be a valid URL").optional(),
+  slug: z
+    .string()
+    .regex(/^[a-z0-9-]+$/, "Slug must contain only lowercase alphanumeric characters and hyphens")
+    .optional(),
+})
+
+// Define validation schema for ticket
+const TicketSchema = z.object({
+  name: z.string().min(1, "Ticket name is required"),
+  type: z.string().optional(),
+  description: z.string().optional(),
+  pricingModel: z.enum(["Free", "Paid"]).default("Free"),
+  price: z.number().min(0, "Price cannot be negative").optional(),
+  quantity: z.number().min(1, "Quantity must be at least 1").optional(),
+  saleStartDate: z
+    .string()
+    .refine((val) => !isNaN(Date.parse(val)), {
+      message: "Sale start date must be a valid date",
+    })
+    .optional(),
+  saleEndDate: z
+    .string()
+    .refine((val) => !isNaN(Date.parse(val)), {
+      message: "Sale end date must be a valid date",
+    })
+    .optional(),
+  feeStructure: z.string().optional(),
+})
+
+// Define validation schema for event creation request
+const EventCreationSchema = z.object({
+  details: EventDetailsSchema,
+  tickets: z.array(TicketSchema).optional(),
+  customQuestions: z
+    .object({
+      attendee: z.array(z.any()).optional(),
+      volunteer: z.array(z.any()).optional(),
+      speaker: z.array(z.any()).optional(),
+    })
+    .optional(),
+  status: z.enum(["draft", "published"]).default("draft"),
+  attendeeForm: z
+    .object({
+      status: z.enum(["draft", "published"]).default("draft"),
+    })
+    .optional(),
+  volunteerForm: z
+    .object({
+      status: z.enum(["draft", "published"]).default("draft"),
+    })
+    .optional(),
+  speakerForm: z
+    .object({
+      status: z.enum(["draft", "published"]).default("draft"),
+    })
+    .optional(),
+})
 
 export async function POST(req: NextRequest) {
   try {
+    // Authenticate the request
     const session = await getServerSession(authOptions)
 
     if (!session) {
@@ -19,22 +107,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden: Insufficient permissions" }, { status: 403 })
     }
 
-    await connectToDatabase()
+    // Connect to database with error handling
+    try {
+      await connectToDatabase()
+    } catch (dbError) {
+      console.error("Database connection error:", dbError)
+      return NextResponse.json(
+        {
+          error: "Database connection failed",
+          details: "Unable to connect to the database. Please try again later.",
+        },
+        { status: 503 },
+      )
+    }
 
+    // Parse and validate request data
     let requestData
     try {
-      requestData = await req.json()
+      const rawData = await req.json()
+      // Validate against schema
+      const validationResult = EventCreationSchema.safeParse(rawData)
+
+      if (!validationResult.success) {
+        return NextResponse.json(
+          {
+            error: "Validation error",
+            details: validationResult.error.format(),
+          },
+          { status: 400 },
+        )
+      }
+
+      requestData = validationResult.data
     } catch (error) {
       console.error("Error parsing request JSON:", error)
       return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 })
     }
 
-    // Validate that required data exists
-    if (!requestData) {
-      return NextResponse.json({ error: "No data provided" }, { status: 400 })
-    }
-
-    // Update the event creation logic to properly handle form status
+    // Extract validated data
     const {
       details,
       tickets = [],
@@ -45,29 +155,27 @@ export async function POST(req: NextRequest) {
       speakerForm = { status: "draft" },
     } = requestData
 
-    // Validate that details exist
-    if (!details) {
-      return NextResponse.json({ error: "Event details are required" }, { status: 400 })
-    }
-
-    // Validate required fields
-    if (!details.name) {
-      return NextResponse.json({ error: "Event name is required" }, { status: 400 })
-    }
-
     // Determine if the event should be public based on visibility setting
     const eventStatus = status === "published" || details.visibility === "Public" ? "published" : "draft"
 
     // Generate a slug if one doesn't exist
-    const slug = details.slug || generateSlug(details.name)
+    let slug = details.slug || generateSlug(details.name)
 
-    // Update the eventData object to include form status
+    // Check if slug is already in use
+    const existingEventWithSlug = await Event.findOne({ slug })
+    if (existingEventWithSlug) {
+      // Append a random string to make the slug unique
+      const randomString = Math.random().toString(36).substring(2, 8)
+      slug = `${slug}-${randomString}`
+    }
+
+    // Prepare event data
     const eventData = {
       title: details.name,
-      displayName: details.displayName || details.name, // Fallback to name if displayName is missing
+      displayName: details.displayName || details.name,
       description: details.description || "",
-      date: details.startDate || new Date(),
-      endDate: details.endDate || details.startDate || new Date(),
+      date: new Date(details.startDate),
+      endDate: details.endDate ? new Date(details.endDate) : new Date(details.startDate),
       startTime: details.startTime || "00:00",
       endTime: details.endTime || "23:59",
       location: details.type === "Online" ? "Online" : details.venue || "TBD",
@@ -93,7 +201,7 @@ export async function POST(req: NextRequest) {
             )
           : 0,
       category: "Tech", // Default category
-      status: eventStatus, // Use the determined status based on visibility and explicit status
+      status: eventStatus,
       slug: slug,
       image: details.coverImageUrl || "",
       attendeeForm: {
@@ -124,8 +232,8 @@ export async function POST(req: NextRequest) {
       speakerForm: newEvent.speakerForm,
     })
 
+    // Create and save the event
     const event = new Event(newEvent)
-
     await event.save()
 
     // Create tickets if they exist
@@ -153,6 +261,9 @@ export async function POST(req: NextRequest) {
       await Promise.all(ticketPromises)
     }
 
+    // Update user's createdEvents array
+    await mongoose.model("User").findByIdAndUpdate(session.user.id, { $addToSet: { createdEvents: event._id } })
+
     return NextResponse.json(
       {
         success: true,
@@ -171,17 +282,39 @@ export async function POST(req: NextRequest) {
     )
   } catch (error: any) {
     console.error("Error creating event:", error)
+
+    // Provide appropriate error response based on error type
+    if (error.name === "ValidationError") {
+      return NextResponse.json(
+        {
+          error: "Validation error",
+          details: Object.values(error.errors).map((err: any) => err.message),
+        },
+        { status: 400 },
+      )
+    }
+
+    if (error.code === 11000) {
+      return NextResponse.json(
+        {
+          error: "Duplicate key error",
+          details: "An event with this slug already exists. Please use a different slug.",
+        },
+        { status: 409 },
+      )
+    }
+
     return NextResponse.json(
       {
-        error: error.message || "An error occurred while creating the event",
-        details: error.stack ? error.stack.split("\n")[0] : undefined,
+        error: "An error occurred while creating the event",
+        message: error.message || "Unknown error",
       },
       { status: 500 },
     )
   }
 }
 
-// Helper function to generate a slug from text
+// Helper function to generate a slug from text with improved sanitization
 function generateSlug(text: string): string {
   if (!text) return "event-" + Date.now()
 
@@ -191,6 +324,7 @@ function generateSlug(text: string): string {
       .replace(/[^\w\s-]/g, "") // Remove special characters
       .replace(/\s+/g, "-") // Replace spaces with hyphens
       .replace(/-+/g, "-") // Replace multiple hyphens with single hyphen
+      .replace(/^-+|-+$/g, "") // Remove leading/trailing hyphens
       .trim() || "event-" + Date.now()
   ) // Fallback if slug is empty
 }

@@ -1,9 +1,21 @@
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { sendEmail } from "@/lib/email-service"
-
-// Import the format function from date-fns
 import { format, addMinutes } from "date-fns"
+import { z } from "zod"
+
+// Define validation schema for form submission
+const FormSubmissionSchema = z
+  .object({
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    name: z.string().optional(),
+    email: z.string().email("Valid email is required").optional(),
+    userEmail: z.string().email("Valid email is required").optional(),
+    corporateEmail: z.string().email("Valid corporate email is required").optional(),
+    status: z.enum(["pending", "approved", "rejected"]).default("pending"),
+  })
+  .catchall(z.any())
 
 // Function to convert UTC date to IST and format it
 function formatEventDate(dateInput) {
@@ -71,14 +83,50 @@ function formatTime(timeStr) {
   }
 }
 
+// Sanitize form data to prevent injection attacks
+function sanitizeFormData(data: any) {
+  if (!data || typeof data !== "object") return data
+
+  const sanitized = { ...data }
+
+  // Sanitize string values
+  Object.keys(sanitized).forEach((key) => {
+    if (typeof sanitized[key] === "string") {
+      // Basic sanitization - remove script tags and dangerous attributes
+      sanitized[key] = sanitized[key]
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+        .replace(/on\w+="[^"]*"/g, "")
+        .replace(/javascript:/g, "")
+    } else if (typeof sanitized[key] === "object" && sanitized[key] !== null) {
+      // Recursively sanitize nested objects
+      sanitized[key] = sanitizeFormData(sanitized[key])
+    }
+  })
+
+  return sanitized
+}
+
 export async function handleFormSubmission(
   eventIdOrSlug: string,
   formType: string,
   formData: any,
   userId: string | null,
-  emailSubject?: string, // Add optional emailSubject parameter
+  emailSubject?: string,
 ) {
   try {
+    // Validate form data
+    const validationResult = FormSubmissionSchema.safeParse(formData)
+    if (!validationResult.success) {
+      return {
+        success: false,
+        message: "Invalid form data",
+        errors: validationResult.error.format(),
+      }
+    }
+
+    // Sanitize form data
+    const sanitizedFormData = sanitizeFormData(validationResult.data)
+
     const { db } = await connectToDatabase()
 
     // Find the event by ID or slug
@@ -99,15 +147,36 @@ export async function handleFormSubmission(
     const status = "pending"
 
     // Ensure email consistency - check all possible email fields
-    const email = formData.email || formData.corporateEmail || formData.userEmail || formData.emailAddress || ""
+    const email =
+      sanitizedFormData.email ||
+      sanitizedFormData.corporateEmail ||
+      sanitizedFormData.userEmail ||
+      sanitizedFormData.emailAddress ||
+      ""
 
     // Ensure name consistency - check all possible name fields
-    const firstName = formData.firstName || formData.first_name || ""
-    const lastName = formData.lastName || formData.last_name || ""
-    const fullName = formData.name || formData.fullName || ""
+    const firstName = sanitizedFormData.firstName || sanitizedFormData.first_name || ""
+    const lastName = sanitizedFormData.lastName || sanitizedFormData.last_name || ""
+    const fullName = sanitizedFormData.name || sanitizedFormData.fullName || ""
 
     // Construct name from available fields
     const name = fullName || (firstName && lastName ? `${firstName} ${lastName}` : firstName || "Attendee")
+
+    // Check for duplicate submission
+    const existingSubmission = await db.collection("formsubmissions").findOne({
+      eventId: event._id,
+      userEmail: email,
+      formType,
+    })
+
+    if (existingSubmission) {
+      return {
+        success: false,
+        message: `You have already submitted a ${formType} form for this event`,
+        submissionId: existingSubmission._id.toString(),
+        status: existingSubmission.status,
+      }
+    }
 
     // Create the submission document with consistent email and name
     const submission = {
@@ -118,7 +187,7 @@ export async function handleFormSubmission(
       formType,
       status,
       data: {
-        ...formData,
+        ...sanitizedFormData,
         email: email, // Ensure email is consistent in data object
         name: name,
       },
@@ -164,14 +233,10 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
     // Use custom subject if provided, otherwise use default
     const subject = emailSubject || `Your ${formTypeDisplay} for ${event.title || event.name} has been received`
 
-    // Log the event date for debugging
-    console.log("Event date from database:", event.date)
-
     // Format the event date in IST
-    // In sendConfirmationEmailToUser function, update the date formatting code to:
     const eventDate = event.date ? new Date(event.date) : null
-  const formattedDate = eventDate ? format(eventDate, "EEEE, MMMM d, yyyy") : "Date TBA"
-  const formattedTime = eventDate ? format(eventDate, "h:mm a") : "Time TBA"
+    const formattedDate = eventDate ? format(eventDate, "EEEE, MMMM d, yyyy") : "Date TBA"
+    const formattedTime = eventDate ? format(eventDate, "h:mm a") : "Time TBA"
 
     // Format start and end times if available
     let timeInfo = ""
@@ -208,7 +273,7 @@ async function sendConfirmationEmailToUser(event, formType, userName, userEmail,
       
       Event Details:
       - Event: ${event.title || event.name}
-      - Date: 10 May 2025
+      - Date: ${formattedDate}
       - Location: ${event.location || event.venue || "TBD"}
       
       Your submission is currently under review. We will notify you once it has been processed.
@@ -263,10 +328,9 @@ async function sendNotificationEmailToOrganizer(event, formType, submission, sub
     const formTypeFormatted = formType.charAt(0).toUpperCase() + formType.slice(1)
 
     // Format the event date in IST
-    // Similarly update the sendNotificationEmailToOrganizer function's date formatting code
     const eventDate = event.date ? new Date(event.date) : null
-  const formattedDate = eventDate ? format(eventDate, "EEEE, MMMM d, yyyy") : "Date TBA"
-  const formattedTime = eventDate ? format(eventDate, "h:mm a") : "Time TBA"
+    const formattedDate = eventDate ? format(eventDate, "EEEE, MMMM d, yyyy") : "Date TBA"
+    const formattedTime = eventDate ? format(eventDate, "h:mm a") : "Time TBA"
 
     // Format start and end times if available
     let timeInfo = ""

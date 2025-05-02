@@ -2,21 +2,70 @@ import { NextResponse, type NextRequest } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { handleFormSubmission } from "@/lib/form-submission"
 import { ObjectId } from "mongodb"
+import { z } from "zod"
+import { sendEmail } from "@/lib/email-service"
+import { rateLimit } from "@/lib/rate-limit"
+
+// Create a rate limiter for registrations
+const registrationRateLimiter = rateLimit({
+  interval: 60 * 1000, // 1 minute
+  limit: 5, // 5 registrations per minute per IP
+})
+
+// Define validation schema for registration
+const RegistrationSchema = z
+  .object({
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+    name: z.string().optional(),
+    fullName: z.string().optional(),
+    email: z.string().email("Valid email is required"),
+    corporateEmail: z.string().email("Valid corporate email is required").optional(),
+    userEmail: z.string().email("Valid email is required").optional(),
+    emailAddress: z.string().email("Valid email is required").optional(),
+    phone: z.string().optional(),
+    status: z.enum(["pending", "approved", "rejected"]).default("pending"),
+  })
+  .catchall(z.any())
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   console.log(`Received public registration for event ${params.id}`)
 
   try {
+    // Apply rate limiting based on IP
+    const ip = req.headers.get("x-forwarded-for") || "unknown"
+    try {
+      await registrationRateLimiter.check(1, ip)
+    } catch (error) {
+      console.error(`Rate limit exceeded for IP: ${ip}`)
+      return NextResponse.json(
+        {
+          error: "Too many registration attempts. Please try again later.",
+        },
+        { status: 429 },
+      )
+    }
+
     // Connect to MongoDB
-    const { db } = await connectToDatabase()
-    console.log("Connected to database")
+    try {
+      const { db } = await connectToDatabase()
+      console.log("Connected to database")
+    } catch (dbError) {
+      console.error("Database connection error:", dbError)
+      return NextResponse.json(
+        {
+          error: "Database connection failed",
+          details: "Unable to connect to the database. Please try again later.",
+        },
+        { status: 503 },
+      )
+    }
 
     // Get the request body with careful error handling
     let body
     try {
       // Read the request body once and store it
       const rawText = await req.text()
-      console.log("Raw request body:", rawText)
 
       // Try to parse as JSON
       try {
@@ -28,7 +77,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           {
             error: "Invalid JSON in request body",
             details: jsonError.message,
-            rawBody: rawText.substring(0, 200) + (rawText.length > 200 ? "..." : ""),
           },
           { status: 400 },
         )
@@ -38,9 +86,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Could not read request body" }, { status: 400 })
     }
 
+    // Validate registration data
+    const validationResult = RegistrationSchema.safeParse(body)
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          error: "Validation error",
+          details: validationResult.error.format(),
+        },
+        { status: 400 },
+      )
+    }
+
+    const validatedData = validationResult.data
+
     // Extract all possible name and email fields
     const { firstName, lastName, name, fullName, email, corporateEmail, userEmail, emailAddress, ...additionalInfo } =
-      body || {}
+      validatedData
 
     // Use email consistently - prioritize the main email field but fall back to other email fields if provided
     const finalEmail = email || corporateEmail || userEmail || emailAddress || ""
@@ -54,6 +116,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     // Verify that the event exists before proceeding
+    const { db } = await connectToDatabase()
     let eventObjectId
     try {
       eventObjectId = new ObjectId(params.id)
@@ -72,6 +135,42 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (!event) {
       console.error("Event not found with ID:", params.id)
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
+    }
+
+    // Check if event is published
+    if (event.status !== "published" && event.status !== "active") {
+      return NextResponse.json({ error: "This event is not currently accepting registrations" }, { status: 403 })
+    }
+
+    // Check if event has reached capacity
+    if (event.capacity > 0) {
+      const currentAttendees = await db.collection("formsubmissions").countDocuments({
+        eventId: eventObjectId,
+        formType: "attendee",
+        status: { $in: ["approved", "pending"] },
+      })
+
+      if (currentAttendees >= event.capacity) {
+        return NextResponse.json({ error: "This event has reached its capacity" }, { status: 409 })
+      }
+    }
+
+    // Check for duplicate registration
+    const existingRegistration = await db.collection("formsubmissions").findOne({
+      eventId: eventObjectId,
+      userEmail: finalEmail,
+      formType: "attendee",
+    })
+
+    if (existingRegistration) {
+      return NextResponse.json(
+        {
+          error: "You have already registered for this event",
+          registrationId: existingRegistration._id.toString(),
+          status: existingRegistration.status,
+        },
+        { status: 409 },
+      )
     }
 
     try {
@@ -233,17 +332,11 @@ async function sendConfirmationEmail(event: any, email: string, name: string) {
     `
 
     // Use the email service to send the email
-    await fetch(`/api/events/${event._id}/email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        to: email,
-        subject,
-        html,
-        text,
-      }),
+    await sendEmail({
+      to: email,
+      subject,
+      html,
+      text,
     })
 
     console.log(`Confirmation email sent to: ${email}`)
