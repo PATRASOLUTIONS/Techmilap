@@ -33,22 +33,40 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
       .populate("attendees", "firstName lastName")
   }
 
+  if (!event) {
+    return notFound()
+  }
+
+  // Add null checks when accessing organizer properties
+  const organizerName = event.organizer
+    ? `${event.organizer.firstName || ""} ${event.organizer.lastName || ""}`.trim()
+    : "Unknown Organizer"
+
+  const organizerEmail = event.organizer?.email || "No email provided"
+
   if (!event || event.status !== "published") {
     return notFound()
   }
 
-  // Check if user is registered as an attendee
-  const isRegistered = event.attendees.some(
-    (attendee: any) =>
-      attendee._id.toString() === session.user.id ||
-      (attendee.userId && attendee.userId.toString() === session.user.id),
-  )
+  // Add null checks for attendees array
+  const isRegistered =
+    event.attendees?.some(
+      (attendee: any) =>
+        (attendee?._id && attendee._id.toString() === session.user.id) ||
+        (attendee?.userId && attendee.userId.toString() === session.user.id),
+    ) || false
 
-  // Check if user has submitted forms for this event
-  const userSubmissions = await FormSubmission.find({
-    eventId: event._id,
-    $or: [{ userId: session.user.id }, { userEmail: session.user.email }],
-  }).lean()
+  // Check if user has submitted forms for this event - with error handling
+  let userSubmissions = []
+  try {
+    userSubmissions = await FormSubmission.find({
+      eventId: event._id,
+      $or: [{ userId: session.user.id }, { userEmail: session.user.email }],
+    }).lean()
+  } catch (error) {
+    console.error("Error fetching user submissions:", error)
+    userSubmissions = []
+  }
 
   // Determine user's role in this event
   let userRole = "visitor"
@@ -70,7 +88,8 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
     }
   }
 
-  const isAtCapacity = event.attendees.length >= event.capacity
+  // Ensure attendees array exists before checking length
+  const isAtCapacity = (event.attendees?.length || 0) >= (event.capacity || 0)
 
   // Check if forms are published
   const hasAttendeeForm = true // Attendee registration is always available
@@ -82,9 +101,7 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{event.title}</h1>
-          <p className="text-muted-foreground">
-            Organized by {event.organizer.firstName} {event.organizer.lastName}
-          </p>
+          <p className="text-muted-foreground">Organized by {organizerName}</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-sm">
@@ -181,10 +198,8 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
                   </span>
                 </div>
                 <div>
-                  <p className="font-medium">
-                    {event.organizer.firstName} {event.organizer.lastName}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{event.organizer.email}</p>
+                  <p className="font-medium">{organizerName}</p>
+                  <p className="text-sm text-muted-foreground">{organizerEmail}</p>
                 </div>
               </div>
             </CardContent>
