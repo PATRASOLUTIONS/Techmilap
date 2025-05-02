@@ -1,162 +1,121 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
+import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import mongoose from "mongoose"
-import Event from "@/models/Event"
-import FormSubmission from "@/models/FormSubmission"
+import { ObjectId } from "mongodb"
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || !session.user) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    await connectToDatabase()
-    const userId = session.user.id
+    const { db } = await connectToDatabase()
+    const userId = new ObjectId(session.user.id)
 
-    // Get current date for filtering
-    const currentDate = new Date()
+    // Get all registrations for the user
+    const registrations = await db.collection("registrations").find({ userId, status: "approved" }).toArray()
 
-    // Find all events where the user is an attendee, volunteer, or speaker with approved status
-    const [attendeeEvents, volunteerSubmissions, speakerSubmissions] = await Promise.all([
-      // Find events where user is an approved attendee
-      Event.aggregate([
-        {
-          $lookup: {
-            from: "registrations",
-            localField: "_id",
-            foreignField: "event",
-            as: "registrations",
-          },
-        },
-        {
-          $match: {
-            "registrations.user": new mongoose.Types.ObjectId(userId),
-            "registrations.status": "approved",
-          },
-        },
-        {
-          $addFields: {
-            userRole: "attendee",
-            registrationInfo: {
-              $filter: {
-                input: "$registrations",
-                as: "reg",
-                cond: {
-                  $and: [
-                    { $eq: ["$$reg.user", new mongoose.Types.ObjectId(userId)] },
-                    { $eq: ["$$reg.status", "approved"] },
-                  ],
-                },
-              },
-            },
-          },
-        },
-        {
-          $project: {
-            _id: 1,
-            title: 1,
-            date: 1,
-            endDate: 1,
-            location: 1,
-            venue: 1,
-            image: 1,
-            slug: 1,
-            userRole: 1,
-            registrationInfo: { $arrayElemAt: ["$registrationInfo", 0] },
-            ticketType: "attendee",
-          },
-        },
-      ]),
+    // Get all volunteer applications for the user
+    const volunteerApplications = await db
+      .collection("volunteerApplications")
+      .find({ userId, status: "approved" })
+      .toArray()
 
-      // Find approved volunteer submissions
-      FormSubmission.find({
-        userId: userId,
-        formType: "volunteer",
-        status: "approved",
-      }).populate({
-        path: "eventId",
-        select: "_id title date endDate location venue image slug",
+    // Get all speaker applications for the user
+    const speakerApplications = await db
+      .collection("speakerApplications")
+      .find({ userId, status: "approved" })
+      .toArray()
+
+    // Get event details for all registrations, volunteer applications, and speaker applications
+    const eventIds = [
+      ...registrations.map((reg) => new ObjectId(reg.eventId)),
+      ...volunteerApplications.map((app) => new ObjectId(app.eventId)),
+      ...speakerApplications.map((app) => new ObjectId(app.eventId)),
+    ]
+
+    const events =
+      eventIds.length > 0
+        ? await db
+            .collection("events")
+            .find({ _id: { $in: eventIds } })
+            .toArray()
+        : []
+
+    // Create tickets from registrations, volunteer applications, and speaker applications
+    const tickets = [
+      ...registrations.map((reg) => {
+        const event = events.find((e) => e._id.toString() === reg.eventId.toString())
+        return {
+          _id: reg._id,
+          eventId: reg.eventId,
+          title: event?.title || "Unknown Event",
+          date: event?.date || null,
+          endDate: event?.endDate || null,
+          startTime: event?.startTime || null,
+          endTime: event?.endTime || null,
+          venue: event?.venue || null,
+          location: event?.location || null,
+          image: event?.image || null,
+          ticketType: "attendee",
+          price: event?.price || 0,
+          createdAt: reg.createdAt,
+          status: "confirmed",
+        }
       }),
-
-      // Find approved speaker submissions
-      FormSubmission.find({
-        userId: userId,
-        formType: "speaker",
-        status: "approved",
-      }).populate({
-        path: "eventId",
-        select: "_id title date endDate location venue image slug",
+      ...volunteerApplications.map((app) => {
+        const event = events.find((e) => e._id.toString() === app.eventId.toString())
+        return {
+          _id: app._id,
+          eventId: app.eventId,
+          title: event?.title || "Unknown Event",
+          date: event?.date || null,
+          endDate: event?.endDate || null,
+          startTime: event?.startTime || null,
+          endTime: event?.endTime || null,
+          venue: event?.venue || null,
+          location: event?.location || null,
+          image: event?.image || null,
+          ticketType: "volunteer",
+          price: 0, // Volunteers typically don't pay
+          createdAt: app.createdAt,
+          status: "confirmed",
+        }
       }),
-    ])
+      ...speakerApplications.map((app) => {
+        const event = events.find((e) => e._id.toString() === app.eventId.toString())
+        return {
+          _id: app._id,
+          eventId: app.eventId,
+          title: event?.title || "Unknown Event",
+          date: event?.date || null,
+          endDate: event?.endDate || null,
+          startTime: event?.startTime || null,
+          endTime: event?.endTime || null,
+          venue: event?.venue || null,
+          location: event?.location || null,
+          image: event?.image || null,
+          ticketType: "speaker",
+          price: 0, // Speakers typically don't pay
+          createdAt: app.createdAt,
+          status: "confirmed",
+        }
+      }),
+    ]
 
-    // Format volunteer submissions as tickets
-    const volunteerTickets = volunteerSubmissions.map((submission) => {
-      const event = submission.eventId
-      return {
-        _id: event._id,
-        title: event.title,
-        date: event.date,
-        endDate: event.endDate,
-        location: event.location,
-        venue: event.venue,
-        image: event.image,
-        slug: event.slug,
-        userRole: "volunteer",
-        submissionInfo: {
-          _id: submission._id,
-          submittedAt: submission.createdAt,
-          approvedAt: submission.updatedAt,
-        },
-        ticketType: "volunteer",
-      }
+    // Sort tickets by date (most recent first)
+    tickets.sort((a, b) => {
+      const dateA = a.date ? new Date(a.date) : new Date(0)
+      const dateB = b.date ? new Date(b.date) : new Date(0)
+      return dateB.getTime() - dateA.getTime()
     })
 
-    // Format speaker submissions as tickets
-    const speakerTickets = speakerSubmissions.map((submission) => {
-      const event = submission.eventId
-      return {
-        _id: event._id,
-        title: event.title,
-        date: event.date,
-        endDate: event.endDate,
-        location: event.location,
-        venue: event.venue,
-        image: event.image,
-        slug: event.slug,
-        userRole: "speaker",
-        submissionInfo: {
-          _id: submission._id,
-          submittedAt: submission.createdAt,
-          approvedAt: submission.updatedAt,
-        },
-        ticketType: "speaker",
-      }
-    })
-
-    // Combine all tickets
-    const allTickets = [...attendeeEvents, ...volunteerTickets, ...speakerTickets]
-
-    // Sort tickets by date (upcoming first, then past)
-    const upcomingTickets = allTickets
-      .filter((ticket) => new Date(ticket.date) >= currentDate)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-
-    const pastTickets = allTickets
-      .filter((ticket) => new Date(ticket.date) < currentDate)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-    return NextResponse.json({
-      tickets: {
-        upcoming: upcomingTickets,
-        past: pastTickets,
-      },
-    })
-  } catch (error: any) {
+    return NextResponse.json({ tickets })
+  } catch (error) {
     console.error("Error fetching tickets:", error)
-    return NextResponse.json({ error: error.message || "Failed to fetch tickets" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch tickets" }, { status: 500 })
   }
 }

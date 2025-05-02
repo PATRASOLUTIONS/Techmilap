@@ -1,14 +1,11 @@
 "use client"
-
-import { useState } from "react"
-import Image from "next/image"
+import Link from "next/link"
 import { format } from "date-fns"
-import { motion } from "framer-motion"
-import { Calendar, Clock, MapPin, User, TicketIcon, Download, Share2 } from "lucide-react"
-import { Card, CardContent, CardFooter } from "@/components/ui/card"
+import { Calendar, Download, ExternalLink, Share2 } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
 
 interface TicketCardProps {
@@ -17,44 +14,37 @@ interface TicketCardProps {
 }
 
 export function TicketCard({ ticket, index }: TicketCardProps) {
-  const [isFlipped, setIsFlipped] = useState(false)
   const { toast } = useToast()
 
   // Generate a unique ticket number based on user ID and event ID
-  const ticketNumber = `TIX-${ticket._id.toString().substring(0, 4)}-${Date.now().toString().substring(9, 13)}`
+  const ticketNumber = `T-${ticket._id.toString().substring(0, 5)}-${ticket.ticketType.substring(0, 3).toUpperCase()}`
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "Date not specified"
     try {
-      return format(new Date(dateString), "PPP")
+      return format(new Date(dateString), "MMMM d, yyyy")
     } catch (error) {
       return "Invalid date"
     }
   }
 
-  const getTicketTypeColor = () => {
-    switch (ticket.ticketType) {
-      case "attendee":
-        return "bg-emerald-500/20 text-emerald-600 border-emerald-500/30"
-      case "volunteer":
-        return "bg-amber-500/20 text-amber-600 border-amber-500/30"
-      case "speaker":
-        return "bg-secondary/20 text-secondary border-secondary/30"
-      default:
-        return "bg-primary/20 text-primary border-primary/30"
-    }
+  const formatTime = (timeString: string) => {
+    if (!timeString) return ""
+    return timeString
   }
 
-  const getTicketTypeIcon = () => {
+  const getTicketTypeLabel = () => {
     switch (ticket.ticketType) {
       case "attendee":
-        return <User className="h-4 w-4" />
+        return "General Admission"
       case "volunteer":
-        return <User className="h-4 w-4" />
+        return "Volunteer Pass"
       case "speaker":
-        return <User className="h-4 w-4" />
+        return "Speaker Pass"
+      case "vip":
+        return "VIP Pass"
       default:
-        return <TicketIcon className="h-4 w-4" />
+        return "Event Pass"
     }
   }
 
@@ -66,165 +56,137 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
     // In a real implementation, this would generate and download a PDF ticket
   }
 
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator
-        .share({
-          title: `Ticket for ${ticket.title}`,
-          text: `Check out my ticket for ${ticket.title}!`,
-          url: `${window.location.origin}/events/${ticket.slug || ticket._id}`,
-        })
-        .catch((error) => {
-          toast({
-            title: "Sharing failed",
-            description: "Could not share this ticket.",
-            variant: "destructive",
-          })
-        })
-    } else {
-      // Fallback for browsers that don't support the Web Share API
-      navigator.clipboard.writeText(`${window.location.origin}/events/${ticket.slug || ticket._id}`)
-      toast({
-        title: "Link copied",
-        description: "Event link copied to clipboard!",
-      })
+  const handleAddToCalendar = () => {
+    // Create Google Calendar URL
+    const startDate = new Date(ticket.date)
+    const endDate = ticket.endDate ? new Date(ticket.endDate) : new Date(startDate.getTime() + 3600000) // Default to 1 hour
+
+    if (ticket.startTime) {
+      const [startHours, startMinutes] = ticket.startTime.split(":").map(Number)
+      startDate.setHours(startHours, startMinutes)
     }
+
+    if (ticket.endTime) {
+      const [endHours, endMinutes] = ticket.endTime.split(":").map(Number)
+      endDate.setHours(endHours, endMinutes)
+    }
+
+    const eventTitle = encodeURIComponent(ticket.title)
+    const eventLocation = encodeURIComponent(ticket.venue || ticket.location || "")
+    const eventDetails = encodeURIComponent(
+      `Your ${getTicketTypeLabel()} for ${ticket.title}. Ticket #: ${ticketNumber}`,
+    )
+
+    const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&dates=${startDate.toISOString().replace(/-|:|\.\d+/g, "")}/${endDate.toISOString().replace(/-|:|\.\d+/g, "")}&details=${eventDetails}&location=${eventLocation}`
+
+    window.open(googleCalendarUrl, "_blank")
+
+    toast({
+      title: "Calendar event",
+      description: "Opening calendar to add this event.",
+    })
+  }
+
+  const handleTransferTicket = () => {
+    toast({
+      title: "Transfer ticket",
+      description: "This feature is coming soon!",
+    })
+  }
+
+  const getTicketPrice = () => {
+    if (!ticket.price) return "Free"
+    return typeof ticket.price === "number" ? `$${ticket.price.toFixed(2)}` : ticket.price
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.1 }}
-      className="w-full"
-    >
-      <div className="perspective-1000 cursor-pointer" onClick={() => setIsFlipped(!isFlipped)}>
-        <div className={cn("relative transition-all duration-500 preserve-3d", isFlipped ? "rotate-y-180" : "")}>
-          {/* Front of ticket */}
-          <Card className="overflow-hidden border-2 shadow-md backface-hidden">
-            <div className="h-2 w-full bg-gradient-to-r from-primary to-secondary" />
-            <div className="relative h-32 w-full">
-              <Image
-                src={ticket.image || "/community-celebration.png"}
-                alt={ticket.title}
-                fill
-                className="object-cover"
-                onError={(e) => {
-                  // @ts-ignore - fallback to default image
-                  e.target.src = "/community-celebration.png"
-                }}
-              />
-              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                <h3 className="text-white text-xl font-bold px-4 text-center">{ticket.title}</h3>
+    <Card className="overflow-hidden border bg-slate-50">
+      <CardContent className="p-0">
+        <div className="p-6">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="text-xl font-bold">{ticket.title}</h3>
+              <p className="text-sm text-muted-foreground">
+                {formatDate(ticket.date)}
+                {ticket.startTime && ` • ${formatTime(ticket.startTime)}`}
+                {ticket.endTime && ` - ${formatTime(ticket.endTime)}`}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {ticket.venue || ticket.location || "Location not specified"}
+              </p>
+            </div>
+            <Badge variant="secondary" className="bg-primary/10 text-primary">
+              {getTicketTypeLabel()}
+            </Badge>
+          </div>
+
+          <Separator className="my-4" />
+
+          <div className="flex">
+            <div className="flex-1">
+              <h4 className="font-medium mb-3">Ticket Information</h4>
+
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Ticket Number</span>
+                  <span className="text-sm font-medium">{ticketNumber}</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Price</span>
+                  <span className="text-sm font-medium">{getTicketPrice()}</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <span className="text-sm font-medium text-emerald-600">Confirmed</span>
+                </div>
               </div>
-              <Badge className={cn("absolute top-2 right-2", getTicketTypeColor())}>
-                {ticket.ticketType.charAt(0).toUpperCase() + ticket.ticketType.slice(1)}
-              </Badge>
+
+              <div className="space-y-2 mt-4">
+                <Button variant="outline" className="w-full justify-start" onClick={handleDownload}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Ticket
+                </Button>
+
+                <Button variant="outline" className="w-full justify-start" onClick={handleAddToCalendar}>
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Add to Calendar
+                </Button>
+
+                <Button variant="outline" className="w-full justify-start" onClick={handleTransferTicket}>
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Transfer Ticket
+                </Button>
+
+                <Button variant="outline" className="w-full justify-start" asChild>
+                  <Link href={`/events/${ticket.eventId || ticket._id}`}>
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    View Event Details
+                  </Link>
+                </Button>
+              </div>
             </div>
 
-            <CardContent className="p-4">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Calendar className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Date</p>
-                    <p className="text-sm font-medium">
-                      {formatDate(ticket.date)}
-                      {ticket.endDate && ` - ${formatDate(ticket.endDate)}`}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center">
-                    <Clock className="h-4 w-4 text-secondary" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Time</p>
-                    <p className="text-sm font-medium">
-                      {ticket.startTime || "Not specified"}
-                      {ticket.endTime && ` - ${ticket.endTime}`}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <MapPin className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Location</p>
-                    <p className="text-sm font-medium">{ticket.venue || ticket.location || "Location not specified"}</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-
-            <CardFooter className="p-4 pt-0 flex justify-between items-center">
-              <div>
-                <p className="text-xs text-muted-foreground">Ticket #</p>
-                <p className="text-sm font-mono font-medium">{ticketNumber}</p>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleDownload()
-                  }}
-                >
-                  <Download className="h-4 w-4 mr-1" />
-                  <span className="sr-only md:not-sr-only">Download</span>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleShare()
-                  }}
-                >
-                  <Share2 className="h-4 w-4 mr-1" />
-                  <span className="sr-only md:not-sr-only">Share</span>
-                </Button>
-              </div>
-            </CardFooter>
-          </Card>
-
-          {/* Back of ticket */}
-          <Card className="absolute inset-0 overflow-hidden border-2 shadow-md backface-hidden rotate-y-180">
-            <div className="h-2 w-full bg-gradient-to-r from-secondary to-primary" />
-            <CardContent className="p-4 flex flex-col items-center justify-center h-full">
-              <div className="w-48 h-48 bg-white p-2 rounded-md flex items-center justify-center mb-4">
+            <div className="ml-6 flex flex-col items-center">
+              <div className="w-32 h-32 bg-gray-200 flex items-center justify-center">
                 {/* This would be a real QR code in production */}
-                <div className="w-full h-full border-2 border-black grid grid-cols-5 grid-rows-5">
+                <div className="w-24 h-24 border-2 border-black grid grid-cols-5 grid-rows-5">
                   {Array.from({ length: 25 }).map((_, i) => (
                     <div
                       key={i}
-                      className={cn("border border-black/10", Math.random() > 0.6 ? "bg-black" : "bg-white")}
+                      className={`border border-black/10 ${Math.random() > 0.6 ? "bg-black" : "bg-white"}`}
                     />
                   ))}
                 </div>
               </div>
+              <p className="text-xs text-center mt-2 text-muted-foreground">Present this QR code at the event</p>
 
-              <div className="text-center">
-                <h3 className="font-bold">{ticket.title}</h3>
-                <p className="text-sm text-muted-foreground">{formatDate(ticket.date)}</p>
-                <p className="text-xs mt-2">Scan this QR code at the event entrance</p>
-              </div>
-
-              <div className="mt-4 pt-4 border-t w-full text-center">
-                <p className="text-xs text-muted-foreground">Ticket #</p>
-                <p className="font-mono">{ticketNumber}</p>
-              </div>
-            </CardContent>
-          </Card>
+              <Button className="mt-4 bg-indigo-600 hover:bg-indigo-700">Check In</Button>
+            </div>
+          </div>
         </div>
-      </div>
-      <p className="text-xs text-center mt-1 text-muted-foreground">Click to flip</p>
-    </motion.div>
+      </CardContent>
+    </Card>
   )
 }
