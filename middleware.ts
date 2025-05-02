@@ -13,8 +13,8 @@ export async function middleware(request: NextRequest) {
     "/forgot-password",
     "/verify-otp",
     "/api/auth",
-    "/events",
-    "/my-events/details", // Make event details publicly accessible
+    "/events", // Make events page public
+    "/my-events/details",
     "/public-events",
     "/about",
     "/contact",
@@ -32,6 +32,7 @@ export async function middleware(request: NextRequest) {
     (path) =>
       pathname === path ||
       pathname.startsWith(`${path}/`) ||
+      pathname.startsWith("/api/public/") || // Make all /api/public/ routes accessible
       (pathname.startsWith("/api/events/") && (pathname.includes("/public") || pathname.includes("/register"))),
   )
 
