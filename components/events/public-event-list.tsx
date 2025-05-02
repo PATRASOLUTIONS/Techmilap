@@ -1,4 +1,5 @@
 import { PublicEventCard } from "./public-event-card"
+import { getImageUrl } from "@/lib/image-utils"
 
 interface Event {
   _id: string
@@ -29,9 +30,15 @@ export function PublicEventList({ events = [] }: { events: Event[] }) {
     )
   }
 
+  // Process events to ensure image URLs are properly formatted
+  const processedEvents = events.map((event) => ({
+    ...event,
+    image: getImageUrl(event.image),
+  }))
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {events.map((event) => (
+      {processedEvents.map((event) => (
         <PublicEventCard key={event._id.toString()} event={event} />
       ))}
     </div>

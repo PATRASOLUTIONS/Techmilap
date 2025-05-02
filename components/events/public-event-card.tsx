@@ -45,15 +45,18 @@ export function PublicEventCard({ event }: { event: Event }) {
   // Use slug if available, otherwise use _id
   const eventId = event.slug || event._id.toString()
 
+  // Default placeholder image if none provided
+  const imageSrc = event.image || "/placeholder.svg?height=400&width=600&query=tech+event"
+
   return (
     <Link href={`/events/${eventId}`} className="group">
       <Card className="overflow-hidden border-none shadow-md transition-all duration-200 hover:shadow-lg h-full">
         <div className="relative aspect-video overflow-hidden">
           <Image
-            src={event.image || "/placeholder.svg?height=400&width=600&query=tech+event"}
+            src={imageSrc || "/placeholder.svg"}
             alt={event.title}
-            width={600}
-            height={400}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             priority={false}
             loading="lazy"

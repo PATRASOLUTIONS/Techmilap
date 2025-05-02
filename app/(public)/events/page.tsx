@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PublicEventList } from "@/components/events/public-event-list"
+import { getImageUrl } from "@/lib/image-utils"
 
 // Types for better type safety
 interface Event {
@@ -153,9 +154,12 @@ async function getEventsDirectly(searchParams?: {
       organizerMap[organizer._id.toString()] = organizer
     }
 
-    // Add organizer info to events
+    // Add organizer info to events and process image URLs
     const processedEvents = paginatedEvents.map((event) => {
       const eventWithOrganizer = { ...event } as Event
+
+      // Process image URL
+      eventWithOrganizer.image = getImageUrl(event.image)
 
       if (event.organizer) {
         const organizerId = event.organizer.toString()
