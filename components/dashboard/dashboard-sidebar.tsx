@@ -3,7 +3,18 @@
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useSession, signOut } from "next-auth/react"
-import { Calendar, LayoutDashboard, LogOut, Settings, User, Users, ChevronDown, ChevronRight, Menu } from "lucide-react"
+import {
+  Calendar,
+  LayoutDashboard,
+  LogOut,
+  Settings,
+  User,
+  Users,
+  ChevronDown,
+  ChevronRight,
+  Menu,
+  Star,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -46,10 +57,15 @@ export function DashboardSidebar() {
       expanded: expandedSections.events,
       children: [
         { title: "My Events", href: "/my-events" },
-        { title: "My Tickets", href: "/my-tickets" }, // Added My Tickets section
+        { title: "My Tickets", href: "/my-tickets" },
         { title: "Past Events", href: "/past-events" },
         { title: "Explore Events", href: "/explore" },
       ],
+    },
+    {
+      title: "My Reviews",
+      href: "/my-reviews",
+      icon: Star,
     },
     {
       title: "Profile",
@@ -76,11 +92,16 @@ export function DashboardSidebar() {
       expanded: expandedSections.events,
       children: [
         { title: "My Events", href: "/my-events" },
-        { title: "My Tickets", href: "/my-tickets" }, // Added My Tickets section
+        { title: "My Tickets", href: "/my-tickets" },
         { title: "Past Events", href: "/past-events" },
         { title: "Create Event", href: "/dashboard/events/create" },
         { title: "Explore Events", href: "/explore" },
       ],
+    },
+    {
+      title: "Event Reviews",
+      href: "/event-reviews",
+      icon: Star,
     },
     {
       title: "Profile",
@@ -107,11 +128,16 @@ export function DashboardSidebar() {
       expanded: expandedSections.events,
       children: [
         { title: "All Events", href: "/super-admin/events" },
-        { title: "My Tickets", href: "/my-tickets" }, // Added My Tickets section
+        { title: "My Tickets", href: "/my-tickets" },
         { title: "Past Events", href: "/past-events" },
         { title: "Explore Events", href: "/explore" },
         { title: "Categories", href: "/super-admin/events/categories" },
       ],
+    },
+    {
+      title: "All Reviews",
+      href: "/super-admin/reviews",
+      icon: Star,
     },
     {
       title: "Users",
