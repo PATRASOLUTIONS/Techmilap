@@ -45,5 +45,15 @@ export function generateSlug(title: string): string {
 }
 
 export function getEventUrl(event: { _id: string; slug?: string }): string {
+  if (!event) return "#"
   return `/events/${event.slug || event._id}`
+}
+
+// Add a new function to normalize slugs for comparison
+export function normalizeSlug(slug: string): string {
+  if (!slug) return ""
+  return slug
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w-]/g, "") // Remove any non-alphanumeric characters except hyphens
 }

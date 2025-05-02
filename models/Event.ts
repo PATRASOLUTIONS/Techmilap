@@ -117,6 +117,14 @@ EventSchema.index({ slug: 1 })
 // Create a text index for search functionality
 EventSchema.index({ title: "text", description: "text", location: "text" })
 
+// Add a case-insensitive index on slug to improve lookups
+EventSchema.index(
+  { slug: 1 },
+  {
+    collation: { locale: "en", strength: 2 }, // Case-insensitive
+  },
+)
+
 // Create the model
 const Event = mongoose.models.Event || mongoose.model("Event", EventSchema)
 

@@ -37,23 +37,68 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
 
     // Try to find the event by slug first
     let event = null
+    const eventUrl = params.eventUrl.trim()
+
+    console.log(`Looking for event with URL: ${eventUrl}`)
 
     try {
-      if (mongoose.Types.ObjectId.isValid(params.eventUrl)) {
-        // If it's a valid ObjectId, try to find by ID first
-        event = await Event.findById(params.eventUrl).populate("organizer", "firstName lastName email").lean()
-      } else {
-        // Otherwise try by slug
-        event = await Event.findOne({ slug: params.eventUrl }).populate("organizer", "firstName lastName email").lean()
+      // First try: Check if it's a valid ObjectId
+      if (mongoose.Types.ObjectId.isValid(eventUrl)) {
+        console.log(`Trying to find event by ID: ${eventUrl}`)
+        event = await Event.findById(eventUrl).populate("organizer", "firstName lastName email").lean()
+      }
+
+      // Second try: If not found by ID or not a valid ID, try by slug (case-insensitive)
+      if (!event) {
+        console.log(`Trying to find event by slug: ${eventUrl}`)
+        event = await Event.findOne({
+          slug: { $regex: new RegExp(`^${eventUrl}$`, "i") },
+        })
+          .populate("organizer", "firstName lastName email")
+          .lean()
+      }
+
+      // Third try: If still not found, try a more flexible search
+      if (!event) {
+        console.log(`Trying to find event by partial slug match or title: ${eventUrl}`)
+        event = await Event.findOne({
+          $or: [{ slug: { $regex: eventUrl, $options: "i" } }, { title: { $regex: eventUrl, $options: "i" } }],
+        })
+          .populate("organizer", "firstName lastName email")
+          .lean()
+      }
+
+      // Last resort: Try to find by any field that might contain the URL
+      if (!event) {
+        console.log(`Last resort search for event: ${eventUrl}`)
+        // Get all events and log them to debug
+        const allEvents = await Event.find({}).select("_id title slug").lean()
+        console.log(
+          `Available events: ${JSON.stringify(allEvents.map((e) => ({ id: e._id, title: e.title, slug: e.slug })))}`,
+        )
+
+        // Try one more search with very loose criteria
+        event = await Event.findOne({
+          $or: [
+            { _id: eventUrl },
+            { slug: eventUrl },
+            { slug: { $regex: eventUrl.replace(/-/g, ".*"), $options: "i" } },
+            { title: { $regex: eventUrl.replace(/-/g, " "), $options: "i" } },
+          ],
+        })
+          .populate("organizer", "firstName lastName email")
+          .lean()
       }
     } catch (error) {
       console.error("Error finding event:", error)
-      return <ErrorFallback />
     }
 
     if (!event) {
+      console.log(`Event not found for URL: ${eventUrl}`)
       return <ErrorFallback />
     }
+
+    console.log(`Found event: ${event.title} (${event._id})`)
 
     // Ensure we have attendees array and it's properly formatted
     const attendees = Array.isArray(event.attendees) ? event.attendees : []
