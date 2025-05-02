@@ -4,6 +4,6 @@ export default function PublicLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Remove any header or footer for all public routes
+  // Public layout for non-authenticated routes
   return <>{children}</>
 }

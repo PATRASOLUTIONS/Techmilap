@@ -4,7 +4,6 @@ export default function EventsLayout({
 }: {
   children: React.ReactNode
 }) {
-  // This layout will be used for all routes under /events
-  // We're removing any header or footer references
+  // Events-specific layout
   return <>{children}</>
 }
