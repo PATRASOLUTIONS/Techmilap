@@ -38,6 +38,18 @@ export interface IUser extends Document {
   createdAt: Date
   updatedAt: Date
   comparePassword(candidatePassword: string): Promise<boolean>
+  createdEvents: mongoose.Types.ObjectId[]
+  registeredEvents: mongoose.Types.ObjectId[]
+  profileImage?: string
+  bio?: string
+  company?: string
+  jobTitle?: string
+  website?: string
+  social?: {
+    twitter?: string
+    linkedin?: string
+    github?: string
+  }
 }
 
 const UserSchema = new Schema<IUser>(
@@ -153,6 +165,28 @@ const UserSchema = new Schema<IUser>(
       type: String,
       trim: true,
     },
+    createdEvents: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Event",
+      },
+    ],
+    registeredEvents: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Event",
+      },
+    ],
+    profileImage: { type: String },
+    bio: { type: String },
+    company: { type: String },
+    jobTitle: { type: String },
+    website: { type: String },
+    social: {
+      twitter: { type: String },
+      linkedin: { type: String },
+      github: { type: String },
+    },
   },
   {
     timestamps: true,
@@ -180,5 +214,8 @@ UserSchema.methods.comparePassword = async function (candidatePassword: string):
     throw new Error("Error comparing passwords")
   }
 }
+
+// Create a text index for search functionality
+UserSchema.index({ firstName: "text", lastName: "text", email: "text" })
 
 export default mongoose.models.User || mongoose.model<IUser>("User", UserSchema)
