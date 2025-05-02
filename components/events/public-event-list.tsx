@@ -31,7 +31,7 @@ export function PublicEventList({ events = [] }: { events: Event[] }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {events.map((event) => (
-        <PublicEventCard key={event._id} event={event} />
+        <PublicEventCard key={event._id.toString()} event={event} />
       ))}
     </div>
   )

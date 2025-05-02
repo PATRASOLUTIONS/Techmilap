@@ -1,16 +1,14 @@
 import { Suspense } from "react"
 import { connectToDatabase } from "@/lib/mongodb"
 import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { CalendarIcon, MapPinIcon, Clock, Users, AlertCircle, Search, Filter } from "lucide-react"
+import { AlertCircle, Search, Filter } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import Image from "next/image"
 import Link from "next/link"
-import { format } from "date-fns"
 import { Skeleton } from "@/components/ui/skeleton"
+import { PublicEventList } from "@/components/events/public-event-list"
 
 // Types for better type safety
 interface Event {
@@ -33,13 +31,6 @@ interface Event {
   isActive?: boolean
 }
 
-interface Organizer {
-  _id: string
-  name: string
-  email: string
-  profileImage?: string
-}
-
 interface EventsResponse {
   events: Event[]
   error: string | null
@@ -47,7 +38,6 @@ interface EventsResponse {
 }
 
 // This function directly queries the database without using API routes
-// to avoid any potential issues with API responses
 async function getEventsDirectly(searchParams?: {
   search?: string
   category?: string
@@ -63,7 +53,7 @@ async function getEventsDirectly(searchParams?: {
     const User = (await import("@/models/User")).default
 
     // Build query
-    const query: any = { isActive: true }
+    const query: any = {} // Remove isActive filter as it might not exist in your schema
 
     // Add search filter if provided
     if (searchParams?.search) {
@@ -103,7 +93,7 @@ async function getEventsDirectly(searchParams?: {
       .map((id) => id.toString())
 
     // Fetch organizers
-    let organizers: Organizer[] = []
+    let organizers = []
     if (organizerIds.length > 0) {
       console.log("Fetching organizer information...")
       organizers = await User.find({ _id: { $in: organizerIds } }, { name: 1, email: 1, profileImage: 1 })
@@ -113,7 +103,7 @@ async function getEventsDirectly(searchParams?: {
     }
 
     // Create organizer map for quick lookup
-    const organizerMap: Record<string, Organizer> = {}
+    const organizerMap: Record<string, any> = {}
     for (const organizer of organizers) {
       organizerMap[organizer._id.toString()] = organizer
     }
@@ -226,12 +216,8 @@ export default async function EventsPage({
           )}
 
           <Suspense fallback={<EventsLoading />}>
-            {events.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {events.map((event) => (
-                  <EventCard key={event._id.toString()} event={event} />
-                ))}
-              </div>
+            {events && events.length > 0 ? (
+              <PublicEventList events={events} />
             ) : (
               <div className="text-center py-12 bg-white rounded-lg shadow-sm">
                 <p className="text-muted-foreground">{error ? "Failed to load events." : "No events found."}</p>
@@ -249,7 +235,7 @@ export default async function EventsPage({
           </Suspense>
 
           {/* Pagination */}
-          {events.length > 0 && totalPages > 1 && (
+          {events && events.length > 0 && totalPages > 1 && (
             <div className="flex justify-center items-center gap-2 mt-8">
               <Link
                 href={{
@@ -327,86 +313,6 @@ export default async function EventsPage({
         </div>
       </div>
     </div>
-  )
-}
-
-// Event card component with proper type safety
-function EventCard({ event }: { event: Event }) {
-  // Handle potential missing or invalid date
-  let formattedDate = "Date TBA"
-  let formattedTime = "Time TBA"
-
-  try {
-    if (event.date) {
-      const eventDate = new Date(event.date)
-      if (!isNaN(eventDate.getTime())) {
-        formattedDate = format(eventDate, "EEEE, MMMM d, yyyy")
-        formattedTime = format(eventDate, "h:mm a")
-      }
-    }
-  } catch (error) {
-    console.error(`Error formatting date for event ${event._id}:`, error)
-  }
-
-  const eventId = event.slug || event._id
-
-  return (
-    <Link href={`/events/${eventId}`} className="group">
-      <Card className="overflow-hidden border-none shadow-md transition-all duration-200 hover:shadow-lg h-full">
-        <div className="relative aspect-video overflow-hidden">
-          <Image
-            src={event.image || "/placeholder.svg?height=400&width=600&query=tech+event"}
-            alt={event.title}
-            width={600}
-            height={400}
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-            priority={false}
-            loading="lazy"
-          />
-          {event.category && (
-            <div className="absolute top-3 left-3">
-              <Badge className="bg-primary/90 hover:bg-primary text-white">{event.category}</Badge>
-            </div>
-          )}
-        </div>
-        <CardContent className="p-5">
-          <h3 className="text-xl font-bold mb-2 line-clamp-2 group-hover:text-primary transition-colors">
-            {event.title}
-          </h3>
-
-          <div className="space-y-2 mt-4 text-sm">
-            <div className="flex items-center gap-2">
-              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-              <span>{formattedDate}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <span>{formattedTime}</span>
-            </div>
-            {event.location && (
-              <div className="flex items-center gap-2">
-                <MapPinIcon className="h-4 w-4 text-muted-foreground" />
-                <span className="line-clamp-1">{event.location}</span>
-              </div>
-            )}
-            {event.organizerInfo?.name && (
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="line-clamp-1">By {event.organizerInfo.name}</span>
-              </div>
-            )}
-          </div>
-
-          {event.price !== undefined && (
-            <div className="mt-4">
-              <Badge variant="outline" className="text-primary border-primary">
-                {event.price === 0 ? "Free" : `$${event.price}`}
-              </Badge>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </Link>
   )
 }
 

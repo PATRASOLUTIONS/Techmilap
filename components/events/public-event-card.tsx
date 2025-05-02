@@ -41,7 +41,8 @@ export function PublicEventCard({ event }: { event: Event }) {
     console.error(`Error formatting date for event ${event._id}:`, error)
   }
 
-  const eventId = event.slug || event._id
+  // Use slug if available, otherwise use _id
+  const eventId = event.slug || event._id.toString()
 
   return (
     <Link href={`/events/${eventId}`} className="group">
@@ -50,8 +51,11 @@ export function PublicEventCard({ event }: { event: Event }) {
           <Image
             src={event.image || "/placeholder.svg?height=400&width=600&query=tech+event"}
             alt={event.title}
-            fill
+            width={600}
+            height={400}
             className="object-cover transition-transform duration-300 group-hover:scale-105"
+            priority={false}
+            loading="lazy"
           />
           {event.category && (
             <div className="absolute top-3 left-3">
