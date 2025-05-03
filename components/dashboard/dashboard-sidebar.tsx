@@ -37,14 +37,6 @@ export function DashboardSidebar() {
   const router = useRouter()
   const userRole = session?.user?.role || "user"
 
-  // Theme state
-  const [theme, setTheme] = useState({
-    primary: "hsl(222.2, 47.4%, 11.2%)",
-    secondary: "hsl(210, 40%, 96.1%)",
-    accent: "hsl(262.1, 83.3%, 57.8%)",
-    muted: "hsl(210, 40%, 96.1%)",
-  })
-
   // State to track expanded sections
   const [expandedSections, setExpandedSections] = useState({
     events: true, // Events section expanded by default
@@ -238,13 +230,13 @@ export function DashboardSidebar() {
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-[280px] sm:w-[320px] p-0">
-        <div className="flex flex-col h-full bg-gradient-to-b from-background to-background/95">
-          <div className="flex items-center justify-between p-4 border-b bg-muted/30">
+        <div className="flex flex-col h-full bg-gradient-to-b from-slate-50 to-white">
+          <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-600 to-cyan-500">
             <Link href="/" className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-md bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white">
+              <div className="h-8 w-8 rounded-md bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
                 <Calendar className="h-5 w-5" />
               </div>
-              <span className="font-semibold text-lg">MyEvent</span>
+              <span className="font-semibold text-lg text-white">MyEvent</span>
             </Link>
           </div>
           <ScrollArea className="flex-1 px-3 py-4">
@@ -254,12 +246,12 @@ export function DashboardSidebar() {
                   <div key={index} className="space-y-1 mb-1">
                     <Button
                       variant="ghost"
-                      className="w-full justify-between px-3 font-medium bg-muted/50 hover:bg-muted"
+                      className="w-full justify-between px-3 font-medium bg-slate-100/70 hover:bg-slate-200/70"
                       onClick={() => toggleSection(item.section)}
                     >
                       <span className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-md bg-gradient-to-br from-purple-500/20 to-indigo-500/20 flex items-center justify-center">
-                          <item.icon className="h-4 w-4 text-purple-700" />
+                        <div className="h-8 w-8 rounded-md bg-gradient-to-r from-blue-500/10 to-cyan-500/10 flex items-center justify-center">
+                          <item.icon className="h-4 w-4 text-blue-600" />
                         </div>
                         {item.title}
                       </span>
@@ -288,8 +280,8 @@ export function DashboardSidebar() {
                                   className={cn(
                                     "justify-start w-full px-3 py-1.5 h-9 font-normal",
                                     pathname === child.href
-                                      ? "bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-700 font-medium"
-                                      : "hover:bg-muted/70 hover:text-purple-600",
+                                      ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-700 font-medium"
+                                      : "hover:bg-slate-100 hover:text-blue-600",
                                   )}
                                 >
                                   <Link href={child.href} className="flex items-center gap-3">
@@ -312,13 +304,13 @@ export function DashboardSidebar() {
                     className={cn(
                       "justify-start gap-3 px-3 font-medium mb-1",
                       pathname === item.href
-                        ? "bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-700"
-                        : "hover:bg-muted hover:text-purple-600",
+                        ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-700"
+                        : "hover:bg-slate-100 hover:text-blue-600",
                     )}
                   >
                     <Link href={item.href} className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-md bg-gradient-to-br from-purple-500/20 to-indigo-500/20 flex items-center justify-center">
-                        <item.icon className="h-4 w-4 text-purple-700" />
+                      <div className="h-8 w-8 rounded-md bg-gradient-to-r from-blue-500/10 to-cyan-500/10 flex items-center justify-center">
+                        <item.icon className="h-4 w-4 text-blue-600" />
                       </div>
                       {item.title}
                     </Link>
@@ -329,21 +321,21 @@ export function DashboardSidebar() {
           </ScrollArea>
 
           {/* User info and logout */}
-          <div className="border-t p-4 mt-auto bg-muted/30">
+          <div className="border-t p-4 mt-auto bg-slate-50">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500/20 to-indigo-500/20 flex items-center justify-center">
-                  <User className="h-5 w-5 text-purple-700" />
+                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+                  <User className="h-5 w-5 text-white" />
                 </div>
                 <div>
                   <p className="font-medium">{session?.user?.name || "User"}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{userRole.replace("-", " ")}</p>
+                  <p className="text-xs text-slate-500 capitalize">{userRole.replace("-", " ")}</p>
                 </div>
               </div>
             </div>
             <Button
               variant="outline"
-              className="w-full justify-start gap-2 text-muted-foreground hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
+              className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
               onClick={handleLogout}
             >
               <LogOut className="h-4 w-4" />
@@ -365,26 +357,31 @@ export function DashboardSidebar() {
       {/* Desktop Sidebar */}
       <div
         className={cn(
-          "hidden border-r bg-gradient-to-b from-background to-background/95 md:flex flex-col transition-all duration-300",
+          "hidden border-r bg-white md:flex flex-col transition-all duration-300 shadow-sm",
           isCollapsed ? "w-[80px]" : "w-[280px]",
         )}
       >
-        <div className="flex items-center justify-between p-4 border-b bg-muted/30">
+        <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-600 to-cyan-500">
           {!isCollapsed && (
             <Link href="/" className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-md bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white">
+              <div className="h-8 w-8 rounded-md bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
                 <Calendar className="h-5 w-5" />
               </div>
-              <span className="font-semibold text-lg">MyEvent</span>
+              <span className="font-semibold text-lg text-white">MyEvent</span>
             </Link>
           )}
           {isCollapsed && (
-            <div className="h-8 w-8 rounded-md bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white mx-auto">
+            <div className="h-8 w-8 rounded-md bg-white/20 backdrop-blur-sm flex items-center justify-center text-white mx-auto">
               <Calendar className="h-5 w-5" />
             </div>
           )}
           {!isCollapsed && (
-            <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(true)} className="h-8 w-8 hover:bg-muted">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsCollapsed(true)}
+              className="h-8 w-8 hover:bg-white/10 text-white"
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
           )}
@@ -393,7 +390,7 @@ export function DashboardSidebar() {
               variant="ghost"
               size="icon"
               onClick={() => setIsCollapsed(false)}
-              className="h-8 w-8 mx-auto hover:bg-muted mt-2"
+              className="h-8 w-8 mx-auto hover:bg-white/10 text-white mt-2"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -407,7 +404,7 @@ export function DashboardSidebar() {
                   <Button
                     variant="ghost"
                     className={cn(
-                      "font-medium bg-muted/50 hover:bg-muted",
+                      "font-medium bg-slate-100/70 hover:bg-slate-200/70",
                       isCollapsed ? "justify-center px-0" : "justify-between px-3 w-full",
                     )}
                     onClick={() => !isCollapsed && toggleSection(item.section)}
@@ -415,11 +412,11 @@ export function DashboardSidebar() {
                     <span className={cn("flex items-center", isCollapsed ? "justify-center" : "gap-3")}>
                       <div
                         className={cn(
-                          "rounded-md bg-gradient-to-br from-purple-500/20 to-indigo-500/20 flex items-center justify-center",
+                          "rounded-md bg-gradient-to-r from-blue-500/10 to-cyan-500/10 flex items-center justify-center",
                           isCollapsed ? "h-10 w-10" : "h-8 w-8",
                         )}
                       >
-                        <item.icon className="h-4 w-4 text-purple-700" />
+                        <item.icon className="h-4 w-4 text-blue-600" />
                       </div>
                       {!isCollapsed && item.title}
                     </span>
@@ -450,8 +447,8 @@ export function DashboardSidebar() {
                                 className={cn(
                                   "justify-start w-full px-3 py-1.5 h-9 font-normal",
                                   pathname === child.href
-                                    ? "bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-700 font-medium"
-                                    : "hover:bg-muted/70 hover:text-purple-600",
+                                    ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-700 font-medium"
+                                    : "hover:bg-slate-100 hover:text-blue-600",
                                 )}
                               >
                                 <Link href={child.href} className="flex items-center gap-3">
@@ -475,19 +472,19 @@ export function DashboardSidebar() {
                     "font-medium mb-1",
                     isCollapsed ? "justify-center h-14 w-14 mx-auto p-0" : "justify-start gap-3 px-3 w-full",
                     pathname === item.href
-                      ? "bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-700"
-                      : "hover:bg-muted hover:text-purple-600",
+                      ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-700"
+                      : "hover:bg-slate-100 hover:text-blue-600",
                   )}
                   title={isCollapsed ? item.title : undefined}
                 >
                   <Link href={item.href} className={cn("flex items-center", isCollapsed ? "justify-center" : "gap-3")}>
                     <div
                       className={cn(
-                        "rounded-md bg-gradient-to-br from-purple-500/20 to-indigo-500/20 flex items-center justify-center",
+                        "rounded-md bg-gradient-to-r from-blue-500/10 to-cyan-500/10 flex items-center justify-center",
                         isCollapsed ? "h-10 w-10" : "h-8 w-8",
                       )}
                     >
-                      <item.icon className="h-4 w-4 text-purple-700" />
+                      <item.icon className="h-4 w-4 text-blue-600" />
                     </div>
                     {!isCollapsed && item.title}
                   </Link>
@@ -498,24 +495,24 @@ export function DashboardSidebar() {
         </ScrollArea>
 
         {/* User info and logout */}
-        <div className="border-t p-4 mt-auto bg-muted/30">
+        <div className="border-t p-4 mt-auto bg-slate-50">
           {!isCollapsed && (
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500/20 to-indigo-500/20 flex items-center justify-center">
-                  <User className="h-5 w-5 text-purple-700" />
+                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+                  <User className="h-5 w-5 text-white" />
                 </div>
                 <div>
                   <p className="font-medium">{session?.user?.name || "User"}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{userRole.replace("-", " ")}</p>
+                  <p className="text-xs text-slate-500 capitalize">{userRole.replace("-", " ")}</p>
                 </div>
               </div>
             </div>
           )}
           {isCollapsed && (
             <div className="flex justify-center mb-4">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500/20 to-indigo-500/20 flex items-center justify-center">
-                <User className="h-5 w-5 text-purple-700" />
+              <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+                <User className="h-5 w-5 text-white" />
               </div>
             </div>
           )}
@@ -523,7 +520,7 @@ export function DashboardSidebar() {
             variant="outline"
             className={cn(
               isCollapsed ? "w-10 h-10 p-0 mx-auto" : "w-full justify-start gap-2",
-              "text-muted-foreground hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors",
+              "border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors",
             )}
             onClick={handleLogout}
             title={isCollapsed ? "Logout" : undefined}
