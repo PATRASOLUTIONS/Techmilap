@@ -13,13 +13,27 @@ interface SendTemplatedEmailParams {
   customSubject?: string
 }
 
-// Add a function to get the user's design preference:
+// Enhance the getUserDesignPreference function
 async function getUserDesignPreference(userId: string): Promise<string> {
   try {
+    await connectToDatabase()
     const user = await User.findById(userId).select("emailDesignPreference")
-    return user?.emailDesignPreference || "modern"
+
+    if (!user) {
+      console.warn(`User with ID ${userId} not found when getting design preference`)
+      return "modern" // Default to modern if user not found
+    }
+
+    // Check if the preference is valid
+    const validDesigns = ["modern", "elegant", "colorful", "minimal", "corporate"]
+    if (user.emailDesignPreference && validDesigns.includes(user.emailDesignPreference)) {
+      return user.emailDesignPreference
+    } else {
+      console.warn(`Invalid design preference "${user.emailDesignPreference}" for user ${userId}, using default`)
+      return "modern"
+    }
   } catch (error) {
-    console.error("Error getting user design preference:", error)
+    console.error(`Error getting design preference for user ${userId}:`, error)
     return "modern" // Default to modern if there's an error
   }
 }

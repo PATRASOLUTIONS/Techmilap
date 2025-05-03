@@ -56,16 +56,31 @@ export function EmailDesignManager({ userId }: { userId: string }) {
     // Fetch the user's current design preference
     const fetchDesignPreference = async () => {
       try {
+        setLoading(true)
         const response = await fetch(`/api/users/${userId}/email-design-preference`)
         if (response.ok) {
           const data = await response.json()
-          if (data.preference) {
+          if (data.success && data.preference) {
             setSelectedDesign(data.preference)
             setCurrentDesign(data.preference)
           }
+        } else {
+          const errorData = await response.json()
+          toast({
+            title: "Error",
+            description: errorData.error || "Failed to load design preference",
+            variant: "destructive",
+          })
         }
       } catch (error) {
         console.error("Error fetching design preference:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load your design preference. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
       }
     }
 
@@ -83,20 +98,22 @@ export function EmailDesignManager({ userId }: { userId: string }) {
         body: JSON.stringify({ designPreference: selectedDesign }),
       })
 
-      if (response.ok) {
+      const data = await response.json()
+
+      if (response.ok && data.success) {
         setCurrentDesign(selectedDesign)
         toast({
-          title: "Design preference saved",
-          description: "Your email design preference has been updated successfully.",
+          title: "Success",
+          description: data.message || "Your email design preference has been updated successfully.",
         })
       } else {
-        throw new Error("Failed to save design preference")
+        throw new Error(data.error || "Failed to save design preference")
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving design preference:", error)
       toast({
         title: "Error",
-        description: "Failed to save your design preference. Please try again.",
+        description: error.message || "Failed to save your design preference. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -105,6 +122,14 @@ export function EmailDesignManager({ userId }: { userId: string }) {
   }
 
   const hasChanges = selectedDesign !== currentDesign
+
+  if (loading && !currentDesign) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8">

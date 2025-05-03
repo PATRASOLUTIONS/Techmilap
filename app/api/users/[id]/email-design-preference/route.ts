@@ -35,7 +35,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ designPreference: user.emailDesignPreference || "modern" })
+    return NextResponse.json({
+      success: true,
+      preference: user.emailDesignPreference || "modern",
+    })
   } catch (error: any) {
     console.error("Error fetching user email design preference:", error)
     return NextResponse.json(
@@ -92,7 +95,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true, designPreference: updatedUser.emailDesignPreference })
+    return NextResponse.json({
+      success: true,
+      preference: updatedUser.emailDesignPreference,
+      message: "Email design preference updated successfully",
+    })
   } catch (error: any) {
     console.error("Error updating user email design preference:", error)
     return NextResponse.json(
