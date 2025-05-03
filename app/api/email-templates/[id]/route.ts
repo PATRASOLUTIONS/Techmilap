@@ -77,6 +77,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     const data = await req.json()
 
+    // Ensure userId cannot be changed
+    if (data.userId && data.userId !== template.userId.toString()) {
+      if (session.user.role !== "super-admin") {
+        // Non-admins cannot change the userId
+        data.userId = template.userId
+      }
+    }
+
     // Validate required fields
     if (!data.templateName || !data.templateType || !data.subject || !data.content) {
       return NextResponse.json(

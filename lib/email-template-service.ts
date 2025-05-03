@@ -38,42 +38,54 @@ async function getUserDesignPreference(userId: string): Promise<string> {
   }
 }
 
+// Update the getEmailTemplate function to ensure proper user-specific template handling:
 // Export the getEmailTemplate function
 export async function getEmailTemplate(userId: string, templateType: string, eventId?: string) {
-  await connectToDatabase()
+  try {
+    await connectToDatabase()
 
-  // First try to find an event-specific template
-  if (eventId) {
-    const eventTemplate = await EmailTemplate.findOne({
+    // First try to find an event-specific template
+    if (eventId) {
+      const eventTemplate = await EmailTemplate.findOne({
+        userId,
+        templateType,
+        eventId,
+        isDefault: true,
+      })
+
+      if (eventTemplate) {
+        return eventTemplate
+      }
+    }
+
+    // Then try to find a default template for this user and type
+    const defaultTemplate = await EmailTemplate.findOne({
       userId,
       templateType,
-      eventId,
       isDefault: true,
     })
 
-    if (eventTemplate) {
-      return eventTemplate
+    if (defaultTemplate) {
+      return defaultTemplate
     }
+
+    // Finally, try to find any template of this type for the user
+    const anyTemplate = await EmailTemplate.findOne({
+      userId,
+      templateType,
+    })
+
+    if (anyTemplate) {
+      return anyTemplate
+    }
+
+    // If no user-specific template is found, log this information
+    console.log(`No template found for user ${userId}, type ${templateType}. Will use system default.`)
+    return null
+  } catch (error) {
+    console.error("Error getting email template:", error)
+    return null
   }
-
-  // Then try to find a default template for this user and type
-  const defaultTemplate = await EmailTemplate.findOne({
-    userId,
-    templateType,
-    isDefault: true,
-  })
-
-  if (defaultTemplate) {
-    return defaultTemplate
-  }
-
-  // Finally, try to find any template of this type for the user
-  const anyTemplate = await EmailTemplate.findOne({
-    userId,
-    templateType,
-  })
-
-  return anyTemplate
 }
 
 export async function sendTemplatedEmail({

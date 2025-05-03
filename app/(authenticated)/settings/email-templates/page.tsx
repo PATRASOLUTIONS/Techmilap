@@ -16,13 +16,17 @@ export default async function EmailTemplatesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Email Templates</h1>
-        <p className="text-muted-foreground">Customize your email templates for different types of communications.</p>
+    <div className="container py-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Email Templates</h1>
+        <p className="text-muted-foreground mt-2">
+          Create and manage email templates for different types of communications with your attendees.
+        </p>
       </div>
 
-      <EmailTemplateManager userId={session.user.id} />
+      <div className="bg-white rounded-lg shadow">
+        <EmailTemplateManager userId={session.user.id} />
+      </div>
     </div>
   )
 }

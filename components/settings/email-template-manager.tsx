@@ -63,10 +63,14 @@ export function EmailTemplateManager({ userId }: EmailTemplateManagerProps) {
   const fetchTemplates = async () => {
     try {
       setIsLoading(true)
+      setError("")
+
+      // Make sure we're using the correct userId parameter
       const response = await fetch(`/api/email-templates?userId=${userId}`)
 
       if (!response.ok) {
-        throw new Error("Failed to fetch templates")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to fetch templates")
       }
 
       const data = await response.json()
@@ -76,7 +80,7 @@ export function EmailTemplateManager({ userId }: EmailTemplateManagerProps) {
 
       TEMPLATE_TYPES.forEach((type) => {
         organizedTemplates[type.value] = data.templates.filter(
-          (template: Template) => template.templateType === type.value,
+          (template: Template) => template.templateType === type.value && template.userId === userId,
         )
       })
 
@@ -223,15 +227,18 @@ export function EmailTemplateManager({ userId }: EmailTemplateManagerProps) {
       const method = currentTemplate._id ? "PUT" : "POST"
       const url = currentTemplate._id ? `/api/email-templates/${currentTemplate._id}` : "/api/email-templates"
 
+      // Ensure userId is included in the template data
+      const templateData = {
+        ...currentTemplate,
+        userId, // Make sure userId is included
+      }
+
       const response = await fetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...currentTemplate,
-          userId,
-        }),
+        body: JSON.stringify(templateData),
       })
 
       if (!response.ok) {

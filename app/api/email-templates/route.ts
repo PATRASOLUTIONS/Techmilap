@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       if (userId !== session.user.id) {
         return NextResponse.json({ error: "Forbidden: You can only access your own templates" }, { status: 403 })
       }
-      query.userId = userId
+      query.userId = session.user.id // Always use the session user ID for non-admins
     } else if (userId) {
       query.userId = userId
     }
@@ -71,7 +71,8 @@ export async function POST(req: NextRequest) {
 
     // Users can only create templates for themselves unless they're super-admin
     if (session.user.role !== "super-admin" && data.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden: You can only create templates for yourself" }, { status: 403 })
+      // Force the userId to be the session user's ID for security
+      data.userId = session.user.id
     }
 
     // Validate required fields
