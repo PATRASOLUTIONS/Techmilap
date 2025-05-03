@@ -76,11 +76,11 @@ export function EmailDesignManager({ userId }: { userId: string }) {
     setLoading(true)
     try {
       const response = await fetch(`/api/users/${userId}/email-design-preference`, {
-        method: "POST",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ preference: selectedDesign }),
+        body: JSON.stringify({ designPreference: selectedDesign }),
       })
 
       if (response.ok) {
