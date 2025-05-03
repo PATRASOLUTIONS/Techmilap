@@ -13,8 +13,6 @@ import {
   Edit,
   ExternalLink,
   Settings,
-  Trash2,
-  AlertCircle,
   User,
   MapPin,
   ChevronRight,
@@ -27,16 +25,6 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 
 interface Event {
   _id: string
@@ -65,9 +53,6 @@ export default function MyEventsPage() {
   const [pastEvents, setPastEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [eventToDelete, setEventToDelete] = useState<Event | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
   const { toast } = useToast()
   const router = useRouter()
@@ -248,49 +233,6 @@ export default function MyEventsPage() {
     router.push(`/event-dashboard/${eventId}`)
   }
 
-  const handleDeleteClick = (e: React.MouseEvent, event: Event) => {
-    e.stopPropagation() // Prevent event card click
-    setEventToDelete(event)
-    setDeleteDialogOpen(true)
-  }
-
-  const handleDeleteConfirm = async () => {
-    if (!eventToDelete) return
-
-    try {
-      setIsDeleting(true)
-      const response = await fetch(`/api/events/${eventToDelete._id}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || "Failed to delete event")
-      }
-
-      // Remove the deleted event from the state
-      setEvents(events.filter((event) => event._id !== eventToDelete._id))
-      setUpcomingEvents(upcomingEvents.filter((event) => event._id !== eventToDelete._id))
-      setPastEvents(pastEvents.filter((event) => event._id !== eventToDelete._id))
-
-      toast({
-        title: "Event deleted",
-        description: `"${eventToDelete.title}" has been successfully deleted.`,
-      })
-    } catch (error) {
-      console.error("Error deleting event:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete event. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsDeleting(false)
-      setDeleteDialogOpen(false)
-      setEventToDelete(null)
-    }
-  }
-
   if (error && !loading) {
     return (
       <div className="space-y-6">
@@ -375,7 +317,6 @@ export default function MyEventsPage() {
                         event={event}
                         onClick={() => handleEventClick(event._id, event.userRole || "attendee", event.slug)}
                         onManageClick={(e) => handleManageClick(e, event._id)}
-                        onDeleteClick={(e) => handleDeleteClick(e, event)}
                         isPast={new Date(event.date) < currentTime}
                       />
                     ))}
@@ -388,37 +329,11 @@ export default function MyEventsPage() {
           )}
         </TabsContent>
       </Tabs>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive" />
-              Delete Event
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete &quot;{eventToDelete?.title}&quot;? This action cannot be undone and will
-              remove all associated data including registrations, tickets, and custom forms.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isDeleting ? "Deleting..." : "Delete Event"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
 
-function EventCard({ event, onClick, onManageClick, onDeleteClick, isPast = false }) {
+function EventCard({ event, onClick, onManageClick, isPast = false }) {
   // Safely format the date with fallback
   const formattedDate = event.date
     ? new Date(event.date).toLocaleDateString("en-US", {
@@ -634,14 +549,6 @@ function EventCard({ event, onClick, onManageClick, onDeleteClick, isPast = fals
               <Button variant="outline" size="sm" onClick={onManageClick}>
                 <Settings className="h-4 w-4 mr-2" />
                 Manage
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                onClick={onDeleteClick}
-              >
-                <Trash2 className="h-4 w-4" />
               </Button>
             </div>
             <Button size="sm" asChild>
