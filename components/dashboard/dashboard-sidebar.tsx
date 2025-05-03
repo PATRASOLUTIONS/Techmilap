@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Menu,
   Star,
+  Mail,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -104,6 +105,11 @@ export function DashboardSidebar() {
       icon: Star,
     },
     {
+      title: "Email Templates",
+      href: "/settings/email-templates",
+      icon: Mail,
+    },
+    {
       title: "Profile",
       href: "/profile",
       icon: User,
@@ -138,6 +144,11 @@ export function DashboardSidebar() {
       title: "All Reviews",
       href: "/super-admin/reviews",
       icon: Star,
+    },
+    {
+      title: "Email Templates",
+      href: "/settings/email-templates",
+      icon: Mail,
     },
     {
       title: "Users",
