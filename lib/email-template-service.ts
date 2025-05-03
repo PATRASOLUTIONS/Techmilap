@@ -1,228 +1,248 @@
 import { connectToDatabase } from "@/lib/mongodb"
-import EmailTemplate from "@/models/EmailTemplate"
-import { sendEmail } from "@/lib/email-service"
-import User from "@/models/User"
+import { ObjectId } from "mongodb"
+import { modernTemplate } from "./email-templates/modern-template"
+import { elegantTemplate } from "./email-templates/elegant-template"
+import { colorfulTemplate } from "./email-templates/colorful-template"
+import { minimalTemplate } from "./email-templates/minimal-template"
+import { corporateTemplate } from "./email-templates/corporate-template"
 
-interface SendTemplatedEmailParams {
-  userId: string
-  templateType: string
-  recipientEmail: string
-  recipientName?: string
-  eventId?: string
-  variables: Record<string, string>
-  customSubject?: string
+// Template types
+export type EmailTemplateType = "success" | "rejection" | "ticket" | "certificate" | "reminder" | "custom"
+
+// Design types
+export type EmailDesignType = "modern" | "elegant" | "colorful" | "minimal" | "corporate"
+
+// Interface for email template
+export interface EmailTemplate {
+  _id?: string | ObjectId
+  userId: string | ObjectId
+  name: string
+  type: EmailTemplateType
+  subject: string
+  content: string
+  isDefault: boolean
+  createdAt: Date
+  updatedAt: Date
 }
 
-// Add a function to get the user's design preference:
-async function getUserDesignPreference(userId: string): Promise<string> {
+// Get email template by type and user ID
+export async function getEmailTemplate(type: EmailTemplateType, userId: string) {
   try {
-    const user = await User.findById(userId).select("emailDesignPreference")
-    return user?.emailDesignPreference || "modern"
-  } catch (error) {
-    console.error("Error getting user design preference:", error)
-    return "modern" // Default to modern if there's an error
-  }
-}
+    const { db } = await connectToDatabase()
 
-// Export the getEmailTemplate function
-export async function getEmailTemplate(userId: string, templateType: string, eventId?: string) {
-  await connectToDatabase()
-
-  // First try to find an event-specific template
-  if (eventId) {
-    const eventTemplate = await EmailTemplate.findOne({
-      userId,
-      templateType,
-      eventId,
+    // Find the default template for this type and user
+    const template = await db.collection("emailTemplates").findOne({
+      userId: new ObjectId(userId),
+      type,
       isDefault: true,
     })
 
-    if (eventTemplate) {
-      return eventTemplate
-    }
+    return template
+  } catch (error) {
+    console.error("Error getting email template:", error)
+    return null
   }
-
-  // Then try to find a default template for this user and type
-  const defaultTemplate = await EmailTemplate.findOne({
-    userId,
-    templateType,
-    isDefault: true,
-  })
-
-  if (defaultTemplate) {
-    return defaultTemplate
-  }
-
-  // Finally, try to find any template of this type for the user
-  const anyTemplate = await EmailTemplate.findOne({
-    userId,
-    templateType,
-  })
-
-  return anyTemplate
 }
 
-export async function sendTemplatedEmail({
-  userId,
-  templateType,
-  recipientEmail,
-  recipientName,
-  eventId,
-  variables,
-  customSubject,
-}: SendTemplatedEmailParams) {
-  try {
-    // Get the appropriate template
-    const template = await getEmailTemplate(userId, templateType, eventId)
+// Apply design template to content
+export function applyDesignTemplate(content: string, subject: string, design: EmailDesignType) {
+  switch (design) {
+    case "modern":
+      return modernTemplate(content, subject)
+    case "elegant":
+      return elegantTemplate(content, subject)
+    case "colorful":
+      return colorfulTemplate(content, subject)
+    case "minimal":
+      return minimalTemplate(content, subject)
+    case "corporate":
+      return corporateTemplate(content, subject)
+    default:
+      return modernTemplate(content, subject) // Default to modern
+  }
+}
 
-    if (!template) {
-      throw new Error(`No template found for type: ${templateType}`)
+// Replace variables in template content
+export function replaceTemplateVariables(content: string, variables: Record<string, string>) {
+  let result = content
+
+  // Replace each variable
+  Object.entries(variables).forEach(([key, value]) => {
+    const regex = new RegExp(`{{${key}}}`, "g")
+    result = result.replace(regex, value)
+  })
+
+  return result
+}
+
+// Create a new email template
+export async function createEmailTemplate(template: Omit<EmailTemplate, "_id" | "createdAt" | "updatedAt">) {
+  try {
+    const { db } = await connectToDatabase()
+
+    // If this is set as default, unset any other default for this type
+    if (template.isDefault) {
+      await db
+        .collection("emailTemplates")
+        .updateMany(
+          { userId: new ObjectId(template.userId.toString()), type: template.type },
+          { $set: { isDefault: false } },
+        )
     }
 
-    // Replace variables in subject and content
-    let subject = customSubject || template.subject
-    let content = template.content
-
-    // Replace all variables in the content
-    Object.entries(variables).forEach(([key, value]) => {
-      const regex = new RegExp(`{{${key}}}`, "g")
-      subject = subject.replace(regex, value)
-      content = content.replace(regex, value)
-    })
-
-    // Apply the design template
-    const htmlContent = applyDesignTemplate(content, template.designTemplate, recipientName)
-
-    // Send the email
-    const result = await sendEmail({
-      to: recipientEmail,
-      subject,
-      text: stripHtml(content),
-      html: htmlContent,
+    const result = await db.collection("emailTemplates").insertOne({
+      ...template,
+      userId: new ObjectId(template.userId.toString()),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     })
 
     return result
   } catch (error) {
-    console.error("Error sending templated email:", error)
+    console.error("Error creating email template:", error)
     throw error
   }
 }
 
-function applyDesignTemplate(content: string, designTemplate: string, recipientName?: string) {
-  // Convert markdown to HTML (simplified version)
-  const htmlContent = markdownToHtml(content)
+// Update an existing email template
+export async function updateEmailTemplate(id: string, updates: Partial<EmailTemplate>) {
+  try {
+    const { db } = await connectToDatabase()
 
-  // Apply the selected design template
-  switch (designTemplate) {
-    case "modern":
-      return `
-        <div style="font-family: 'Arial', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);">
-          <div style="background-color: #4f46e5; padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">Tech Milap</h1>
-          </div>
-          ${recipientName ? `<p style="color: #6b7280; font-size: 16px;">Hello ${recipientName},</p>` : ""}
-          <div style="color: #374151; font-size: 16px; line-height: 1.6;">
-            ${htmlContent}
-          </div>
-          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 14px;">
-            <p>© ${new Date().getFullYear()} Tech Milap. All rights reserved.</p>
-          </div>
-        </div>
-      `
-    case "elegant":
-      return `
-        <div style="font-family: 'Georgia', serif; max-width: 600px; margin: 0 auto; padding: 30px; background-color: #fcfcfc; border: 1px solid #e5e7eb;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #1f2937; font-size: 28px; font-weight: normal;">Tech Milap</h1>
-          </div>
-          ${recipientName ? `<p style="color: #4b5563; font-size: 17px;">Dear ${recipientName},</p>` : ""}
-          <div style="color: #1f2937; font-size: 17px; line-height: 1.7;">
-            ${htmlContent}
-          </div>
-          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 15px; text-align: center;">
-            <p>© ${new Date().getFullYear()} Tech Milap</p>
-          </div>
-        </div>
-      `
-    case "colorful":
-      return `
-        <div style="font-family: 'Verdana', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f0f9ff; border-radius: 12px; border: 2px solid #bfdbfe;">
-          <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 26px;">Tech Milap</h1>
-          </div>
-          ${recipientName ? `<p style="color: #4b5563; font-size: 16px; font-weight: bold;">Hi ${recipientName}!</p>` : ""}
-          <div style="color: #1f2937; font-size: 16px; line-height: 1.6; background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
-            ${htmlContent}
-          </div>
-          <div style="margin-top: 30px; text-align: center; color: #6b7280; font-size: 14px;">
-            <p>© ${new Date().getFullYear()} Tech Milap | <a href="#" style="color: #4f46e5; text-decoration: none;">Unsubscribe</a></p>
-          </div>
-        </div>
-      `
-    case "minimal":
-      return `
-        <div style="font-family: 'Helvetica', sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #ffffff;">
-          <div style="margin-bottom: 30px;">
-            <h1 style="color: #111827; font-size: 22px; font-weight: 500;">Tech Milap</h1>
-          </div>
-          ${recipientName ? `<p style="color: #374151; font-size: 16px;">Hello ${recipientName},</p>` : ""}
-          <div style="color: #1f2937; font-size: 16px; line-height: 1.6;">
-            ${htmlContent}
-          </div>
-          <div style="margin-top: 40px; color: #9ca3af; font-size: 14px;">
-            <p>© ${new Date().getFullYear()} Tech Milap</p>
-          </div>
-        </div>
-      `
-    case "simple":
-    default:
-      return `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          ${recipientName ? `<p>Hello ${recipientName},</p>` : ""}
-          <div>
-            ${htmlContent}
-          </div>
-          <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eaeaea; color: #666; font-size: 12px;">
-            <p>© ${new Date().getFullYear()} Tech Milap. All rights reserved.</p>
-          </div>
-        </div>
-      `
+    // If this is set as default, unset any other default for this type
+    if (updates.isDefault) {
+      const template = await db.collection("emailTemplates").findOne({ _id: new ObjectId(id) })
+      if (template) {
+        await db.collection("emailTemplates").updateMany(
+          {
+            userId: template.userId,
+            type: template.type,
+            _id: { $ne: new ObjectId(id) },
+          },
+          { $set: { isDefault: false } },
+        )
+      }
+    }
+
+    const result = await db.collection("emailTemplates").updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          ...updates,
+          updatedAt: new Date(),
+        },
+      },
+    )
+
+    return result
+  } catch (error) {
+    console.error("Error updating email template:", error)
+    throw error
   }
 }
 
-// Simple markdown to HTML converter (this is a simplified version)
-function markdownToHtml(markdown: string) {
-  let html = markdown
-    // Headers
-    .replace(/^# (.*$)/gm, "<h1>$1</h1>")
-    .replace(/^## (.*$)/gm, "<h2>$1</h2>")
-    .replace(/^### (.*$)/gm, "<h3>$1</h3>")
-    // Bold
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    // Italic
-    .replace(/\*(.*?)\*/g, "<em>$1</em>")
-    // Lists
-    .replace(/^- (.*$)/gm, "<ul><li>$1</li></ul>")
-    // Links
-    .replace(/\[([^\]]+)\]$$([^)]+)$$/g, '<a href="$2">$1</a>')
-    // Paragraphs
-    .replace(/\n\n/g, "</p><p>")
-
-  // Wrap in paragraph tags if not already
-  if (!html.startsWith("<h") && !html.startsWith("<p>")) {
-    html = "<p>" + html + "</p>"
+// Delete an email template
+export async function deleteEmailTemplate(id: string) {
+  try {
+    const { db } = await connectToDatabase()
+    const result = await db.collection("emailTemplates").deleteOne({ _id: new ObjectId(id) })
+    return result
+  } catch (error) {
+    console.error("Error deleting email template:", error)
+    throw error
   }
-
-  // Fix nested lists
-  html = html.replace(/<\/ul>\s*<ul>/g, "")
-
-  return html
 }
 
-// Strip HTML for plain text version
-function stripHtml(html: string) {
-  return html
-    .replace(/<[^>]*>/g, "")
-    .replace(/\n\n/g, "\n")
-    .trim()
+// Get all templates for a user
+export async function getUserEmailTemplates(userId: string) {
+  try {
+    const { db } = await connectToDatabase()
+    const templates = await db
+      .collection("emailTemplates")
+      .find({ userId: new ObjectId(userId) })
+      .sort({ type: 1, createdAt: -1 })
+      .toArray()
+
+    return templates
+  } catch (error) {
+    console.error("Error getting user email templates:", error)
+    return []
+  }
+}
+
+// Set a template as default
+export async function setDefaultTemplate(id: string) {
+  try {
+    const { db } = await connectToDatabase()
+
+    // Get the template to find its type and userId
+    const template = await db.collection("emailTemplates").findOne({ _id: new ObjectId(id) })
+
+    if (!template) {
+      throw new Error("Template not found")
+    }
+
+    // Unset any other default for this type and user
+    await db.collection("emailTemplates").updateMany(
+      {
+        userId: template.userId,
+        type: template.type,
+      },
+      { $set: { isDefault: false } },
+    )
+
+    // Set this template as default
+    const result = await db
+      .collection("emailTemplates")
+      .updateOne({ _id: new ObjectId(id) }, { $set: { isDefault: true, updatedAt: new Date() } })
+
+    return result
+  } catch (error) {
+    console.error("Error setting default template:", error)
+    throw error
+  }
+}
+
+// Get user's design preference
+export async function getUserDesignPreference(userId: string): Promise<EmailDesignType> {
+  try {
+    const { db } = await connectToDatabase()
+    const user = await db.collection("users").findOne({ _id: new ObjectId(userId) })
+
+    return user?.emailDesignPreference || "modern" // Default to modern if not set
+  } catch (error) {
+    console.error("Error getting user design preference:", error)
+    return "modern" // Default to modern on error
+  }
+}
+
+// Prepare email with template and design
+export async function prepareEmail(type: EmailTemplateType, userId: string, variables: Record<string, string>) {
+  try {
+    // Get the template
+    const template = await getEmailTemplate(type, userId)
+
+    if (!template) {
+      throw new Error(`No template found for type: ${type}`)
+    }
+
+    // Get user's design preference
+    const designPreference = await getUserDesignPreference(userId)
+
+    // Replace variables in content and subject
+    const content = replaceTemplateVariables(template.content, variables)
+    const subject = replaceTemplateVariables(template.subject, variables)
+
+    // Apply design template
+    const html = applyDesignTemplate(content, subject, designPreference)
+
+    return {
+      subject,
+      html,
+      text: content.replace(/<[^>]*>/g, ""), // Simple HTML to text conversion
+    }
+  } catch (error) {
+    console.error("Error preparing email:", error)
+    throw error
+  }
 }

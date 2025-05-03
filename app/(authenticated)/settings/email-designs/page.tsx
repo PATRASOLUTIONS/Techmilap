@@ -16,10 +16,12 @@ export default async function EmailDesignsPage() {
   }
 
   return (
-    <div className="container py-6 space-y-6">
-      <div>
+    <div className="container py-8">
+      <div className="mb-8">
         <h1 className="text-3xl font-bold">Email Designs</h1>
-        <p className="text-muted-foreground">Choose from beautiful email designs to customize your communications</p>
+        <p className="text-muted-foreground mt-2">
+          Choose from beautiful email designs to customize your communications with attendees
+        </p>
       </div>
       <EmailDesignManager userId={session.user.id} />
     </div>
