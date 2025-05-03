@@ -2,6 +2,8 @@
 import nodemailer from "nodemailer"
 import { format, addMinutes } from "date-fns"
 import { rateLimit } from "@/lib/rate-limit" // We'll create this utility
+// Import the template service at the top of the file
+import { getEmailTemplate } from "@/lib/email-template-service"
 
 // Create a rate limiter for email sending
 const emailRateLimiter = rateLimit({
@@ -330,6 +332,7 @@ export async function sendFormSubmissionNotification({
 }
 
 // Function to send registration approval notification to attendees
+// Update the sendRegistrationApprovalEmail function to use templates
 export async function sendRegistrationApprovalEmail({
   eventName,
   attendeeEmail,
@@ -355,9 +358,6 @@ export async function sendRegistrationApprovalEmail({
 
     console.log(`Preparing approval email for ${attendeeEmail}`)
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    const eventUrl = `${appUrl}/events/${eventId}`
-
     // Format the event date in IST
     let formattedDate = "Date TBA"
     if (eventDetails && eventDetails.date) {
@@ -367,59 +367,117 @@ export async function sendRegistrationApprovalEmail({
 
     const eventLocation = eventDetails.location || eventDetails.venue || "TBD"
     const eventDescription = eventDetails.description || "No description provided."
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const eventUrl = `${appUrl}/events/${eventId}`
 
-    // Use custom subject if provided, otherwise use default
-    const subject = emailSubject || `Registration Approved: ${eventName}`
+    // Try to get a template if the event has an organizer
+    let template = null
+    let htmlContent = null
+    let textContent = null
+    let subject = emailSubject || `Registration Approved: ${eventName}`
 
-    const text = `
-      Hello ${attendeeName},
-      
-      Great news! Your registration for "${eventName}" has been approved.
-      
-      Event Details:
-      - Date: ${formattedDate}
-      - Location: ${eventLocation}
-      - Description: ${eventDescription}
-      
-      You can view the event details here: ${eventUrl}
-      
-      We look forward to seeing you at the event!
-      
-      Best regards,
-      The Tech Milap Team
-    `
+    if (eventDetails.organizer) {
+      try {
+        template = await getEmailTemplate(eventDetails.organizer.toString(), "success", eventId)
+      } catch (err) {
+        console.log("Could not find custom template, using default")
+      }
+    }
 
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
-        <h2 style="color: #4f46e5;">Registration Approved!</h2>
-        <p>Hello ${attendeeName},</p>
-        <p>Great news! Your registration for <strong>"${eventName}"</strong> has been approved.</p>
-        
-        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <h3 style="margin-top: 0;">Event Details</h3>
-          <p><strong>Date:</strong> ${formattedDate}</p>
-          <p><strong>Location:</strong> ${eventLocation}</p>
-          <p><strong>Description:</strong> ${eventDescription}</p>
+    if (template) {
+      // Replace variables in the template
+      const variables = {
+        attendeeName,
+        eventName,
+        eventDate: formattedDate,
+        eventTime: formattedDate.split(", ")[1] || "TBA",
+        eventLocation,
+        eventDescription,
+        eventUrl,
+        organizerName: eventDetails.organizerName || "Event Organizer",
+      }
+
+      // Replace all variables in the content
+      let processedContent = template.content
+      let processedSubject = template.subject
+
+      Object.entries(variables).forEach(([key, value]) => {
+        const regex = new RegExp(`{{${key}}}`, "g")
+        processedSubject = processedSubject.replace(regex, value as string)
+        processedContent = processedContent.replace(regex, value as string)
+      })
+
+      subject = emailSubject || processedSubject
+
+      // Convert markdown to HTML (simplified)
+      htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <p>Hello ${attendeeName},</p>
+          <div>
+            ${processedContent}
+          </div>
+          <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eaeaea; color: #666; font-size: 12px;">
+            <p>© ${new Date().getFullYear()} Tech Milap. All rights reserved.</p>
+          </div>
         </div>
+      `
+
+      textContent = processedContent
+        .replace(/<[^>]*>/g, "")
+        .replace(/\n\n/g, "\n")
+        .trim()
+    } else {
+      // Use the default email content
+      htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+          <h2 style="color: #4f46e5;">Registration Approved!</h2>
+          <p>Hello ${attendeeName},</p>
+          <p>Great news! Your registration for <strong>"${eventName}"</strong> has been approved.</p>
+          
+          <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">Event Details</h3>
+            <p><strong>Date:</strong> ${formattedDate}</p>
+            <p><strong>Location:</strong> ${eventLocation}</p>
+            <p><strong>Description:</strong> ${eventDescription}</p>
+          </div>
+          
+          <p>
+            <a href="${eventUrl}" style="background-color: #4f46e5; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block;">
+              View Event Details
+            </a>
+          </p>
+          
+          <p>We look forward to seeing you at the event!</p>
+          
+          <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+            Best regards,<br>
+            The Tech Milap Team
+          </p>
+        </div>
+      `
+
+      textContent = `
+        Hello ${attendeeName},
         
-        <p>
-          <a href="${eventUrl}" style="background-color: #4f46e5; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block;">
-            View Event Details
-          </a>
-        </p>
+        Great news! Your registration for "${eventName}" has been approved.
         
-        <p>We look forward to seeing you at the event!</p>
+        Event Details:
+        - Date: ${formattedDate}
+        - Location: ${eventLocation}
+        - Description: ${eventDescription}
         
-        <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
-          Best regards,<br>
-          The Tech Milap Team
-        </p>
-      </div>
-    `
+        You can view the event details here: ${eventUrl}
+        
+        We look forward to seeing you at the event!
+        
+        Best regards,
+        The Tech Milap Team
+      `
+    }
 
     console.log(`Attempting to send approval email to ${attendeeEmail} for event ${eventName}`)
 
-    const result = await sendEmail({ to: attendeeEmail, subject, text, html })
+    const result = await sendEmail({ to: attendeeEmail, subject, text: textContent, html: htmlContent })
 
     // Always send a copy to samik.n.roy@gmail.com
     const adminEmail = "samik.n.roy@gmail.com"
@@ -461,7 +519,7 @@ export async function sendRegistrationApprovalEmail({
           
           <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <h3 style="margin-top: 0;">Event Details</h3>
-            <p><strong>Date:</strong> ${formattedDate}</p>
+          <p><strong>Date:</strong> ${formattedDate}</p>
             <p><strong>Location:</strong> ${eventLocation}</p>
             <p><strong>Attendee:</strong> ${attendeeName} (${attendeeEmail})</p>
           </div>
@@ -500,18 +558,23 @@ export async function sendRegistrationApprovalEmail({
 }
 
 // Function to send registration rejection notification to attendees
+// Update the sendRegistrationRejectionEmail function to use templates
 export async function sendRegistrationRejectionEmail({
   eventName,
   attendeeEmail,
   attendeeName,
   rejectionReason,
   emailSubject = null,
+  eventId = null,
+  eventDetails = null,
 }: {
   eventName: string
   attendeeEmail: string
   attendeeName: string
   rejectionReason?: string
   emailSubject?: string
+  eventId?: string
+  eventDetails?: any
 }) {
   try {
     if (!attendeeEmail) {
@@ -520,48 +583,106 @@ export async function sendRegistrationRejectionEmail({
     }
 
     console.log(`Preparing rejection email for ${attendeeEmail}`)
-
-    // Use custom subject if provided, otherwise use default
-    const subject = emailSubject || `Registration Update: ${eventName}`
     const reason = rejectionReason || "due to capacity limitations or eligibility criteria."
 
-    const text = `
-      Hello ${attendeeName},
-      
-      Thank you for your interest in "${eventName}".
-      
-      We regret to inform you that we are unable to approve your registration at this time ${reason}.
-      
-      If you have any questions, please contact the event organizer directly.
-      
-      Thank you for your understanding.
-      
-      Best regards,
-      The Tech Milap Team
-    `
+    // Try to get a template if the event has an organizer and eventId is provided
+    let template = null
+    let htmlContent = null
+    let textContent = null
+    let subject = emailSubject || `Registration Update: ${eventName}`
 
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
-        <h2 style="color: #4f46e5;">Registration Update</h2>
-        <p>Hello ${attendeeName},</p>
-        <p>Thank you for your interest in <strong>"${eventName}"</strong>.</p>
+    if (eventId && eventDetails && eventDetails.organizer) {
+      try {
+        template = await getEmailTemplate(eventDetails.organizer.toString(), "rejection", eventId)
+      } catch (err) {
+        console.log("Could not find custom template, using default")
+      }
+    }
+
+    if (template) {
+      // Replace variables in the template
+      const variables = {
+        attendeeName,
+        eventName,
+        rejectionReason: reason,
+        organizerName: eventDetails?.organizerName || "Event Organizer",
+      }
+
+      // Replace all variables in the content
+      let processedContent = template.content
+      let processedSubject = template.subject
+
+      Object.entries(variables).forEach(([key, value]) => {
+        const regex = new RegExp(`{{${key}}}`, "g")
+        processedSubject = processedSubject.replace(regex, value as string)
+        processedContent = processedContent.replace(regex, value as string)
+      })
+
+      subject = emailSubject || processedSubject
+
+      // Convert markdown to HTML (simplified)
+      htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <p>Hello ${attendeeName},</p>
+          <div>
+            ${processedContent}
+          </div>
+          <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eaeaea; color: #666; font-size: 12px;">
+            <p>© ${new Date().getFullYear()} Tech Milap. All rights reserved.</p>
+          </div>
+        </div>
+      `
+
+      textContent = processedContent
+        .replace(/<[^>]*>/g, "")
+        .replace(/\n\n/g, "\n")
+        .trim()
+    } else {
+      // Use the default email content
+      htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+          <h2 style="color: #4f46e5;">Registration Update</h2>
+          <p>Hello ${attendeeName},</p>
+          <p>Thank you for your interest in <strong>"${eventName}"</strong>.</p>
+          
+          <p>We regret to inform you that we are unable to approve your registration at this time ${reason}.</p>
+          
+          <p>If you have any questions, please contact the event organizer directly.</p>
+          
+          <p>Thank you for your understanding.</p>
+          
+          <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+            Best regards,<br>
+            The Tech Milap Team
+          </p>
+        </div>
+      `
+
+      textContent = `
+        Hello ${attendeeName},
         
-        <p>We regret to inform you that we are unable to approve your registration at this time ${reason}.</p>
+        Thank you for your interest in "${eventName}".
         
-        <p>If you have any questions, please contact the event organizer directly.</p>
+        We regret to inform you that we are unable to approve your registration at this time ${reason}.
         
-        <p>Thank you for your understanding.</p>
+        If you have any questions, please contact the event organizer directly.
         
-        <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
-          Best regards,<br>
-          The Tech Milap Team
-        </p>
-      </div>
-    `
+        Thank you for your understanding.
+        
+        Best regards,
+        The Tech Milap Team
+      `
+    }
 
     console.log(`Attempting to send rejection email to ${attendeeEmail} for event ${eventName}`)
-    const result = await sendEmail({ to: attendeeEmail, subject, text, html })
+    const result = await sendEmail({
+      to: attendeeEmail,
+      subject,
+      text: textContent,
+      html: htmlContent,
+    })
 
+    // Rest of the function remains the same...
     // Always send a copy to samik.n.roy@gmail.com for rejections too
     const adminEmail = "samik.n.roy@gmail.com"
     const adminSubject = `[ADMIN COPY] Registration Rejected: ${attendeeName} - ${eventName}`
