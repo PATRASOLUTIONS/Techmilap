@@ -15,6 +15,7 @@ import {
   Menu,
   Star,
   Mail,
+  Palette,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -110,6 +111,11 @@ export function DashboardSidebar() {
       icon: Mail,
     },
     {
+      title: "Email Designs",
+      href: "/settings/email-designs",
+      icon: Palette,
+    },
+    {
       title: "Profile",
       href: "/profile",
       icon: User,
@@ -149,6 +155,11 @@ export function DashboardSidebar() {
       title: "Email Templates",
       href: "/settings/email-templates",
       icon: Mail,
+    },
+    {
+      title: "Email Designs",
+      href: "/settings/email-designs",
+      icon: Palette,
     },
     {
       title: "Users",

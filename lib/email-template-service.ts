@@ -1,6 +1,7 @@
 import { connectToDatabase } from "@/lib/mongodb"
 import EmailTemplate from "@/models/EmailTemplate"
 import { sendEmail } from "@/lib/email-service"
+import User from "@/models/User"
 
 interface SendTemplatedEmailParams {
   userId: string
@@ -12,6 +13,18 @@ interface SendTemplatedEmailParams {
   customSubject?: string
 }
 
+// Add a function to get the user's design preference:
+async function getUserDesignPreference(userId: string): Promise<string> {
+  try {
+    const user = await User.findById(userId).select("emailDesignPreference")
+    return user?.emailDesignPreference || "modern"
+  } catch (error) {
+    console.error("Error getting user design preference:", error)
+    return "modern" // Default to modern if there's an error
+  }
+}
+
+// Export the getEmailTemplate function
 export async function getEmailTemplate(userId: string, templateType: string, eventId?: string) {
   await connectToDatabase()
 

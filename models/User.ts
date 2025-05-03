@@ -55,6 +55,7 @@ export interface IUser extends Document {
     linkedin?: string
     github?: string
   }
+  emailDesignPreference?: string
 }
 
 const UserSchema = new Schema<IUser>(
@@ -281,6 +282,11 @@ const UserSchema = new Schema<IUser>(
           message: "Please provide a valid GitHub URL",
         },
       },
+    },
+    emailDesignPreference: {
+      type: String,
+      enum: ["modern", "elegant", "colorful", "minimal", "corporate"],
+      default: "modern",
     },
   },
   {
