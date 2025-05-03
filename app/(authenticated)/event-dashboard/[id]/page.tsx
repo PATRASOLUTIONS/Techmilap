@@ -6,13 +6,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Users, Eye, Mic, HandHelping } from "lucide-react"
+import { ArrowLeft, Users, Eye, Mic, HandHelping, SettingsIcon } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import ReactMarkdown from "react-markdown"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import MarkdownEditor from "@/components/markdown-editor"
+import { EventCreationForm } from "@/components/events/event-creation-form"
 
 export default function EventDashboardPage() {
   const { id } = useParams() || {}
@@ -350,12 +351,16 @@ export default function EventDashboardPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-        <TabsList className="grid grid-cols-6 md:w-fit">
+        <TabsList className="grid grid-cols-7 md:w-fit">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="attendees">Attendees</TabsTrigger>
           <TabsTrigger value="volunteers">Volunteers</TabsTrigger>
           <TabsTrigger value="speakers">Speakers</TabsTrigger>
           <TabsTrigger value="forms">Forms</TabsTrigger>
+          <TabsTrigger value="settings">
+            <SettingsIcon className="h-4 w-4 mr-1" />
+            Settings
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -751,6 +756,34 @@ export default function EventDashboardPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* New Settings Tab Content */}
+        <TabsContent value="settings" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Event Settings</CardTitle>
+                <CardDescription>Edit all aspects of your event</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-2">Complete Event Editor</h3>
+                <p className="text-muted-foreground mb-4">
+                  Make comprehensive changes to your event including details, tickets, and custom questions.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
+                  <p className="text-sm text-blue-700">
+                    Changes made here will be applied immediately. Please review carefully before saving.
+                  </p>
+                </div>
+              </div>
+
+              {/* Using the existing EventCreationForm component with the current event data */}
+              <EventCreationForm existingEvent={event} isEditing={true} />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
