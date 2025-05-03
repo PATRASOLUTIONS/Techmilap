@@ -239,6 +239,28 @@ export function DashboardSidebar() {
               <span className="font-semibold text-lg text-white">MyEvent</span>
             </Link>
           </div>
+
+          {/* User info section - Moved to top */}
+          <div className="p-4 border-b bg-slate-50">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+                <User className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="font-medium">{session?.user?.name || "User"}</p>
+                <p className="text-xs text-slate-500 capitalize">{userRole.replace("-", " ")}</p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors mt-3"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </Button>
+          </div>
+
           <ScrollArea className="flex-1 px-3 py-4">
             <div className="flex flex-col gap-1">
               {navItems.map((item, index) =>
@@ -319,29 +341,6 @@ export function DashboardSidebar() {
               )}
             </div>
           </ScrollArea>
-
-          {/* User info and logout */}
-          <div className="border-t p-4 mt-auto bg-slate-50">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
-                  <User className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium">{session?.user?.name || "User"}</p>
-                  <p className="text-xs text-slate-500 capitalize">{userRole.replace("-", " ")}</p>
-                </div>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
-              onClick={handleLogout}
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </Button>
-          </div>
         </div>
       </SheetContent>
     </Sheet>
@@ -396,6 +395,46 @@ export function DashboardSidebar() {
             </Button>
           )}
         </div>
+
+        {/* User info section - Moved to top */}
+        <div className="p-4 border-b bg-slate-50">
+          {!isCollapsed ? (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+                  <User className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-medium">{session?.user?.name || "User"}</p>
+                  <p className="text-xs text-slate-500 capitalize">{userRole.replace("-", " ")}</p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors mt-3"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+                <User className="h-5 w-5 text-white" />
+              </div>
+              <Button
+                variant="outline"
+                className="w-10 h-10 p-0 border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
+                onClick={handleLogout}
+                title="Logout"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+
         <ScrollArea className="flex-1 py-4">
           <div className="flex flex-col gap-1 px-2">
             {navItems.map((item, index) =>
@@ -493,42 +532,6 @@ export function DashboardSidebar() {
             )}
           </div>
         </ScrollArea>
-
-        {/* User info and logout */}
-        <div className="border-t p-4 mt-auto bg-slate-50">
-          {!isCollapsed && (
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
-                  <User className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium">{session?.user?.name || "User"}</p>
-                  <p className="text-xs text-slate-500 capitalize">{userRole.replace("-", " ")}</p>
-                </div>
-              </div>
-            </div>
-          )}
-          {isCollapsed && (
-            <div className="flex justify-center mb-4">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
-                <User className="h-5 w-5 text-white" />
-              </div>
-            </div>
-          )}
-          <Button
-            variant="outline"
-            className={cn(
-              isCollapsed ? "w-10 h-10 p-0 mx-auto" : "w-full justify-start gap-2",
-              "border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors",
-            )}
-            onClick={handleLogout}
-            title={isCollapsed ? "Logout" : undefined}
-          >
-            <LogOut className="h-4 w-4" />
-            {!isCollapsed && "Logout"}
-          </Button>
-        </div>
       </div>
     </>
   )
