@@ -115,6 +115,12 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
         volunteer: existingEvent.volunteerForm?.status || "draft",
         speaker: existingEvent.speakerForm?.status || "draft",
       })
+
+      console.log("Form status set to:", {
+        attendee: existingEvent.attendeeForm?.status || "draft",
+        volunteer: existingEvent.volunteerForm?.status || "draft",
+        speaker: existingEvent.speakerForm?.status || "draft",
+      })
     }
   }, [existingEvent])
 

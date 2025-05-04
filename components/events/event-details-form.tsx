@@ -38,6 +38,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
   useEffect(() => {
     if (data) {
       console.log("Initializing EventDetailsForm with data:", data)
+      console.log("Venue data:", data.venue)
       setFormState({
         name: data.name || "",
         displayName: data.displayName || "",

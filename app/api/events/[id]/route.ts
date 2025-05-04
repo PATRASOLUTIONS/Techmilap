@@ -139,15 +139,21 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const eventData: any = {}
 
     // Update the event with the new data
-    const { title, description, date, location, capacity, price, category } = requestData
-
-    if (title) eventData.title = title
-    if (description) eventData.description = description
-    if (date) eventData.date = date
-    if (location) eventData.location = location
-    if (capacity) eventData.capacity = capacity
-    if (price) eventData.price = price
-    if (category) eventData.category = category
+    if (requestData.details) {
+      if (requestData.details.name) eventData.title = requestData.details.name
+      if (requestData.details.description) eventData.description = requestData.details.description
+      if (requestData.details.startDate) eventData.date = requestData.details.startDate
+      if (requestData.details.startTime) eventData.startTime = requestData.details.startTime
+      if (requestData.details.endTime) eventData.endTime = requestData.details.endTime
+      if (requestData.details.endDate) eventData.endDate = requestData.details.endDate
+      if (requestData.details.venue !== undefined) eventData.venue = requestData.details.venue
+      if (requestData.details.type) eventData.type = requestData.details.type
+      if (requestData.details.visibility) eventData.visibility = requestData.details.visibility
+      if (requestData.details.coverImageUrl) eventData.image = requestData.details.coverImageUrl
+      if (requestData.details.slug) eventData.slug = requestData.details.slug
+      if (requestData.details.category) eventData.category = requestData.details.category
+      if (requestData.details.displayName) eventData.displayName = requestData.details.displayName
+    }
 
     // When updating an event, ensure status is properly set
     if (requestData.status) {

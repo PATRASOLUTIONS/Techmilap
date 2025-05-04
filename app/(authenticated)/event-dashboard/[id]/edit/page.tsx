@@ -37,6 +37,12 @@ export default function EditEventPage() {
 
         if (data.event) {
           console.log("Event data loaded successfully:", data.event.title)
+          console.log("Venue:", data.event.venue)
+          console.log("Form status:", {
+            attendee: data.event.attendeeForm?.status,
+            volunteer: data.event.volunteerForm?.status,
+            speaker: data.event.speakerForm?.status,
+          })
 
           // Ensure all required properties exist
           const eventWithDefaults = {
