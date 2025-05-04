@@ -37,19 +37,24 @@ export default function EditEventPage() {
 
         if (data.event) {
           console.log("Event data loaded successfully:", data.event.title)
-          console.log(
-            "Ticket data:",
-            data.event.tickets ? `${data.event.tickets.length} tickets found` : "No tickets found",
-          )
 
-          // Ensure tickets array exists
-          const eventWithTickets = {
+          // Ensure all required properties exist
+          const eventWithDefaults = {
             ...data.event,
             tickets: data.event.tickets || [],
-            customQuestions: data.event.customQuestions || { attendee: [], volunteer: [], speaker: [] }, // Ensure customQuestions exists
+            customQuestions: data.event.customQuestions || { attendee: [], volunteer: [], speaker: [] },
+            attendeeForm: data.event.attendeeForm || { status: "draft" },
+            volunteerForm: data.event.volunteerForm || { status: "draft" },
+            speakerForm: data.event.speakerForm || { status: "draft" },
+            type: data.event.type || "Offline",
+            visibility: data.event.visibility || "Public",
+            category: data.event.category || "",
+            venue: data.event.venue || "",
+            image: data.event.image || "",
           }
 
-          setEvent(eventWithTickets)
+          console.log("Processed event data:", eventWithDefaults)
+          setEvent(eventWithDefaults)
         } else {
           throw new Error("Event data not found in response")
         }

@@ -17,6 +17,46 @@ import { MarkdownEditor } from "@/components/ui/markdown-editor"
 import type { DateRange } from "react-day-picker"
 
 export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, formData, toast }) {
+  const [formState, setFormState] = useState({
+    name: "",
+    displayName: "",
+    type: "Offline",
+    visibility: "Public",
+    startDate: "",
+    startTime: "",
+    endTime: "",
+    endDate: "",
+    venue: "",
+    description: "",
+    coverImageUrl: "",
+    desktopCoverImage: null,
+    mobileCoverImage: null,
+    slug: "",
+    category: "",
+  })
+  // Ensure all form fields are properly initialized with existing data
+  useEffect(() => {
+    if (data) {
+      console.log("Initializing EventDetailsForm with data:", data)
+      setFormState({
+        name: data.name || "",
+        displayName: data.displayName || "",
+        type: data.type || "Offline",
+        visibility: data.visibility || "Public",
+        startDate: data.startDate || "",
+        startTime: data.startTime || "",
+        endTime: data.endTime || "",
+        endDate: data.endDate || "",
+        venue: data.venue || "",
+        description: data.description || "",
+        coverImageUrl: data.coverImageUrl || "",
+        desktopCoverImage: null,
+        mobileCoverImage: null,
+        slug: data.slug || "",
+        category: data.category || "",
+      })
+    }
+  }, [data])
   const [startDate, setStartDate] = useState(data.startDate ? new Date(data.startDate) : undefined)
   const [endDate, setEndDate] = useState(data.endDate ? new Date(data.endDate) : undefined)
   const [dateRange, setDateRange] = useState<DateRange | undefined>(
@@ -31,14 +71,14 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
 
   // Generate slug when name changes
   useEffect(() => {
-    if (data.name && !data.slug) {
+    if (data?.name && !data.slug) {
       const generatedSlug = generateSlug(data.name)
       updateData({
         ...data,
         slug: generatedSlug,
       })
     }
-  }, [data.name, data.slug, updateData])
+  }, [data?.name, data.slug, updateData])
 
   useEffect(() => {
     if (data.startDate) {

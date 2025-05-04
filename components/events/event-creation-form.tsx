@@ -32,7 +32,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       endTime: "",
       endDate: "",
       venue: "",
-      
+
       description: "",
       coverImageUrl: "",
       desktopCoverImage: null,
@@ -71,10 +71,6 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   useEffect(() => {
     if (existingEvent) {
       console.log("Loading existing event data for editing:", existingEvent.title)
-      console.log(
-        "Ticket data:",
-        existingEvent.tickets ? `${existingEvent.tickets.length} tickets found` : "No tickets found",
-      )
 
       // Convert the existing event data to the format expected by the form
       const convertedData = {
@@ -92,18 +88,25 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
               ? new Date(existingEvent.date).toISOString().split("T")[0]
               : "",
           venue: existingEvent.venue || "",
-          
           description: existingEvent.description || "",
           coverImageUrl: existingEvent.image || "",
           desktopCoverImage: null,
           mobileCoverImage: null,
           slug: existingEvent.slug || "",
+          category: existingEvent.category || "",
         },
-        tickets: Array.isArray(existingEvent.tickets) ? existingEvent.tickets : [],
+        tickets: Array.isArray(existingEvent.tickets)
+          ? existingEvent.tickets.map((ticket) => ({
+              ...ticket,
+              price: ticket.price !== undefined ? ticket.price : 0,
+              quantity: ticket.quantity !== undefined ? ticket.quantity : 0,
+            }))
+          : [],
         customQuestions: existingEvent.customQuestions || { attendee: [], volunteer: [], speaker: [] },
         status: existingEvent.status || "draft",
       }
 
+      console.log("Converted form data:", convertedData)
       setFormData(convertedData)
 
       // Set form status from existing event
@@ -145,7 +148,6 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
     // Check venue details for offline or hybrid events
     if (details.type === "Offline" || details.type === "Hybrid") {
       if (!details.venue) missingFields.push("Venue Name")
-      
     }
 
     return missingFields
@@ -224,7 +226,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
           startTime: formData.details.startTime,
           endTime: formData.details.endTime,
           endDate: formData.details.endDate,
-          
+
           venue: formData.details.venue,
           type: formData.details.type,
           visibility: formData.details.visibility || "Public", // Default to Public if not specified
@@ -562,9 +564,9 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                 </motion.div>
               </AnimatePresence>
 
-              <div className="flex justify-between mt-8"> 
+              <div className="flex justify-between mt-8">
                 {activeTab !== "details" ? (
-                  <Button variant="default" onClick={handleBack} className="button-hover" style={{ zIndex: 9999}}>
+                  <Button variant="default" onClick={handleBack} className="button-hover" style={{ zIndex: 9999 }}>
                     <ChevronLeft className="mr-2 h-4 w-4" />
                     Back
                   </Button>

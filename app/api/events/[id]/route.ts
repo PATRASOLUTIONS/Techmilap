@@ -79,7 +79,22 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // Fetch custom questions
     const customQuestions = event.customQuestions || { attendee: [], volunteer: [], speaker: [] }
 
-    return NextResponse.json({ event: { ...event, customQuestions } })
+    // Ensure all necessary fields are included in the response
+    const eventData = {
+      ...event,
+      customQuestions: event.customQuestions || { attendee: [], volunteer: [], speaker: [] },
+      attendeeForm: event.attendeeForm || { status: "draft" },
+      volunteerForm: event.volunteerForm || { status: "draft" },
+      speakerForm: event.speakerForm || { status: "draft" },
+      tickets: tickets || [],
+      type: event.type || "Offline",
+      visibility: event.visibility || "Public",
+      category: event.category || "",
+      venue: event.venue || "",
+      image: event.image || "",
+    }
+
+    return NextResponse.json({ event: eventData })
   } catch (error: any) {
     console.error("Error fetching event:", error)
     return NextResponse.json({ error: error.message || "An error occurred while fetching the event" }, { status: 500 })
