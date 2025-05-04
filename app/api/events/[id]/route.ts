@@ -5,7 +5,6 @@ import Ticket from "@/models/Ticket" // Import the Ticket model
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import mongoose from "mongoose"
-import { logEventData } from "@/lib/debug-utils"
 
 // Update the GET function to properly handle speaker form data
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -41,8 +40,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     console.log(`Found event: ${event.title} (${event._id})`)
-    console.log(`Venue: ${event.venue || "Not specified"}`)
-    console.log(`Location: ${event.location || "Not specified"}`)
 
     // For public requests, only return published events
     if (isPublicRequest && event.status !== "published" && event.status !== "active") {
@@ -79,12 +76,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       speaker: event.speakerForm.status,
     })
 
-    // Log custom questions count
-    console.log(`Custom questions counts:`, {
-      attendee: (event.customQuestions?.attendee || []).length,
-      volunteer: (event.customQuestions?.volunteer || []).length,
-      speaker: (event.customQuestions?.speaker || []).length,
-    })
+    // Fetch custom questions
+    const customQuestions = event.customQuestions || { attendee: [], volunteer: [], speaker: [] }
 
     // Ensure all necessary fields are included in the response
     const eventData = {
@@ -97,11 +90,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       type: event.type || "Offline",
       visibility: event.visibility || "Public",
       category: event.category || "",
-      venue: event.venue || event.location || "", // Use location as fallback for venue
+      venue: event.venue || "",
       image: event.image || "",
     }
-
-    logEventData(event, "API GET Response")
 
     return NextResponse.json({ event: eventData })
   } catch (error: any) {
@@ -148,30 +139,21 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const eventData: any = {}
 
     // Update the event with the new data
-    if (requestData.details) {
-      if (requestData.details.name) eventData.title = requestData.details.name
-      if (requestData.details.description) eventData.description = requestData.details.description
-      if (requestData.details.startDate) eventData.date = requestData.details.startDate
-      if (requestData.details.startTime) eventData.startTime = requestData.details.startTime
-      if (requestData.details.endTime) eventData.endTime = requestData.details.endTime
-      if (requestData.details.endDate) eventData.endDate = requestData.details.endDate
-      if (requestData.details.venue !== undefined) {
-        eventData.venue = requestData.details.venue
-        eventData.location = requestData.details.venue // Update location field as well for backward compatibility
-      }
-      if (requestData.details.type) eventData.type = requestData.details.type
-      if (requestData.details.visibility) eventData.visibility = requestData.details.visibility
-      if (requestData.details.coverImageUrl) eventData.image = requestData.details.coverImageUrl
-      if (requestData.details.slug) eventData.slug = requestData.details.slug
-      if (requestData.details.category) eventData.category = requestData.details.category
-      if (requestData.details.displayName) eventData.displayName = requestData.details.displayName
-    }
+    const { title, description, date, location, capacity, price, category } = requestData
+
+    if (title) eventData.title = title
+    if (description) eventData.description = description
+    if (date) eventData.date = date
+    if (location) eventData.location = location
+    if (capacity) eventData.capacity = capacity
+    if (price) eventData.price = price
+    if (category) eventData.category = category
 
     // When updating an event, ensure status is properly set
     if (requestData.status) {
       // If explicitly setting status, use that value
       eventData.status = requestData.status
-    } else if (requestData.details?.visibility === "Public" && event.status === "draft") {
+    } else if (requestData.details?.visibility === "Public" && eventData.status === "draft") {
       // If making a draft event public, automatically publish it
       eventData.status = "published"
     }
@@ -205,8 +187,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     console.log("Updating event with:", eventData)
 
     const updatedEvent = await Event.findByIdAndUpdate(event._id, eventData, { new: true })
-
-    logEventData(updatedEvent, "API PUT Updated Event")
 
     return NextResponse.json({ success: true, event: updatedEvent })
   } catch (error: any) {

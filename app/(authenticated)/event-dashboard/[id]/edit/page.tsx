@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { EventCreationForm } from "@/components/events/event-creation-form"
 import { Skeleton } from "@/components/ui/skeleton"
-import { logEventData } from "@/lib/debug-utils"
 
 export default function EditEventPage() {
   const { id } = useParams()
@@ -38,17 +37,6 @@ export default function EditEventPage() {
 
         if (data.event) {
           console.log("Event data loaded successfully:", data.event.title)
-          console.log("Venue:", data.event.venue || data.event.location)
-          console.log("Form status:", {
-            attendee: data.event.attendeeForm?.status,
-            volunteer: data.event.volunteerForm?.status,
-            speaker: data.event.speakerForm?.status,
-          })
-          console.log("Custom questions:", {
-            attendee: (data.event.customQuestions?.attendee || []).length,
-            volunteer: (data.event.customQuestions?.volunteer || []).length,
-            speaker: (data.event.customQuestions?.speaker || []).length,
-          })
 
           // Ensure all required properties exist
           const eventWithDefaults = {
@@ -61,13 +49,12 @@ export default function EditEventPage() {
             type: data.event.type || "Offline",
             visibility: data.event.visibility || "Public",
             category: data.event.category || "",
-            venue: data.event.venue || data.event.location || "",
+            venue: data.event.venue || "",
             image: data.event.image || "",
           }
 
           console.log("Processed event data:", eventWithDefaults)
           setEvent(eventWithDefaults)
-          logEventData(data, "Edit Page Event Data")
         } else {
           throw new Error("Event data not found in response")
         }

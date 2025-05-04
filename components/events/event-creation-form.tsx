@@ -2,7 +2,20 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { EventDetailsForm } from "@/components/events/event-details-form"
+import { TicketManagementForm } from "@/components/events/ticket-management-form"
+import { CustomQuestionsForm } from "@/components/events/custom-questions-form"
+import { EventPreview } from "@/components/events/event-preview"
+import { EventCreationSuccess } from "@/components/events/event-creation-success"
+import { motion, AnimatePresence } from "framer-motion"
+import { SectionHeading } from "@/components/ui/section-heading"
+import { DecorativeBlob } from "@/components/ui/decorative_blob"
+import { CheckCircle2, ChevronLeft, ChevronRight, Rocket, LinkIcon } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 
 export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   const router = useRouter()
@@ -19,6 +32,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       endTime: "",
       endDate: "",
       venue: "",
+
       description: "",
       coverImageUrl: "",
       desktopCoverImage: null,
@@ -48,16 +62,15 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   })
 
   const [formStatus, setFormStatus] = useState({
-    attendee: "draft",
-    volunteer: "draft",
-    speaker: "draft",
+    attendee: "published",
+    volunteer: "published",
+    speaker: "published",
   })
 
   // Load existing event data if editing
   useEffect(() => {
     if (existingEvent) {
       console.log("Loading existing event data for editing:", existingEvent.title)
-      console.log("Venue from existingEvent:", existingEvent.venue || existingEvent.location)
 
       // Convert the existing event data to the format expected by the form
       const convertedData = {
@@ -74,7 +87,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
             : existingEvent.date
               ? new Date(existingEvent.date).toISOString().split("T")[0]
               : "",
-          venue: existingEvent.venue || existingEvent.location || "",
+          venue: existingEvent.venue || "",
           description: existingEvent.description || "",
           coverImageUrl: existingEvent.image || "",
           desktopCoverImage: null,
@@ -94,24 +107,13 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       }
 
       console.log("Converted form data:", convertedData)
-      console.log("Venue in converted data:", convertedData.details.venue)
       setFormData(convertedData)
 
       // Set form status from existing event
-      const updatedFormStatus = {
+      setFormStatus({
         attendee: existingEvent.attendeeForm?.status || "draft",
         volunteer: existingEvent.volunteerForm?.status || "draft",
         speaker: existingEvent.speakerForm?.status || "draft",
-      }
-
-      console.log("Setting form status to:", updatedFormStatus)
-      setFormStatus(updatedFormStatus)
-
-      // Log custom questions count
-      console.log("Custom questions loaded:", {
-        attendee: (existingEvent.customQuestions?.attendee || []).length,
-        volunteer: (existingEvent.customQuestions?.volunteer || []).length,
-        speaker: (existingEvent.customQuestions?.speaker || []).length,
       })
     }
   }, [existingEvent])
@@ -193,6 +195,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       setActiveTab("preview")
     }
   }
+
   const handleBack = () => {
     if (activeTab === "tickets") {
       setActiveTab("details")
@@ -223,6 +226,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
           startTime: formData.details.startTime,
           endTime: formData.details.endTime,
           endDate: formData.details.endDate,
+
           venue: formData.details.venue,
           type: formData.details.type,
           visibility: formData.details.visibility || "Public", // Default to Public if not specified
@@ -319,10 +323,359 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       console.error(`Error ${isEditing ? "updating" : "creating"} event:`, error)
       toast({
         title: `Error ${isEditing ? "updating" : "creating"} event`,
-        description: error.message || `An error occurred while ${isEditing ? "updating" : "creating"} event`,
+        description: error.message || `An error occurred while ${isEditing ? "updating" : "creating"} your event.`,
+        variant: "destructive",
       })
     } finally {
       setIsSubmitting(false)
     }
   }
+
+  const getStepNumber = () => {
+    switch (activeTab) {
+      case "details":
+        return 1
+      case "tickets":
+        return 2
+      case "questions":
+        return 3
+      case "preview":
+        return 4
+      default:
+        return 1
+    }
+  }
+
+  const totalSteps = 4
+  const progress = (getStepNumber() / totalSteps) * 100
+
+  // Update the handleCustomQuestionsUpdate function to include form status
+  const handleCustomQuestionsUpdate = (questions) => {
+    setFormData((prev) => ({
+      ...prev,
+      customQuestions: questions,
+    }))
+  }
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text)
+    toast({
+      title: "URL Copied",
+      description: "The URL has been copied to your clipboard.",
+      variant: "success",
+    })
+  }
+
+  return (
+    <div className="relative">
+      <DecorativeBlob
+        className="absolute top-[-100px] right-[-100px] w-[400px] h-[400px] opacity-20 blur-3xl"
+        color="var(--primary)"
+      />
+      <DecorativeBlob
+        className="absolute bottom-[-100px] left-[-100px] w-[300px] h-[300px] opacity-10 blur-3xl"
+        color="var(--secondary)"
+      />
+
+      {/* URL Dialog */}
+      <Dialog
+        open={showUrlDialog}
+        onOpenChange={(open) => {
+          setShowUrlDialog(open)
+          if (!open) setIsSubmitted(true)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Event Published Successfully!</DialogTitle>
+            <DialogDescription>Your event has been published. Share these links with your audience.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Event Page:</p>
+              <div className="flex items-center gap-2">
+                <Input value={publicUrls.eventUrl} readOnly className="flex-1" />
+                <Button size="sm" variant="outline" onClick={() => copyToClipboard(publicUrls.eventUrl)}>
+                  <LinkIcon className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Registration Form:</p>
+              <div className="flex items-center gap-2">
+                <Input value={publicUrls.registerUrl} readOnly className="flex-1" />
+                <Button size="sm" variant="outline" onClick={() => copyToClipboard(publicUrls.registerUrl)}>
+                  <LinkIcon className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            {formStatus.volunteer === "published" && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Volunteer Application:</p>
+                <div className="flex items-center gap-2">
+                  <Input value={publicUrls.volunteerUrl} readOnly className="flex-1" />
+                  <Button size="sm" variant="outline" onClick={() => copyToClipboard(publicUrls.volunteerUrl)}>
+                    <LinkIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            {formStatus.speaker === "published" && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Speaker Application:</p>
+                <div className="flex items-center gap-2">
+                  <Input value={publicUrls.speakerUrl} readOnly className="flex-1" />
+                  <Button size="sm" variant="outline" onClick={() => copyToClipboard(publicUrls.speakerUrl)}>
+                    <LinkIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end">
+            <Button
+              onClick={() => {
+                setShowUrlDialog(false)
+                setIsSubmitted(true)
+              }}
+            >
+              Continue
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {isSubmitted ? (
+        <EventCreationSuccess
+          eventId={submittedEventId}
+          eventName={formData.details.name || "New Event"}
+          eventSlug={submittedEventSlug}
+          isEditing={isEditing}
+          isPublished={publishStatus === "published"}
+        />
+      ) : (
+        <>
+          <SectionHeading
+            title={isEditing ? "Edit Your Event" : "Create Your Event"}
+            description={
+              isEditing
+                ? "Update your event details below"
+                : "Fill out the details below to create a new event that will wow your attendees."
+            }
+            className="mb-8"
+          />
+
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <div className="h-2 w-full bg-muted overflow-hidden">
+              <motion.div
+                className="h-full bg-gradient-to-r from-primary to-secondary"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.5 }}
+              />
+            </div>
+
+            <CardContent className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center">
+                  <div className="flex space-x-2">
+                    {[1, 2, 3, 4].map((step) => (
+                      <motion.div
+                        key={step}
+                        className={`flex items-center justify-center w-8 h-8 rounded-full cursor-pointer ${
+                          step <= getStepNumber() ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                        }`}
+                        initial={{ scale: 0.8 }}
+                        animate={{
+                          scale: step === getStepNumber() ? 1.1 : 1,
+                          backgroundColor: step <= getStepNumber() ? "var(--primary)" : "hsl(var(--muted))",
+                          color: step <= getStepNumber() ? "white" : "hsl(var(--muted-foreground))",
+                        }}
+                        transition={{ duration: 0.3 }}
+                        onClick={() => {
+                          // Allow clicking on previous steps
+                          if (step < getStepNumber()) {
+                            switch (step) {
+                              case 1:
+                                setActiveTab("details")
+                                break
+                              case 2:
+                                setActiveTab("tickets")
+                                break
+                              case 3:
+                                setActiveTab("questions")
+                                break
+                              case 4:
+                                setActiveTab("preview")
+                                break
+                            }
+                          }
+                        }}
+                      >
+                        {step < getStepNumber() ? <CheckCircle2 className="h-5 w-5" /> : <span>{step}</span>}
+                      </motion.div>
+                    ))}
+                  </div>
+                  <div className="ml-4">
+                    <p className="font-medium text-sm">
+                      Step {getStepNumber()} of {totalSteps}:
+                      <span className="ml-1 text-primary">
+                        {activeTab === "details" && "Event Details"}
+                        {activeTab === "tickets" && "Ticket Management"}
+                        {activeTab === "questions" && "Custom Questions"}
+                        {activeTab === "preview" && "Preview & Publish"}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {activeTab === "details" && (
+                    <EventDetailsForm data={formData.details} updateData={(data) => updateFormData("details", data)} />
+                  )}
+
+                  {activeTab === "tickets" && (
+                    <TicketManagementForm
+                      data={formData.tickets}
+                      updateData={(data) => updateFormData("tickets", data)}
+                      eventId={isEditing ? existingEvent._id : null}
+                    />
+                  )}
+
+                  {activeTab === "questions" && (
+                    <CustomQuestionsForm
+                      data={formData.customQuestions}
+                      updateData={handleCustomQuestionsUpdate}
+                      eventId={isEditing ? existingEvent._id : null}
+                      updateFormStatus={updateFormStatus}
+                      formStatus={formStatus}
+                    />
+                  )}
+
+                  {activeTab === "preview" && <EventPreview formData={formData} />}
+                </motion.div>
+              </AnimatePresence>
+
+              <div className="flex justify-between mt-8">
+                {activeTab !== "details" ? (
+                  <Button variant="default" onClick={handleBack} className="button-hover" style={{ zIndex: 9999 }}>
+                    <ChevronLeft className="mr-2 h-4 w-4" />
+                    Back
+                  </Button>
+                ) : (
+                  <div></div>
+                )}
+
+                {activeTab !== "preview" ? (
+                  <Button onClick={handleNext} className="button-hover bg-gradient-to-r from-primary to-secondary">
+                    Next
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </Button>
+                ) : (
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={() => handleSubmit("draft")}
+                      variant="outline"
+                      className="button-hover"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting && publishStatus === "draft" ? (
+                        <>
+                          <svg
+                            className="animate-spin -ml-1 mr-3 h-4 w-4 text-primary"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Saving as Draft...
+                        </>
+                      ) : (
+                        <>
+                          <svg
+                            className="mr-2 h-4 w-4"
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M5 22h14"></path>
+                            <path d="M5 2v14a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V7.5L14 2H5z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                          </svg>
+                          {isEditing ? "Save as Draft" : "Save as Draft"}
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => handleSubmit("published")}
+                      className="button-hover bg-gradient-to-r from-primary to-secondary"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting && publishStatus === "published" ? (
+                        <>
+                          <svg
+                            className="animate-spin -ml-1 mr-3 h-4 w-4 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Publishing...
+                        </>
+                      ) : (
+                        <>
+                          <Rocket className="mr-2 h-4 w-4" />
+                          {isEditing ? "Update & Publish" : "Publish Event"}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
+  )
 }
