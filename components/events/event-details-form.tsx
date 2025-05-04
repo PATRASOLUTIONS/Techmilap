@@ -15,6 +15,23 @@ import { motion } from "framer-motion"
 import { Card } from "@/components/ui/card"
 import { MarkdownEditor } from "@/components/ui/markdown-editor"
 import type { DateRange } from "react-day-picker"
+import { FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+
+const formSchema = z.object({
+  name: z.string().min(2, {
+    message: "Event name must be at least 2 characters.",
+  }),
+  displayName: z.string().min(2, {
+    message: "Display name must be at least 2 characters.",
+  }),
+  slug: z.string().min(2, {
+    message: "Slug must be at least 2 characters.",
+  }),
+  location: z.string().optional(),
+})
 
 export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, formData, toast }) {
   const [formState, setFormState] = useState({
@@ -33,6 +50,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
     mobileCoverImage: null,
     slug: "",
     category: "",
+    location: "",
   })
   // Ensure all form fields are properly initialized with existing data
   useEffect(() => {
@@ -55,6 +73,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
         mobileCoverImage: null,
         slug: data.slug || "",
         category: data.category || "",
+        location: data.location || "",
       })
     }
   }, [data])
@@ -79,7 +98,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
         slug: generatedSlug,
       })
     }
-  }, [data?.name, data.slug, updateData])
+  }, [data?.name, data])
 
   useEffect(() => {
     if (data.startDate) {
@@ -265,6 +284,26 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
     }
   }
 
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: data?.name || "",
+      displayName: data?.displayName || "",
+      slug: data?.slug || "",
+      location: data?.location || "",
+    },
+  })
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = form
+
+  // Inside the component, after the props are destructured
+  console.log("EventDetailsForm props:", { data, errors })
+  console.log("Venue/Location data:", data?.location)
+
   return (
     <motion.div className="space-y-8" variants={container} initial="hidden" animate="show" id="event-details-form">
       <motion.div className="space-y-4" variants={item}>
@@ -409,6 +448,18 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
               name.
             </p>
           </div>
+          <FormItem>
+            <FormLabel htmlFor="location">Venue</FormLabel>
+            <FormControl>
+              <Input
+                id="location"
+                placeholder="Enter venue name"
+                {...register("location")}
+                defaultValue={data?.location || ""}
+              />
+            </FormControl>
+            {errors.location && <FormMessage>{errors.location.message}</FormMessage>}
+          </FormItem>
         </div>
       </motion.div>
 

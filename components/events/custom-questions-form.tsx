@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Trash2, Plus, GripVertical } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { Badge } from "@/components/ui/badge"
 
 interface CustomQuestionsFormProps {
   data: { attendee: any[]; volunteer: any[]; speaker: any[] }
@@ -892,9 +893,23 @@ export function CustomQuestionsForm({
     )
   }
 
-  const renderFormCard = (type, title, description, questions, setQuestions) => {
+  const renderFormCard = (type, title, description, questions) => {
     // Ensure questions is always an array
     const safeQuestions = Array.isArray(questions) ? questions : []
+
+    // Add logging to debug the custom questions:
+    console.log(`CustomQuestionsForm for ${type}:`, {
+      initialQuestions: questions,
+      formStatus: formStatus[type],
+    })
+
+    const [formStatusValue, setFormStatusValue] = useState(formStatus[type] || "draft")
+
+    const onStatusChange = (newStatus: string) => {
+      setFormStatusValue(newStatus)
+      setFormStatus((prev) => ({ ...prev, [type]: newStatus }))
+      togglePublishStatus(type)
+    }
 
     return (
       <Card>
@@ -973,6 +988,21 @@ export function CustomQuestionsForm({
             </div>
           )}
 
+          <div className="flex items-center space-x-2 mb-4">
+            <span className="text-sm font-medium">Form Status:</span>
+            <Badge variant={formStatusValue === "published" ? "success" : "secondary"}>
+              {formStatusValue === "published" ? "Published" : "Draft"}
+            </Badge>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onStatusChange(formStatusValue === "published" ? "draft" : "published")}
+            >
+              {formStatusValue === "published" ? "Unpublish" : "Publish"}
+            </Button>
+          </div>
+
           <div className="space-y-6">
             {safeQuestions.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -1027,7 +1057,6 @@ export function CustomQuestionsForm({
             "Attendee Registration Questions",
             "These questions will be shown to attendees when they register for your event.",
             attendeeQuestions,
-            setAttendeeQuestions,
           )}
         </TabsContent>
 
@@ -1037,7 +1066,6 @@ export function CustomQuestionsForm({
             "Volunteer Application Questions",
             "These questions will be shown to volunteers when they apply to help at your event.",
             volunteerQuestions,
-            setVolunteerQuestions,
           )}
         </TabsContent>
 
@@ -1047,7 +1075,6 @@ export function CustomQuestionsForm({
             "Speaker Application Questions",
             "These questions will be shown to speakers when they apply to speak at your event.",
             speakerQuestions,
-            setSpeakerQuestions,
           )}
         </TabsContent>
       </Tabs>
