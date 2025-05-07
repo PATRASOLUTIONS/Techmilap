@@ -394,12 +394,42 @@ export function CustomQuestionsForm({
       }
       const data = await response.json()
 
-      setFormStatus(data)
+      // Update form status state
+      setFormStatus({
+        attendee: data.attendeeForm?.status || "draft",
+        volunteer: data.volunteerForm?.status || "draft",
+        speaker: data.speakerForm?.status || "draft",
+      })
+
+      // Update publish status based on form status
       setPublishStatus({
         attendee: data.attendeeForm?.status === "published",
         volunteer: data.volunteerForm?.status === "published",
         speaker: data.speakerForm?.status === "published",
       })
+
+      // Set published URLs if forms are published
+      if (data.eventSlug) {
+        const baseUrl = window.location.origin
+        if (data.attendeeForm?.status === "published") {
+          setPublishedUrls((prev) => ({
+            ...prev,
+            attendee: `${baseUrl}/events/${data.eventSlug}/register`,
+          }))
+        }
+        if (data.volunteerForm?.status === "published") {
+          setPublishedUrls((prev) => ({
+            ...prev,
+            volunteer: `${baseUrl}/events/${data.eventSlug}/volunteer`,
+          }))
+        }
+        if (data.speakerForm?.status === "published") {
+          setPublishedUrls((prev) => ({
+            ...prev,
+            speaker: `${baseUrl}/events/${data.eventSlug}/speaker`,
+          }))
+        }
+      }
 
       // Optionally, update the parent component as well
       if (updateFormStatus) {
