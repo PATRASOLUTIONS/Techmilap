@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2, Eye, CheckCircle, XCircle, Search, X, Download, Mail, Filter, Calendar } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow, format } from "date-fns"
-import { registrationsToCSV, downloadCSV } from "@/lib/csv-export"
+import { downloadCSV, objectsToCSV, formatDateForCSV } from "@/lib/csv-export"
 import {
   Dialog,
   DialogContent,
@@ -1005,39 +1005,58 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     }
 
     try {
-      // Prepare data for CSV export with all required fields
-      const csvData = registrations.map((reg: any) => ({
-        Name: getAttendeeName(reg),
-        "Email ID": getAttendeeEmail(reg),
-        "Corporate Email ID": getCorporateEmail(reg),
-        Designation: getDesignation(reg),
-        "LinkedIn ID": getLinkedIn(reg),
-        "GitHub ID": getGitHub(reg),
-        "Other Social Media": getOtherSocialMedia(reg),
-        "Mobile Number": getMobileNumber(reg),
-        Status: reg.status,
-        "Registration Date": new Date(reg.createdAt).toLocaleDateString(),
-      }))
+      // Create a more comprehensive dataset for export
+      const exportData = registrations.map((reg: any) => {
+        // Extract all data fields from the registration
+        const formData = reg.data || {}
 
-      // Convert to CSV string
-      const csvString = registrationsToCSV(csvData)
+        // Create a base object with standard fields
+        const baseData: Record<string, any> = {
+          "Registration ID": reg._id || "",
+          Name: getAttendeeName(reg),
+          Email: getAttendeeEmail(reg),
+          "Corporate Email": getCorporateEmail(reg),
+          Designation: getDesignation(reg),
+          LinkedIn: getLinkedIn(reg),
+          GitHub: getGitHub(reg),
+          "Other Social Media": getOtherSocialMedia(reg),
+          "Mobile Number": getMobileNumber(reg),
+          Status: reg.status || "Unknown",
+          "Registration Date": reg.createdAt ? new Date(reg.createdAt).toISOString() : "",
+          "Last Updated": reg.updatedAt ? new Date(reg.updatedAt).toISOString() : "",
+        }
+
+        // Add all form data fields to ensure we capture everything
+        return { ...baseData, ...formData }
+      })
 
       // Generate filename with event ID and date
       const date = new Date().toISOString().split("T")[0]
       const filename = `event-${eventId}-attendees-${date}.csv`
+
+      // Convert to CSV string directly using the objectsToCSV utility
+      const csvString = objectsToCSV(exportData, {
+        includeHeaders: true,
+        fieldFormatters: {
+          "Registration Date": (value) => formatDateForCSV(value),
+          "Last Updated": (value) => formatDateForCSV(value),
+        },
+      })
 
       // Download the CSV
       downloadCSV(csvString, filename)
 
       toast({
         title: "Export Successful",
-        description: "Attendee data has been exported to CSV.",
+        description: `${exportData.length} attendee records exported to CSV.`,
       })
+
+      console.log(`Exported ${exportData.length} records to CSV`)
     } catch (error) {
       console.error("Error exporting to CSV:", error)
       toast({
         title: "Export Failed",
-        description: "Failed to export attendee data to CSV.",
+        description: "Failed to export attendee data to CSV. See console for details.",
         variant: "destructive",
       })
     }
