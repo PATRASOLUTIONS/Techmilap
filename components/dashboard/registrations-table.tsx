@@ -5,9 +5,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, CheckCircle, XCircle, Search, X, Download, Mail, Filter, Calendar } from "lucide-react"
+import { Loader2, Eye, CheckCircle, XCircle, Search, Download, Mail } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { formatDistanceToNow, format } from "date-fns"
+import { formatDistanceToNow } from "date-fns"
 import { downloadCSV, objectsToCSV, formatDateForCSV } from "@/lib/csv-export"
 import {
   Dialog,
@@ -19,22 +19,8 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-  SheetFooter,
-} from "@/components/ui/sheet"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Slider } from "@/components/ui/slider"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 
 interface RegistrationsTableProps {
   eventId: string
@@ -68,15 +54,9 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
   const { toast } = useToast()
   const [selectedRegistrations, setSelectedRegistrations] = useState<string[]>([])
   const [customQuestions, setCustomQuestions] = useState<QuestionType[]>([])
-  const [filters, setFilters] = useState<FilterState>({})
-  const [filterSheetOpen, setFilterSheetOpen] = useState(false)
-  const [activeFilters, setActiveFilters] = useState<string[]>([])
-  const [fieldOptions, setFieldOptions] = useState<{ [key: string]: Set<string> }>({})
-  const [filterTab, setFilterTab] = useState("basic")
-  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: undefined,
-    to: undefined,
-  })
+  // Remove these state variables
+  // Remove these state variables
+  // Remove these state variables
 
   // Email dialog state
   const [emailDialogOpen, setEmailDialogOpen] = useState(false)
@@ -412,7 +392,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
         setError(null) // Clear any previous errors
         console.log(`Fetching registrations for event: ${eventId}`)
 
-        // Build the query URL with filters
+        // Build the query URL
         let url = `/api/events/${eventId}/registrations`
         const params = new URLSearchParams()
 
@@ -423,25 +403,6 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
         if (searchQuery) {
           params.append("search", searchQuery)
         }
-
-        // Add custom filters to the query
-        Object.entries(filters).forEach(([key, value]) => {
-          if (value !== null && value !== undefined && value !== "") {
-            if (key === "registrationDate" && dateRange.from) {
-              const from = dateRange.from.toISOString().split("T")[0]
-              const to = dateRange.to ? dateRange.to.toISOString().split("T")[0] : from
-              params.append(`filter_registrationDate`, `date_range:${from}:${to}`)
-            } else if (typeof value === "object" && "min" in value && "max" in value) {
-              // Handle numeric range filters
-              params.append(`filter_${key}`, `range:${value.min}-${value.max}`)
-            } else if (value instanceof Date) {
-              // Handle date filters
-              params.append(`filter_${key}`, `date:${value.toISOString().split("T")[0]}`)
-            } else {
-              params.append(`filter_${key}`, String(value))
-            }
-          }
-        })
 
         if (params.toString()) {
           url += `?${params.toString()}`
@@ -495,24 +456,6 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
         setRegistrations(processedRegistrations)
         setShouldRetry(false) // Reset retry flag on success
         setRetryCount(0) // Reset retry count on success
-
-        // Extract unique values for each field for filtering
-        const options: { [key: string]: Set<string> } = {}
-
-        processedRegistrations.forEach((registration: any) => {
-          if (registration.data) {
-            Object.entries(registration.data).forEach(([key, value]) => {
-              if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-                if (!options[key]) {
-                  options[key] = new Set()
-                }
-                options[key].add(String(value))
-              }
-            })
-          }
-        })
-
-        setFieldOptions(options)
       } catch (error) {
         console.error(`Error fetching registrations:`, error)
         const errorMessage = error instanceof Error ? error.message : `Failed to load registrations`
@@ -553,7 +496,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     return () => {
       if (retryTimeout) clearTimeout(retryTimeout)
     }
-  }, [eventId, filterStatus, searchQuery, filters, toast, dateRange, shouldRetry, retryCount])
+  }, [eventId, filterStatus, searchQuery, toast, shouldRetry, retryCount])
 
   // Add a separate effect to handle the retry logic
   useEffect(() => {
@@ -741,225 +684,12 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     }
   }
 
-  const handleFilterChange = (
-    field: string,
-    value: string | boolean | null | number[] | Date | { min: number; max: number },
-  ) => {
-    setFilters((prev) => {
-      const newFilters = { ...prev }
-
-      if (value === null || value === "") {
-        delete newFilters[field]
-      } else {
-        newFilters[field] = value
-      }
-
-      // Update active filters list
-      const activeFiltersList = Object.entries(newFilters)
-        .filter(([_, val]) => val !== null && val !== undefined && val !== "")
-        .map(([key, _]) => key)
-
-      setActiveFilters(activeFiltersList)
-
-      return newFilters
-    })
-  }
-
-  const clearFilter = (field: string) => {
-    setFilters((prev) => {
-      const newFilters = { ...prev }
-      delete newFilters[field]
-
-      // Update active filters list
-      const activeFiltersList = Object.entries(newFilters)
-        .filter(([_, val]) => val !== null && val !== undefined && val !== "")
-        .map(([key, _]) => key)
-
-      setActiveFilters(activeFiltersList)
-
-      return newFilters
-    })
-  }
-
-  const clearAllFilters = () => {
-    setFilters({})
-    setActiveFilters([])
-    setDateRange({ from: undefined, to: undefined })
-  }
-
-  const formatFieldName = (key: string) => {
-    // Remove question_ prefix and _numbers suffix
-    let formattedKey = key
-      .replace(/^question_/, "")
-      .replace(/_\d+$/, "")
-      .replace(/^custom_/, "")
-
-    // Convert camelCase or snake_case to Title Case
-    formattedKey = formattedKey
-      .replace(/([A-Z])/g, " $1") // Add space before capital letters
-      .replace(/_/g, " ") // Replace underscores with spaces
-      .replace(/^\w/, (c) => c.toUpperCase()) // Capitalize first letter
-
-    return formattedKey
-  }
-
-  const getFilterDisplayValue = (field: string, value: any) => {
-    if (field === "registrationDate" && dateRange.from) {
-      const from = format(dateRange.from, "MMM d, yyyy")
-      const to = dateRange.to ? format(dateRange.to, "MMM d, yyyy") : from
-      return from === to ? from : `${from} - ${to}`
-    }
-
-    if (typeof value === "object" && value !== null) {
-      if ("min" in value && "max" in value) {
-        return `${value.min} - ${value.max}`
-      }
-      if (value instanceof Date) {
-        return format(value, "MMM d, yyyy")
-      }
-    }
-
-    if (typeof value === "boolean") {
-      return value ? "Yes" : "No"
-    }
-
-    return String(value)
-  }
-
-  const renderFilterOptions = (question: QuestionType) => {
-    const fieldName = question.id
-    const fieldKey = `custom_${fieldName}`
-
-    // Get unique values for this field
-    const options = fieldOptions[fieldName] || new Set()
-
-    switch (question.type) {
-      case "checkbox":
-        return (
-          <div key={fieldName} className="mb-4">
-            <label className="text-sm font-medium mb-1 block">{formatFieldName(question.label)}</label>
-            <Select
-              value={filters[fieldKey]?.toString() || ""}
-              onValueChange={(value) => {
-                if (value === "all") {
-                  handleFilterChange(fieldKey, null)
-                } else {
-                  handleFilterChange(fieldKey, value === "true")
-                }
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select option" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="true">Yes</SelectItem>
-                <SelectItem value="false">No</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )
-
-      case "select":
-      case "radio":
-        return (
-          <div key={fieldName} className="mb-4">
-            <label className="text-sm font-medium mb-1 block">{formatFieldName(question.label)}</label>
-            <Select
-              value={filters[fieldKey]?.toString() || ""}
-              onValueChange={(value) => {
-                if (value === "all") {
-                  handleFilterChange(fieldKey, null)
-                } else {
-                  handleFilterChange(fieldKey, value)
-                }
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select option" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                {Array.from(options).map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {option}
-                  </SelectItem>
-                ))}
-                {question.options &&
-                  question.options.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )
-
-      case "number":
-        const min = question.min !== undefined ? question.min : 0
-        const max = question.max !== undefined ? question.max : 100
-        const currentRange = filters[fieldKey] as { min: number; max: number } | undefined
-        const currentMin = currentRange?.min !== undefined ? currentRange.min : min
-        const currentMax = currentRange?.max !== undefined ? currentRange.max : max
-
-        return (
-          <div key={fieldName} className="mb-4">
-            <label className="text-sm font-medium mb-1 block">{formatFieldName(question.label)}</label>
-            <div className="pt-6 pb-2">
-              <Slider
-                defaultValue={[currentMin, currentMax]}
-                min={min}
-                max={max}
-                step={1}
-                onValueChange={(values) => {
-                  handleFilterChange(fieldKey, { min: values[0], max: values[1] })
-                }}
-              />
-            </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Min: {currentMin}</span>
-              <span>Max: {currentMax}</span>
-            </div>
-          </div>
-        )
-
-      case "date":
-        return (
-          <div key={fieldName} className="mb-4">
-            <label className="text-sm font-medium mb-1 block">{formatFieldName(question.label)}</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-start text-left font-normal">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  {filters[fieldKey] instanceof Date ? format(filters[fieldKey] as Date, "PPP") : "Pick a date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <CalendarComponent
-                  mode="single"
-                  selected={filters[fieldKey] as Date}
-                  onSelect={(date) => handleFilterChange(fieldKey, date || null)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-        )
-
-      default:
-        return (
-          <div key={fieldName} className="mb-4">
-            <label className="text-sm font-medium mb-1 block">{formatFieldName(question.label)}</label>
-            <Input
-              placeholder={`Filter by ${formatFieldName(question.label)}`}
-              value={filters[fieldKey]?.toString() || ""}
-              onChange={(e) => handleFilterChange(fieldKey, e.target.value || null)}
-            />
-          </div>
-        )
-    }
-  }
+  // Remove these functions
+  // Remove these functions
+  // Remove these functions
+  // Remove these functions
+  // Remove these functions
+  // Remove these functions
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -1277,256 +1007,6 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
             Export CSV
           </Button>
 
-          <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
-            <SheetTrigger asChild>
-              <Button variant="secondary" className="relative">
-                <Filter className="h-4 w-4 mr-1" />
-                {activeFilters.length > 0 ? `Filters (${activeFilters.length})` : "Advanced Filters"}
-                {activeFilters.length > 0 && (
-                  <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full">
-                    {activeFilters.length}
-                  </Badge>
-                )}
-              </Button>
-            </SheetTrigger>
-            <SheetContent className="w-[350px] sm:w-[450px] overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>Advanced Filters</SheetTitle>
-                <SheetDescription>Filter attendees based on registration data</SheetDescription>
-              </SheetHeader>
-
-              {/* Add a search box at the top for quickly finding filters */}
-              <div className="relative mt-4 mb-4">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search filters..."
-                  className="pl-8"
-                  onChange={(e) => {
-                    // This will filter the visible filter options based on the search term
-                    const searchTerm = e.target.value.toLowerCase()
-                    // Implementation detail: We could use this to filter the visible filters
-                    // For simplicity, we're just logging it for now
-                    console.log("Searching filters for:", searchTerm)
-                  }}
-                />
-              </div>
-
-              <Tabs defaultValue="basic" value={filterTab} onValueChange={setFilterTab} className="mt-4">
-                <TabsList className="grid grid-cols-3 mb-4">
-                  <TabsTrigger value="basic">Basic</TabsTrigger>
-                  <TabsTrigger value="date">Date & Time</TabsTrigger>
-                  <TabsTrigger value="custom">Custom Fields</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="basic" className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <label className="text-sm font-medium mb-1 block">Status</label>
-                      <Select
-                        value={filters.status?.toString() || ""}
-                        onValueChange={(value) => {
-                          if (value === "all") {
-                            handleFilterChange("status", null)
-                          } else {
-                            handleFilterChange("status", value)
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Filter by status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Statuses</SelectItem>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="approved">Approved</SelectItem>
-                          <SelectItem value="rejected">Rejected</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium mb-1 block">Search</label>
-                      <div className="relative">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Search by name or email..."
-                          className="pl-8"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">Searches through names and email addresses</p>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="date" className="space-y-4">
-                  <div className="mb-4">
-                    <label className="text-sm font-medium mb-1 block">Registration Date Range</label>
-                    <div className="grid gap-2">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button id="date" variant="outline" className="w-full justify-start text-left font-normal">
-                            <Calendar className="mr-2 h-4 w-4" />
-                            {dateRange.from ? (
-                              dateRange.to ? (
-                                <>
-                                  {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
-                                </>
-                              ) : (
-                                format(dateRange.from, "LLL dd, y")
-                              )
-                            ) : (
-                              <span>Pick a date range</span>
-                            )}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <CalendarComponent
-                            initialFocus
-                            mode="range"
-                            defaultMonth={dateRange.from}
-                            selected={dateRange}
-                            onSelect={(range) => {
-                              setDateRange(range)
-                              if (range?.from) {
-                                handleFilterChange("registrationDate", range)
-                              } else {
-                                handleFilterChange("registrationDate", null)
-                              }
-                            }}
-                            numberOfMonths={2}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      {/* Add quick date range selections */}
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const today = new Date()
-                            const yesterday = new Date(today)
-                            yesterday.setDate(yesterday.getDate() - 1)
-                            setDateRange({ from: yesterday, to: today })
-                            handleFilterChange("registrationDate", { from: yesterday, to: today })
-                          }}
-                        >
-                          Last 24h
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const today = new Date()
-                            const weekAgo = new Date(today)
-                            weekAgo.setDate(weekAgo.getDate() - 7)
-                            setDateRange({ from: weekAgo, to: today })
-                            handleFilterChange("registrationDate", { from: weekAgo, to: today })
-                          }}
-                        >
-                          Last 7 days
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const today = new Date()
-                            const monthAgo = new Date(today)
-                            monthAgo.setMonth(monthAgo.getMonth() - 1)
-                            setDateRange({ from: monthAgo, to: today })
-                            handleFilterChange("registrationDate", { from: monthAgo, to: today })
-                          }}
-                        >
-                          Last 30 days
-                        </Button>
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">Filter attendees by when they registered</p>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="custom" className="space-y-4">
-                  {customQuestions.length === 0 ? (
-                    <div className="text-center py-4 text-muted-foreground">
-                      <p>No custom questions found for this event.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {/* Add a category selection for faster navigation */}
-                      <div className="mb-2">
-                        <label className="text-sm font-medium mb-1 block">Filter By Category</label>
-                        <Select
-                          onValueChange={(value) => {
-                            // Auto-scroll to the selected category
-                            const element = document.getElementById(`filter-category-${value}`)
-                            if (element) {
-                              element.scrollIntoView({ behavior: "smooth", block: "start" })
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Jump to category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.keys(questionsByType).map((type) => (
-                              <SelectItem key={type} value={type}>
-                                {type.charAt(0).toUpperCase() + type.slice(1)} Questions
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Render filter options grouped by type */}
-                      {Object.entries(questionsByType).map(([type, questions]) => (
-                        <div key={type} id={`filter-category-${type}`} className="mb-6">
-                          <h3 className="text-sm font-medium mb-3 capitalize border-b pb-1">{type} Questions</h3>
-                          <div className="grid grid-cols-1 gap-3">
-                            {questions.map((question) => renderFilterOptions(question))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-              </Tabs>
-
-              {/* Active filters section with better organization */}
-              {activeFilters.length > 0 && (
-                <div className="mt-6 border-t pt-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-medium">Active Filters ({activeFilters.length})</h3>
-                    <Button variant="ghost" size="sm" onClick={clearAllFilters}>
-                      Clear All
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-2 max-h-[150px] overflow-y-auto p-2 border rounded-md">
-                    {activeFilters.map((field) => {
-                      const value = filters[field]
-                      const displayValue = getFilterDisplayValue(field, value)
-                      return (
-                        <Badge key={field} variant="secondary" className="flex items-center gap-1">
-                          {formatFieldName(field)}: {displayValue}
-                          <X className="h-3 w-3 cursor-pointer" onClick={() => clearFilter(field)} />
-                        </Badge>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <SheetFooter className="mt-6 flex flex-col sm:flex-row gap-2">
-                <Button variant="outline" size="sm" onClick={clearAllFilters} className="order-2 sm:order-1">
-                  Reset Filters
-                </Button>
-                <Button variant="default" onClick={() => setFilterSheetOpen(false)} className="order-1 sm:order-2">
-                  Apply Filters
-                </Button>
-              </SheetFooter>
-            </SheetContent>
-          </Sheet>
-
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -1538,28 +1018,6 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
           </div>
         </div>
       </CardHeader>
-      {activeFilters.length > 0 && (
-        <div className="px-6 py-2 bg-muted/20 border-t border-b">
-          <div className="flex items-center flex-wrap gap-2">
-            <span className="text-sm font-medium">Active filters ({activeFilters.length}):</span>
-            <div className="flex flex-wrap gap-2 overflow-x-auto max-w-[calc(100%-150px)]">
-              {activeFilters.map((field) => {
-                const value = filters[field]
-                const displayValue = getFilterDisplayValue(field, value)
-                return (
-                  <Badge key={field} variant="secondary" className="flex items-center gap-1">
-                    {formatFieldName(field)}: {displayValue}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => clearFilter(field)} />
-                  </Badge>
-                )
-              })}
-            </div>
-            <Button variant="ghost" size="sm" onClick={clearAllFilters} className="ml-auto">
-              Clear All
-            </Button>
-          </div>
-        </div>
-      )}
       <CardContent>
         {registrations.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
@@ -1684,7 +1142,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
                   {selectedRegistration.data &&
                     Object.entries(selectedRegistration.data).map(([key, value]) => (
                       <div key={key} className="grid grid-cols-3 gap-2">
-                        <div className="font-medium text-sm">{formatFieldName(key)}</div>
+                        <div className="font-medium text-sm">{key}</div>
                         <div className="col-span-2">{String(value)}</div>
                       </div>
                     ))}
