@@ -23,14 +23,18 @@ export function escapeCSV(value: any): string {
 /**
  * Formats a date for CSV export
  */
-export function formatDateForCSV(date: string | Date | undefined | null): string {
-  if (!date) return ""
+export function formatDateForCSV(dateString: string): string {
+  if (!dateString) return ""
 
   try {
-    const d = typeof date === "string" ? new Date(date) : date
-    return d.toISOString().split("T")[0]
-  } catch (e) {
-    return String(date)
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return dateString // Return original if invalid
+
+    // Format as YYYY-MM-DD HH:MM:SS
+    return date.toISOString().replace("T", " ").substring(0, 19)
+  } catch (error) {
+    console.error("Error formatting date for CSV:", error)
+    return dateString // Return original in case of error
   }
 }
 
@@ -38,45 +42,68 @@ export function formatDateForCSV(date: string | Date | undefined | null): string
  * Converts an array of objects to CSV format
  */
 export function objectsToCSV(
-  data: any[],
+  data: Record<string, any>[],
   options: {
-    headers?: string[]
-    fields?: string[]
     includeHeaders?: boolean
     fieldFormatters?: Record<string, (value: any) => string>
   } = {},
 ): string {
   if (!data || data.length === 0) return ""
 
-  const { headers, fields, includeHeaders = true, fieldFormatters = {} } = options
+  const { includeHeaders = true, fieldFormatters = {} } = options
 
-  // Determine fields to include
-  const fieldsToInclude = fields || Object.keys(data[0])
+  // Get all unique keys from all objects
+  const allKeys = new Set<string>()
+  data.forEach((obj) => {
+    Object.keys(obj).forEach((key) => allKeys.add(key))
+  })
 
-  // Create headers row
-  let csv = ""
+  const headers = Array.from(allKeys)
+
+  // Process values with formatters if provided
+  const processValue = (key: string, value: any): string => {
+    // Apply formatter if exists for this field
+    if (fieldFormatters[key] && value !== undefined && value !== null) {
+      return fieldFormatters[key](value)
+    }
+
+    if (value === null || value === undefined) return ""
+    if (typeof value === "object") {
+      if (value instanceof Date) {
+        return value.toISOString()
+      }
+      return JSON.stringify(value)
+    }
+    return String(value)
+  }
+
+  // Escape CSV values
+  const escapeCSV = (value: string): string => {
+    // If value contains commas, quotes, or newlines, wrap in quotes and escape any quotes
+    if (/[",\n\r]/.test(value)) {
+      return `"${value.replace(/"/g, '""')}"`
+    }
+    return value
+  }
+
+  // Create CSV rows
+  const rows: string[] = []
+
+  // Add header row if requested
   if (includeHeaders) {
-    const headerRow = (headers || fieldsToInclude).map(escapeCSV).join(",")
-    csv += headerRow + "\n"
+    rows.push(headers.map(escapeCSV).join(","))
   }
 
   // Add data rows
-  data.forEach((item) => {
-    const row = fieldsToInclude.map((field) => {
-      const value = item[field]
-
-      // Use custom formatter if provided
-      if (fieldFormatters[field]) {
-        return escapeCSV(fieldFormatters[field](value))
-      }
-
-      return escapeCSV(value)
+  data.forEach((obj) => {
+    const row = headers.map((key) => {
+      const value = obj[key]
+      return escapeCSV(processValue(key, value))
     })
-
-    csv += row.join(",") + "\n"
+    rows.push(row.join(","))
   })
 
-  return csv
+  return rows.join("\n")
 }
 
 /**
@@ -84,52 +111,8 @@ export function objectsToCSV(
  * @param registrations Array of registration objects
  * @returns CSV string
  */
-export function registrationsToCSV(registrations: any[]): string {
-  if (!registrations || registrations.length === 0) {
-    return ""
-  }
-
-  // Collect all possible fields from all registrations
-  const allFields = new Set<string>()
-  registrations.forEach((registration) => {
-    if (registration.data) {
-      Object.keys(registration.data).forEach((key) => allFields.add(key))
-    }
-  })
-
-  // Add standard fields
-  const standardFields = ["id", "status", "createdAt", "updatedAt"]
-  standardFields.forEach((field) => allFields.add(field))
-
-  // Convert fields to array and sort
-  const fields = Array.from(allFields).sort()
-
-  // Create header row
-  const header = fields.map(escapeCSVField).join(",")
-
-  // Create data rows
-  const rows = registrations.map((registration) => {
-    return fields
-      .map((field) => {
-        let value = ""
-        if (standardFields.includes(field)) {
-          if (field === "id") {
-            value = registration._id || ""
-          } else if (field === "createdAt" || field === "updatedAt") {
-            value = registration[field] ? new Date(registration[field]).toISOString() : ""
-          } else {
-            value = registration[field] || ""
-          }
-        } else if (registration.data && registration.data[field] !== undefined) {
-          value = registration.data[field]
-        }
-        return escapeCSVField(value)
-      })
-      .join(",")
-  })
-
-  // Combine header and rows
-  return [header, ...rows].join("\n")
+export function registrationsToCSV(data: any[]): string {
+  return objectsToCSV(data, { includeHeaders: true })
 }
 
 /**
@@ -177,19 +160,21 @@ function escapeCSVField(value: any): string {
  * @param csvData CSV data as string
  * @param filename Filename for the download
  */
-export function downloadCSV(csvData: string, filename: string): void {
-  // Create a blob with the CSV data
-  const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" })
-
-  // Create a download link
+export function downloadCSV(csvString: string, filename: string) {
+  const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" })
   const link = document.createElement("a")
+
+  // Create download link
   const url = URL.createObjectURL(blob)
   link.setAttribute("href", url)
   link.setAttribute("download", filename)
   link.style.visibility = "hidden"
 
-  // Add to document, click, and remove
+  // Trigger download
   document.body.appendChild(link)
   link.click()
+
+  // Clean up
   document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
