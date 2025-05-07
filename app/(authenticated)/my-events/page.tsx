@@ -20,7 +20,6 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
@@ -80,8 +79,8 @@ export default function MyEventsPage() {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
-        // Fetch all events (both past and upcoming)
-        const response = await fetch(`/api/events/my-events/all`, {
+        // Fetch only events where user is an organizer
+        const response = await fetch(`/api/events/my-events/all?role=organizer`, {
           signal: controller.signal,
           cache: "no-store", // Prevent caching issues
         })
@@ -107,8 +106,11 @@ export default function MyEventsPage() {
         const eventsList = Array.isArray(data.events) ? data.events : []
         console.log(`Found ${eventsList.length} events`)
 
+        // Filter to only include events where user is an organizer
+        const organizerEvents = eventsList.filter((event) => event.userRole === "organizer")
+
         // Validate and sanitize each event
-        const sanitizedEvents = eventsList.map((event) => ({
+        const sanitizedEvents = organizerEvents.map((event) => ({
           _id: event._id || "",
           title: event.title || "Untitled Event",
           date: event.date || new Date().toISOString(),
@@ -120,7 +122,7 @@ export default function MyEventsPage() {
           createdAt: event.createdAt || new Date().toISOString(),
           updatedAt: event.updatedAt || new Date().toISOString(),
           slug: event.slug || event._id || "",
-          userRole: event.userRole || "attendee",
+          userRole: "organizer", // Force organizer role
         }))
 
         setEvents(sanitizedEvents)
@@ -188,17 +190,11 @@ export default function MyEventsPage() {
   // Filter events based on search term and active tab
   const getFilteredEvents = (eventsList: Event[]) => {
     return eventsList.filter((event) => {
-      // First filter by search term
-      const matchesSearch =
+      // Filter by search term
+      return (
         event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         event.location.toLowerCase().includes(searchTerm.toLowerCase())
-
-      // Then filter by active tab
-      if (activeTab === "all") {
-        return matchesSearch
-      } else {
-        return matchesSearch && event.userRole === activeTab
-      }
+      )
     })
   }
 
@@ -267,12 +263,10 @@ export default function MyEventsPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">My Events</h1>
+        <h1 className="text-2xl font-bold tracking-tight">My Organized Events</h1>
       </div>
       <div className="flex flex-col space-y-2">
-        <p className="text-muted-foreground">
-          View events you've registered for as an attendee, volunteer, or speaker.
-        </p>
+        <p className="text-muted-foreground">View events you're organizing. Create, manage and track your events.</p>
       </div>
 
       <div className="flex items-center justify-between">
@@ -290,45 +284,35 @@ export default function MyEventsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
-        <TabsList>
-          <TabsTrigger value="all">All Events</TabsTrigger>
-          <TabsTrigger value="attendee">Attending</TabsTrigger>
-          <TabsTrigger value="volunteer">Volunteering</TabsTrigger>
-          <TabsTrigger value="speaker">Speaking</TabsTrigger>
-          <TabsTrigger value="organizer">Organizing</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={activeTab} className="mt-6">
-          {loading ? (
-            <EventsLoadingSkeleton />
-          ) : (
-            <div className="space-y-10">
-              <div>
-                <h2 className="text-xl font-semibold mb-4 flex items-center">
-                  <Calendar className="h-5 w-5 mr-2 text-primary" />
-                  All Events ({filteredEvents.length})
-                </h2>
-                {filteredEvents.length > 0 ? (
-                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredEvents.map((event) => (
-                      <EventCard
-                        key={`${event._id}-${event.userRole}`}
-                        event={event}
-                        onClick={() => handleEventClick(event._id, event.userRole || "attendee", event.slug)}
-                        onManageClick={(e) => handleManageClick(e, event._id)}
-                        isPast={new Date(event.date) < currentTime}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState role={activeTab === "all" ? "any" : activeTab} type="all" />
-                )}
-              </div>
+      <div className="mt-6">
+        {loading ? (
+          <EventsLoadingSkeleton />
+        ) : (
+          <div className="space-y-10">
+            <div>
+              <h2 className="text-xl font-semibold mb-4 flex items-center">
+                <Calendar className="h-5 w-5 mr-2 text-primary" />
+                Your Events ({filteredEvents.length})
+              </h2>
+              {filteredEvents.length > 0 ? (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredEvents.map((event) => (
+                    <EventCard
+                      key={`${event._id}-${event.userRole}`}
+                      event={event}
+                      onClick={() => handleEventClick(event._id, event.userRole || "organizer", event.slug)}
+                      onManageClick={(e) => handleManageClick(e, event._id)}
+                      isPast={new Date(event.date) < currentTime}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState role="organizer" type="all" />
+              )}
             </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

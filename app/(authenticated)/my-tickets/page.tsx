@@ -29,7 +29,7 @@ export default function MyTicketsPage() {
         setLoading(true)
         setError(null)
 
-        const response = await fetch("/api/tickets/my-tickets")
+        const response = await fetch("/api/tickets/my-tickets?exclude=organizer")
 
         if (!response.ok) {
           throw new Error(`Failed to fetch tickets: ${response.status} ${response.statusText}`)
@@ -63,7 +63,9 @@ export default function MyTicketsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">My Tickets</h1>
-          <p className="text-muted-foreground">View and manage your tickets for upcoming and past events</p>
+          <p className="text-muted-foreground">
+            View tickets for events you're attending, volunteering at, or speaking at
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Ticket className="h-5 w-5 text-indigo-600" />
