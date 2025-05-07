@@ -253,6 +253,92 @@ export function VolunteerApplicationsTable({ eventId, title, description }: Volu
     }
   }
 
+  const exportToCSV = async () => {
+    try {
+      if (submissions.length === 0) {
+        toast({
+          title: "No data to export",
+          description: "There are no volunteer submissions to export.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Collect all possible field names from submissions
+      const allFields = new Set<string>()
+      submissions.forEach((submission) => {
+        if (submission.data) {
+          Object.keys(submission.data).forEach((key) => allFields.add(key))
+        }
+      })
+
+      // Prepare data for CSV export
+      const csvData = submissions.map((submission) => {
+        const record: Record<string, any> = {
+          ID: submission._id,
+          Name: getName(submission),
+          Email: getEmail(submission),
+          CorporateEmail: getCorporateEmail(submission),
+          Designation: getDesignation(submission),
+          EventOrganizer: getEventOrganizer(submission),
+          IsMicrosoftMVP: getIsMicrosoftMVP(submission),
+          MVPID: getMvpId(submission),
+          MVPProfileLink: getMvpProfileLink(submission),
+          MVPCategory: getMvpCategory(submission),
+          EventsVolunteered: getHowManyEventsVolunteered(submission),
+          MeetupEventName: getMeetupEventName(submission),
+          EventDetails: getEventDetails(submission),
+          MeetupPageDetails: getMeetupPageDetails(submission),
+          Contribution: getYourContribution(submission),
+          OrganizerName: getOrganizerName(submission),
+          LinkedIn: getLinkedIn(submission),
+          GitHub: getGitHub(submission),
+          OtherSocialMedia: getOtherSocialMedia(submission),
+          MobileNumber: getMobileNumber(submission),
+          Status: submission.status,
+          SubmittedAt: submission.createdAt ? new Date(submission.createdAt).toISOString() : "",
+          UpdatedAt: submission.updatedAt ? new Date(submission.updatedAt).toISOString() : "",
+        }
+
+        // Add all custom fields
+        if (submission.data) {
+          Array.from(allFields).forEach((field) => {
+            if (!record[field] && submission.data[field] !== undefined) {
+              record[formatFieldName(field)] = submission.data[field]
+            }
+          })
+        }
+
+        return record
+      })
+
+      const { objectsToCSV, downloadCSV } = await import("@/lib/csv-export")
+
+      // Use the objectsToCSV utility to generate the CSV
+      const csv = objectsToCSV(csvData, {
+        fieldFormatters: {
+          SubmittedAt: (value) => (value ? new Date(value).toISOString() : ""),
+          UpdatedAt: (value) => (value ? new Date(value).toISOString() : ""),
+        },
+      })
+
+      // Download the CSV
+      downloadCSV(csv, `volunteer-applications-${eventId}-${new Date().toISOString().split("T")[0]}.csv`)
+
+      toast({
+        title: "Export Successful",
+        description: `Exported ${submissions.length} volunteer applications.`,
+      })
+    } catch (error) {
+      console.error("Error exporting CSV:", error)
+      toast({
+        title: "Export Failed",
+        description: error instanceof Error ? error.message : "Failed to export volunteer applications",
+        variant: "destructive",
+      })
+    }
+  }
+
   const formatFieldName = (key: string) => {
     // Remove question_ prefix and _numbers suffix
     let formattedKey = key.replace(/^question_/, "").replace(/_\d+$/, "")
@@ -321,16 +407,7 @@ export function VolunteerApplicationsTable({ eventId, title, description }: Volu
             </Button>
           )}
 
-          <Button
-            variant="outline"
-            onClick={() => {
-              // Implement export functionality
-              toast({
-                title: "Export",
-                description: "This feature is coming soon",
-              })
-            }}
-          >
+          <Button variant="outline" onClick={exportToCSV}>
             <Download className="h-4 w-4 mr-1" />
             Export CSV
           </Button>
