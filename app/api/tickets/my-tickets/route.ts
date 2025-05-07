@@ -2,91 +2,63 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import FormSubmission from "@/models/FormSubmission"
+import Ticket from "@/models/Ticket"
+import { ObjectId } from "mongodb"
 
 export async function GET(req: NextRequest) {
   try {
+    // Get user session
     const session = await getServerSession(authOptions)
-
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Connect to database
     await connectToDatabase()
+
+    // Parse query parameters
+    const url = new URL(req.url)
+    const exclude = url.searchParams.get("exclude") || undefined
     const userId = session.user.id
 
-    // Get current date for filtering
-    const currentDate = new Date()
-
-    // Check if we should exclude organizer tickets
-    const url = new URL(req.url)
-    const excludeOrganizer = url.searchParams.get("exclude") === "organizer"
-
-    // Find all form submissions for the user (attendee, volunteer, speaker)
-    const formSubmissions = await FormSubmission.find({
-      $or: [{ userId: userId }, { userEmail: session.user.email }],
-      status: "approved", // Only get approved submissions
-      ...(excludeOrganizer ? { formType: { $ne: "organizer" } } : {}), // Exclude organizer if requested
-    })
+    // First approach - Get tickets directly
+    const tickets = await Ticket.find({ userId: new ObjectId(userId) })
+      .sort({ purchasedAt: -1 })
       .populate({
-        path: "eventId",
-        select: "_id title date endDate location venue image slug price startTime endTime",
+        path: "event",
+        select: "title date location status image capacity attendees _id slug organizer",
       })
       .lean()
 
-    // Format submissions as tickets
-    const tickets = formSubmissions
-      .map((submission) => {
-        const event = submission.eventId
+    // Filter tickets based on exclude parameter
+    let filteredTickets = [...tickets]
 
-        // Skip if event is null (might happen if event was deleted)
-        if (!event) return null
-
-        // Generate a unique ticket number based on submission ID and type
-        const ticketId = submission._id.toString().slice(-6).toUpperCase()
-        const ticketPrefix = submission.formType === "attendee" ? "A" : submission.formType === "volunteer" ? "V" : "S"
-        const ticketNumber = `${ticketPrefix}-${ticketId}`
-
-        return {
-          _id: submission._id,
-          eventId: event._id,
-          title: event.title,
-          date: event.date,
-          endDate: event.endDate,
-          startTime: event.startTime || "09:00 AM", // Default if not specified
-          endTime: event.endTime || "05:00 PM", // Default if not specified
-          venue: event.venue,
-          location: event.location,
-          image: event.image,
-          slug: event.slug,
-          ticketType: submission.formType,
-          ticketNumber: ticketNumber,
-          price: submission.formType === "attendee" ? event.price || 0 : 0, // Volunteers and speakers don't pay
-          status: submission.status,
-          submittedAt: submission.createdAt,
-          approvedAt: submission.updatedAt,
-        }
+    if (exclude === "organizer") {
+      // Remove tickets for events where user is organizer
+      filteredTickets = tickets.filter((ticket) => {
+        if (!ticket.event) return false // Skip tickets with no event
+        // Check if this event's organizer is the current user
+        return ticket.event.organizer?.toString() !== userId
       })
-      .filter(Boolean) // Remove null entries (from deleted events)
+    }
 
-    // Sort tickets by date (upcoming first, then past)
-    const upcomingTickets = tickets
-      .filter((ticket) => new Date(ticket.date) >= currentDate)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    console.log(`Found ${tickets.length} tickets, filtered to ${filteredTickets.length}`)
 
-    const pastTickets = tickets
-      .filter((ticket) => new Date(ticket.date) < currentDate)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
+    // Return the filtered tickets
     return NextResponse.json({
-      tickets: {
-        upcoming: upcomingTickets,
-        past: pastTickets,
-        all: tickets,
+      tickets: filteredTickets.map((ticket) => ({
+        ...ticket,
+        event: ticket.event || { title: "Event no longer available" },
+      })),
+      pagination: {
+        total: filteredTickets.length,
+        page: 1,
+        limit: filteredTickets.length,
+        pages: 1,
       },
     })
   } catch (error: any) {
     console.error("Error fetching tickets:", error)
-    return NextResponse.json({ error: error.message || "Failed to fetch tickets" }, { status: 500 })
+    return NextResponse.json({ error: `Failed to fetch tickets: ${error.message}` }, { status: 500 })
   }
 }
