@@ -4,11 +4,12 @@ import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { format } from "date-fns"
-import { Calendar, MapPin, Download, Share2, ExternalLink, Clock, Check } from "lucide-react"
+import { Calendar, MapPin, Download, Share2, ExternalLink, Clock, Check, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useToast } from "@/hooks/use-toast"
 
 interface TicketCardProps {
   ticket: {
@@ -35,6 +36,8 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
   const [isDownloading, setIsDownloading] = useState(false)
   const [isAddingToCalendar, setIsAddingToCalendar] = useState(false)
   const [isTransferring, setIsTransferring] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const { toast } = useToast()
 
   // Format date and time
   const formattedDate = ticket.date ? format(new Date(ticket.date), "MMMM d, yyyy") : "Date TBD"
@@ -101,6 +104,42 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
     }, 1000)
   }
 
+  // Handle send email
+  const handleSendEmail = async () => {
+    setIsSendingEmail(true)
+    try {
+      const response = await fetch("/api/tickets/send-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ticketId: ticket._id,
+          ticketType: "regular",
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to send email")
+      }
+
+      const data = await response.json()
+      toast({
+        title: "Email Sent",
+        description: "Your ticket has been sent to your email address.",
+      })
+    } catch (error) {
+      console.error("Error sending email:", error)
+      toast({
+        title: "Error",
+        description: "Failed to send email. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSendingEmail(false)
+    }
+  }
+
   return (
     <Card className="overflow-hidden bg-white border-2 border-dashed border-indigo-300 rounded-lg relative">
       {/* Ticket stub design element */}
@@ -160,6 +199,16 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
             </div>
 
             <div className="mt-4 space-y-2">
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={handleSendEmail}
+                disabled={isSendingEmail}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                {isSendingEmail ? "Sending..." : "Send to Email"}
+              </Button>
+
               <Button
                 variant="outline"
                 className="w-full justify-start"

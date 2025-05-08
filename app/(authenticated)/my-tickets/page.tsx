@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TicketCard } from "@/components/tickets/ticket-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
-import { Calendar, AlertCircle, Ticket, Clock } from "lucide-react"
+import { Calendar, AlertCircle, Ticket, Clock, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -228,6 +228,9 @@ function TicketItem({ ticket, index }: { ticket: any; index: number }) {
 // Component to display form submission as a ticket
 function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number }) {
   const [showAllDetails, setShowAllDetails] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const { toast } = useToast()
+
   const event = ticket.event || {}
   const formattedDate = event.date
     ? new Date(event.date).toLocaleDateString("en-US", {
@@ -273,6 +276,43 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
     )
 
     return emailKeys.length > 0 ? ticket.formData[emailKeys[0]] : "N/A"
+  }
+
+  // Handle send email
+  const handleSendEmail = async () => {
+    setIsSendingEmail(true)
+    try {
+      const response = await fetch("/api/tickets/send-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ticketId: ticket._id,
+          ticketType: "submission",
+          formType: roleType,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to send email")
+      }
+
+      const data = await response.json()
+      toast({
+        title: "Email Sent",
+        description: "Your ticket has been sent to your email address.",
+      })
+    } catch (error) {
+      console.error("Error sending email:", error)
+      toast({
+        title: "Error",
+        description: "Failed to send email. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSendingEmail(false)
+    }
   }
 
   return (
@@ -357,11 +397,18 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
             Approved on {new Date(ticket.purchasedAt || ticket.createdAt).toLocaleDateString()}
           </div>
 
-          {event.slug && (
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/events/${event.slug}`}>View Event</Link>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleSendEmail} disabled={isSendingEmail}>
+              <Mail className="h-4 w-4 mr-1" />
+              {isSendingEmail ? "Sending..." : "Send to Email"}
             </Button>
-          )}
+
+            {event.slug && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/events/${event.slug}`}>View Event</Link>
+              </Button>
+            )}
+          </div>
         </CardFooter>
       </div>
     </Card>
