@@ -34,7 +34,8 @@ export default function MyTicketsPage() {
         const response = await fetch("/api/tickets/my-tickets?exclude=organizer")
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch tickets: ${response.status} ${response.statusText}`)
+          const errorData = await response.json()
+          throw new Error(`Failed to fetch tickets: ${response.status} ${errorData.error || response.statusText}`)
         }
 
         const data = await response.json()
@@ -99,7 +100,7 @@ export default function MyTicketsPage() {
             <div className="grid gap-6 md:grid-cols-1">
               {tickets.all.map((ticket, index) => (
                 <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType}`}
+                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
                   ticket={ticket}
                   index={index}
                 />
@@ -119,7 +120,7 @@ export default function MyTicketsPage() {
             <div className="grid gap-6 md:grid-cols-1">
               {tickets.upcoming.map((ticket, index) => (
                 <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType}`}
+                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
                   ticket={ticket}
                   index={index}
                 />
@@ -139,7 +140,7 @@ export default function MyTicketsPage() {
             <div className="grid gap-6 md:grid-cols-1">
               {tickets.past.map((ticket, index) => (
                 <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType}`}
+                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
                   ticket={ticket}
                   index={index}
                 />
@@ -159,7 +160,7 @@ export default function MyTicketsPage() {
             <div className="grid gap-6 md:grid-cols-1">
               {attendeeTickets.map((ticket, index) => (
                 <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType}`}
+                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
                   ticket={ticket}
                   index={index}
                 />
@@ -179,7 +180,7 @@ export default function MyTicketsPage() {
             <div className="grid gap-6 md:grid-cols-1">
               {volunteerTickets.map((ticket, index) => (
                 <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType}`}
+                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
                   ticket={ticket}
                   index={index}
                 />
@@ -199,7 +200,7 @@ export default function MyTicketsPage() {
             <div className="grid gap-6 md:grid-cols-1">
               {speakerTickets.map((ticket, index) => (
                 <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType}`}
+                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
                   ticket={ticket}
                   index={index}
                 />
@@ -239,7 +240,7 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
   const formattedTime =
     event.startTime && event.endTime ? `${event.startTime} - ${event.endTime}` : "Time not specified"
 
-  const roleType = ticket.formType || "attendee"
+  const roleType = ticket.formType || ticket.ticketType || "attendee"
   const roleColors = {
     attendee: "bg-blue-100 text-blue-800",
     volunteer: "bg-green-100 text-green-800",
@@ -285,7 +286,9 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
       </CardContent>
 
       <CardFooter className="bg-gray-50 p-4 flex justify-between">
-        <div className="text-xs text-gray-500">Approved on {new Date(ticket.purchasedAt).toLocaleDateString()}</div>
+        <div className="text-xs text-gray-500">
+          Approved on {new Date(ticket.purchasedAt || ticket.createdAt).toLocaleDateString()}
+        </div>
 
         {event.slug && (
           <Button variant="outline" size="sm" asChild>

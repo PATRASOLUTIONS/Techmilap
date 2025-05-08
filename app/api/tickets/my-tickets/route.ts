@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import Ticket from "@/models/Ticket"
 import FormSubmission from "@/models/FormSubmission"
-import { ObjectId } from "mongodb"
+import mongoose from "mongoose"
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const userId = session.user.id
 
     // 1. Get tickets directly
-    const tickets = await Ticket.find({ userId: new ObjectId(userId) })
+    const tickets = await Ticket.find({ userId: new mongoose.Types.ObjectId(userId) })
       .sort({ purchasedAt: -1 })
       .populate({
         path: "event",
@@ -33,20 +33,22 @@ export async function GET(req: NextRequest) {
 
     // 2. Get approved form submissions
     const approvedSubmissions = await FormSubmission.find({
-      userId: new ObjectId(userId),
+      userId: new mongoose.Types.ObjectId(userId),
       status: "approved",
     })
       .populate({
-        path: "eventId",
+        path: "eventId", // This should match the field name in the FormSubmission model
         select: "title date location status image capacity attendees _id slug organizer startTime endTime",
       })
       .lean()
+
+    console.log(`Found ${approvedSubmissions.length} approved form submissions`)
 
     // Convert form submissions to ticket format
     const submissionTickets = approvedSubmissions.map((submission) => ({
       _id: submission._id,
       userId: submission.userId,
-      event: submission.eventId,
+      event: submission.eventId, // This is the populated event data
       ticketType: submission.formType, // 'attendee', 'volunteer', or 'speaker'
       purchasedAt: submission.createdAt,
       status: "confirmed",
