@@ -7,9 +7,8 @@ import { format } from "date-fns"
 import { Calendar, MapPin, Download, Share2, ExternalLink, Clock, Check, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useToast } from "@/hooks/use-toast"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface TicketCardProps {
   ticket: {
@@ -50,6 +49,14 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
     volunteer: "Volunteer Pass",
     speaker: "Speaker Pass",
   }[ticket.ticketType]
+
+  // Get ticket type color
+  const ticketTypeColor =
+    {
+      attendee: "from-blue-500 to-blue-600",
+      volunteer: "from-green-500 to-green-600",
+      speaker: "from-purple-500 to-purple-600",
+    }[ticket.ticketType] || "from-indigo-500 to-indigo-600"
 
   // Handle download ticket
   const handleDownload = () => {
@@ -141,118 +148,35 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
   }
 
   return (
-    <Card className="overflow-hidden bg-white border-2 border-dashed border-indigo-300 rounded-lg relative">
-      {/* Ticket stub design element */}
-      <div className="absolute top-0 bottom-0 left-10 border-l-2 border-dashed border-indigo-300 z-10"></div>
-      <div className="absolute top-0 left-0 w-10 h-full bg-indigo-50 flex items-center justify-center">
-        <div className="rotate-90 text-indigo-500 font-bold tracking-wider text-xs whitespace-nowrap">
-          TICKET #{ticket.ticketNumber.substring(0, 6)}
-        </div>
-      </div>
-
-      <CardContent className="p-0 ml-10">
-        <div className="p-4 pb-2">
-          <div className="flex justify-between items-start mb-1">
-            <h3 className="text-xl font-bold line-clamp-1">{ticket.title}</h3>
-            <Badge variant="outline" className="bg-purple-100 text-purple-800 hover:bg-purple-100">
-              {ticketTypeDisplay}
-            </Badge>
-          </div>
-
-          <div className="flex items-center text-sm text-gray-600 mb-1">
-            <Calendar className="h-3.5 w-3.5 mr-1.5" />
-            <span>{formattedDate}</span>
-            <span className="mx-1">•</span>
-            <Clock className="h-3.5 w-3.5 mr-1.5" />
-            <span>
-              {startTime} - {endTime}
-            </span>
-          </div>
-
-          {(ticket.venue || ticket.location) && (
-            <div className="flex items-center text-sm text-gray-600 mb-3">
-              <MapPin className="h-3.5 w-3.5 mr-1.5" />
-              <span className="line-clamp-1">
-                {ticket.venue}
-                {ticket.location ? `, ${ticket.location}` : ""}
-              </span>
-            </div>
-          )}
+    <div className="relative mx-auto max-w-4xl">
+      {/* Main ticket container with shadow and hover effect */}
+      <div className="relative bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-200">
+        {/* Ticket top edge perforations */}
+        <div className="absolute top-0 left-0 right-0 h-2 flex justify-between items-center px-4">
+          {[...Array(40)].map((_, i) => (
+            <div key={`top-${i}`} className="w-1 h-1 rounded-full bg-gray-200"></div>
+          ))}
         </div>
 
-        <div className="flex border-t border-slate-200">
-          <div className="flex-1 p-4">
-            <h4 className="text-sm font-medium text-gray-500 mb-3">Ticket Information</h4>
+        {/* Ticket bottom edge perforations */}
+        <div className="absolute bottom-0 left-0 right-0 h-2 flex justify-between items-center px-4">
+          {[...Array(40)].map((_, i) => (
+            <div key={`bottom-${i}`} className="w-1 h-1 rounded-full bg-gray-200"></div>
+          ))}
+        </div>
 
-            <div className="grid grid-cols-2 gap-y-2 text-sm">
-              <div className="text-gray-500">Ticket Number</div>
-              <div className="font-medium text-right">{ticket.ticketNumber}</div>
+        <div className="flex flex-col md:flex-row">
+          {/* Left ticket stub */}
+          <div className="w-full md:w-1/4 bg-gray-50 p-4 flex flex-col items-center justify-center border-r border-dashed border-gray-300 relative">
+            <div className="absolute -right-2.5 top-1/3 w-5 h-5 bg-white rounded-full border border-gray-300"></div>
+            <div className="absolute -right-2.5 bottom-1/3 w-5 h-5 bg-white rounded-full border border-gray-300"></div>
 
-              <div className="text-gray-500">Price</div>
-              <div className="font-medium text-right">{ticket.price > 0 ? `$${ticket.price.toFixed(2)}` : "Free"}</div>
-
-              <div className="text-gray-500">Status</div>
-              <div className="font-medium text-right text-green-600 flex items-center justify-end">
-                <Check className="h-3.5 w-3.5 mr-1" />
-                Confirmed
-              </div>
+            <div className="text-center mb-4">
+              <div className="font-bold text-gray-700 mb-1">ADMIT ONE</div>
+              <div className="text-xs text-gray-500">#{ticket.ticketNumber}</div>
             </div>
 
-            <div className="mt-4 space-y-2">
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={handleSendEmail}
-                disabled={isSendingEmail}
-              >
-                <Mail className="h-4 w-4 mr-2" />
-                {isSendingEmail ? "Sending..." : "Send to Email"}
-              </Button>
-
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={handleDownload}
-                disabled={isDownloading}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                {isDownloading ? "Downloading..." : "Download Ticket"}
-              </Button>
-
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={handleAddToCalendar}
-                disabled={isAddingToCalendar}
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                {isAddingToCalendar ? "Adding..." : "Add to Calendar"}
-              </Button>
-
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={handleTransfer}
-                disabled={isTransferring}
-              >
-                <Share2 className="h-4 w-4 mr-2" />
-                {isTransferring ? "Processing..." : "Transfer Ticket"}
-              </Button>
-
-              {ticket.slug && (
-                <Button variant="outline" className="w-full justify-start" asChild>
-                  <Link href={`/events/${ticket.slug}`}>
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    View Event Details
-                  </Link>
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <div className="w-1/3 p-4 flex flex-col items-center justify-center border-l border-slate-200">
-            <div className="bg-white p-2 rounded-md shadow-sm mb-2 w-32 h-32 flex items-center justify-center">
-              {/* Placeholder for QR code - in production, generate a real QR code */}
+            <div className="bg-white p-2 rounded-md shadow-sm mb-4 w-32 h-32 flex items-center justify-center">
               <Image
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`TICKET:${ticket._id}:${ticket.ticketType}:${ticket.eventId}`)}`}
                 alt="QR Code"
@@ -260,12 +184,13 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
                 height={120}
               />
             </div>
-            <p className="text-xs text-center text-gray-500">Present this QR code at the event</p>
+
+            <div className="text-xs text-center text-gray-500 mb-2">Scan for entry</div>
 
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button className="mt-4 bg-indigo-600 hover:bg-indigo-700">Check In</Button>
+                  <Button className={`bg-gradient-to-r ${ticketTypeColor} text-white w-full`}>Check In</Button>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Check-in available at event</p>
@@ -273,8 +198,105 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
               </Tooltip>
             </TooltipProvider>
           </div>
+
+          {/* Right ticket content */}
+          <div className="w-full md:w-3/4 flex flex-col">
+            {/* Ticket header */}
+            <div className={`bg-gradient-to-r ${ticketTypeColor} text-white p-6`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-2xl font-bold mb-1">{ticket.title}</h3>
+                  <div className="flex items-center text-sm opacity-90">
+                    <Calendar className="h-4 w-4 mr-1.5" />
+                    <span>{formattedDate}</span>
+                    <span className="mx-1">•</span>
+                    <Clock className="h-4 w-4 mr-1.5" />
+                    <span>
+                      {startTime} - {endTime}
+                    </span>
+                  </div>
+                </div>
+                <Badge className="bg-white/20 text-white border-white/40 backdrop-blur-sm">{ticketTypeDisplay}</Badge>
+              </div>
+            </div>
+
+            {/* Ticket body */}
+            <div className="p-6 flex-grow">
+              {/* Location info */}
+              {(ticket.venue || ticket.location) && (
+                <div className="flex items-start mb-4 text-gray-700">
+                  <MapPin className="h-5 w-5 mr-2 flex-shrink-0 text-gray-500" />
+                  <div>
+                    {ticket.venue && <div className="font-medium">{ticket.venue}</div>}
+                    {ticket.location && <div className="text-sm text-gray-600">{ticket.location}</div>}
+                  </div>
+                </div>
+              )}
+
+              {/* Ticket details */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <div className="text-xs text-gray-500 mb-1">Ticket Number</div>
+                  <div className="font-medium">{ticket.ticketNumber}</div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <div className="text-xs text-gray-500 mb-1">Price</div>
+                  <div className="font-medium">{ticket.price > 0 ? `$${ticket.price.toFixed(2)}` : "Free"}</div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <div className="text-xs text-gray-500 mb-1">Status</div>
+                  <div className="font-medium text-green-600 flex items-center">
+                    <Check className="h-4 w-4 mr-1" />
+                    Confirmed
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <div className="text-xs text-gray-500 mb-1">Type</div>
+                  <div className="font-medium capitalize">{ticket.ticketType}</div>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="grid grid-cols-2 gap-3">
+                <Button variant="outline" className="justify-start" onClick={handleSendEmail} disabled={isSendingEmail}>
+                  <Mail className="h-4 w-4 mr-2" />
+                  {isSendingEmail ? "Sending..." : "Send to Email"}
+                </Button>
+                <Button variant="outline" className="justify-start" onClick={handleDownload} disabled={isDownloading}>
+                  <Download className="h-4 w-4 mr-2" />
+                  {isDownloading ? "Downloading..." : "Download"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="justify-start"
+                  onClick={handleAddToCalendar}
+                  disabled={isAddingToCalendar}
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  {isAddingToCalendar ? "Adding..." : "Add to Calendar"}
+                </Button>
+                <Button variant="outline" className="justify-start" onClick={handleTransfer} disabled={isTransferring}>
+                  <Share2 className="h-4 w-4 mr-2" />
+                  {isTransferring ? "Processing..." : "Transfer"}
+                </Button>
+              </div>
+            </div>
+
+            {/* Ticket footer */}
+            <div className="bg-gray-50 p-4 border-t border-gray-200 flex justify-between items-center">
+              <div className="text-xs text-gray-500">Issued on {new Date().toLocaleDateString()}</div>
+              {ticket.slug && (
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href={`/events/${ticket.slug}`}>
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    View Event
+                  </Link>
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

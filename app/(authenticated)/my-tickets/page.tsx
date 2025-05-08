@@ -5,11 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TicketCard } from "@/components/tickets/ticket-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
-import { Calendar, AlertCircle, Ticket, Clock, Mail } from "lucide-react"
+import { Calendar, AlertCircle, Ticket, Clock, Mail, MapPin, Download, Share2, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
+import Image from "next/image"
 
 export default function MyTicketsPage() {
   const [tickets, setTickets] = useState<{
@@ -97,7 +97,7 @@ export default function MyTicketsPage() {
           ) : error ? (
             <ErrorState message={error} />
           ) : tickets.all?.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-1">
+            <div className="grid gap-8 md:grid-cols-1">
               {tickets.all.map((ticket, index) => (
                 <TicketItem
                   key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
@@ -117,7 +117,7 @@ export default function MyTicketsPage() {
           ) : error ? (
             <ErrorState message={error} />
           ) : tickets.upcoming?.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-1">
+            <div className="grid gap-8 md:grid-cols-1">
               {tickets.upcoming.map((ticket, index) => (
                 <TicketItem
                   key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
@@ -137,7 +137,7 @@ export default function MyTicketsPage() {
           ) : error ? (
             <ErrorState message={error} />
           ) : tickets.past?.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-1">
+            <div className="grid gap-8 md:grid-cols-1">
               {tickets.past.map((ticket, index) => (
                 <TicketItem
                   key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
@@ -157,7 +157,7 @@ export default function MyTicketsPage() {
           ) : error ? (
             <ErrorState message={error} />
           ) : attendeeTickets.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-1">
+            <div className="grid gap-8 md:grid-cols-1">
               {attendeeTickets.map((ticket, index) => (
                 <TicketItem
                   key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
@@ -177,7 +177,7 @@ export default function MyTicketsPage() {
           ) : error ? (
             <ErrorState message={error} />
           ) : volunteerTickets.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-1">
+            <div className="grid gap-8 md:grid-cols-1">
               {volunteerTickets.map((ticket, index) => (
                 <TicketItem
                   key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
@@ -197,7 +197,7 @@ export default function MyTicketsPage() {
           ) : error ? (
             <ErrorState message={error} />
           ) : speakerTickets.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-1">
+            <div className="grid gap-8 md:grid-cols-1">
               {speakerTickets.map((ticket, index) => (
                 <TicketItem
                   key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
@@ -245,11 +245,14 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
     event.startTime && event.endTime ? `${event.startTime} - ${event.endTime}` : "Time not specified"
 
   const roleType = ticket.formType || ticket.ticketType || "attendee"
-  const roleColors = {
-    attendee: "bg-blue-100 text-blue-800",
-    volunteer: "bg-green-100 text-green-800",
-    speaker: "bg-purple-100 text-purple-800",
-  }
+
+  // Get role type color
+  const roleTypeColor =
+    {
+      attendee: "from-blue-500 to-blue-600",
+      volunteer: "from-green-500 to-green-600",
+      speaker: "from-purple-500 to-purple-600",
+    }[roleType] || "from-indigo-500 to-indigo-600"
 
   // Extract name and email from form data
   const getName = () => {
@@ -316,102 +319,166 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
   }
 
   return (
-    <Card className="overflow-hidden transition-all hover:shadow-md relative bg-white border-2 border-dashed border-indigo-300 rounded-lg">
-      {/* Ticket stub design element */}
-      <div className="absolute top-0 bottom-0 left-10 border-l-2 border-dashed border-indigo-300 z-10"></div>
-      <div className="absolute top-0 left-0 w-10 h-full bg-indigo-50 flex items-center justify-center">
-        <div className="rotate-90 text-indigo-500 font-bold tracking-wider text-xs whitespace-nowrap">
-          TICKET #{ticket._id.substring(0, 6)}
+    <div className="relative mx-auto max-w-4xl">
+      {/* Main ticket container with shadow and hover effect */}
+      <div className="relative bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-200">
+        {/* Ticket top edge perforations */}
+        <div className="absolute top-0 left-0 right-0 h-2 flex justify-between items-center px-4">
+          {[...Array(40)].map((_, i) => (
+            <div key={`top-${i}`} className="w-1 h-1 rounded-full bg-gray-200"></div>
+          ))}
         </div>
-      </div>
 
-      <div className="ml-10">
-        <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4">
-          <div className="flex justify-between items-start">
-            <div>
-              <h3 className="text-xl font-bold">{event.title || "Event"}</h3>
-              <p className="text-sm opacity-90">{formattedDate}</p>
+        {/* Ticket bottom edge perforations */}
+        <div className="absolute bottom-0 left-0 right-0 h-2 flex justify-between items-center px-4">
+          {[...Array(40)].map((_, i) => (
+            <div key={`bottom-${i}`} className="w-1 h-1 rounded-full bg-gray-200"></div>
+          ))}
+        </div>
+
+        <div className="flex flex-col md:flex-row">
+          {/* Left ticket stub */}
+          <div className="w-full md:w-1/4 bg-gray-50 p-4 flex flex-col items-center justify-center border-r border-dashed border-gray-300 relative">
+            <div className="absolute -right-2.5 top-1/3 w-5 h-5 bg-white rounded-full border border-gray-300"></div>
+            <div className="absolute -right-2.5 bottom-1/3 w-5 h-5 bg-white rounded-full border border-gray-300"></div>
+
+            <div className="text-center mb-4">
+              <div className="font-bold text-gray-700 mb-1 uppercase">{roleType} Pass</div>
+              <div className="text-xs text-gray-500">#{ticket._id.substring(0, 6)}</div>
             </div>
-            <Badge className={`${roleColors[roleType as keyof typeof roleColors]} capitalize`}>{roleType}</Badge>
+
+            <div className="bg-white p-2 rounded-md shadow-sm mb-4 w-32 h-32 flex items-center justify-center">
+              <Image
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`SUBMISSION:${ticket._id}:${roleType}:${event._id || "unknown"}`)}`}
+                alt="QR Code"
+                width={120}
+                height={120}
+              />
+            </div>
+
+            <div className="text-xs text-center text-gray-500 mb-2">Scan for entry</div>
+
+            <Button className={`bg-gradient-to-r ${roleTypeColor} text-white w-full`}>Check In</Button>
           </div>
-        </CardHeader>
 
-        <CardContent className="p-4 space-y-4">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Clock className="h-4 w-4" />
-            <span>{formattedTime}</span>
-          </div>
-
-          <div className="flex items-start gap-2 text-sm text-gray-600">
-            <div className="h-4 w-4 mt-0.5 flex-shrink-0">📍</div>
-            <span>{event.location || "Location not specified"}</span>
-          </div>
-
-          {ticket.formData && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <h4 className="font-medium text-sm mb-2">Application Details:</h4>
-              <div className="space-y-2 text-sm">
-                {/* Show only name and email initially */}
-                <div className="grid grid-cols-3 gap-2">
-                  <span className="text-gray-500">Name:</span>
-                  <span className="col-span-2">{getName()}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <span className="text-gray-500">Email:</span>
-                  <span className="col-span-2">{getEmail()}</span>
-                </div>
-
-                {/* Show all details when expanded */}
-                {showAllDetails && (
-                  <div className="mt-4 space-y-2 border-t border-gray-200 pt-4">
-                    {Object.entries(ticket.formData)
-                      .filter(
-                        ([key]) =>
-                          key !== "name" && key !== "email" && !key.includes("Email") && !key.includes("email"),
-                      )
-                      .map(([key, value]) => (
-                        <div key={key} className="grid grid-cols-3 gap-2">
-                          <span className="text-gray-500 capitalize">{key.replace(/([A-Z])/g, " $1").trim()}:</span>
-                          <span className="col-span-2">{String(value)}</span>
-                        </div>
-                      ))}
+          {/* Right ticket content */}
+          <div className="w-full md:w-3/4 flex flex-col">
+            {/* Ticket header */}
+            <div className={`bg-gradient-to-r ${roleTypeColor} text-white p-6`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-2xl font-bold mb-1">{event.title || "Event"}</h3>
+                  <div className="flex items-center text-sm opacity-90">
+                    <Calendar className="h-4 w-4 mr-1.5" />
+                    <span>{formattedDate}</span>
                   </div>
-                )}
+                </div>
+                <Badge className="bg-white/20 text-white border-white/40 backdrop-blur-sm capitalize">{roleType}</Badge>
+              </div>
+            </div>
 
-                {/* View More / View Less button */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAllDetails(!showAllDetails)}
-                  className="mt-2 text-indigo-600 hover:text-indigo-800"
-                >
-                  {showAllDetails ? "View Less" : "View More Details"}
+            {/* Ticket body */}
+            <div className="p-6 flex-grow">
+              {/* Time and location */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="flex items-center text-gray-700">
+                  <Clock className="h-5 w-5 mr-2 text-gray-500" />
+                  <span>{formattedTime}</span>
+                </div>
+
+                <div className="flex items-start text-gray-700">
+                  <MapPin className="h-5 w-5 mr-2 flex-shrink-0 text-gray-500" />
+                  <span>{event.location || "Location not specified"}</span>
+                </div>
+              </div>
+
+              {/* Attendee information */}
+              <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                <h4 className="font-medium text-gray-700 mb-3">Attendee Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Name</div>
+                    <div className="font-medium">{getName()}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Email</div>
+                    <div className="font-medium">{getEmail()}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional form details */}
+              {ticket.formData && (
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-medium text-gray-700">Application Details</h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAllDetails(!showAllDetails)}
+                      className="text-sm text-indigo-600 hover:text-indigo-800"
+                    >
+                      {showAllDetails ? "View Less" : "View More Details"}
+                    </Button>
+                  </div>
+
+                  {showAllDetails && (
+                    <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                      {Object.entries(ticket.formData)
+                        .filter(
+                          ([key]) =>
+                            key !== "name" && key !== "email" && !key.includes("Email") && !key.includes("email"),
+                        )
+                        .map(([key, value]) => (
+                          <div key={key} className="grid grid-cols-3 gap-2">
+                            <span className="text-gray-500 capitalize">{key.replace(/([A-Z])/g, " $1").trim()}:</span>
+                            <span className="col-span-2">{String(value)}</span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="grid grid-cols-2 gap-3">
+                <Button variant="outline" className="justify-start" onClick={handleSendEmail} disabled={isSendingEmail}>
+                  <Mail className="h-4 w-4 mr-2" />
+                  {isSendingEmail ? "Sending..." : "Send to Email"}
+                </Button>
+                <Button variant="outline" className="justify-start">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+                <Button variant="outline" className="justify-start">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Add to Calendar
+                </Button>
+                <Button variant="outline" className="justify-start">
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Share
                 </Button>
               </div>
             </div>
-          )}
-        </CardContent>
 
-        <CardFooter className="bg-gray-50 p-4 flex justify-between">
-          <div className="text-xs text-gray-500">
-            Approved on {new Date(ticket.purchasedAt || ticket.createdAt).toLocaleDateString()}
+            {/* Ticket footer */}
+            <div className="bg-gray-50 p-4 border-t border-gray-200 flex justify-between items-center">
+              <div className="text-xs text-gray-500">
+                Approved on {new Date(ticket.purchasedAt || ticket.createdAt).toLocaleDateString()}
+              </div>
+              {event.slug && (
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href={`/events/${event.slug}`}>
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    View Event
+                  </Link>
+                </Button>
+              )}
+            </div>
           </div>
-
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleSendEmail} disabled={isSendingEmail}>
-              <Mail className="h-4 w-4 mr-1" />
-              {isSendingEmail ? "Sending..." : "Send to Email"}
-            </Button>
-
-            {event.slug && (
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/events/${event.slug}`}>View Event</Link>
-              </Button>
-            )}
-          </div>
-        </CardFooter>
+        </div>
       </div>
-    </Card>
+    </div>
   )
 }
 
