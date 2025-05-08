@@ -1014,87 +1014,96 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
             <p>No registrations found.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto" style={{ maxWidth: "100%" }}>
-            <Table className="min-w-full">
-              <TableHeader className="sticky top-0 bg-background z-10">
-                <TableRow>
-                  <TableHead className="sticky left-0 bg-background z-20 w-[50px]">
-                    <Checkbox checked={allSelected} onCheckedChange={() => toggleSelectAll()} aria-label="Select all" />
-                  </TableHead>
-                  <TableHead className="sticky left-[50px] bg-background z-20 min-w-[150px]">Name</TableHead>
-                  <TableHead className="min-w-[200px]">Email ID</TableHead>
-                  <TableHead className="min-w-[200px]">Corporate Email ID</TableHead>
-                  <TableHead className="min-w-[150px]">Designation</TableHead>
-                  <TableHead className="min-w-[150px]">LinkedIn ID</TableHead>
-                  <TableHead className="min-w-[150px]">GitHub ID</TableHead>
-                  <TableHead className="min-w-[150px]">Other Social Media</TableHead>
-                  <TableHead className="min-w-[150px]">Mobile Number</TableHead>
-                  <TableHead className="min-w-[150px]">Registered</TableHead>
-                  <TableHead className="min-w-[100px]">Status</TableHead>
-                  <TableHead className="sticky right-0 bg-background z-20 min-w-[180px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {getCurrentPageItems().map((registration: any) => (
-                  <TableRow key={registration._id}>
-                    <TableCell className="sticky left-0 bg-background z-20">
+          <div className="border rounded-md">
+            <div className="overflow-auto" style={{ maxWidth: "100%", maxHeight: "70vh" }}>
+              <Table className="min-w-full">
+                <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableRow>
+                    <TableHead className="sticky left-0 bg-background z-20 w-[50px]">
                       <Checkbox
-                        checked={selectedRegistrations.includes(registration._id)}
-                        onCheckedChange={() => toggleRegistration(registration._id)}
-                        aria-label="Select row"
+                        checked={allSelected}
+                        onCheckedChange={() => toggleSelectAll()}
+                        aria-label="Select all"
                       />
-                    </TableCell>
-                    <TableCell className="sticky left-[50px] bg-background z-20 font-medium">
-                      {getAttendeeName(registration)}
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate">{getAttendeeEmail(registration)}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{getCorporateEmail(registration) || "N/A"}</TableCell>
-                    <TableCell>{getDesignation(registration) || "N/A"}</TableCell>
-                    <TableCell className="max-w-[150px] truncate">{getLinkedIn(registration) || "N/A"}</TableCell>
-                    <TableCell className="max-w-[150px] truncate">{getGitHub(registration) || "N/A"}</TableCell>
-                    <TableCell>{getOtherSocialMedia(registration) || "N/A"}</TableCell>
-                    <TableCell>{getMobileNumber(registration) || "N/A"}</TableCell>
-                    <TableCell>{formatDistanceToNow(new Date(registration.createdAt), { addSuffix: true })}</TableCell>
-                    <TableCell>{getStatusBadge(registration.status)}</TableCell>
-                    <TableCell className="sticky right-0 bg-background z-20">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleViewRegistration(registration)}>
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                        {registration.status === "pending" && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-green-600 hover:text-green-700"
-                              onClick={() => handleUpdateStatus(registration._id, "approved")}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => handleUpdateStatus(registration._id, "rejected")}
-                            >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
+                    </TableHead>
+                    <TableHead className="sticky left-[50px] bg-background z-20 min-w-[150px]">Name</TableHead>
+                    <TableHead className="min-w-[200px]">Email ID</TableHead>
+                    <TableHead className="min-w-[200px]">Corporate Email ID</TableHead>
+                    <TableHead className="min-w-[150px]">Designation</TableHead>
+                    <TableHead className="min-w-[150px]">LinkedIn ID</TableHead>
+                    <TableHead className="min-w-[150px]">GitHub ID</TableHead>
+                    <TableHead className="min-w-[150px]">Other Social Media</TableHead>
+                    <TableHead className="min-w-[150px]">Mobile Number</TableHead>
+                    <TableHead className="min-w-[150px]">Registered</TableHead>
+                    <TableHead className="min-w-[100px]">Status</TableHead>
+                    <TableHead className="sticky right-0 bg-background z-20 min-w-[180px]"></TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {getCurrentPageItems().map((registration: any) => (
+                    <TableRow key={registration._id}>
+                      <TableCell className="sticky left-0 bg-background z-20">
+                        <Checkbox
+                          checked={selectedRegistrations.includes(registration._id)}
+                          onCheckedChange={() => toggleRegistration(registration._id)}
+                          aria-label="Select row"
+                        />
+                      </TableCell>
+                      <TableCell className="sticky left-[50px] bg-background z-20 font-medium">
+                        {getAttendeeName(registration)}
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate">{getAttendeeEmail(registration)}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">
+                        {getCorporateEmail(registration) || "N/A"}
+                      </TableCell>
+                      <TableCell>{getDesignation(registration) || "N/A"}</TableCell>
+                      <TableCell className="max-w-[150px] truncate">{getLinkedIn(registration) || "N/A"}</TableCell>
+                      <TableCell className="max-w-[150px] truncate">{getGitHub(registration) || "N/A"}</TableCell>
+                      <TableCell>{getOtherSocialMedia(registration) || "N/A"}</TableCell>
+                      <TableCell>{getMobileNumber(registration) || "N/A"}</TableCell>
+                      <TableCell>
+                        {formatDistanceToNow(new Date(registration.createdAt), { addSuffix: true })}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(registration.status)}</TableCell>
+                      <TableCell className="sticky right-0 bg-background z-20">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleViewRegistration(registration)}>
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          {registration.status === "pending" && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-green-600 hover:text-green-700"
+                                onClick={() => handleUpdateStatus(registration._id, "approved")}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => handleUpdateStatus(registration._id, "rejected")}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Reject
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
       </CardContent>
 
-      {/* Pagination Controls */}
       {registrations.length > 0 && (
         <CardFooter className="flex items-center justify-between px-6 py-4 border-t">
           <div className="flex items-center">

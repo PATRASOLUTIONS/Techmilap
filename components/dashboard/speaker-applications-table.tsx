@@ -687,104 +687,110 @@ export function SpeakerApplicationsTable({
             <p>No speaker applications found.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="sticky left-0 bg-white z-10">
-                    <Checkbox checked={allSelected} onCheckedChange={() => toggleSelectAll()} aria-label="Select all" />
-                  </TableHead>
-                  <TableHead className="sticky left-[40px] bg-white z-10">Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Corporate Email</TableHead>
-                  <TableHead>Designation</TableHead>
-                  <TableHead>Event Organizer</TableHead>
-                  <TableHead>Is MVP</TableHead>
-                  <TableHead>MVP ID</TableHead>
-                  <TableHead>MVP Profile Link</TableHead>
-                  <TableHead>MVP Category</TableHead>
-                  <TableHead>Running Meetup Group</TableHead>
-                  <TableHead>Meetup Name</TableHead>
-                  <TableHead>Event Details</TableHead>
-                  <TableHead>Meetup Page Details</TableHead>
-                  <TableHead>LinkedIn</TableHead>
-                  <TableHead>GitHub</TableHead>
-                  <TableHead>Other Social Media</TableHead>
-                  <TableHead>Mobile Number</TableHead>
-                  <TableHead>Talk Title</TableHead>
-                  <TableHead>Talk Description</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Submitted</TableHead>
-                  <TableHead className="sticky right-0 bg-white z-10">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredApplications.map((application) => (
-                  <TableRow key={application._id}>
-                    <TableCell className="sticky left-0 bg-white z-10">
+          <div className="border rounded-md">
+            <div className="overflow-auto" style={{ maxWidth: "100%", maxHeight: "70vh" }}>
+              <Table>
+                <TableHeader className="sticky top-0 bg-white z-10">
+                  <TableRow>
+                    <TableHead className="sticky left-0 bg-white z-10">
                       <Checkbox
-                        checked={selectedApplications.includes(application._id)}
-                        onCheckedChange={() => toggleApplication(application._id)}
-                        aria-label="Select row"
+                        checked={allSelected}
+                        onCheckedChange={() => toggleSelectAll()}
+                        aria-label="Select all"
                       />
-                    </TableCell>
-                    <TableCell className="sticky left-[40px] bg-white z-10 font-medium">
-                      {getName(application)}
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate">{getEmail(application)}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{getCorporateEmail(application)}</TableCell>
-                    <TableCell>{getDesignation(application)}</TableCell>
-                    <TableCell>{getEventOrganizer(application)}</TableCell>
-                    <TableCell>{getIsMvp(application)}</TableCell>
-                    <TableCell>{getMvpId(application)}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{getMvpProfileLink(application)}</TableCell>
-                    <TableCell>{getMvpCategory(application)}</TableCell>
-                    <TableCell>{getRunningMeetupGroup(application)}</TableCell>
-                    <TableCell>{getMeetupName(application)}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{getEventDetails(application)}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{getMeetupPageDetails(application)}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{getLinkedIn(application)}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{getGitHub(application)}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{getOtherSocialMedia(application)}</TableCell>
-                    <TableCell>{getMobileNumber(application)}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{getTalkTitle(application)}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{getTalkDescription(application)}</TableCell>
-                    <TableCell>{getStatusBadge(application.status)}</TableCell>
-                    <TableCell>{formatDistanceToNow(new Date(application.createdAt), { addSuffix: true })}</TableCell>
-                    <TableCell className="sticky right-0 bg-white z-10">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleViewApplication(application)}>
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                        {application.status === "pending" && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-green-600 hover:text-green-700"
-                              onClick={() => handleUpdateStatus(application._id, "approved")}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => handleUpdateStatus(application._id, "rejected")}
-                            >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
+                    </TableHead>
+                    <TableHead className="sticky left-[40px] bg-white z-10">Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Corporate Email</TableHead>
+                    <TableHead>Designation</TableHead>
+                    <TableHead>Event Organizer</TableHead>
+                    <TableHead>Is MVP</TableHead>
+                    <TableHead>MVP ID</TableHead>
+                    <TableHead>MVP Profile Link</TableHead>
+                    <TableHead>MVP Category</TableHead>
+                    <TableHead>Running Meetup Group</TableHead>
+                    <TableHead>Meetup Name</TableHead>
+                    <TableHead>Event Details</TableHead>
+                    <TableHead>Meetup Page Details</TableHead>
+                    <TableHead>LinkedIn</TableHead>
+                    <TableHead>GitHub</TableHead>
+                    <TableHead>Other Social Media</TableHead>
+                    <TableHead>Mobile Number</TableHead>
+                    <TableHead>Talk Title</TableHead>
+                    <TableHead>Talk Description</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead className="sticky right-0 bg-white z-10">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredApplications.map((application) => (
+                    <TableRow key={application._id}>
+                      <TableCell className="sticky left-0 bg-white z-10">
+                        <Checkbox
+                          checked={selectedApplications.includes(application._id)}
+                          onCheckedChange={() => toggleApplication(application._id)}
+                          aria-label="Select row"
+                        />
+                      </TableCell>
+                      <TableCell className="sticky left-[40px] bg-white z-10 font-medium">
+                        {getName(application)}
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate">{getEmail(application)}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{getCorporateEmail(application)}</TableCell>
+                      <TableCell>{getDesignation(application)}</TableCell>
+                      <TableCell>{getEventOrganizer(application)}</TableCell>
+                      <TableCell>{getIsMvp(application)}</TableCell>
+                      <TableCell>{getMvpId(application)}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{getMvpProfileLink(application)}</TableCell>
+                      <TableCell>{getMvpCategory(application)}</TableCell>
+                      <TableCell>{getRunningMeetupGroup(application)}</TableCell>
+                      <TableCell>{getMeetupName(application)}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{getEventDetails(application)}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{getMeetupPageDetails(application)}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{getLinkedIn(application)}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{getGitHub(application)}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{getOtherSocialMedia(application)}</TableCell>
+                      <TableCell>{getMobileNumber(application)}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{getTalkTitle(application)}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{getTalkDescription(application)}</TableCell>
+                      <TableCell>{getStatusBadge(application.status)}</TableCell>
+                      <TableCell>{formatDistanceToNow(new Date(application.createdAt), { addSuffix: true })}</TableCell>
+                      <TableCell className="sticky right-0 bg-white z-10">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleViewApplication(application)}>
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          {application.status === "pending" && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-green-600 hover:text-green-700"
+                                onClick={() => handleUpdateStatus(application._id, "approved")}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => handleUpdateStatus(application._id, "rejected")}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Reject
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
       </CardContent>
