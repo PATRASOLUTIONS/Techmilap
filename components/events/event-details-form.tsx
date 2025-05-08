@@ -264,6 +264,51 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
     }
   }
 
+  // Generate time options starting from 8:00 AM
+  const generateTimeOptions = (startHour = 8) => {
+    const options = []
+    for (let hour = startHour; hour < 24; hour++) {
+      for (const minute of [0, 15, 30, 45]) {
+        const h = hour.toString().padStart(2, "0")
+        const m = minute.toString().padStart(2, "0")
+        const time = `${h}:${m}`
+        const displayTime = `${hour % 12 || 12}:${m.padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`
+        options.push({ value: time, display: displayTime })
+      }
+    }
+    return options
+  }
+
+  // Generate end time options that are after the selected start time
+  const generateEndTimeOptions = () => {
+    if (!data.startTime) {
+      return generateTimeOptions(8) // If no start time, show all options from 8 AM
+    }
+
+    // Parse the start time
+    const [startHour, startMinute] = data.startTime.split(":").map(Number)
+
+    // Generate options starting from the start time
+    const options = []
+    for (let hour = startHour; hour < 24; hour++) {
+      for (const minute of [0, 15, 30, 45]) {
+        // Skip times before or equal to start time
+        if (hour === startHour && minute <= startMinute) continue
+
+        const h = hour.toString().padStart(2, "0")
+        const m = minute.toString().padStart(2, "0")
+        const time = `${h}:${m}`
+        const displayTime = `${hour % 12 || 12}:${m.padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`
+        options.push({ value: time, display: displayTime })
+      }
+    }
+    return options
+  }
+
+  // Get time options
+  const startTimeOptions = generateTimeOptions(8) // Start from 8:00 AM
+  const endTimeOptions = generateEndTimeOptions()
+
   return (
     <motion.div className="space-y-8" variants={container} initial="hidden" animate="show" id="event-details-form">
       <motion.div className="space-y-4" variants={item}>
@@ -530,42 +575,30 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                       <SelectValue placeholder="Select time" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from({ length: 24 }).map((_, hour) => {
-                        return [0, 15, 30, 45].map((minute) => {
-                          const h = hour.toString().padStart(2, "0")
-                          const m = minute.toString().padStart(2, "0")
-                          const time = `${h}:${m}`
-                          const displayTime = `${hour % 12 || 12}:${m.padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`
-                          return (
-                            <SelectItem key={time} value={time}>
-                              {displayTime}
-                            </SelectItem>
-                          )
-                        })
-                      })}
+                      {startTimeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.display}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">End Time</Label>
-                  <Select value={data.endTime} onValueChange={(value) => handleTimeChange(value, "endTime")}>
+                  <Select
+                    value={data.endTime}
+                    onValueChange={(value) => handleTimeChange(value, "endTime")}
+                    disabled={!data.startTime}
+                  >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select time" />
+                      <SelectValue placeholder={data.startTime ? "Select time" : "Set start time first"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from({ length: 24 }).map((_, hour) => {
-                        return [0, 15, 30, 45].map((minute) => {
-                          const h = hour.toString().padStart(2, "0")
-                          const m = minute.toString().padStart(2, "0")
-                          const time = `${h}:${m}`
-                          const displayTime = `${hour % 12 || 12}:${m.padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`
-                          return (
-                            <SelectItem key={time} value={time}>
-                              {displayTime}
-                            </SelectItem>
-                          )
-                        })
-                      })}
+                      {endTimeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.display}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
