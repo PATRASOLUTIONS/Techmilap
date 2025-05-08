@@ -4,8 +4,8 @@ import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, CheckCircle, XCircle, Search, Download, Mail } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Loader2, Eye, CheckCircle, XCircle, Search, Download, Mail, ChevronLeft, ChevronRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { downloadCSV, objectsToCSV, formatDateForCSV } from "@/lib/csv-export"
@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface RegistrationsTableProps {
   eventId: string
@@ -45,7 +46,7 @@ interface QuestionType {
 }
 
 export function RegistrationsTable({ eventId, title, description, filterStatus }: RegistrationsTableProps) {
-  const [registrations, setRegistrations] = useState([])
+  const [registrations, setRegistrations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedRegistration, setSelectedRegistration] = useState<any>(null)
@@ -54,9 +55,12 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
   const { toast } = useToast()
   const [selectedRegistrations, setSelectedRegistrations] = useState<string[]>([])
   const [customQuestions, setCustomQuestions] = useState<QuestionType[]>([])
-  // Remove these state variables
-  // Remove these state variables
-  // Remove these state variables
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [totalItems, setTotalItems] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
 
   // Email dialog state
   const [emailDialogOpen, setEmailDialogOpen] = useState(false)
@@ -83,6 +87,24 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     },
     {} as Record<string, QuestionType[]>,
   )
+
+  // Calculate pagination values
+  useEffect(() => {
+    if (registrations.length > 0) {
+      setTotalItems(registrations.length)
+      setTotalPages(Math.ceil(registrations.length / itemsPerPage))
+    } else {
+      setTotalItems(0)
+      setTotalPages(1)
+    }
+  }, [registrations, itemsPerPage])
+
+  // Get current items for the page
+  const getCurrentPageItems = () => {
+    const indexOfLastItem = currentPage * itemsPerPage
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage
+    return registrations.slice(indexOfFirstItem, indexOfLastItem)
+  }
 
   // Update the field extraction functions to handle dynamic field names with numeric suffixes
 
@@ -456,6 +478,9 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
         setRegistrations(processedRegistrations)
         setShouldRetry(false) // Reset retry flag on success
         setRetryCount(0) // Reset retry count on success
+
+        // Reset to first page when data changes
+        setCurrentPage(1)
       } catch (error) {
         console.error(`Error fetching registrations:`, error)
         const errorMessage = error instanceof Error ? error.message : `Failed to load registrations`
@@ -684,13 +709,6 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     }
   }
 
-  // Remove these functions
-  // Remove these functions
-  // Remove these functions
-  // Remove these functions
-  // Remove these functions
-  // Remove these functions
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "approved":
@@ -713,13 +731,27 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     })
   }
 
-  const allSelected = registrations.length > 0 && selectedRegistrations.length === registrations.length
+  const allSelected =
+    getCurrentPageItems().length > 0 &&
+    getCurrentPageItems().every((reg: any) => selectedRegistrations.includes(reg._id))
 
   const toggleSelectAll = () => {
     if (allSelected) {
-      setSelectedRegistrations([])
+      // Remove all current page items from selection
+      const currentPageIds = getCurrentPageItems().map((reg: any) => reg._id)
+      setSelectedRegistrations((prev) => prev.filter((id) => !currentPageIds.includes(id)))
     } else {
-      setSelectedRegistrations(registrations.map((reg: any) => reg._id))
+      // Add all current page items to selection
+      const currentPageIds = getCurrentPageItems().map((reg: any) => reg._id)
+      setSelectedRegistrations((prev) => {
+        const newSelection = [...prev]
+        currentPageIds.forEach((id) => {
+          if (!newSelection.includes(id)) {
+            newSelection.push(id)
+          }
+        })
+        return newSelection
+      })
     }
   }
 
@@ -884,6 +916,24 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     }
   }
 
+  // Pagination handlers
+  const goToNextPage = () => {
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+  }
+
+  const goToPrevPage = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1))
+  }
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.min(Math.max(1, page), totalPages))
+  }
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value))
+    setCurrentPage(1) // Reset to first page when changing items per page
+  }
+
   if (loading) {
     return (
       <Card>
@@ -914,66 +964,6 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
       </Card>
     )
   }
-
-  // Define columns based on form type
-  const columns = [
-    {
-      accessorKey: "name",
-      header: "Name",
-      cell: ({ row }) => {
-        const submission = row.original as any
-        return submission.data?.name || "N/A"
-      },
-    },
-    {
-      accessorKey: "email",
-      header: "Email",
-      cell: ({ row }) => {
-        const submission = row.original as any
-        return submission.data?.email || "N/A"
-      },
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => {
-        const status = row.original.status as string
-        let variant = "outline"
-        switch (status) {
-          case "approved":
-            variant = "success"
-            break
-          case "rejected":
-            variant = "destructive"
-            break
-          case "pending":
-          default:
-            variant = "outline"
-        }
-        return <Badge variant={variant}>{status}</Badge>
-      },
-    },
-    {
-      accessorKey: "createdAt",
-      header: "Submitted",
-      cell: ({ row }) => {
-        const date = new Date(row.original.createdAt)
-        return formatDistanceToNow(date, { addSuffix: true })
-      },
-    },
-    {
-      id: "actions",
-      cell: ({ row }) => {
-        return (
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" size="sm" onClick={() => {}}>
-              View
-            </Button>
-          </div>
-        )
-      },
-    },
-  ]
 
   return (
     <Card>
@@ -1024,47 +1014,49 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
             <p>No registrations found.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
+          <div className="overflow-x-auto" style={{ maxWidth: "100%" }}>
+            <Table className="min-w-full">
+              <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
-                  <TableHead>
+                  <TableHead className="sticky left-0 bg-background z-20 w-[50px]">
                     <Checkbox checked={allSelected} onCheckedChange={() => toggleSelectAll()} aria-label="Select all" />
                   </TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email ID</TableHead>
-                  <TableHead>Corporate Email ID</TableHead>
-                  <TableHead>Designation</TableHead>
-                  <TableHead>LinkedIn ID</TableHead>
-                  <TableHead>GitHub ID</TableHead>
-                  <TableHead>Other Social Media</TableHead>
-                  <TableHead>Mobile Number</TableHead>
-                  <TableHead>Registered</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead className="sticky left-[50px] bg-background z-20 min-w-[150px]">Name</TableHead>
+                  <TableHead className="min-w-[200px]">Email ID</TableHead>
+                  <TableHead className="min-w-[200px]">Corporate Email ID</TableHead>
+                  <TableHead className="min-w-[150px]">Designation</TableHead>
+                  <TableHead className="min-w-[150px]">LinkedIn ID</TableHead>
+                  <TableHead className="min-w-[150px]">GitHub ID</TableHead>
+                  <TableHead className="min-w-[150px]">Other Social Media</TableHead>
+                  <TableHead className="min-w-[150px]">Mobile Number</TableHead>
+                  <TableHead className="min-w-[150px]">Registered</TableHead>
+                  <TableHead className="min-w-[100px]">Status</TableHead>
+                  <TableHead className="sticky right-0 bg-background z-20 min-w-[180px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {registrations.map((registration: any) => (
+                {getCurrentPageItems().map((registration: any) => (
                   <TableRow key={registration._id}>
-                    <TableCell>
+                    <TableCell className="sticky left-0 bg-background z-20">
                       <Checkbox
                         checked={selectedRegistrations.includes(registration._id)}
                         onCheckedChange={() => toggleRegistration(registration._id)}
                         aria-label="Select row"
                       />
                     </TableCell>
-                    <TableCell>{getAttendeeName(registration)}</TableCell>
-                    <TableCell>{getAttendeeEmail(registration)}</TableCell>
-                    <TableCell>{getCorporateEmail(registration) || "N/A"}</TableCell>
+                    <TableCell className="sticky left-[50px] bg-background z-20 font-medium">
+                      {getAttendeeName(registration)}
+                    </TableCell>
+                    <TableCell className="max-w-[200px] truncate">{getAttendeeEmail(registration)}</TableCell>
+                    <TableCell className="max-w-[200px] truncate">{getCorporateEmail(registration) || "N/A"}</TableCell>
                     <TableCell>{getDesignation(registration) || "N/A"}</TableCell>
-                    <TableCell>{getLinkedIn(registration) || "N/A"}</TableCell>
-                    <TableCell>{getGitHub(registration) || "N/A"}</TableCell>
+                    <TableCell className="max-w-[150px] truncate">{getLinkedIn(registration) || "N/A"}</TableCell>
+                    <TableCell className="max-w-[150px] truncate">{getGitHub(registration) || "N/A"}</TableCell>
                     <TableCell>{getOtherSocialMedia(registration) || "N/A"}</TableCell>
                     <TableCell>{getMobileNumber(registration) || "N/A"}</TableCell>
                     <TableCell>{formatDistanceToNow(new Date(registration.createdAt), { addSuffix: true })}</TableCell>
                     <TableCell>{getStatusBadge(registration.status)}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="sticky right-0 bg-background z-20">
                       <div className="flex justify-end gap-2">
                         <Button variant="outline" size="sm" onClick={() => handleViewRegistration(registration)}>
                           <Eye className="h-4 w-4 mr-1" />
@@ -1101,6 +1093,79 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
           </div>
         )}
       </CardContent>
+
+      {/* Pagination Controls */}
+      {registrations.length > 0 && (
+        <CardFooter className="flex items-center justify-between px-6 py-4 border-t">
+          <div className="flex items-center">
+            <p className="text-sm text-muted-foreground">
+              Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)} to{" "}
+              {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} entries
+            </p>
+            <div className="ml-4 flex items-center space-x-2">
+              <Label htmlFor="itemsPerPage" className="text-sm">
+                Show
+              </Label>
+              <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+                <SelectTrigger className="h-8 w-[70px]">
+                  <SelectValue placeholder="10" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="text-sm">entries</span>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" size="sm" onClick={goToPrevPage} disabled={currentPage === 1}>
+              <ChevronLeft className="h-4 w-4" />
+              <span className="sr-only">Previous Page</span>
+            </Button>
+
+            <div className="flex items-center">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                // Show pages around current page
+                let pageNum = 0
+                if (totalPages <= 5) {
+                  // If 5 or fewer pages, show all
+                  pageNum = i + 1
+                } else if (currentPage <= 3) {
+                  // If near start, show first 5
+                  pageNum = i + 1
+                } else if (currentPage >= totalPages - 2) {
+                  // If near end, show last 5
+                  pageNum = totalPages - 4 + i
+                } else {
+                  // Otherwise show current and 2 on each side
+                  pageNum = currentPage - 2 + i
+                }
+
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    className="w-8 h-8 p-0"
+                    onClick={() => goToPage(pageNum)}
+                  >
+                    {pageNum}
+                  </Button>
+                )
+              })}
+            </div>
+
+            <Button variant="outline" size="sm" onClick={goToNextPage} disabled={currentPage === totalPages}>
+              <ChevronRight className="h-4 w-4" />
+              <span className="sr-only">Next Page</span>
+            </Button>
+          </div>
+        </CardFooter>
+      )}
 
       {/* Registration Detail Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
