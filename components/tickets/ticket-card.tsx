@@ -102,8 +102,16 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
   }
 
   return (
-    <Card className="overflow-hidden bg-slate-50 border-slate-200">
-      <CardContent className="p-0">
+    <Card className="overflow-hidden bg-white border-2 border-dashed border-indigo-300 rounded-lg relative">
+      {/* Ticket stub design element */}
+      <div className="absolute top-0 bottom-0 left-10 border-l-2 border-dashed border-indigo-300 z-10"></div>
+      <div className="absolute top-0 left-0 w-10 h-full bg-indigo-50 flex items-center justify-center">
+        <div className="rotate-90 text-indigo-500 font-bold tracking-wider text-xs whitespace-nowrap">
+          TICKET #{ticket.ticketNumber.substring(0, 6)}
+        </div>
+      </div>
+
+      <CardContent className="p-0 ml-10">
         <div className="p-4 pb-2">
           <div className="flex justify-between items-start mb-1">
             <h3 className="text-xl font-bold line-clamp-1">{ticket.title}</h3>

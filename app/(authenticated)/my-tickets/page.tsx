@@ -227,6 +227,7 @@ function TicketItem({ ticket, index }: { ticket: any; index: number }) {
 
 // Component to display form submission as a ticket
 function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number }) {
+  const [showAllDetails, setShowAllDetails] = useState(false)
   const event = ticket.event || {}
   const formattedDate = event.date
     ? new Date(event.date).toLocaleDateString("en-US", {
@@ -247,55 +248,122 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
     speaker: "bg-purple-100 text-purple-800",
   }
 
+  // Extract name and email from form data
+  const getName = () => {
+    if (!ticket.formData) return "N/A"
+
+    // Try different possible field names for name
+    const nameField =
+      ticket.formData.name ||
+      ticket.formData.fullName ||
+      ticket.formData.firstName ||
+      ticket.formData["question_name"] ||
+      "N/A"
+
+    return nameField
+  }
+
+  const getEmail = () => {
+    if (!ticket.formData) return "N/A"
+
+    // Try different possible field names for email
+    // Also look for dynamic field names containing "email"
+    const emailKeys = Object.keys(ticket.formData).filter(
+      (key) => key === "email" || key === "emailAddress" || key.includes("email") || key.includes("Email"),
+    )
+
+    return emailKeys.length > 0 ? ticket.formData[emailKeys[0]] : "N/A"
+  }
+
   return (
-    <Card className="overflow-hidden transition-all hover:shadow-md">
-      <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <h3 className="text-xl font-bold">{event.title || "Event"}</h3>
-            <p className="text-sm opacity-90">{formattedDate}</p>
-          </div>
-          <Badge className={`${roleColors[roleType as keyof typeof roleColors]} capitalize`}>{roleType}</Badge>
+    <Card className="overflow-hidden transition-all hover:shadow-md relative bg-white border-2 border-dashed border-indigo-300 rounded-lg">
+      {/* Ticket stub design element */}
+      <div className="absolute top-0 bottom-0 left-10 border-l-2 border-dashed border-indigo-300 z-10"></div>
+      <div className="absolute top-0 left-0 w-10 h-full bg-indigo-50 flex items-center justify-center">
+        <div className="rotate-90 text-indigo-500 font-bold tracking-wider text-xs whitespace-nowrap">
+          TICKET #{ticket._id.substring(0, 6)}
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="p-4 space-y-4">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <Clock className="h-4 w-4" />
-          <span>{formattedTime}</span>
-        </div>
-
-        <div className="flex items-start gap-2 text-sm text-gray-600">
-          <div className="h-4 w-4 mt-0.5 flex-shrink-0">📍</div>
-          <span>{event.location || "Location not specified"}</span>
-        </div>
-
-        {ticket.formData && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <h4 className="font-medium text-sm mb-2">Application Details:</h4>
-            <div className="space-y-2 text-sm">
-              {Object.entries(ticket.formData).map(([key, value]) => (
-                <div key={key} className="grid grid-cols-3 gap-2">
-                  <span className="text-gray-500 capitalize">{key.replace(/([A-Z])/g, " $1").trim()}:</span>
-                  <span className="col-span-2">{String(value)}</span>
-                </div>
-              ))}
+      <div className="ml-10">
+        <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="text-xl font-bold">{event.title || "Event"}</h3>
+              <p className="text-sm opacity-90">{formattedDate}</p>
             </div>
+            <Badge className={`${roleColors[roleType as keyof typeof roleColors]} capitalize`}>{roleType}</Badge>
           </div>
-        )}
-      </CardContent>
+        </CardHeader>
 
-      <CardFooter className="bg-gray-50 p-4 flex justify-between">
-        <div className="text-xs text-gray-500">
-          Approved on {new Date(ticket.purchasedAt || ticket.createdAt).toLocaleDateString()}
-        </div>
+        <CardContent className="p-4 space-y-4">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Clock className="h-4 w-4" />
+            <span>{formattedTime}</span>
+          </div>
 
-        {event.slug && (
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/events/${event.slug}`}>View Event</Link>
-          </Button>
-        )}
-      </CardFooter>
+          <div className="flex items-start gap-2 text-sm text-gray-600">
+            <div className="h-4 w-4 mt-0.5 flex-shrink-0">📍</div>
+            <span>{event.location || "Location not specified"}</span>
+          </div>
+
+          {ticket.formData && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <h4 className="font-medium text-sm mb-2">Application Details:</h4>
+              <div className="space-y-2 text-sm">
+                {/* Show only name and email initially */}
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="text-gray-500">Name:</span>
+                  <span className="col-span-2">{getName()}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="text-gray-500">Email:</span>
+                  <span className="col-span-2">{getEmail()}</span>
+                </div>
+
+                {/* Show all details when expanded */}
+                {showAllDetails && (
+                  <div className="mt-4 space-y-2 border-t border-gray-200 pt-4">
+                    {Object.entries(ticket.formData)
+                      .filter(
+                        ([key]) =>
+                          key !== "name" && key !== "email" && !key.includes("Email") && !key.includes("email"),
+                      )
+                      .map(([key, value]) => (
+                        <div key={key} className="grid grid-cols-3 gap-2">
+                          <span className="text-gray-500 capitalize">{key.replace(/([A-Z])/g, " $1").trim()}:</span>
+                          <span className="col-span-2">{String(value)}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+
+                {/* View More / View Less button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAllDetails(!showAllDetails)}
+                  className="mt-2 text-indigo-600 hover:text-indigo-800"
+                >
+                  {showAllDetails ? "View Less" : "View More Details"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+
+        <CardFooter className="bg-gray-50 p-4 flex justify-between">
+          <div className="text-xs text-gray-500">
+            Approved on {new Date(ticket.purchasedAt || ticket.createdAt).toLocaleDateString()}
+          </div>
+
+          {event.slug && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/events/${event.slug}`}>View Event</Link>
+            </Button>
+          )}
+        </CardFooter>
+      </div>
     </Card>
   )
 }
