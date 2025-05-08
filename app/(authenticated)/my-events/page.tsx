@@ -45,7 +45,6 @@ interface Event {
   slug?: string
   userRole?: "organizer" | "attendee" | "volunteer" | "speaker"
   applicationDetails?: {
-    question_email_number?: string
     [key: string]: any
   }
 }
@@ -343,21 +342,33 @@ function EventCard({ event, onClick, onManageClick, isPast = false }) {
   // Safely get attendees count
   const attendeesCount = event.attendees && Array.isArray(event.attendees) ? event.attendees.length : 0
 
-  // Extract email from question_email_number field
-  const extractEmail = (emailNumberString?: string): string | null => {
-    if (!emailNumberString) return null
+  // Find email from dynamic field names in applicationDetails
+  const findEmailFromApplicationDetails = (details?: { [key: string]: any }): string | null => {
+    if (!details) return null
 
-    // Regular expression to match email patterns
-    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
-    const match = emailNumberString.match(emailRegex)
+    // Look for fields that match the pattern question_email_*
+    const emailFieldKeys = Object.keys(details).filter(
+      (key) => key.startsWith("question_email_") || key.includes("/email") || key.includes("email"),
+    )
 
-    return match ? match[0] : null
+    if (emailFieldKeys.length === 0) return null
+
+    // For each potential email field, try to extract an email
+    for (const key of emailFieldKeys) {
+      const value = details[key]
+      if (!value || typeof value !== "string") continue
+
+      // Extract email using regex
+      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
+      const match = value.match(emailRegex)
+      if (match) return match[0]
+    }
+
+    return null
   }
 
   // Get email from application details
-  const contactEmail = event.applicationDetails?.question_email_number
-    ? extractEmail(event.applicationDetails.question_email_number)
-    : null
+  const contactEmail = findEmailFromApplicationDetails(event.applicationDetails)
 
   // Determine card style based on user role and past status
   const getRoleStyles = () => {

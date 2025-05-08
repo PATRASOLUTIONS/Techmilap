@@ -4,10 +4,6 @@ import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
 
-// Import models after ensuring database connection
-let Ticket: any
-let FormSubmission: any
-
 export async function GET(req: NextRequest) {
   try {
     // Get user session
@@ -16,12 +12,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Connect to database
+    // Connect to database first
     await connectToDatabase()
 
-    // Import models dynamically to ensure they're registered after DB connection
-    Ticket = mongoose.models.Ticket || (await import("@/models/Ticket")).default
-    FormSubmission = mongoose.models.FormSubmission || (await import("@/models/FormSubmission")).default
+    // Import models after database connection is established
+    // This ensures models are registered properly
+    const Ticket = (await import("@/models/Ticket")).default
+    const FormSubmission = (await import("@/models/FormSubmission")).default
+    const Event = (await import("@/models/Event")).default
 
     // Parse query parameters
     const url = new URL(req.url)
@@ -33,7 +31,7 @@ export async function GET(req: NextRequest) {
       .sort({ purchasedAt: -1 })
       .populate({
         path: "event",
-        model: "Event", // Explicitly specify the model name
+        model: Event,
         select: "title date location status image capacity attendees _id slug organizer startTime endTime",
       })
       .lean()
@@ -45,7 +43,7 @@ export async function GET(req: NextRequest) {
     })
       .populate({
         path: "eventId",
-        model: "Event", // Explicitly specify the model name
+        model: Event,
         select: "title date location status image capacity attendees _id slug organizer startTime endTime",
       })
       .lean()
