@@ -2,9 +2,11 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import Ticket from "@/models/Ticket"
-import FormSubmission from "@/models/FormSubmission"
 import mongoose from "mongoose"
+
+// Import models after ensuring database connection
+let Ticket: any
+let FormSubmission: any
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,6 +19,10 @@ export async function GET(req: NextRequest) {
     // Connect to database
     await connectToDatabase()
 
+    // Import models dynamically to ensure they're registered after DB connection
+    Ticket = mongoose.models.Ticket || (await import("@/models/Ticket")).default
+    FormSubmission = mongoose.models.FormSubmission || (await import("@/models/FormSubmission")).default
+
     // Parse query parameters
     const url = new URL(req.url)
     const exclude = url.searchParams.get("exclude") || undefined
@@ -27,6 +33,7 @@ export async function GET(req: NextRequest) {
       .sort({ purchasedAt: -1 })
       .populate({
         path: "event",
+        model: "Event", // Explicitly specify the model name
         select: "title date location status image capacity attendees _id slug organizer startTime endTime",
       })
       .lean()
@@ -37,7 +44,8 @@ export async function GET(req: NextRequest) {
       status: "approved",
     })
       .populate({
-        path: "eventId", // This should match the field name in the FormSubmission model
+        path: "eventId",
+        model: "Event", // Explicitly specify the model name
         select: "title date location status image capacity attendees _id slug organizer startTime endTime",
       })
       .lean()
@@ -49,15 +57,15 @@ export async function GET(req: NextRequest) {
       _id: submission._id,
       userId: submission.userId,
       event: submission.eventId, // This is the populated event data
-      ticketType: submission.formType, // 'attendee', 'volunteer', or 'speaker'
+      ticketType: submission.formType || "attendee", // 'attendee', 'volunteer', or 'speaker'
       purchasedAt: submission.createdAt,
       status: "confirmed",
       isFormSubmission: true, // Flag to identify this as a form submission
-      formData: submission.data, // Include the form data
+      formData: submission.data || {}, // Include the form data with fallback
     }))
 
     // Combine regular tickets and submission tickets
-    const allTickets = [...tickets, ...submissionTickets]
+    const allTickets = [...tickets, ...submissionTickets].filter((ticket) => ticket.event) // Filter out tickets with no event
 
     // Filter tickets based on exclude parameter
     let filteredTickets = [...allTickets]
@@ -99,7 +107,7 @@ export async function GET(req: NextRequest) {
       },
     })
   } catch (error: any) {
-    console.error("Error fetching tickets:", error)
+    console.error("Error fetching tickets:", error.stack || error.message || error)
     return NextResponse.json({ error: `Failed to fetch tickets: ${error.message}` }, { status: 500 })
   }
 }

@@ -316,7 +316,7 @@ EventSchema.pre("save", function (this: any, next) {
   next()
 })
 
-// Create the model
+// Create the model - ensure it's only created once
 const Event = mongoose.models.Event || mongoose.model("Event", EventSchema)
 
 export default Event
