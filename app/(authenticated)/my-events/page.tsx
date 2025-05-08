@@ -450,8 +450,24 @@ function EventCard({ event, onClick, onManageClick, isPast = false }) {
     }
   }
 
+  const handleCardClick = () => {
+    onClick()
+  }
+
   return (
-    <Card className={`cursor-pointer transition-all hover:shadow-md border-2 ${getRoleStyles()}`} onClick={onClick}>
+    <Card
+      className="overflow-hidden flex flex-col h-full cursor-pointer transition-shadow hover:shadow-md relative"
+      onClick={handleCardClick}
+    >
+      {/* Add completed overlay for past events */}
+      {isPast && event.status.toLowerCase() !== "cancelled" && (
+        <div className="absolute inset-0 overflow-hidden z-10 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rotate-[-35deg] bg-green-500/20 text-green-700 font-bold text-2xl py-2 px-8 border-2 border-green-500/30 rounded-md w-[150%] text-center">
+            COMPLETED
+          </div>
+        </div>
+      )}
+
       <CardHeader>
         <div className="flex justify-between items-start">
           <CardTitle className="text-xl">{event.title}</CardTitle>
