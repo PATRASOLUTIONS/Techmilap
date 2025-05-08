@@ -17,6 +17,7 @@ import {
   MapPin,
   ChevronRight,
   Clock,
+  Mail,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -43,6 +44,10 @@ interface Event {
   updatedAt: string
   slug?: string
   userRole?: "organizer" | "attendee" | "volunteer" | "speaker"
+  applicationDetails?: {
+    question_email_number?: string
+    [key: string]: any
+  }
 }
 
 export default function MyEventsPage() {
@@ -123,6 +128,7 @@ export default function MyEventsPage() {
           updatedAt: event.updatedAt || new Date().toISOString(),
           slug: event.slug || event._id || "",
           userRole: "organizer", // Force organizer role
+          applicationDetails: event.applicationDetails || {},
         }))
 
         setEvents(sanitizedEvents)
@@ -337,6 +343,22 @@ function EventCard({ event, onClick, onManageClick, isPast = false }) {
   // Safely get attendees count
   const attendeesCount = event.attendees && Array.isArray(event.attendees) ? event.attendees.length : 0
 
+  // Extract email from question_email_number field
+  const extractEmail = (emailNumberString?: string): string | null => {
+    if (!emailNumberString) return null
+
+    // Regular expression to match email patterns
+    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
+    const match = emailNumberString.match(emailRegex)
+
+    return match ? match[0] : null
+  }
+
+  // Get email from application details
+  const contactEmail = event.applicationDetails?.question_email_number
+    ? extractEmail(event.applicationDetails.question_email_number)
+    : null
+
   // Determine card style based on user role and past status
   const getRoleStyles = () => {
     // Add opacity for past events
@@ -491,6 +513,12 @@ function EventCard({ event, onClick, onManageClick, isPast = false }) {
               {attendeesCount} / {event.capacity || "∞"} attendees
             </span>
           </div>
+          {contactEmail && (
+            <div className="flex items-center gap-1 mt-1">
+              <Mail className="h-3.5 w-3.5 text-blue-500" />
+              <span className="truncate text-blue-600">{contactEmail}</span>
+            </div>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -539,6 +567,17 @@ function EventCard({ event, onClick, onManageClick, isPast = false }) {
                 )}
               </div>
             </div>
+
+            {/* Application Details Section */}
+            {contactEmail && (
+              <div className="mt-4 p-3 bg-blue-50 rounded-md border border-blue-100">
+                <h4 className="font-medium text-blue-700 mb-2 flex items-center">
+                  <Mail className="h-4 w-4 mr-1" />
+                  Application Contact
+                </h4>
+                <p className="text-sm text-blue-600 break-all">{contactEmail}</p>
+              </div>
+            )}
           </>
         )}
       </CardContent>
