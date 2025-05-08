@@ -5,9 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TicketCard } from "@/components/tickets/ticket-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
-import { Calendar, AlertCircle, Ticket } from "lucide-react"
+import { Calendar, AlertCircle, Ticket, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 
 export default function MyTicketsPage() {
   const [tickets, setTickets] = useState<{
@@ -54,9 +56,14 @@ export default function MyTicketsPage() {
   }, [toast])
 
   // Filter tickets by type
-  const attendeeTickets = tickets.all?.filter((ticket) => ticket.ticketType === "attendee") || []
-  const volunteerTickets = tickets.all?.filter((ticket) => ticket.ticketType === "volunteer") || []
-  const speakerTickets = tickets.all?.filter((ticket) => ticket.ticketType === "speaker") || []
+  const attendeeTickets =
+    tickets.all?.filter((ticket) => ticket.ticketType === "attendee" || ticket.formType === "attendee") || []
+
+  const volunteerTickets =
+    tickets.all?.filter((ticket) => ticket.ticketType === "volunteer" || ticket.formType === "volunteer") || []
+
+  const speakerTickets =
+    tickets.all?.filter((ticket) => ticket.ticketType === "speaker" || ticket.formType === "speaker") || []
 
   return (
     <div className="space-y-6 container py-8">
@@ -91,7 +98,11 @@ export default function MyTicketsPage() {
           ) : tickets.all?.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-1">
               {tickets.all.map((ticket, index) => (
-                <TicketCard key={`${ticket._id}-${ticket.ticketType}`} ticket={ticket} index={index} />
+                <TicketItem
+                  key={`${ticket._id}-${ticket.ticketType || ticket.formType}`}
+                  ticket={ticket}
+                  index={index}
+                />
               ))}
             </div>
           ) : (
@@ -107,7 +118,11 @@ export default function MyTicketsPage() {
           ) : tickets.upcoming?.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-1">
               {tickets.upcoming.map((ticket, index) => (
-                <TicketCard key={`${ticket._id}-${ticket.ticketType}`} ticket={ticket} index={index} />
+                <TicketItem
+                  key={`${ticket._id}-${ticket.ticketType || ticket.formType}`}
+                  ticket={ticket}
+                  index={index}
+                />
               ))}
             </div>
           ) : (
@@ -123,7 +138,11 @@ export default function MyTicketsPage() {
           ) : tickets.past?.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-1">
               {tickets.past.map((ticket, index) => (
-                <TicketCard key={`${ticket._id}-${ticket.ticketType}`} ticket={ticket} index={index} />
+                <TicketItem
+                  key={`${ticket._id}-${ticket.ticketType || ticket.formType}`}
+                  ticket={ticket}
+                  index={index}
+                />
               ))}
             </div>
           ) : (
@@ -139,7 +158,11 @@ export default function MyTicketsPage() {
           ) : attendeeTickets.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-1">
               {attendeeTickets.map((ticket, index) => (
-                <TicketCard key={`${ticket._id}-${ticket.ticketType}`} ticket={ticket} index={index} />
+                <TicketItem
+                  key={`${ticket._id}-${ticket.ticketType || ticket.formType}`}
+                  ticket={ticket}
+                  index={index}
+                />
               ))}
             </div>
           ) : (
@@ -155,7 +178,11 @@ export default function MyTicketsPage() {
           ) : volunteerTickets.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-1">
               {volunteerTickets.map((ticket, index) => (
-                <TicketCard key={`${ticket._id}-${ticket.ticketType}`} ticket={ticket} index={index} />
+                <TicketItem
+                  key={`${ticket._id}-${ticket.ticketType || ticket.formType}`}
+                  ticket={ticket}
+                  index={index}
+                />
               ))}
             </div>
           ) : (
@@ -171,7 +198,11 @@ export default function MyTicketsPage() {
           ) : speakerTickets.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-1">
               {speakerTickets.map((ticket, index) => (
-                <TicketCard key={`${ticket._id}-${ticket.ticketType}`} ticket={ticket} index={index} />
+                <TicketItem
+                  key={`${ticket._id}-${ticket.ticketType || ticket.formType}`}
+                  ticket={ticket}
+                  index={index}
+                />
               ))}
             </div>
           ) : (
@@ -180,6 +211,89 @@ export default function MyTicketsPage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+// New component to handle both regular tickets and form submission tickets
+function TicketItem({ ticket, index }: { ticket: any; index: number }) {
+  // Check if this is a form submission or a regular ticket
+  if (ticket.isFormSubmission) {
+    return <FormSubmissionTicket ticket={ticket} index={index} />
+  } else {
+    return <TicketCard ticket={ticket} index={index} />
+  }
+}
+
+// Component to display form submission as a ticket
+function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number }) {
+  const event = ticket.event || {}
+  const formattedDate = event.date
+    ? new Date(event.date).toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "Date not available"
+
+  const formattedTime =
+    event.startTime && event.endTime ? `${event.startTime} - ${event.endTime}` : "Time not specified"
+
+  const roleType = ticket.formType || "attendee"
+  const roleColors = {
+    attendee: "bg-blue-100 text-blue-800",
+    volunteer: "bg-green-100 text-green-800",
+    speaker: "bg-purple-100 text-purple-800",
+  }
+
+  return (
+    <Card className="overflow-hidden transition-all hover:shadow-md">
+      <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="text-xl font-bold">{event.title || "Event"}</h3>
+            <p className="text-sm opacity-90">{formattedDate}</p>
+          </div>
+          <Badge className={`${roleColors[roleType as keyof typeof roleColors]} capitalize`}>{roleType}</Badge>
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <Clock className="h-4 w-4" />
+          <span>{formattedTime}</span>
+        </div>
+
+        <div className="flex items-start gap-2 text-sm text-gray-600">
+          <div className="h-4 w-4 mt-0.5 flex-shrink-0">📍</div>
+          <span>{event.location || "Location not specified"}</span>
+        </div>
+
+        {ticket.formData && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <h4 className="font-medium text-sm mb-2">Application Details:</h4>
+            <div className="space-y-2 text-sm">
+              {Object.entries(ticket.formData).map(([key, value]) => (
+                <div key={key} className="grid grid-cols-3 gap-2">
+                  <span className="text-gray-500 capitalize">{key.replace(/([A-Z])/g, " $1").trim()}:</span>
+                  <span className="col-span-2">{String(value)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+
+      <CardFooter className="bg-gray-50 p-4 flex justify-between">
+        <div className="text-xs text-gray-500">Approved on {new Date(ticket.purchasedAt).toLocaleDateString()}</div>
+
+        {event.slug && (
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/events/${event.slug}`}>View Event</Link>
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
   )
 }
 

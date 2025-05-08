@@ -44,6 +44,7 @@ FormSubmissionSchema.index({ eventId: 1 })
 FormSubmissionSchema.index({ userId: 1 })
 FormSubmissionSchema.index({ userEmail: 1 })
 FormSubmissionSchema.index({ formType: 1 })
+FormSubmissionSchema.index({ status: 1 }) // Add index for status field for better query performance
 
 // Check if the model already exists to prevent OverwriteModelError
 const FormSubmission = mongoose.models.FormSubmission || mongoose.model("FormSubmission", FormSubmissionSchema)
