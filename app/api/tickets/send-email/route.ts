@@ -24,11 +24,16 @@ export async function POST(req: NextRequest) {
     // Get request body
     const { ticketId, ticketType, formType } = await req.json()
 
-    // Get user email
+    // Get user email - this is the attendee's email
     const user = await User.findById(session.user.id)
     if (!user || !user.email) {
       return NextResponse.json({ error: "User email not found" }, { status: 404 })
     }
+
+    // This is the attendee's email
+    const attendeeEmail = user.email
+
+    console.log(`Sending ticket email to attendee: ${attendeeEmail}`)
 
     let ticketData
     let eventData
@@ -168,22 +173,20 @@ export async function POST(req: NextRequest) {
 
       // Extract name and email from form data
       const getName = () => {
-        if (!ticketData.data) return "N/A"
+        if (!ticketData.data) return user.name || "Attendee"
         return (
           ticketData.data.name ||
           ticketData.data.fullName ||
           ticketData.data.firstName ||
           ticketData.data["question_name"] ||
-          "N/A"
+          user.name ||
+          "Attendee"
         )
       }
 
+      // Use the attendee's email from the session
       const getEmail = () => {
-        if (!ticketData.data) return "N/A"
-        const emailKeys = Object.keys(ticketData.data).filter(
-          (key) => key === "email" || key === "emailAddress" || key.includes("email") || key.includes("Email"),
-        )
-        return emailKeys.length > 0 ? ticketData.data[emailKeys[0]] : "N/A"
+        return attendeeEmail
       }
 
       // Create form data HTML
@@ -289,9 +292,10 @@ export async function POST(req: NextRequest) {
       `
     }
 
-    // Send email
+    // Send email to the attendee (the current user)
+    console.log(`Sending email to attendee: ${attendeeEmail}`)
     const emailResult = await sendEmail({
-      to: user.email,
+      to: attendeeEmail, // Send to the attendee's email
       subject: emailSubject,
       text: `Your ticket for ${eventData.title}`,
       html: emailHtml,
@@ -301,7 +305,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to send email" }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, message: "Email sent successfully" })
+    return NextResponse.json({
+      success: true,
+      message: "Email sent successfully",
+      recipient: attendeeEmail,
+    })
   } catch (error: any) {
     console.error("Error sending ticket email:", error)
     return NextResponse.json({ error: `Failed to send ticket email: ${error.message}` }, { status: 500 })
