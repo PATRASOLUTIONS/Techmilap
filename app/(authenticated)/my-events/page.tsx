@@ -7,7 +7,6 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   Calendar,
-  Users,
   Mic,
   HandHelping,
   Edit,
@@ -339,9 +338,6 @@ function EventCard({ event, onClick, onManageClick, isPast = false }) {
   const hasSpeakerForm =
     customQuestions.speaker && Array.isArray(customQuestions.speaker) && customQuestions.speaker.length > 0
 
-  // Safely get attendees count
-  const attendeesCount = event.attendees && Array.isArray(event.attendees) ? event.attendees.length : 0
-
   // Find email from dynamic field names in applicationDetails
   const findEmailFromApplicationDetails = (details?: { [key: string]: any }): string | null => {
     if (!details) return null
@@ -369,50 +365,6 @@ function EventCard({ event, onClick, onManageClick, isPast = false }) {
 
   // Get email from application details
   const contactEmail = findEmailFromApplicationDetails(event.applicationDetails)
-
-  // Get status badge based on event status
-  const getStatusBadge = () => {
-    if (!event.status) return null
-
-    // If the event is in the past, show a "Completed" badge regardless of status
-    if (isPast && event.status.toLowerCase() !== "cancelled") {
-      return (
-        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-          Completed
-        </Badge>
-      )
-    }
-
-    switch (event.status.toLowerCase()) {
-      case "published":
-      case "active":
-        return (
-          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-            Active
-          </Badge>
-        )
-      case "draft":
-        return (
-          <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
-            Draft
-          </Badge>
-        )
-      case "cancelled":
-        return (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-            Cancelled
-          </Badge>
-        )
-      case "completed":
-        return (
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-            Completed
-          </Badge>
-        )
-      default:
-        return null
-    }
-  }
 
   // Format participation status message
   const getParticipationStatus = () => {
@@ -464,7 +416,6 @@ function EventCard({ event, onClick, onManageClick, isPast = false }) {
       <CardHeader className="p-5 pb-3 bg-gradient-to-r from-slate-50 to-white border-b">
         <div className="flex justify-between items-start">
           <CardTitle className="text-xl font-bold text-primary line-clamp-1">{event.title}</CardTitle>
-          <div className="flex gap-2 z-20">{getStatusBadge()}</div>
         </div>
         <CardDescription className="mt-2 space-y-1.5">
           <div className="flex items-center gap-1.5 text-slate-700">
@@ -474,12 +425,6 @@ function EventCard({ event, onClick, onManageClick, isPast = false }) {
           <div className="flex items-center gap-1.5 text-slate-700">
             <MapPin className="h-4 w-4 text-primary" />
             <span className="truncate">{event.location}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-slate-700">
-            <Users className="h-4 w-4 text-primary" />
-            <span>
-              <span className="font-medium">{attendeesCount}</span> / {event.capacity || "∞"} attendees
-            </span>
           </div>
         </CardDescription>
       </CardHeader>
@@ -651,7 +596,6 @@ function EventsLoadingSkeleton() {
           <CardHeader>
             <div className="flex justify-between items-start">
               <Skeleton className="h-6 w-3/4" />
-              <Skeleton className="h-5 w-16" />
             </div>
             <div className="space-y-2 mt-2">
               <Skeleton className="h-4 w-1/2" />

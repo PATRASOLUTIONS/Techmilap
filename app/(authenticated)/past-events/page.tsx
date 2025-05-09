@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Calendar, Users, MapPin, Clock, Search, X } from "lucide-react"
+import { Calendar, MapPin, Clock, Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -225,43 +224,6 @@ function EventCard({ event, onClick }) {
     day: "numeric",
   })
 
-  // Safely get attendees count
-  const attendeesCount = event.attendees && Array.isArray(event.attendees) ? event.attendees.length : 0
-
-  // Get status badge based on event status
-  const getStatusBadge = () => {
-    if (!event.status) return null
-
-    switch (event.status.toLowerCase()) {
-      case "published":
-      case "active":
-        return (
-          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-            Active
-          </Badge>
-        )
-      case "draft":
-        return (
-          <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
-            Draft
-          </Badge>
-        )
-      case "cancelled":
-        return (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-            Cancelled
-          </Badge>
-        )
-      case "completed":
-      default:
-        return (
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-            Completed
-          </Badge>
-        )
-    }
-  }
-
   return (
     <Card
       className="overflow-hidden flex flex-col h-full cursor-pointer transition-all hover:shadow-lg relative group bg-white border-slate-200"
@@ -290,7 +252,6 @@ function EventCard({ event, onClick }) {
       <CardHeader className="p-5 pb-3 bg-gradient-to-r from-slate-50 to-white border-b">
         <div className="flex justify-between items-start">
           <CardTitle className="text-xl font-bold text-primary line-clamp-1">{event.title}</CardTitle>
-          <div className="flex gap-2 z-20">{getStatusBadge()}</div>
         </div>
         <CardDescription className="mt-2 space-y-1.5">
           <div className="flex items-center gap-1.5 text-slate-700">
@@ -300,12 +261,6 @@ function EventCard({ event, onClick }) {
           <div className="flex items-center gap-1.5 text-slate-700">
             <MapPin className="h-4 w-4 text-primary" />
             <span className="truncate">{event.location}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-slate-700">
-            <Users className="h-4 w-4 text-primary" />
-            <span>
-              <span className="font-medium">{attendeesCount}</span> / {event.capacity || "∞"} attendees
-            </span>
           </div>
         </CardDescription>
       </CardHeader>
@@ -337,12 +292,10 @@ function EventCardSkeleton() {
       <CardHeader>
         <div className="flex justify-between items-start">
           <Skeleton className="h-6 w-3/4" />
-          <Skeleton className="h-5 w-16" />
         </div>
         <div className="space-y-2 mt-2">
           <Skeleton className="h-4 w-1/2" />
           <Skeleton className="h-4 w-2/3" />
-          <Skeleton className="h-4 w-1/3" />
         </div>
       </CardHeader>
       <CardContent>
