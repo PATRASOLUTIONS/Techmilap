@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Calendar, Users, MapPin, Search, ChevronLeft, ChevronRight, History, Filter } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
@@ -322,76 +322,77 @@ function EventCard({ event, onClick }: { event: Event; onClick: () => void }) {
 
   return (
     <Card
-      className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-md hover:-translate-y-1 relative"
+      className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-md relative border-muted"
       onClick={onClick}
     >
-      {/* Status Ribbon */}
-      {event.status === "completed" && (
-        <div className="absolute top-0 right-0 w-20 h-20 overflow-hidden">
-          <div className="absolute top-0 right-0 transform translate-x-[50%] -translate-y-[50%] rotate-45 bg-green-600 text-white py-1 px-12 text-xs font-semibold">
-            COMPLETED
+      {/* Completed Event Cross Overlay - shown on all cards */}
+      <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/5 pointer-events-none">
+        <div className="bg-white/90 px-4 py-2 rounded-md border border-red-500 shadow-md flex items-center">
+          <div className="text-red-500 font-bold mr-2 text-xl">✕</div>
+          <div className="text-red-500 font-semibold">EVENT COMPLETED</div>
+        </div>
+      </div>
+
+      <div className="relative z-0">
+        {/* Card Header with gradient background */}
+        <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4">
+          <div className="flex justify-between items-start">
+            <h3 className="text-xl font-bold text-primary truncate">{event.title}</h3>
+            <Badge
+              variant="outline"
+              className={cn(
+                "ml-2 capitalize font-medium",
+                event.status === "cancelled"
+                  ? "border-red-500 text-red-500 bg-red-50"
+                  : event.status === "completed"
+                    ? "border-green-500 text-green-500 bg-green-50"
+                    : "border-gray-300 text-gray-700",
+              )}
+            >
+              {event.status}
+            </Badge>
+          </div>
+
+          <div className="flex items-center mt-3 text-sm">
+            <Calendar className="h-4 w-4 mr-2 text-primary" />
+            <span className="text-muted-foreground">
+              {formattedStartDate}
+              {formattedEndDate && ` - ${formattedEndDate}`}
+            </span>
           </div>
         </div>
-      )}
-      {event.status === "cancelled" && (
-        <div className="absolute top-0 right-0 w-20 h-20 overflow-hidden">
-          <div className="absolute top-0 right-0 transform translate-x-[50%] -translate-y-[50%] rotate-45 bg-red-600 text-white py-1 px-12 text-xs font-semibold">
-            CANCELLED
-          </div>
-        </div>
-      )}
 
-      <CardHeader className="pb-2 relative">
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-xl font-bold text-primary">{event.title}</CardTitle>
-          <Badge
-            variant="outline"
-            className={cn(
-              "ml-2 capitalize",
-              event.status === "cancelled"
-                ? "border-red-500 text-red-500"
-                : event.status === "completed"
-                  ? "border-green-500 text-green-500"
-                  : "border-gray-300 text-gray-700",
-            )}
-          >
-            {event.status}
-          </Badge>
-        </div>
-        <CardDescription className="flex items-center mt-2">
-          <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-          {formattedStartDate}
-          {formattedEndDate && ` - ${formattedEndDate}`}
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className="pb-4">
-        <div className="space-y-3">
+        {/* Card Content */}
+        <div className="p-4 space-y-3 bg-white">
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-primary" />
-            <span className="text-sm">{event.location}</span>
+            <span className="text-sm truncate">{event.location}</span>
           </div>
+
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium">{event.attendees?.length || 0} Attendees</span>
-            {event.capacity > 0 && <span className="text-xs text-muted-foreground">of {event.capacity} capacity</span>}
+            <div>
+              <span className="text-sm font-medium">{event.attendees?.length || 0} Attendees</span>
+              {event.capacity > 0 && <span className="text-xs text-muted-foreground ml-1">(of {event.capacity})</span>}
+            </div>
           </div>
 
           {event.userRole && (
-            <div className="mt-2 pt-2 border-t border-border">
-              <span className="text-xs font-medium text-muted-foreground">
-                Your Role: <span className="capitalize text-foreground">{event.userRole}</span>
+            <div className="mt-3 pt-3 border-t border-border">
+              <span className="text-xs font-medium">
+                Your Role: <span className="capitalize text-primary">{event.userRole}</span>
               </span>
             </div>
           )}
         </div>
-      </CardContent>
 
-      <CardFooter className="bg-muted/30 pt-3 pb-3">
-        <Button variant="default" size="sm" className="w-full">
-          View Event Details
-        </Button>
-      </CardFooter>
+        {/* Card Footer */}
+        <div className="bg-muted p-4 border-t border-border">
+          <Button variant="default" size="sm" className="w-full">
+            View Event Details
+          </Button>
+        </div>
+      </div>
     </Card>
   )
 }
