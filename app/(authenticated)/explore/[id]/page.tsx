@@ -1,8 +1,9 @@
+import { Suspense } from "react"
 import { connectToDatabase } from "@/lib/mongodb"
 import Event from "@/models/Event"
 import User from "@/models/User"
 import Image from "next/image"
-import { Calendar, Clock, MapPin, Users } from "lucide-react"
+import { Calendar, Clock, MapPin, Users, ArrowLeft } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatDate } from "@/lib/utils"
@@ -10,20 +11,55 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import mongoose from "mongoose"
 
-// Create a fallback component for error handling
-function ErrorFallback() {
+// Loading component
+function EventDetailLoading() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-4">
-      <h1 className="text-2xl font-bold mb-4">Event Not Found</h1>
-      <p className="text-muted-foreground mb-6">The event you're looking for doesn't exist or has been removed.</p>
-      <Link href="/explore" className="text-blue-500 hover:underline">
-        Back to Explore
-      </Link>
+    <div className="container mx-auto py-8 px-4">
+      <div className="animate-pulse">
+        <div className="h-6 w-32 bg-gray-200 rounded mb-6"></div>
+        <div className="h-10 w-3/4 bg-gray-200 rounded mb-2"></div>
+        <div className="h-4 w-1/2 bg-gray-200 rounded mb-6"></div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-2 space-y-6">
+            <div className="aspect-video bg-gray-200 rounded-lg"></div>
+            <div className="h-64 bg-gray-200 rounded-lg"></div>
+          </div>
+          <div className="space-y-6">
+            <div className="h-64 bg-gray-200 rounded-lg"></div>
+            <div className="h-40 bg-gray-200 rounded-lg"></div>
+            <div className="h-40 bg-gray-200 rounded-lg"></div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
 
-export default async function EventDetailPage({ params }: { params: { id: string } }) {
+// Error fallback component
+function ErrorFallback() {
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <div className="mb-6">
+        <Link href="/explore" className="text-blue-500 hover:underline flex items-center gap-1">
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back to Explore</span>
+        </Link>
+      </div>
+
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-4">
+        <h1 className="text-2xl font-bold mb-4">Event Not Found</h1>
+        <p className="text-muted-foreground mb-6">The event you're looking for doesn't exist or has been removed.</p>
+        <Button asChild className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700">
+          <Link href="/explore">Browse All Events</Link>
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// Main event detail component
+async function EventDetail({ params }: { params: { id: string } }) {
   try {
     if (!params?.id) {
       console.error("No id parameter provided")
@@ -32,11 +68,11 @@ export default async function EventDetailPage({ params }: { params: { id: string
 
     await connectToDatabase()
 
-    // Try to find the event by slug first
+    // Try to find the event by ID or slug
     let event = null
     const eventId = params.id.trim()
 
-    console.log(`Looking for event with ID: ${eventId}`)
+    console.log(`Looking for event with ID/slug: ${eventId}`)
 
     try {
       // First try: Check if it's a valid ObjectId
@@ -65,7 +101,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
     }
 
     if (!event) {
-      console.log(`Event not found for ID: ${eventId}`)
+      console.log(`Event not found for ID/slug: ${eventId}`)
       return <ErrorFallback />
     }
 
@@ -74,7 +110,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
     // Fetch organizer information
     let organizer = null
     try {
-      if (event.organizer) {
+      if (event.organizer && mongoose.Types.ObjectId.isValid(event.organizer)) {
         organizer = await User.findById(event.organizer).lean()
       }
     } catch (error) {
@@ -108,8 +144,17 @@ export default async function EventDetailPage({ params }: { params: { id: string
     const isAtCapacity = attendeeCount >= capacity
 
     // Ensure event date is valid
-    const eventDate = event.date ? new Date(event.date) : new Date()
-    const isValidDate = !isNaN(eventDate.getTime())
+    let eventDate = null
+    let isValidDate = false
+
+    try {
+      if (event.date) {
+        eventDate = new Date(event.date)
+        isValidDate = !isNaN(eventDate.getTime())
+      }
+    } catch (error) {
+      console.error("Error parsing date:", error)
+    }
 
     // Format date safely
     const formattedDate = isValidDate ? formatDate(eventDate) : "Date not available"
@@ -119,30 +164,39 @@ export default async function EventDetailPage({ params }: { params: { id: string
     if (event.startTime) {
       try {
         const [hours, minutes] = event.startTime.split(":").map(Number)
-        const period = hours >= 12 ? "PM" : "AM"
-        const hour12 = hours % 12 || 12
-        formattedTime = `${hour12}:${minutes.toString().padStart(2, "0")} ${period}`
+        if (!isNaN(hours) && !isNaN(minutes)) {
+          const period = hours >= 12 ? "PM" : "AM"
+          const hour12 = hours % 12 || 12
+          formattedTime = `${hour12}:${minutes.toString().padStart(2, "0")} ${period}`
 
-        if (event.endTime) {
-          const [endHours, endMinutes] = event.endTime.split(":").map(Number)
-          const endPeriod = endHours >= 12 ? "PM" : "AM"
-          const endHour12 = endHours % 12 || 12
-          formattedTime += ` - ${endHour12}:${endMinutes.toString().padStart(2, "0")} ${endPeriod}`
+          if (event.endTime) {
+            const [endHours, endMinutes] = event.endTime.split(":").map(Number)
+            if (!isNaN(endHours) && !isNaN(endMinutes)) {
+              const endPeriod = endHours >= 12 ? "PM" : "AM"
+              const endHour12 = endHours % 12 || 12
+              formattedTime += ` - ${endHour12}:${endMinutes.toString().padStart(2, "0")} ${endPeriod}`
+            }
+          }
         }
       } catch (error) {
         console.error("Error formatting time:", error)
-        formattedTime = "Time not available"
       }
     }
 
     // Ensure event has an ID for the register button
     const eventSlug = event.slug || event._id.toString()
 
+    // Check if forms are published
+    const hasAttendeeForm = event.attendeeForm?.status === "published"
+    const hasVolunteerForm = event.volunteerForm?.status === "published"
+    const hasSpeakerForm = event.speakerForm?.status === "published"
+
     return (
       <div className="container mx-auto py-8 px-4">
         <div className="mb-6">
           <Link href="/explore" className="text-blue-500 hover:underline flex items-center gap-1">
-            <span>← Back to Explore</span>
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Explore</span>
           </Link>
         </div>
 
@@ -153,9 +207,11 @@ export default async function EventDetailPage({ params }: { params: { id: string
               <p className="text-muted-foreground">Organized by {organizerName}</p>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-sm">
-                {event.category || "Event"}
-              </Badge>
+              {event.category && (
+                <Badge variant="outline" className="text-sm">
+                  {event.category}
+                </Badge>
+              )}
               <Button
                 asChild
                 className="bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700"
@@ -170,7 +226,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
               <div className="relative aspect-video overflow-hidden rounded-lg bg-muted">
                 {event.image ? (
                   <Image
-                    src={event.image || "/placeholder.svg?height=800&width=1200&query=tech+event"}
+                    src={event.image || "/placeholder.svg"}
                     alt={event.title || "Event image"}
                     fill
                     className="object-cover"
@@ -178,6 +234,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
                       // Fallback to default image on error
                       const target = e.target as HTMLImageElement
                       target.src = "/vibrant-tech-event.png"
+                      target.onerror = null // Prevent infinite loop
                     }}
                   />
                 ) : (
@@ -256,18 +313,29 @@ export default async function EventDetailPage({ params }: { params: { id: string
                   <CardTitle>Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button
-                    asChild
-                    className="w-full bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700"
-                  >
-                    <Link href={`/events/${eventSlug}/register`}>Register for Event</Link>
-                  </Button>
-                  {event.volunteerForm?.status === "published" && (
+                  {hasAttendeeForm && !isAtCapacity ? (
+                    <Button
+                      asChild
+                      className="w-full bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700"
+                    >
+                      <Link href={`/events/${eventSlug}/register`}>Register for Event</Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      asChild
+                      className="w-full bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700"
+                    >
+                      <Link href={`/events/${eventSlug}`}>View Event Details</Link>
+                    </Button>
+                  )}
+
+                  {hasVolunteerForm && (
                     <Button asChild variant="outline" className="w-full text-blue-600 border-blue-200 hover:bg-blue-50">
                       <Link href={`/events/${eventSlug}/volunteer`}>Volunteer Application</Link>
                     </Button>
                   )}
-                  {event.speakerForm?.status === "published" && (
+
+                  {hasSpeakerForm && (
                     <Button asChild variant="outline" className="w-full text-blue-600 border-blue-200 hover:bg-blue-50">
                       <Link href={`/events/${eventSlug}/speaker`}>Speaker Application</Link>
                     </Button>
@@ -280,7 +348,16 @@ export default async function EventDetailPage({ params }: { params: { id: string
       </div>
     )
   } catch (error) {
-    console.error("Unexpected error in EventDetailPage:", error)
+    console.error("Unexpected error in EventDetail:", error)
     return <ErrorFallback />
   }
+}
+
+// Export the page component with Suspense for better loading experience
+export default function EventDetailPage({ params }: { params: { id: string } }) {
+  return (
+    <Suspense fallback={<EventDetailLoading />}>
+      <EventDetail params={params} />
+    </Suspense>
+  )
 }

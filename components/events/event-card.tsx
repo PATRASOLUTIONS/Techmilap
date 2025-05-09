@@ -95,6 +95,8 @@ export function EventCard({ event, onClick, showRegisterButton = false }: EventC
               onError={(e) => {
                 // @ts-ignore - fallback to default image
                 e.target.src = "/vibrant-tech-event.png"
+                // Prevent infinite loop
+                e.currentTarget.onerror = null
               }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
