@@ -7,7 +7,15 @@ import { connectToDatabase } from "@/lib/mongodb"
 import Event from "@/models/Event"
 import User from "@/models/User" // Import User model to ensure it's registered
 
-export default async function ExplorePage({ searchParams }: { searchParams: { category?: string; search?: string } }) {
+export default async function ExplorePage({
+  searchParams,
+}: {
+  searchParams: {
+    category?: string
+    search?: string
+    format?: string
+  }
+}) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -26,6 +34,7 @@ export default async function ExplorePage({ searchParams }: { searchParams: { ca
     // Get filters from search params
     const category = searchParams.category
     const search = searchParams.search
+    const format = searchParams.format
 
     // Build query with proper status filter
     const query: any = { status: { $in: ["published", "active"] } }
@@ -33,6 +42,11 @@ export default async function ExplorePage({ searchParams }: { searchParams: { ca
     // Add category filter if provided
     if (category && category !== "all") {
       query.category = category
+    }
+
+    // Add format filter if provided
+    if (format && format !== "all") {
+      query.format = format
     }
 
     // Add search filter if provided
@@ -102,7 +116,12 @@ export default async function ExplorePage({ searchParams }: { searchParams: { ca
           <p className="text-muted-foreground">Discover and register for upcoming tech events.</p>
         </div>
 
-        <EventFilters categories={categories} selectedCategory={category} searchQuery={search || ""} />
+        <EventFilters
+          categories={categories}
+          selectedCategory={category}
+          selectedFormat={format}
+          searchQuery={search || ""}
+        />
 
         {formattedEvents.length > 0 ? (
           <>
