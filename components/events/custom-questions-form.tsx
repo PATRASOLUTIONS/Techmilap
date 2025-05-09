@@ -66,6 +66,12 @@ export function CustomQuestionsForm({
   // Add a ref to track if form status has been fetched
   const formStatusFetched = useRef(false)
 
+  // Add a ref to prevent multiple simultaneous API calls
+  const isApiCallInProgress = useRef(false)
+
+  // Add a ref to track the last fetch time to prevent too frequent API calls
+  const lastFetchTime = useRef(0)
+
   const generateDefaultQuestions = useCallback(() => {
     const defaultAttendeeQuestions = [
       {
@@ -395,10 +401,11 @@ export function CustomQuestionsForm({
 
   // Function to force refresh the form status
   const refreshFormStatus = async () => {
-    if (!eventId) return
+    if (!eventId || isApiCallInProgress.current) return
 
     try {
       setIsRefreshing(true)
+      isApiCallInProgress.current = true
 
       // Add a timestamp and forceRefresh parameter to bypass cache
       const timestamp = new Date().getTime()
@@ -467,6 +474,9 @@ export function CustomQuestionsForm({
         title: "Form status refreshed",
         description: "The form status has been refreshed from the database.",
       })
+
+      // Update last fetch time
+      lastFetchTime.current = Date.now()
     } catch (error) {
       console.error("Error refreshing form status:", error)
       toast({
@@ -476,14 +486,23 @@ export function CustomQuestionsForm({
       })
     } finally {
       setIsRefreshing(false)
+      isApiCallInProgress.current = false
     }
   }
 
   // Memoize the fetchFormStatus function to maintain referential stability
   const fetchFormStatus = useCallback(async () => {
-    if (!eventId) return
+    if (!eventId || isApiCallInProgress.current) return
+
+    // Prevent fetching too frequently (at least 2 seconds between fetches)
+    const now = Date.now()
+    if (now - lastFetchTime.current < 2000) {
+      return
+    }
 
     try {
+      isApiCallInProgress.current = true
+
       // Add a timestamp to bypass cache
       const timestamp = new Date().getTime()
       const response = await fetch(`/api/events/${eventId}/forms/status?t=${timestamp}`, {
@@ -548,6 +567,7 @@ export function CustomQuestionsForm({
       }
 
       formStatusFetched.current = true
+      lastFetchTime.current = now
     } catch (error) {
       console.error("Error fetching form status:", error)
       toast({
@@ -555,6 +575,8 @@ export function CustomQuestionsForm({
         description: error.message || "Failed to retrieve form status. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      isApiCallInProgress.current = false
     }
   }, [eventId, updateFormStatus, toast])
 
@@ -597,8 +619,8 @@ export function CustomQuestionsForm({
         })
       }
 
-      // Fetch form status if eventId exists
-      if (eventId) {
+      // Fetch form status if eventId exists and hasn't been fetched yet
+      if (eventId && !formStatusFetched.current) {
         fetchFormStatus()
       }
     } catch (error) {
@@ -616,9 +638,9 @@ export function CustomQuestionsForm({
     }
   }, [data, updateData, eventId, fetchFormStatus, generateDefaultQuestions])
 
-  // Handle initial form status from props
+  // Handle initial form status from props - only run once
   useEffect(() => {
-    if (initialFormStatus) {
+    if (initialFormStatus && !formStatusFetched.current) {
       setFormStatus(initialFormStatus)
       setPublishStatus({
         attendee: initialFormStatus.attendee === "published",
@@ -651,9 +673,14 @@ export function CustomQuestionsForm({
   }
 
   const togglePublishStatus = async (formType) => {
+    // If an API call is already in progress, don't allow another toggle
+    if (isPublishing[formType] || isApiCallInProgress.current) {
+      return
+    }
+
     const newStatus = !publishStatus[formType]
 
-    // Update local state
+    // Update local state immediately for better UX
     setPublishStatus((prev) => ({
       ...prev,
       [formType]: newStatus,
@@ -666,10 +693,40 @@ export function CustomQuestionsForm({
 
     // If we have an eventId, update the database
     if (eventId) {
-      await publishForm(formType, newStatus)
+      try {
+        // Set publishing state
+        setIsPublishing((prev) => ({
+          ...prev,
+          [formType]: true,
+        }))
 
-      // Refresh form status after publishing
-      await refreshFormStatus()
+        await publishForm(formType, newStatus)
+
+        // No need to refresh form status here - the publishForm function already updates the state
+      } catch (error) {
+        // If there's an error, revert the local state
+        setPublishStatus((prev) => ({
+          ...prev,
+          [formType]: !newStatus,
+        }))
+
+        // Update parent component if needed
+        if (updateFormStatus) {
+          updateFormStatus(formType, !newStatus ? "published" : "draft")
+        }
+
+        console.error(`Error toggling form status:`, error)
+        toast({
+          title: `Error updating form status`,
+          description: error.message || `An error occurred while updating the form status.`,
+          variant: "destructive",
+        })
+      } finally {
+        setIsPublishing((prev) => ({
+          ...prev,
+          [formType]: false,
+        }))
+      }
     } else {
       // Just show a toast for feedback
       toast({
@@ -683,12 +740,10 @@ export function CustomQuestionsForm({
 
   // Publish a form
   const publishForm = async (formType, shouldPublish = true) => {
+    if (isApiCallInProgress.current) return
+
     try {
-      // Set publishing state
-      setIsPublishing((prev) => ({
-        ...prev,
-        [formType]: true,
-      }))
+      isApiCallInProgress.current = true
 
       // Determine which questions to send based on form type
       let questionsToSend = []
@@ -785,6 +840,23 @@ export function CustomQuestionsForm({
         }))
       }
 
+      // Update the form status in the local state
+      setFormStatus((prev) => ({
+        ...prev,
+        [formType]: shouldPublish ? "published" : "draft",
+      }))
+
+      // Update the publish status in the local state
+      setPublishStatus((prev) => ({
+        ...prev,
+        [formType]: shouldPublish,
+      }))
+
+      // Update the parent component if needed
+      if (updateFormStatus) {
+        updateFormStatus(formType, shouldPublish ? "published" : "draft")
+      }
+
       toast({
         title: shouldPublish ? "Form published successfully" : "Form set to draft",
         description: shouldPublish
@@ -792,6 +864,9 @@ export function CustomQuestionsForm({
           : `The ${formType} form has been set to draft and is no longer publicly accessible.`,
         variant: "default",
       })
+
+      // Update last fetch time
+      lastFetchTime.current = Date.now()
     } catch (error) {
       console.error(`Error ${shouldPublish ? "publishing" : "updating"} form:`, error)
       toast({
@@ -800,22 +875,9 @@ export function CustomQuestionsForm({
         variant: "destructive",
       })
 
-      // Revert the local state if there was an error
-      setPublishStatus((prev) => ({
-        ...prev,
-        [formType]: !shouldPublish,
-      }))
-
-      // Update parent component if needed
-      if (updateFormStatus) {
-        updateFormStatus(formType, !shouldPublish ? "published" : "draft")
-      }
+      throw error // Re-throw to allow the caller to handle it
     } finally {
-      // Reset publishing state
-      setIsPublishing((prev) => ({
-        ...prev,
-        [formType]: false,
-      }))
+      isApiCallInProgress.current = false
     }
   }
 
@@ -1077,16 +1139,12 @@ export function CustomQuestionsForm({
             <CardDescription>{description}</CardDescription>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" onClick={refreshFormStatus} disabled={isRefreshing} className="mr-2">
-              <RefreshCw className={`h-4 w-4 mr-1 ${isRefreshing ? "animate-spin" : ""}`} />
-              {isRefreshing ? "Refreshing..." : "Refresh Status"}
-            </Button>
             <div className="flex items-center space-x-2">
               <Switch
                 id={`${type}-publish-toggle`}
                 checked={publishStatus[type]}
                 onCheckedChange={() => togglePublishStatus(type)}
-                disabled={isPublishing[type]}
+                disabled={isPublishing[type] || isApiCallInProgress.current}
               />
               <Label htmlFor={`${type}-publish-toggle`} className="font-medium">
                 {isPublishing[type] ? "Updating..." : publishStatus[type] ? "Published" : "Draft"}
@@ -1183,9 +1241,6 @@ export function CustomQuestionsForm({
     )
   }
 
-  // Include the rest of the component methods (addQuestion, removeQuestion, etc.)
-  // ...
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -1198,7 +1253,7 @@ export function CustomQuestionsForm({
         <Button
           variant="outline"
           onClick={refreshFormStatus}
-          disabled={isRefreshing}
+          disabled={isRefreshing || isApiCallInProgress.current}
           className="flex items-center gap-2"
         >
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />

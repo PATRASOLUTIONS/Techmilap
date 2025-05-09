@@ -12,7 +12,7 @@ export async function GET(request, { params }) {
 
     // Connect to the database
     await connectToDatabase({
-      cache: "no-store",
+      cache: forceRefresh ? "no-store" : "force-cache",
     })
 
     // Find the event
@@ -22,7 +22,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
-    // Create the response
+    // Create the response with the correct form status
     const response = NextResponse.json({
       eventSlug: event.slug,
       attendeeForm: event.attendeeForm || { status: "draft" },
@@ -30,13 +30,14 @@ export async function GET(request, { params }) {
       speakerForm: event.speakerForm || { status: "draft" },
     })
 
-    // Add cache headers, but allow for force refresh
-    if (!forceRefresh) {
-      response.headers.set("Cache-Control", "public, max-age=30, s-maxage=60, stale-while-revalidate=300")
-    } else {
+    // Add cache headers based on whether we're forcing a refresh
+    if (forceRefresh) {
       response.headers.set("Cache-Control", "no-cache, no-store, must-revalidate")
       response.headers.set("Pragma", "no-cache")
       response.headers.set("Expires", "0")
+    } else {
+      // Use a short cache time to allow for updates but still provide some caching benefit
+      response.headers.set("Cache-Control", "public, max-age=10, s-maxage=30")
     }
 
     return response
