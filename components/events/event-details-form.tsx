@@ -47,7 +47,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
         startTime: data.startTime || "",
         endTime: data.endTime || "",
         endDate: data.endDate || "",
-        venue: data.venue || "",
+        venue: data.venue || data.location || "", // Use location as fallback for venue
         description: data.description || "",
         coverImageUrl: data.coverImageUrl || "",
         desktopCoverImage: null,
@@ -124,6 +124,15 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
         ...data,
         name: value,
         slug: generateSlug(value),
+      })
+    }
+
+    // Sync venue with location
+    if (name === "venue") {
+      updateData({
+        ...data,
+        venue: value,
+        location: value, // Update location when venue changes
       })
     }
   }
@@ -628,11 +637,12 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                 <Input
                   id="venue"
                   name="venue"
-                  value={data.venue}
+                  value={data.venue || data.location || ""}
                   onChange={handleChange}
                   placeholder="Convention Center"
                   className="transition-all focus:ring-2 focus:ring-primary/50"
                 />
+                <p className="text-xs text-muted-foreground">This will be used as the location for your event.</p>
               </div>
             </div>
           </Card>

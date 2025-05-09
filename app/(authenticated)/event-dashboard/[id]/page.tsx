@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -46,79 +46,90 @@ export default function EventDashboardPage() {
     description: "",
   })
 
-  // In the useEffect where you fetch the event data, add code to generate the URLs
-  useEffect(() => {
-    const fetchEvent = async () => {
-      if (!eventId) {
-        setLoading(false)
-        return
-      }
+  // Add refs to track API call status
+  const isFormStatusFetched = useRef(false)
+  const isSubmissionCountsFetched = useRef(false)
 
-      try {
-        setLoading(true)
-        console.log(`Fetching event data for ID: ${eventId}`)
-
-        const response = await fetch(`/api/events/${eventId}`, {
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          throw new Error(errorData.error || `Failed to fetch event (Status: ${response.status})`)
-        }
-
-        const data = await response.json()
-        console.log("Event data received:", data)
-
-        if (!data.event) {
-          throw new Error("Event data is missing or invalid")
-        }
-
-        setEvent(data.event)
-
-        // Initialize edit form data
-        setEditFormData({
-          location: data.event.location || "",
-          category: data.event.category || "",
-          description: data.event.description || "",
-        })
-
-        // Generate form URLs
-        const baseUrl = window.location.origin
-        const eventSlug = data.event.slug || eventId
-        setFormUrls({
-          attendee: `${baseUrl}/events/${eventSlug}/register`,
-          volunteer: `${baseUrl}/events/${eventSlug}/volunteer`,
-          speaker: `${baseUrl}/events/${eventSlug}/speaker`,
-        })
-
-        // Fetch submission counts
-        fetchSubmissionCounts(eventId)
-      } catch (error) {
-        console.error("Error fetching event:", error)
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to load event data. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
-      }
+  // Memoize the fetch event function to prevent unnecessary re-renders
+  const fetchEvent = useCallback(async () => {
+    if (!eventId) {
+      setLoading(false)
+      return
     }
 
+    try {
+      setLoading(true)
+      console.log(`Fetching event data for ID: ${eventId}`)
+
+      const response = await fetch(`/api/events/${eventId}`, {
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Failed to fetch event (Status: ${response.status})`)
+      }
+
+      const data = await response.json()
+      console.log("Event data received:", data)
+
+      if (!data.event) {
+        throw new Error("Event data is missing or invalid")
+      }
+
+      setEvent(data.event)
+
+      // Initialize edit form data
+      setEditFormData({
+        location: data.event.location || "",
+        category: data.event.category || "",
+        description: data.event.description || "",
+      })
+
+      // Generate form URLs
+      const baseUrl = window.location.origin
+      const eventSlug = data.event.slug || eventId
+      setFormUrls({
+        attendee: `${baseUrl}/events/${eventSlug}/register`,
+        volunteer: `${baseUrl}/events/${eventSlug}/volunteer`,
+        speaker: `${baseUrl}/events/${eventSlug}/speaker`,
+      })
+
+      // Fetch submission counts only once
+      if (!isSubmissionCountsFetched.current) {
+        fetchSubmissionCounts(eventId)
+        isSubmissionCountsFetched.current = true
+      }
+    } catch (error) {
+      console.error("Error fetching event:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load event data. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [eventId, toast])
+
+  // Use a separate useEffect for URL tab parameter
+  useEffect(() => {
     // Check for tab in URL
     if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.href)
+      const urlParams = new URLSearchParams(window.location.search)
       const tabParam = urlParams.get("tab")
       if (tabParam) {
         setActiveTab(tabParam)
       }
     }
+  }, [])
 
+  // Main useEffect for fetching event data
+  useEffect(() => {
     fetchEvent()
-  }, [eventId, toast])
+  }, [fetchEvent])
 
   // Add this useEffect to initialize the edit form data when the event data is loaded
   useEffect(() => {
