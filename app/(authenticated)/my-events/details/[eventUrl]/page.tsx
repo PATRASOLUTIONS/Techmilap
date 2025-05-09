@@ -16,8 +16,8 @@ function ErrorFallback() {
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-4">
       <h1 className="text-2xl font-bold mb-4">Event Not Found</h1>
       <p className="text-muted-foreground mb-6">The event you're looking for doesn't exist or has been removed.</p>
-      <Link href="/events" className="text-primary hover:underline">
-        Browse All Events
+      <Link href="/my-events" className="text-primary hover:underline">
+        Back to My Events
       </Link>
     </div>
   )
@@ -25,6 +25,11 @@ function ErrorFallback() {
 
 export default async function EventDetailPage({ params }: { params: { eventUrl: string } }) {
   try {
+    if (!params?.eventUrl) {
+      console.error("No eventUrl parameter provided")
+      return <ErrorFallback />
+    }
+
     await connectToDatabase()
 
     // Try to find the event by slug first
@@ -53,26 +58,6 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
         console.log(`Trying to find event by partial slug match or title: ${eventUrl}`)
         event = await Event.findOne({
           $or: [{ slug: { $regex: eventUrl, $options: "i" } }, { title: { $regex: eventUrl, $options: "i" } }],
-        }).lean()
-      }
-
-      // Last resort: Try to find by any field that might contain the URL
-      if (!event) {
-        console.log(`Last resort search for event: ${eventUrl}`)
-        // Get all events and log them to debug
-        const allEvents = await Event.find({}).select("_id title slug").lean()
-        console.log(
-          `Available events: ${JSON.stringify(allEvents.map((e) => ({ id: e._id, title: e.title, slug: e.slug })))}`,
-        )
-
-        // Try one more search with very loose criteria
-        event = await Event.findOne({
-          $or: [
-            { _id: eventUrl },
-            { slug: eventUrl },
-            { slug: { $regex: eventUrl.replace(/-/g, ".*"), $options: "i" } },
-            { title: { $regex: eventUrl.replace(/-/g, " "), $options: "i" } },
-          ],
         }).lean()
       }
     } catch (error) {
@@ -131,22 +116,34 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
 
     // Format time safely
     let formattedTime = "Time not available"
-    if (isValidDate) {
+    if (event.startTime) {
       try {
-        formattedTime = eventDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        const [hours, minutes] = event.startTime.split(":").map(Number)
+        const period = hours >= 12 ? "PM" : "AM"
+        const hour12 = hours % 12 || 12
+        formattedTime = `${hour12}:${minutes.toString().padStart(2, "0")} ${period}`
+
+        if (event.endTime) {
+          const [endHours, endMinutes] = event.endTime.split(":").map(Number)
+          const endPeriod = endHours >= 12 ? "PM" : "AM"
+          const endHour12 = endHours % 12 || 12
+          formattedTime += ` - ${endHour12}:${endMinutes.toString().padStart(2, "0")} ${endPeriod}`
+        }
       } catch (error) {
         console.error("Error formatting time:", error)
+        formattedTime = "Time not available"
       }
     }
 
     // Ensure event has an ID for the register button
     const eventId = event._id ? event._id.toString() : ""
+    const eventSlug = event.slug || eventId
 
     return (
       <div className="container mx-auto py-8 px-4">
         <div className="mb-6">
-          <Link href="/events" className="text-primary hover:underline flex items-center gap-1">
-            <span>← Back to Events</span>
+          <Link href="/my-events" className="text-primary hover:underline flex items-center gap-1">
+            <span>← Back to My Events</span>
           </Link>
         </div>
 
@@ -161,7 +158,7 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
                 {event.category || "Event"}
               </Badge>
               <Button asChild>
-                <Link href={`/events/${event.slug || event._id}`}>View Public Page</Link>
+                <Link href={`/events/${eventSlug}`}>View Public Page</Link>
               </Button>
             </div>
           </div>
@@ -220,7 +217,7 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
                     <MapPin className="h-5 w-5 mr-3 mt-0.5 text-muted-foreground" />
                     <div>
                       <h3 className="font-medium">Location</h3>
-                      <p>{event.location || "Location not specified"}</p>
+                      <p>{event.location || event.venue || "Location not specified"}</p>
                     </div>
                   </div>
                   <div className="flex items-start">
@@ -258,18 +255,11 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Button asChild className="w-full">
-                    <Link href={`/events/${event.slug || event._id}/register`}>Register for Event</Link>
+                    <Link href={`/event-dashboard/${eventSlug}`}>Manage Event</Link>
                   </Button>
-                  {event.volunteerForm?.status === "published" && (
-                    <Button asChild variant="outline" className="w-full">
-                      <Link href={`/events/${event.slug || event._id}/volunteer`}>Volunteer Application</Link>
-                    </Button>
-                  )}
-                  {event.speakerForm?.status === "published" && (
-                    <Button asChild variant="outline" className="w-full">
-                      <Link href={`/events/${event.slug || event._id}/speaker`}>Speaker Application</Link>
-                    </Button>
-                  )}
+                  <Button asChild variant="outline" className="w-full">
+                    <Link href={`/event-dashboard/${eventSlug}/edit`}>Edit Event</Link>
+                  </Button>
                 </CardContent>
               </Card>
             </div>
