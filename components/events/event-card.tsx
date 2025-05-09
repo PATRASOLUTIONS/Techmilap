@@ -3,7 +3,7 @@
 import type React from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Calendar, MapPin, Clock, ArrowRight } from "lucide-react"
+import { Calendar, MapPin, Clock, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
@@ -17,18 +17,18 @@ interface EventCardProps {
 export function EventCard({ event, onClick, showRegisterButton = false }: EventCardProps) {
   const router = useRouter()
 
-  // Handle card click to navigate to explore page
+  // Handle card click to navigate to event page
   const handleCardClick = (e: React.MouseEvent) => {
     // Prevent navigation if clicking on the View Details button
     if ((e.target as HTMLElement).closest("a")) {
       return
     }
 
-    // Use the provided onClick or navigate to explore page
+    // Use the provided onClick or navigate to events page
     if (onClick) {
       onClick()
     } else {
-      router.push(`/explore/${event.slug || event._id}`)
+      router.push(`/events/${event.slug || event._id}`)
     }
   }
 
@@ -168,9 +168,15 @@ export function EventCard({ event, onClick, showRegisterButton = false }: EventC
                 variant="default"
                 className={`${showRegisterButton ? "flex-1" : "w-full"} bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 transition-colors`}
               >
-                <Link href={`/explore/${event.slug || event._id}`} className="flex items-center justify-center">
+                <Link
+                  href={`/events/${event.slug || event._id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   View Details
-                  <ArrowRight className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-x-0 group-hover:translate-x-1 transition-transform" />
+                  <ExternalLink className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
 
@@ -180,7 +186,9 @@ export function EventCard({ event, onClick, showRegisterButton = false }: EventC
                   variant="outline"
                   className="flex-1 text-blue-600 border-blue-200 hover:bg-blue-50 transition-colors"
                 >
-                  <Link href={`/events/${event.slug || event._id}/register`}>Register</Link>
+                  <Link href={`/events/${event.slug || event._id}/register`} onClick={(e) => e.stopPropagation()}>
+                    Register
+                  </Link>
                 </Button>
               )}
             </div>

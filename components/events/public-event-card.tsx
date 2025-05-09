@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { Calendar, MapPin, Clock, ArrowRight } from "lucide-react"
+import { Calendar, MapPin, Clock, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
@@ -54,7 +54,9 @@ export function PublicEventCard({ event }: PublicEventCardProps) {
           </div>
           <div className="text-center py-2 font-bold text-2xl text-gray-800">{day}</div>
           <div className="h-px w-10 bg-gray-200 my-2"></div>
-    
+          <div className="text-xs font-mono text-gray-500 rotate-90 tracking-widest mt-4">
+            #{ticketNumber.slice(0, 4)}
+          </div>
         </div>
 
         {/* Main Ticket Content */}
@@ -69,6 +71,8 @@ export function PublicEventCard({ event }: PublicEventCardProps) {
               onError={(e) => {
                 // @ts-ignore - fallback to default image
                 e.target.src = "/vibrant-tech-event.png"
+                // Prevent infinite loop
+                e.currentTarget.onerror = null
               }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
@@ -140,9 +144,14 @@ export function PublicEventCard({ event }: PublicEventCardProps) {
                 variant="default"
                 className="w-full bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 transition-colors"
               >
-                <Link href={`/events/${event.slug || event._id}`} className="flex items-center justify-center">
+                <Link
+                  href={`/events/${event.slug || event._id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center"
+                >
                   View Details
-                  <ArrowRight className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-x-0 group-hover:translate-x-1 transition-transform" />
+                  <ExternalLink className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
             </div>
