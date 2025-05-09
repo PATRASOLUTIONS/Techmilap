@@ -108,6 +108,9 @@ export default async function EventDetailPage({ params }: { params: { eventUrl: 
       if (organizer.firstName && organizer.lastName) {
         organizerName = `${organizer.firstName} ${organizer.lastName}`
         organizerInitials = `${organizer.firstName[0]}${organizer.lastName[0]}`
+      } else if (organizer.name) {
+        organizerName = organizer.name
+        organizerInitials = organizer.name.substring(0, 2).toUpperCase()
       }
       if (organizer.email) {
         organizerEmail = organizer.email
