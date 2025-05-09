@@ -1,16 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { useState, useEffect, useRef } from "react"
+import { useParams } from "next/navigation"
 import { DynamicForm } from "@/components/forms/dynamic-form"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, ArrowLeft, Calendar, AlertCircle, Mail } from "lucide-react"
+import { ArrowLeft, Calendar, AlertCircle, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { useSession } from "next-auth/react"
 import { FormSuccessMessage } from "@/components/ui/form-success-message"
-import { getValidationType } from "@/lib/form-validation"
 
 // Map form types to their display names and descriptions
 const formTypeConfig = {
@@ -101,277 +99,77 @@ function enhanceFormFieldsWithValidation(fields) {
   })
 }
 
-export default function EventFormPage() {
-  const params = useParams()
-  const router = useRouter()
-  const searchParams = useSearchParams()
+export default function PublicFormPage() {
+  const { id, formType } = useParams()
+  const eventId = Array.isArray(id) ? id[0] : id
+  const formTypeValue = Array.isArray(formType) ? formType[0] : formType
   const { toast } = useToast()
-  const { data: session } = useSession()
-
-  // Extract parameters from the URL
-  const eventIdOrSlug = Array.isArray(params.id) ? params.id[0] : params.id
-  const formType = Array.isArray(params.formType) ? params.formType[0] : params.formType
-
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [event, setEvent] = useState(null)
-  const [formConfig, setFormConfig] = useState({
-    title: "",
-    description: "",
-    fields: [],
-    status: "draft",
-  })
-  const [isValidFormType, setIsValidFormType] = useState(!!formTypeConfig[formType])
-  const [apiEndpoint, setApiEndpoint] = useState(formTypeConfig[formType]?.apiEndpoint || "")
-  const [successTitle, setSuccessTitle] = useState(formTypeConfig[formType]?.successTitle || "")
-  const [successMessage, setSuccessMessage] = useState(formTypeConfig[formType]?.successMessage || "")
-  const [submitText, setSubmitText] = useState(formTypeConfig[formType]?.submitText || "")
+  const [formConfig, setFormConfig] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [isEventExpired, setIsEventExpired] = useState(false)
-  const [isFormNotPublished, setIsFormNotPublished] = useState(false)
-  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState("")
+  const [eventTitle, setEventTitle] = useState("")
+
+  // Add a ref to track if the form status has been fetched
+  const formStatusFetched = useRef(false)
 
   useEffect(() => {
-    if (formTypeConfig[formType]) {
-      setIsValidFormType(true)
-      setApiEndpoint(formTypeConfig[formType].apiEndpoint)
-      setSuccessTitle(formTypeConfig[formType].successTitle)
-      setSuccessMessage(formTypeConfig[formType].successMessage)
-      setSubmitText(formTypeConfig[formType].submitText)
-    } else {
-      setIsValidFormType(false)
-    }
-  }, [formType])
+    // Only fetch form status once
+    if (formStatusFetched.current) return
 
-  const isSuccess = searchParams.get("success") === "true"
-
-  useEffect(() => {
-    const fetchData = async () => {
+    const fetchFormConfig = async () => {
       try {
-        setIsLoading(true)
-        setError(null)
-
-        console.log(`Fetching event data for ID/slug: ${eventIdOrSlug}`)
-
-        // Fetch event details
-        const eventResponse = await fetch(`/api/events/${eventIdOrSlug}`, {
-          headers: {
-            "x-public-request": "true",
-          },
+        setLoading(true)
+        const response = await fetch(`/api/events/${eventId}/forms/${formTypeValue}/config`, {
+          cache: "no-store",
         })
 
-        if (!eventResponse.ok) {
-          const errorText = await eventResponse.text()
-          console.error(`Event fetch failed: ${eventResponse.status}`, errorText)
-          throw new Error(`Event not found or not available (${eventResponse.status})`)
+        if (!response.ok) {
+          throw new Error("Failed to fetch form configuration")
         }
 
-        const eventData = await eventResponse.json()
-
-        if (!eventData.event) {
-          console.error("Event data missing in response:", eventData)
-          throw new Error("Event data missing in response")
-        }
-
-        setEvent(eventData.event)
-
-        // Check if the event has expired
-        const eventEndDate = eventData.event.endDate
-          ? new Date(eventData.event.endDate)
-          : new Date(eventData.event.date)
-
-        const today = new Date()
-
-        if (eventEndDate < today) {
-          console.log("Event has expired:", eventEndDate, today)
-          setIsEventExpired(true)
-          setIsLoading(false)
-          return // Don't fetch form data if event has expired
-        }
-
-        const eventId = eventData.event._id // Use the actual MongoDB ID for form fetching
-
-        console.log(`Fetching form config for event ID: ${eventId}, form type: ${apiEndpoint}`)
-
-        // Fetch form configuration using the actual MongoDB ID
-        const formResponse = await fetch(`/api/events/${eventId}/forms/${apiEndpoint}/config`, {
-          headers: {
-            "x-public-request": "true",
-          },
-        })
-
-        if (!formResponse.ok) {
-          const errorText = await formResponse.text()
-          console.error(`Form fetch failed: ${formResponse.status}`, errorText)
-
-          if (formResponse.status === 404) {
-            throw new Error("form_not_published")
-          } else {
-            throw new Error(`Form not available (${formResponse.status})`)
-          }
-        }
-
-        const formData = await formResponse.json()
-
-        // Ensure form has valid fields
-        const form = formData.form || {}
-        form.fields = Array.isArray(form.fields) ? form.fields : []
-
-        // Enhance fields with validation
-        form.fields = enhanceFormFieldsWithValidation(form.fields)
-
-        setFormConfig(form)
+        const data = await response.json()
+        setFormConfig(data.config)
+        setEventTitle(data.eventTitle || "Event")
+        formStatusFetched.current = true
       } catch (error) {
-        console.error("Error fetching data:", error)
-
-        if (error.message === "form_not_published") {
-          setIsFormNotPublished(true)
-        } else {
-          setError(error.message || `Failed to load ${formType} form`)
-          toast({
-            title: "Error",
-            description: error.message || `Failed to load ${formType} form`,
-            variant: "destructive",
-          })
-        }
+        console.error("Error fetching form config:", error)
+        setError("Failed to load form. Please try again later.")
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
-    if (eventIdOrSlug && apiEndpoint) {
-      fetchData()
-    }
-  }, [eventIdOrSlug, apiEndpoint, formType, toast])
+    fetchFormConfig()
+  }, [eventId, formTypeValue])
 
-  const handleSubmit = async (data) => {
+  const handleSubmit = async (formData) => {
     try {
       setSubmitting(true)
-
-      if (!event || !event._id) {
-        throw new Error("Event information is missing")
-      }
-
-      // Clean and prepare the form data
-      const cleanData = {}
-
-      // Copy all form data, ensuring no undefined values
-      Object.keys(data).forEach((key) => {
-        // Convert undefined to empty string to avoid JSON issues
-        cleanData[key] = data[key] === undefined ? "" : data[key]
-      })
-
-      // Extract email and name from custom question fields if they exist
-      let extractedEmail = ""
-      let extractedName = ""
-      let extractedFirstName = ""
-      let extractedLastName = ""
-
-      // Look for email fields in the form data
-      Object.entries(cleanData).forEach(([key, value]) => {
-        // Check for email fields
-        if (
-          (key.includes("email") || key.includes("Email")) &&
-          typeof value === "string" &&
-          value.includes("@") &&
-          !extractedEmail
-        ) {
-          extractedEmail = value
-        }
-
-        // Check for name fields
-        if ((key.includes("name") || key.includes("Name")) && typeof value === "string") {
-          if (
-            (key.includes("firstName") || key.includes("first_name") || key.includes("FirstName")) &&
-            !extractedFirstName
-          ) {
-            extractedFirstName = value
-          } else if (
-            (key.includes("lastName") || key.includes("last_name") || key.includes("LastName")) &&
-            !extractedLastName
-          ) {
-            extractedLastName = value
-          } else if (
-            (key.includes("name") || key.includes("Name")) &&
-            !key.includes("first") &&
-            !key.includes("last") &&
-            !extractedName
-          ) {
-            extractedName = value
-          }
-        }
-      })
-
-      console.log("Extracted from form fields:", {
-        email: extractedEmail,
-        name: extractedName,
-        firstName: extractedFirstName,
-        lastName: extractedLastName,
-      })
-
-      // Add basic information based on form type
-      if (formType === "register") {
-        cleanData.firstName = data.firstName || extractedFirstName || session?.user?.name?.split(" ")[0] || ""
-        cleanData.lastName =
-          data.lastName || extractedLastName || session?.user?.name?.split(" ").slice(1).join(" ") || ""
-        cleanData.email = data.email || extractedEmail || session?.user?.email || ""
-        cleanData.name = extractedName || `${cleanData.firstName} ${cleanData.lastName}`.trim()
-      } else {
-        // For volunteer and speaker forms
-        cleanData.name = data.name || extractedName || session?.user?.name || ""
-        cleanData.email = data.email || extractedEmail || session?.user?.email || ""
-      }
-
-      // Add terms acceptance to the data
-      cleanData.termsAccepted = termsAccepted
-
-      console.log("Form data prepared:", cleanData)
-
-      // Create the submission payload with a clean structure
-      const payload = {
-        data: cleanData,
-        userId: session?.user?.id || null,
-        status: "pending", // Always set status to pending
-      }
-
-      console.log("Submitting form data:", JSON.stringify(payload))
-
-      // Use the actual MongoDB ID for submission
-      const response = await fetch(`/api/events/${event._id}/submissions/${apiEndpoint}`, {
+      const response = await fetch(`/api/events/${eventId}/submissions/${formTypeValue}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ formData }),
       })
 
       if (!response.ok) {
-        // Try to get error details from response
-        let errorMessage = "Failed to submit form"
-        try {
-          const errorData = await response.json()
-          errorMessage = errorData.error || errorMessage
-        } catch (e) {
-          console.error("Could not parse error response:", e)
-        }
-        throw new Error(errorMessage)
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to submit form")
       }
 
-      // Success! Show toast and redirect
+      setSubmitted(true)
       toast({
-        title: formType === "register" ? "Registration Successful" : "Application Submitted",
-        description:
-          formType === "register"
-            ? "You have successfully registered for this event. A confirmation email has been sent to your email address."
-            : `Your ${formType} application has been submitted successfully. A confirmation email has been sent to your email address.`,
+        title: "Form Submitted",
+        description: "Your form has been submitted successfully.",
       })
-
-      router.push(`/events/${eventIdOrSlug}/forms/${formType}?success=true`)
     } catch (error) {
       console.error("Error submitting form:", error)
       toast({
-        title: formType === "register" ? "Registration Failed" : "Application Failed",
-        description: error.message || "Failed to submit form",
+        title: "Error",
+        description: error.message || "Failed to submit form. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -379,275 +177,117 @@ export default function EventFormPage() {
     }
   }
 
-  // Prepare default values if user is logged in
-  const defaultValues = {}
-  if (session?.user) {
-    // Add basic user information based on form type
-    defaultValues.email = session.user.email || ""
-
-    if (formType === "register") {
-      if (session.user.name) {
-        const nameParts = session.user.name.split(" ")
-        defaultValues.firstName = nameParts[0] || ""
-        defaultValues.lastName = nameParts.slice(1).join(" ") || ""
-      }
-    } else {
-      defaultValues.name = session.user.name || ""
-    }
-
-    // Try to pre-fill custom fields
-    if (formConfig.fields && Array.isArray(formConfig.fields)) {
-      formConfig.fields.forEach((field) => {
-        if (field && field.id) {
-          if (field.type === "email" && !defaultValues[field.id]) {
-            defaultValues[field.id] = session.user.email || ""
-          } else if (field.id.toLowerCase().includes("name") && !defaultValues[field.id]) {
-            defaultValues[field.id] = session.user.name || ""
-          }
-        }
-      })
-    }
-  }
-
-  // Add this function inside the component before the return statement
-  const enhanceQuestionsWithValidation = (questions: any[]) => {
-    return questions.map((question) => {
-      // Determine validation type based on the question
-      const validationType = getValidationType(question)
-
-      // Add validation type to the question object
-      return {
-        ...question,
-        validationType,
-      }
-    })
-  }
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
-
-        console.log(`Fetching event data for ID/slug: ${eventIdOrSlug}`)
-
-        // Fetch event details
-        const eventResponse = await fetch(`/api/events/${eventIdOrSlug}`, {
-          headers: {
-            "x-public-request": "true",
-          },
-        })
-
-        if (!eventResponse.ok) {
-          const errorText = await eventResponse.text()
-          console.error(`Event fetch failed: ${eventResponse.status}`, errorText)
-          throw new Error(`Event not found or not available (${eventResponse.status})`)
-        }
-
-        const eventData = await eventResponse.json()
-
-        if (!eventData.event) {
-          console.error("Event data missing in response:", eventData)
-          throw new Error("Event data missing in response")
-        }
-
-        setEvent(eventData.event)
-
-        // Check if the event has expired
-        const eventEndDate = eventData.event.endDate
-          ? new Date(eventData.event.endDate)
-          : new Date(eventData.event.date)
-
-        const today = new Date()
-
-        if (eventEndDate < today) {
-          console.log("Event has expired:", eventEndDate, today)
-          setIsEventExpired(true)
-          setIsLoading(false)
-          return // Don't fetch form data if event has expired
-        }
-
-        const eventId = eventData.event._id // Use the actual MongoDB ID for form fetching
-
-        console.log(`Fetching form config for event ID: ${eventId}, form type: ${apiEndpoint}`)
-
-        // Fetch form configuration using the actual MongoDB ID
-        const formResponse = await fetch(`/api/events/${eventId}/forms/${apiEndpoint}/config`, {
-          headers: {
-            "x-public-request": "true",
-          },
-        })
-
-        if (!formResponse.ok) {
-          const errorText = await formResponse.text()
-          console.error(`Form fetch failed: ${formResponse.status}`, errorText)
-
-          if (formResponse.status === 404) {
-            throw new Error("form_not_published")
-          } else {
-            throw new Error(`Form not available (${formResponse.status})`)
-          }
-        }
-
-        const formData = await formResponse.json()
-
-        // Ensure form has valid fields
-        const form = formData.form || {}
-        form.fields = Array.isArray(form.fields) ? form.fields : []
-
-        // Enhance fields with validation
-        form.fields = enhanceFormFieldsWithValidation(form.fields)
-
-        // Enhance questions with validation
-        const enhancedQuestions = enhanceQuestionsWithValidation(formData.form.fields || [])
-
-        setFormConfig({
-          ...formData.form,
-          fields: enhancedQuestions,
-        })
-      } catch (error) {
-        console.error("Error fetching data:", error)
-
-        if (error.message === "form_not_published") {
-          setIsFormNotPublished(true)
-        } else {
-          setError(error.message || `Failed to load ${formType} form`)
-          toast({
-            title: "Error",
-            description: error.message || `Failed to load ${formType} form`,
-            variant: "destructive",
-          })
-        }
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    if (eventIdOrSlug && apiEndpoint) {
-      fetchData()
-    }
-  }, [eventIdOrSlug, apiEndpoint, formType, toast])
-
-  if (!isValidFormType) {
+  if (loading) {
     return (
-      <div className="container mx-auto py-8 max-w-3xl">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <h2 className="text-xl font-bold text-red-700 mb-2">Invalid Form Type</h2>
-          <p className="text-red-600 mb-4">The requested form type is not valid.</p>
-          <Button asChild variant="outline">
-            <Link href={`/events/${eventIdOrSlug}`}>Back to Event</Link>
+      <div className="container max-w-3xl mx-auto py-8 px-4">
+        <div className="flex items-center mb-6">
+          <Button variant="outline" size="icon" asChild className="mr-2">
+            <Link href={`/events/${eventId}`}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
           </Button>
+          <h1 className="text-2xl font-bold">Loading...</h1>
         </div>
-      </div>
-    )
-  }
-
-  if (isLoading) {
-    return (
-      <div className="container mx-auto py-8 flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">Loading form...</span>
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+          <div className="h-32 bg-gray-200 rounded"></div>
+          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+          <div className="h-32 bg-gray-200 rounded"></div>
+        </div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="container mx-auto py-8 max-w-3xl">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <h2 className="text-xl font-bold text-red-700 mb-2">Error Loading Form</h2>
-          <p className="text-red-600 mb-4">{error}</p>
-          <Button asChild variant="outline">
-            <Link href={`/events/${eventIdOrSlug}`}>Back to Event</Link>
+      <div className="container max-w-3xl mx-auto py-8 px-4">
+        <div className="flex items-center mb-6">
+          <Button variant="outline" size="icon" asChild className="mr-2">
+            <Link href={`/events/${eventId}`}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
           </Button>
+          <h1 className="text-2xl font-bold">Error</h1>
         </div>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>
+        <Button asChild className="mt-4">
+          <Link href={`/events/${eventId}`}>Back to Event</Link>
+        </Button>
       </div>
     )
   }
 
-  if (isSuccess) {
+  if (!formConfig) {
     return (
-      <div className="container mx-auto py-8 max-w-3xl">
+      <div className="container max-w-3xl mx-auto py-8 px-4">
+        <div className="flex items-center mb-6">
+          <Button variant="outline" size="icon" asChild className="mr-2">
+            <Link href={`/events/${eventId}`}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <h1 className="text-2xl font-bold">Form Not Found</h1>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded">
+          This form is not available or has not been configured by the event organizer.
+        </div>
+        <Button asChild className="mt-4">
+          <Link href={`/events/${eventId}`}>Back to Event</Link>
+        </Button>
+      </div>
+    )
+  }
+
+  if (submitted) {
+    return (
+      <div className="container max-w-3xl mx-auto py-8 px-4">
+        <div className="flex items-center mb-6">
+          <Button variant="outline" size="icon" asChild className="mr-2">
+            <Link href={`/events/${eventId}`}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <h1 className="text-2xl font-bold">{eventTitle}</h1>
+        </div>
         <FormSuccessMessage
-          title={successTitle}
-          message={successMessage}
-          eventId={eventIdOrSlug}
-          formType={apiEndpoint}
+          title="Form Submitted Successfully"
+          description="Thank you for your submission. The event organizer will review your information."
+          backUrl={`/events/${eventId}`}
+          backLabel="Back to Event"
         />
       </div>
     )
   }
 
-  if (isEventExpired) {
-    return (
-      <div className="container mx-auto py-8 max-w-3xl">
-        <div className="flex items-center mb-6">
-          <Button variant="outline" size="icon" asChild className="mr-2">
-            <Link href={`/events/${eventIdOrSlug}`}>
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold">{event?.title || "Event"}</h1>
-        </div>
-        <ExpiredEventMessage />
-      </div>
-    )
-  }
-
-  if (isFormNotPublished) {
-    return (
-      <div className="container mx-auto py-8 max-w-3xl">
-        <div className="flex items-center mb-6">
-          <Button variant="outline" size="icon" asChild className="mr-2">
-            <Link href={`/events/${eventIdOrSlug}`}>
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold">{event?.title || "Event"}</h1>
-        </div>
-        <FormNotPublishedMessage
-          eventTitle={event?.title || "this event"}
-          formType={formType}
-          eventIdOrSlug={eventIdOrSlug}
-        />
-      </div>
-    )
-  }
-
-  // Format the title based on form type
-  const pageTitle =
-    formType === "register"
-      ? `Register for ${event?.title || "Event"}`
-      : formType === "volunteer"
-        ? `Volunteer for ${event?.title || "Event"}`
-        : `Speak at ${event?.title || "Event"}`
+  const formTitle =
+    {
+      attendee: "Registration Form",
+      volunteer: "Volunteer Application",
+      speaker: "Speaker Application",
+    }[formTypeValue] || "Form"
 
   return (
-    <div className="container mx-auto py-8 max-w-3xl">
+    <div className="container max-w-3xl mx-auto py-8 px-4">
       <div className="flex items-center mb-6">
         <Button variant="outline" size="icon" asChild className="mr-2">
-          <Link href={`/events/${eventIdOrSlug}`}>
+          <Link href={`/events/${eventId}`}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
-        <h1 className="text-2xl font-bold">{pageTitle}</h1>
+        <h1 className="text-2xl font-bold">{eventTitle}</h1>
       </div>
-
-      <Card>
-        <CardContent className="pt-5">
-          <DynamicForm
-            formFields={formConfig.fields || []}
-            formTitle={formConfig.title || formTypeConfig[formType].title}
-            formDescription={formConfig.description || formTypeConfig[formType].description}
-            onSubmit={handleSubmit}
-            defaultValues={defaultValues}
-            submitButtonText={submitText}
-            isSubmitting={submitting}
-          />
-
-          {/* Terms and Conditions Checkbox */}
-        </CardContent>
-      </Card>
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-2">{formTitle}</h2>
+        <p className="text-muted-foreground">
+          Please fill out the form below to {formTypeValue === "attendee" ? "register" : "apply"} for this event.
+        </p>
+      </div>
+      <DynamicForm
+        config={formConfig}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        submitLabel={formTypeValue === "attendee" ? "Register" : "Submit Application"}
+      />
     </div>
   )
 }

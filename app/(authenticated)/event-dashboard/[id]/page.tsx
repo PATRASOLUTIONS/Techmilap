@@ -49,6 +49,11 @@ export default function EventDashboardPage() {
   // Add refs to track API call status
   const isFormStatusFetched = useRef(false)
   const isSubmissionCountsFetched = useRef(false)
+  const formStatusData = useRef({
+    attendeeForm: { status: "draft" },
+    volunteerForm: { status: "draft" },
+    speakerForm: { status: "draft" },
+  })
 
   // Memoize the fetch event function to prevent unnecessary re-renders
   const fetchEvent = useCallback(async () => {
@@ -102,6 +107,12 @@ export default function EventDashboardPage() {
         fetchSubmissionCounts(eventId)
         isSubmissionCountsFetched.current = true
       }
+
+      // Fetch form status only once
+      if (!isFormStatusFetched.current) {
+        fetchFormStatus(eventId)
+        isFormStatusFetched.current = true
+      }
     } catch (error) {
       console.error("Error fetching event:", error)
       toast({
@@ -113,6 +124,28 @@ export default function EventDashboardPage() {
       setLoading(false)
     }
   }, [eventId, toast])
+
+  // Separate function to fetch form status
+  const fetchFormStatus = async (eventId) => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/forms/status`, {
+        headers: {
+          "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        formStatusData.current = {
+          attendeeForm: data.attendeeForm || { status: "draft" },
+          volunteerForm: data.volunteerForm || { status: "draft" },
+          speakerForm: data.speakerForm || { status: "draft" },
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching form status:", error)
+    }
+  }
 
   // Use a separate useEffect for URL tab parameter
   useEffect(() => {
@@ -148,7 +181,7 @@ export default function EventDashboardPage() {
     try {
       const response = await fetch(`/api/events/${eventId}/submissions/counts`, {
         headers: {
-          "Cache-Control": "no-cache",
+          "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
         },
       })
 
@@ -335,10 +368,10 @@ export default function EventDashboardPage() {
   const eventCategory = event.category || "Uncategorized"
   const eventDescription = event.description || "No description available"
 
-  // Safely access form statuses
-  const attendeeFormStatus = event.attendeeForm?.status || "draft"
-  const volunteerFormStatus = event.volunteerForm?.status || "draft"
-  const speakerFormStatus = event.speakerForm?.status || "draft"
+  // Safely access form statuses from the cached data
+  const attendeeFormStatus = formStatusData.current.attendeeForm?.status || "draft"
+  const volunteerFormStatus = formStatusData.current.volunteerForm?.status || "draft"
+  const speakerFormStatus = formStatusData.current.speakerForm?.status || "draft"
 
   return (
     <div className="container mx-auto py-8">
@@ -610,12 +643,6 @@ export default function EventDashboardPage() {
                   </div>
                 )}
 
-                {/* <Button asChild className="w-full">
-                  <Link href={`/event-dashboard/${eventId}/attendees/customize`}>
-                    <FileEdit className="mr-2 h-4 w-4" />
-                    Customize Form
-                  </Link>
-                </Button> */}
                 {attendeeFormStatus === "published" && (
                   <div className="flex items-center gap-2 mt-2">
                     <Eye className="h-4 w-4 text-green-500" />
@@ -681,12 +708,6 @@ export default function EventDashboardPage() {
                   </div>
                 )}
 
-                {/* <Button asChild className="w-full">
-                  <Link href={`/event-dashboard/${eventId}/volunteers/customize`}>
-                    <FileEdit className="mr-2 h-4 w-4" />
-                    Customize Form
-                  </Link>
-                </Button> */}
                 {volunteerFormStatus === "published" && (
                   <div className="flex items-center gap-2 mt-2">
                     <Eye className="h-4 w-4 text-green-500" />
@@ -752,12 +773,6 @@ export default function EventDashboardPage() {
                   </div>
                 )}
 
-                {/* <Button asChild className="w-full">
-                  <Link href={`/event-dashboard/${eventId}/speakers/customize`}>
-                    <FileEdit className="mr-2 h-4 w-4" />
-                    Customize Form
-                  </Link>
-                </Button> */}
                 {speakerFormStatus === "published" && (
                   <div className="flex items-center gap-2 mt-2">
                     <Eye className="h-4 w-4 text-green-500" />

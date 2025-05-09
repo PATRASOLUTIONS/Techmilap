@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import Event from "@/models/Event"
 
-// Add cache control headers to prevent excessive API calls
 export async function GET(request, { params }) {
   try {
     const { id } = params
@@ -19,7 +18,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
-    // Return the form status and event slug with cache headers
+    // Create the response
     const response = NextResponse.json({
       eventSlug: event.slug,
       attendeeForm: event.forms?.attendee || { status: "draft" },
@@ -27,8 +26,11 @@ export async function GET(request, { params }) {
       speakerForm: event.forms?.speaker || { status: "draft" },
     })
 
-    // Add cache control headers to prevent frequent refetching
-    response.headers.set("Cache-Control", "public, max-age=60, s-maxage=60, stale-while-revalidate=300")
+    // Add strong cache headers to prevent frequent refetching
+    response.headers.set("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600")
+    response.headers.set("Surrogate-Control", "max-age=300")
+    response.headers.set("CDN-Cache-Control", "max-age=300")
+    response.headers.set("Vercel-CDN-Cache-Control", "max-age=300")
 
     return response
   } catch (error) {
