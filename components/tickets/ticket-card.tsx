@@ -15,9 +15,9 @@ import "jspdf-autotable"
 interface TicketCardProps {
   ticket: {
     _id: string
-    eventId: string
-    title: string
-    date: string
+    eventId?: string
+    title?: string
+    date?: string
     endDate?: string
     startTime?: string
     endTime?: string
@@ -25,13 +25,14 @@ interface TicketCardProps {
     location?: string
     image?: string
     slug?: string
-    ticketType: "attendee" | "volunteer" | "speaker"
-    ticketNumber: string
-    price: number
-    status: string
+    ticketType?: "attendee" | "volunteer" | "speaker"
+    ticketNumber?: string
+    price?: number
+    status?: string
     userName?: string
     userEmail?: string
     userPhone?: string
+    event?: any
   }
   index: number
 }
@@ -44,17 +45,30 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
   const [isSharing, setIsSharing] = useState(false)
   const { toast } = useToast()
 
+  // Handle missing data
+  const event = ticket.event || {}
+  const eventTitle = ticket.title || event.title || "Event"
+  const eventDate = ticket.date || event.date
+  const eventLocation = ticket.location || event.location
+  const eventVenue = ticket.venue || event.venue
+  const ticketNumber = ticket.ticketNumber || ticket._id.toString().substring(0, 8).toUpperCase()
+  const ticketType = ticket.ticketType || "attendee"
+  const ticketPrice = ticket.price || 0
+  const ticketStatus = ticket.status || "confirmed"
+  const eventSlug = ticket.slug || event.slug
+
   // Format date and time
-  const formattedDate = ticket.date ? format(new Date(ticket.date), "MMMM d, yyyy") : "Date TBD"
-  const startTime = ticket.startTime || "TBD"
-  const endTime = ticket.endTime || "TBD"
+  const formattedDate = eventDate ? format(new Date(eventDate), "MMMM d, yyyy") : "Date TBD"
+  const startTime = ticket.startTime || event.startTime || "TBD"
+  const endTime = ticket.endTime || event.endTime || "TBD"
 
   // Get ticket type display name
-  const ticketTypeDisplay = {
-    attendee: "Attendee Pass",
-    volunteer: "Volunteer Pass",
-    speaker: "Speaker Pass",
-  }[ticket.ticketType]
+  const ticketTypeDisplay =
+    {
+      attendee: "Attendee Pass",
+      volunteer: "Volunteer Pass",
+      speaker: "Speaker Pass",
+    }[ticketType] || "Event Pass"
 
   // Get ticket type color
   const ticketTypeColor =
@@ -62,7 +76,7 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
       attendee: "from-blue-500 to-blue-600",
       volunteer: "from-green-500 to-green-600",
       speaker: "from-purple-500 to-purple-600",
-    }[ticket.ticketType] || "from-indigo-500 to-indigo-600"
+    }[ticketType] || "from-indigo-500 to-indigo-600"
 
   // Handle download ticket
   const handleDownload = async () => {
@@ -78,7 +92,7 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
 
       // Set document properties
       doc.setProperties({
-        title: `${ticket.title} - Ticket`,
+        title: `${eventTitle} - Ticket`,
         subject: "Event Ticket",
         author: "MyEvent Platform",
         creator: "MyEvent Platform",
@@ -87,7 +101,7 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
       // Add title
       doc.setFontSize(24)
       doc.setTextColor(33, 33, 33)
-      doc.text(ticket.title, 105, 20, { align: "center" })
+      doc.text(eventTitle, 105, 20, { align: "center" })
 
       // Add ticket type
       doc.setFontSize(16)
@@ -107,12 +121,12 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
       doc.text(`Date: ${formattedDate}`, 20, 55)
       doc.text(`Time: ${startTime} - ${endTime}`, 20, 62)
 
-      if (ticket.location) {
-        doc.text(`Location: ${ticket.location}`, 20, 69)
+      if (eventLocation) {
+        doc.text(`Location: ${eventLocation}`, 20, 69)
       }
 
-      if (ticket.venue) {
-        doc.text(`Venue: ${ticket.venue}`, 20, 76)
+      if (eventVenue) {
+        doc.text(`Venue: ${eventVenue}`, 20, 76)
       }
 
       // Add ticket details section
@@ -120,9 +134,9 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
       doc.text("Ticket Information", 20, 90)
 
       doc.setFontSize(12)
-      doc.text(`Ticket #: ${ticket.ticketNumber}`, 20, 100)
-      doc.text(`Status: Confirmed`, 20, 107)
-      doc.text(`Price: ${ticket.price > 0 ? `$${ticket.price.toFixed(2)}` : "Free"}`, 20, 114)
+      doc.text(`Ticket #: ${ticketNumber}`, 20, 100)
+      doc.text(`Status: ${ticketStatus.charAt(0).toUpperCase() + ticketStatus.slice(1)}`, 20, 107)
+      doc.text(`Price: ${ticketPrice > 0 ? `$${ticketPrice.toFixed(2)}` : "Free"}`, 20, 114)
 
       // Add attendee information section
       doc.setFontSize(14)
@@ -147,7 +161,7 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
       doc.text("Present this ticket at the event entrance", 105, 275, { align: "center" })
 
       // Save the PDF
-      doc.save(`ticket-${ticket.ticketNumber || ticket._id.substring(0, 6)}.pdf`)
+      doc.save(`ticket-${ticketNumber}.pdf`)
 
       toast({
         title: "Success",
@@ -170,23 +184,27 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
     setIsAddingToCalendar(true)
     try {
       // Create Google Calendar URL
-      const startDate = ticket.date ? new Date(ticket.date) : new Date()
+      const startDate = eventDate ? new Date(eventDate) : new Date()
       const endDate = ticket.endDate ? new Date(ticket.endDate) : new Date(startDate)
 
       // If we have start and end times, use them
-      if (ticket.startTime) {
-        const [startHour, startMinute] = ticket.startTime.split(":").map(Number)
-        startDate.setHours(startHour, startMinute, 0)
+      if (startTime && startTime !== "TBD") {
+        const [startHour, startMinute] = startTime.split(":").map(Number)
+        if (!isNaN(startHour) && !isNaN(startMinute)) {
+          startDate.setHours(startHour, startMinute, 0)
+        }
       } else {
         endDate.setHours(startDate.getHours() + 2) // Default 2 hours if no end time
       }
 
-      if (ticket.endTime) {
-        const [endHour, endMinute] = ticket.endTime.split(":").map(Number)
-        endDate.setHours(endHour, endMinute, 0)
+      if (endTime && endTime !== "TBD") {
+        const [endHour, endMinute] = endTime.split(":").map(Number)
+        if (!isNaN(endHour) && !isNaN(endMinute)) {
+          endDate.setHours(endHour, endMinute, 0)
+        }
       }
 
-      const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(ticket.title)}&dates=${startDate
+      const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${startDate
         .toISOString()
         .replace(/-|:|\.\d+/g, "")
         .slice(0, 8)}T${startDate
@@ -201,7 +219,7 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
         .slice(
           9,
           13,
-        )}00Z&details=${encodeURIComponent(`Your ${ticketTypeDisplay} for ${ticket.title}. Ticket #: ${ticket.ticketNumber}`)}&location=${encodeURIComponent(ticket.venue || "")}${encodeURIComponent(ticket.location ? `, ${ticket.location}` : "")}`
+        )}00Z&details=${encodeURIComponent(`Your ${ticketTypeDisplay} for ${eventTitle}. Ticket #: ${ticketNumber}`)}&location=${encodeURIComponent(eventVenue || "")}${encodeURIComponent(eventLocation ? `, ${eventLocation}` : "")}`
 
       window.open(googleCalendarUrl, "_blank")
 
@@ -235,7 +253,7 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
         }
 
         // Format phone number (remove spaces, dashes, etc.)
-        const formattedPhone = phoneNumber.replace(/[\s\-$$$$]/g, "")
+        const formattedPhone = phoneNumber.replace(/[\s\-()]/g, "")
         shareViaWhatsApp(formattedPhone)
       } else {
         // Use the stored phone number
@@ -257,14 +275,14 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
   const shareViaWhatsApp = (phoneNumber: string) => {
     // Create the message text
     const messageText = `
-🎟️ *Event Ticket: ${ticket.title}*
+🎟️ *Event Ticket: ${eventTitle}*
 
 📅 Date: ${formattedDate}
 ⏰ Time: ${startTime} - ${endTime}
-📍 Location: ${ticket.location || "TBD"}
-${ticket.venue ? `🏢 Venue: ${ticket.venue}` : ""}
+📍 Location: ${eventLocation || "TBD"}
+${eventVenue ? `🏢 Venue: ${eventVenue}` : ""}
 
-🎫 Ticket #: ${ticket.ticketNumber}
+🎫 Ticket #: ${ticketNumber}
 🏷️ Type: ${ticketTypeDisplay}
 
 Please present this ticket at the event entrance.
@@ -354,12 +372,12 @@ Please present this ticket at the event entrance.
 
             <div className="text-center mb-4">
               <div className="font-bold text-gray-700 mb-1">ADMIT ONE</div>
-              <div className="text-xs text-gray-500">#{ticket.ticketNumber}</div>
+              <div className="text-xs text-gray-500">#{ticketNumber}</div>
             </div>
 
             <div className="bg-white p-2 rounded-md shadow-sm mb-4 w-32 h-32 flex items-center justify-center">
               <Image
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`TICKET:${ticket._id}:${ticket.ticketType}:${ticket.eventId}`)}`}
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`TICKET:${ticket._id}:${ticketType}:${ticket.eventId || event._id || "unknown"}`)}`}
                 alt="QR Code"
                 width={120}
                 height={120}
@@ -386,7 +404,7 @@ Please present this ticket at the event entrance.
             <div className={`bg-gradient-to-r ${ticketTypeColor} text-white p-6`}>
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="text-2xl font-bold mb-1">{ticket.title}</h3>
+                  <h3 className="text-2xl font-bold mb-1">{eventTitle}</h3>
                   <div className="flex items-center text-sm opacity-90">
                     <Calendar className="h-4 w-4 mr-1.5" />
                     <span>{formattedDate}</span>
@@ -404,12 +422,12 @@ Please present this ticket at the event entrance.
             {/* Ticket body */}
             <div className="p-6 flex-grow">
               {/* Location info */}
-              {(ticket.venue || ticket.location) && (
+              {(eventVenue || eventLocation) && (
                 <div className="flex items-start mb-4 text-gray-700">
                   <MapPin className="h-5 w-5 mr-2 flex-shrink-0 text-gray-500" />
                   <div>
-                    {ticket.venue && <div className="font-medium">{ticket.venue}</div>}
-                    {ticket.location && <div className="text-sm text-gray-600">{ticket.location}</div>}
+                    {eventVenue && <div className="font-medium">{eventVenue}</div>}
+                    {eventLocation && <div className="text-sm text-gray-600">{eventLocation}</div>}
                   </div>
                 </div>
               )}
@@ -418,22 +436,22 @@ Please present this ticket at the event entrance.
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <div className="text-xs text-gray-500 mb-1">Ticket Number</div>
-                  <div className="font-medium">{ticket.ticketNumber}</div>
+                  <div className="font-medium">{ticketNumber}</div>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <div className="text-xs text-gray-500 mb-1">Price</div>
-                  <div className="font-medium">{ticket.price > 0 ? `$${ticket.price.toFixed(2)}` : "Free"}</div>
+                  <div className="font-medium">{ticketPrice > 0 ? `$${ticketPrice.toFixed(2)}` : "Free"}</div>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <div className="text-xs text-gray-500 mb-1">Status</div>
                   <div className="font-medium text-green-600 flex items-center">
                     <Check className="h-4 w-4 mr-1" />
-                    Confirmed
+                    {ticketStatus.charAt(0).toUpperCase() + ticketStatus.slice(1)}
                   </div>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <div className="text-xs text-gray-500 mb-1">Type</div>
-                  <div className="font-medium capitalize">{ticket.ticketType}</div>
+                  <div className="font-medium capitalize">{ticketType}</div>
                 </div>
               </div>
 
@@ -466,9 +484,9 @@ Please present this ticket at the event entrance.
             {/* Ticket footer */}
             <div className="bg-gray-50 p-4 border-t border-gray-200 flex justify-between items-center">
               <div className="text-xs text-gray-500">Issued on {new Date().toLocaleDateString()}</div>
-              {ticket.slug && (
+              {eventSlug && (
                 <Button variant="ghost" size="sm" asChild>
-                  <Link href={`/events/${ticket.slug}`}>
+                  <Link href={`/events/${eventSlug}`}>
                     <ExternalLink className="h-4 w-4 mr-1" />
                     View Event
                   </Link>
