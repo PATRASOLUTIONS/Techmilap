@@ -5,7 +5,7 @@ import { useParams } from "next/navigation"
 import { DynamicForm } from "@/components/forms/dynamic-form"
 import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, AlertCircle } from "lucide-react"
+import { ArrowLeft, AlertCircle, Calendar, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { FormSuccessMessage } from "@/components/ui/form-success-message"
@@ -60,6 +60,8 @@ export default function PublicFormPage() {
   const [error, setError] = useState("")
   const [eventTitle, setEventTitle] = useState("")
   const [formStatus, setFormStatus] = useState("draft")
+  const [eventDate, setEventDate] = useState(null)
+  const [isEventPassed, setIsEventPassed] = useState(false)
 
   // Determine the API endpoint based on the form type
   const apiFormType = formTypeValue === "register" ? "attendee" : formTypeValue
@@ -99,7 +101,7 @@ export default function PublicFormPage() {
         setFormStatus("published")
         setFormFields(data.questions || [])
 
-        // Fetch event title
+        // Fetch event details including date
         const eventResponse = await fetch(`/api/events/${eventId}`, {
           cache: "no-store",
         })
@@ -107,6 +109,26 @@ export default function PublicFormPage() {
         if (eventResponse.ok) {
           const eventData = await eventResponse.json()
           setEventTitle(eventData.title || "Event")
+
+          // Check if event date is available
+          if (eventData.date) {
+            const eventDateTime = new Date(eventData.date)
+            setEventDate(eventDateTime)
+
+            // Check if event has already started or passed
+            const now = new Date()
+
+            // If event has a start time, use it for comparison
+            if (eventData.startTime) {
+              const [hours, minutes] = eventData.startTime.split(":").map(Number)
+              eventDateTime.setHours(hours, minutes, 0, 0)
+            }
+
+            if (now >= eventDateTime) {
+              setIsEventPassed(true)
+              setError("This form is closed because the event has already started or passed.")
+            }
+          }
         }
       } catch (error) {
         console.error("Error fetching form data:", error)
@@ -122,6 +144,16 @@ export default function PublicFormPage() {
   }, [eventId, apiFormType, formTypeValue])
 
   const handleSubmit = async (formData) => {
+    // Prevent submission if event has passed
+    if (isEventPassed) {
+      toast({
+        title: "Form Closed",
+        description: "This form is closed because the event has already started or passed.",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       setSubmitting(true)
       console.log(`Submitting form data for event ${eventId} and form type ${apiFormType}:`, formData)
@@ -186,18 +218,31 @@ export default function PublicFormPage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-2xl font-bold">Form Not Available</h1>
+          <h1 className="text-2xl font-bold">{isEventPassed ? "Form Closed" : "Form Not Available"}</h1>
         </div>
-        <Card className="border-amber-200 bg-amber-50">
+        <Card className={isEventPassed ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"}>
           <CardContent className="pt-6">
             <div className="flex items-center space-x-2 mb-4">
-              <AlertCircle className="h-5 w-5 text-amber-500" />
-              <p className="font-medium text-amber-700">Form Not Available</p>
+              <AlertCircle className={`h-5 w-5 ${isEventPassed ? "text-red-500" : "text-amber-500"}`} />
+              <p className={`font-medium ${isEventPassed ? "text-red-700" : "text-amber-700"}`}>
+                {isEventPassed ? "Event Has Already Started" : "Form Not Available"}
+              </p>
             </div>
             <p className="text-gray-700 mb-4">{error}</p>
-            <p className="text-gray-700 mb-4">
-              The event organizer may still be setting up this form or has chosen not to make it public yet.
-            </p>
+
+            {isEventPassed && eventDate && (
+              <div className="flex flex-col gap-2 mb-4 p-3 bg-white rounded-md">
+                <div className="flex items-center text-gray-600">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  <span>Event Date: {eventDate.toLocaleDateString()}</span>
+                </div>
+                <div className="flex items-center text-gray-600">
+                  <Clock className="h-4 w-4 mr-2" />
+                  <span>Current Time: {new Date().toLocaleTimeString()}</span>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <Button asChild>
                 <Link href={`/events/${eventId}`}>
@@ -232,6 +277,53 @@ export default function PublicFormPage() {
             <p className="text-gray-700 mb-4">
               This form is not currently available. The event organizer has not published it yet.
             </p>
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
+              <Button asChild>
+                <Link href={`/events/${eventId}`}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Event
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Check if event has passed
+  if (isEventPassed) {
+    return (
+      <div className="container max-w-3xl mx-auto py-8 px-4">
+        <div className="flex items-center mb-6">
+          <Button variant="outline" size="icon" asChild className="mr-2">
+            <Link href={`/events/${eventId}`}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <h1 className="text-2xl font-bold">Form Closed</h1>
+        </div>
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              <p className="font-medium text-red-700">Event Has Already Started</p>
+            </div>
+            <p className="text-gray-700 mb-4">This form is closed because the event has already started or passed.</p>
+
+            {eventDate && (
+              <div className="flex flex-col gap-2 mb-4 p-3 bg-white rounded-md">
+                <div className="flex items-center text-gray-600">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  <span>Event Date: {eventDate.toLocaleDateString()}</span>
+                </div>
+                <div className="flex items-center text-gray-600">
+                  <Clock className="h-4 w-4 mr-2" />
+                  <span>Current Time: {new Date().toLocaleTimeString()}</span>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <Button asChild>
                 <Link href={`/events/${eventId}`}>

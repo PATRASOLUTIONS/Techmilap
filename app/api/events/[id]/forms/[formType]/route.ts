@@ -50,15 +50,32 @@ export async function GET(request: Request, { params }: { params: { id: string; 
       questions = event.customQuestions?.speaker || event.forms?.speaker?.questions || []
     }
 
-    console.log(`Form status for ${formType}: ${formStatus}`)
-    console.log(`Questions for ${formType}:`, questions)
+    // Check if event has already started or passed
+    const now = new Date()
+    const eventDate = new Date(event.date)
 
-    // Return the questions and status
+    // If event has a start time, use it for comparison
+    if (event.startTime) {
+      const [hours, minutes] = event.startTime.split(":").map(Number)
+      eventDate.setHours(hours, minutes, 0, 0)
+    }
+
+    const isEventPassed = now >= eventDate
+
+    // If event has passed, override form status to closed
+    if (isEventPassed) {
+      formStatus = "closed"
+    }
+
+    // Return the questions, status, and event details
     return NextResponse.json({
       questions: questions,
       status: formStatus,
       eventTitle: event.title || event.displayName || "Event",
       eventSlug: event.slug || eventId,
+      eventDate: event.date,
+      startTime: event.startTime,
+      isEventPassed: isEventPassed,
     })
   } catch (error) {
     console.error(`Error fetching ${params.formType} form:`, error)
