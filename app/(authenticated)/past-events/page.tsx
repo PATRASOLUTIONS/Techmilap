@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 
 interface Event {
   _id: string
@@ -269,21 +270,33 @@ function EventsLoadingSkeleton() {
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {[1, 2, 3, 4, 5, 6].map((i) => (
-        <Card key={i}>
+        <Card key={i} className="overflow-hidden">
           <CardHeader>
             <div className="flex justify-between items-start">
               <Skeleton className="h-6 w-3/4" />
-              <Skeleton className="h-5 w-16" />
+              <Skeleton className="h-5 w-16 rounded-full" />
             </div>
-            <div className="space-y-2 mt-2">
+            <div className="flex items-center mt-2">
+              <Skeleton className="h-4 w-4 rounded-full mr-2" />
               <Skeleton className="h-4 w-1/2" />
-              <Skeleton className="h-4 w-1/3" />
             </div>
           </CardHeader>
-          <CardContent>
-            <Skeleton className="h-10 w-full" />
+          <CardContent className="pb-4">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-4 w-4 rounded-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </div>
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-4 w-4 rounded-full" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+              <div className="mt-2 pt-2 border-t border-border">
+                <Skeleton className="h-4 w-1/3" />
+              </div>
+            </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="bg-muted/30 pt-3 pb-3">
             <Skeleton className="h-9 w-full" />
           </CardFooter>
         </Card>
@@ -308,44 +321,76 @@ function EventCard({ event, onClick }: { event: Event; onClick: () => void }) {
   })
 
   return (
-    <Card className="cursor-pointer" onClick={onClick}>
-      <CardHeader>
+    <Card
+      className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-md hover:-translate-y-1 relative"
+      onClick={onClick}
+    >
+      {/* Status Ribbon */}
+      {event.status === "completed" && (
+        <div className="absolute top-0 right-0 w-20 h-20 overflow-hidden">
+          <div className="absolute top-0 right-0 transform translate-x-[50%] -translate-y-[50%] rotate-45 bg-green-600 text-white py-1 px-12 text-xs font-semibold">
+            COMPLETED
+          </div>
+        </div>
+      )}
+      {event.status === "cancelled" && (
+        <div className="absolute top-0 right-0 w-20 h-20 overflow-hidden">
+          <div className="absolute top-0 right-0 transform translate-x-[50%] -translate-y-[50%] rotate-45 bg-red-600 text-white py-1 px-12 text-xs font-semibold">
+            CANCELLED
+          </div>
+        </div>
+      )}
+
+      <CardHeader className="pb-2 relative">
         <div className="flex justify-between items-start">
-          <CardTitle>{event.title}</CardTitle>
+          <CardTitle className="text-xl font-bold text-primary">{event.title}</CardTitle>
           <Badge
-            variant="secondary"
-            className={
+            variant="outline"
+            className={cn(
+              "ml-2 capitalize",
               event.status === "cancelled"
-                ? "bg-red-500 text-white"
+                ? "border-red-500 text-red-500"
                 : event.status === "completed"
-                  ? "bg-green-500 text-white"
-                  : "bg-gray-300 text-gray-700"
-            }
+                  ? "border-green-500 text-green-500"
+                  : "border-gray-300 text-gray-700",
+            )}
           >
             {event.status}
           </Badge>
         </div>
-        <CardDescription>
+        <CardDescription className="flex items-center mt-2">
+          <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
           {formattedStartDate}
           {formattedEndDate && ` - ${formattedEndDate}`}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-muted-foreground" />
-          <span>{event.location}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-muted-foreground" />
-          <span>{event.attendees?.length || 0} Attendees</span>
+
+      <CardContent className="pb-4">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-primary" />
+            <span className="text-sm">{event.location}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium">{event.attendees?.length || 0} Attendees</span>
+            {event.capacity > 0 && <span className="text-xs text-muted-foreground">of {event.capacity} capacity</span>}
+          </div>
+
+          {event.userRole && (
+            <div className="mt-2 pt-2 border-t border-border">
+              <span className="text-xs font-medium text-muted-foreground">
+                Your Role: <span className="capitalize text-foreground">{event.userRole}</span>
+              </span>
+            </div>
+          )}
         </div>
       </CardContent>
-      <CardFooter className="text-xs text-muted-foreground justify-between">
-        <span>{event.userRole ? `Your Role: ${event.userRole}` : "No Role Assigned"}</span>
-        <span>
-          <Calendar className="mr-1 inline-block h-4 w-4" />
-          {formattedStartDate}
-        </span>
+
+      <CardFooter className="bg-muted/30 pt-3 pb-3">
+        <Button variant="default" size="sm" className="w-full">
+          View Event Details
+        </Button>
       </CardFooter>
     </Card>
   )
