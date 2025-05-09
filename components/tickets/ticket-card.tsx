@@ -8,7 +8,6 @@ import { Calendar, MapPin, Download, Share2, ExternalLink, Clock, Check, Mail } 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { jsPDF } from "jspdf"
 import "jspdf-autotable"
 
@@ -56,6 +55,8 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
   const ticketPrice = ticket.price || 0
   const ticketStatus = ticket.status || "confirmed"
   const eventSlug = ticket.slug || event.slug
+  const userName = ticket.userName || "Attendee"
+  const userEmail = ticket.userEmail || "No email provided"
 
   // Format date and time
   const formattedDate = eventDate ? format(new Date(eventDate), "MMMM d, yyyy") : "Date TBD"
@@ -77,6 +78,21 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
       volunteer: "from-green-500 to-green-600",
       speaker: "from-purple-500 to-purple-600",
     }[ticketType] || "from-indigo-500 to-indigo-600"
+
+  // Create QR code data with all required information
+  const qrCodeData = JSON.stringify({
+    ticketId: ticket._id,
+    ticketNumber: ticketNumber,
+    eventName: eventTitle,
+    participantName: userName,
+    email: userEmail,
+    designation: ticketTypeDisplay,
+    type: ticketType,
+    eventId: ticket.eventId || event._id || "unknown",
+  })
+
+  // Generate QR code URL
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeData)}`
 
   // Handle download ticket
   const handleDownload = async () => {
@@ -143,16 +159,17 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
       doc.text("Attendee Information", 20, 130)
 
       doc.setFontSize(12)
-      doc.text(`Name: ${ticket.userName || "Not provided"}`, 20, 140)
-      doc.text(`Email: ${ticket.userEmail || "Not provided"}`, 20, 147)
+      doc.text(`Name: ${userName}`, 20, 140)
+      doc.text(`Email: ${userEmail}`, 20, 147)
 
-      // Add QR code placeholder
+      // Add QR code
+      // We'll add a placeholder for the QR code and note that it should be added
       doc.setFillColor(240, 240, 240)
       doc.rect(130, 90, 40, 40, "F")
       doc.setFontSize(8)
       doc.setTextColor(100, 100, 100)
       doc.text("QR Code", 150, 110, { align: "center" })
-      doc.text("Scan for entry", 150, 115, { align: "center" })
+      doc.text("For event check-in", 150, 115, { align: "center" })
 
       // Add footer
       doc.setFontSize(10)
@@ -300,16 +317,6 @@ Please present this ticket at the event entrance.
     })
   }
 
-  // Handle transfer ticket
-  const handleTransfer = () => {
-    setIsTransferring(true)
-    // Simulate delay
-    setTimeout(() => {
-      setIsTransferring(false)
-      alert("Ticket transfer feature coming soon!")
-    }, 1000)
-  }
-
   // Handle send email
   const handleSendEmail = async () => {
     setIsSendingEmail(true)
@@ -375,27 +382,47 @@ Please present this ticket at the event entrance.
               <div className="text-xs text-gray-500">#{ticketNumber}</div>
             </div>
 
-            <div className="bg-white p-2 rounded-md shadow-sm mb-4 w-32 h-32 flex items-center justify-center">
-              <Image
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`TICKET:${ticket._id}:${ticketType}:${ticket.eventId || event._id || "unknown"}`)}`}
-                alt="QR Code"
-                width={120}
-                height={120}
+            {/* QR Code - Fixed with direct img tag as fallback */}
+            <div className="bg-white p-2 rounded-md shadow-sm mb-4 w-32 h-32 flex items-center justify-center relative">
+              {/* Primary QR code with Image component */}
+              <div className="relative w-full h-full">
+                <Image
+                  src={qrCodeUrl || "/placeholder.svg"}
+                  alt="Ticket QR Code"
+                  fill
+                  className="object-contain"
+                  onError={(e) => {
+                    // If Image component fails, we'll show a fallback
+                    console.error("QR code image failed to load with Image component")
+                    const imgElement = e.currentTarget as HTMLImageElement
+                    imgElement.style.display = "none"
+                    const fallbackElement = document.getElementById(`qr-fallback-${ticket._id}`)
+                    if (fallbackElement) {
+                      fallbackElement.style.display = "block"
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Fallback QR code with regular img tag */}
+              <img
+                id={`qr-fallback-${ticket._id}`}
+                src={qrCodeUrl || "/placeholder.svg"}
+                alt="Ticket QR Code (Fallback)"
+                className="w-full h-full object-contain hidden"
+                style={{ display: "none" }}
+                onError={() => {
+                  console.error("QR code image failed to load with fallback img tag")
+                  // If even the fallback fails, show an error message
+                  const fallbackElement = document.getElementById(`qr-fallback-${ticket._id}`)
+                  if (fallbackElement) {
+                    fallbackElement.outerHTML = `<div class="w-full h-full flex items-center justify-center bg-gray-100 text-gray-500 text-xs text-center p-2">QR Code<br/>Unavailable</div>`
+                  }
+                }}
               />
             </div>
 
-            <div className="text-xs text-center text-gray-500 mb-2">Scan for entry</div>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button className={`bg-gradient-to-r ${ticketTypeColor} text-white w-full`}>Check In</Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Check-in available at event</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div className="text-xs text-center text-gray-500 mb-2">For event check-in</div>
           </div>
 
           {/* Right ticket content */}
