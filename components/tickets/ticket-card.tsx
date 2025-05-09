@@ -31,6 +31,7 @@ interface TicketCardProps {
     status: string
     userName?: string
     userEmail?: string
+    userPhone?: string
   }
   index: number
 }
@@ -40,6 +41,7 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
   const [isAddingToCalendar, setIsAddingToCalendar] = useState(false)
   const [isTransferring, setIsTransferring] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const [isSharing, setIsSharing] = useState(false)
   const { toast } = useToast()
 
   // Format date and time
@@ -166,14 +168,23 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
   // Handle add to calendar
   const handleAddToCalendar = () => {
     setIsAddingToCalendar(true)
-    // Simulate delay
-    setTimeout(() => {
-      setIsAddingToCalendar(false)
-
+    try {
       // Create Google Calendar URL
       const startDate = ticket.date ? new Date(ticket.date) : new Date()
       const endDate = ticket.endDate ? new Date(ticket.endDate) : new Date(startDate)
-      endDate.setHours(startDate.getHours() + 2) // Default 2 hours if no end date
+
+      // If we have start and end times, use them
+      if (ticket.startTime) {
+        const [startHour, startMinute] = ticket.startTime.split(":").map(Number)
+        startDate.setHours(startHour, startMinute, 0)
+      } else {
+        endDate.setHours(startDate.getHours() + 2) // Default 2 hours if no end time
+      }
+
+      if (ticket.endTime) {
+        const [endHour, endMinute] = ticket.endTime.split(":").map(Number)
+        endDate.setHours(endHour, endMinute, 0)
+      }
 
       const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(ticket.title)}&dates=${startDate
         .toISOString()
@@ -193,7 +204,82 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
         )}00Z&details=${encodeURIComponent(`Your ${ticketTypeDisplay} for ${ticket.title}. Ticket #: ${ticket.ticketNumber}`)}&location=${encodeURIComponent(ticket.venue || "")}${encodeURIComponent(ticket.location ? `, ${ticket.location}` : "")}`
 
       window.open(googleCalendarUrl, "_blank")
-    }, 1000)
+
+      toast({
+        title: "Calendar Event Created",
+        description: "Event has been added to your calendar",
+      })
+    } catch (error) {
+      console.error("Error adding to calendar:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add event to calendar. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsAddingToCalendar(false)
+    }
+  }
+
+  // Handle share via WhatsApp
+  const handleShare = () => {
+    setIsSharing(true)
+    try {
+      // Check if we have a phone number
+      if (!ticket.userPhone) {
+        // If no phone number is available, prompt the user to enter one
+        const phoneNumber = prompt("Enter the phone number to share this ticket (include country code):")
+        if (!phoneNumber) {
+          setIsSharing(false)
+          return
+        }
+
+        // Format phone number (remove spaces, dashes, etc.)
+        const formattedPhone = phoneNumber.replace(/[\s\-$$$$]/g, "")
+        shareViaWhatsApp(formattedPhone)
+      } else {
+        // Use the stored phone number
+        shareViaWhatsApp(ticket.userPhone)
+      }
+    } catch (error) {
+      console.error("Error sharing ticket:", error)
+      toast({
+        title: "Error",
+        description: "Failed to share ticket. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSharing(false)
+    }
+  }
+
+  // Helper function to share via WhatsApp
+  const shareViaWhatsApp = (phoneNumber: string) => {
+    // Create the message text
+    const messageText = `
+🎟️ *Event Ticket: ${ticket.title}*
+
+📅 Date: ${formattedDate}
+⏰ Time: ${startTime} - ${endTime}
+📍 Location: ${ticket.location || "TBD"}
+${ticket.venue ? `🏢 Venue: ${ticket.venue}` : ""}
+
+🎫 Ticket #: ${ticket.ticketNumber}
+🏷️ Type: ${ticketTypeDisplay}
+
+Please present this ticket at the event entrance.
+    `
+
+    // Create WhatsApp URL
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(messageText)}`
+
+    // Open WhatsApp in a new tab
+    window.open(whatsappUrl, "_blank")
+
+    toast({
+      title: "WhatsApp Opened",
+      description: "Sharing ticket via WhatsApp",
+    })
   }
 
   // Handle transfer ticket
@@ -370,9 +456,9 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
                   <Calendar className="h-4 w-4 mr-2" />
                   {isAddingToCalendar ? "Adding..." : "Add to Calendar"}
                 </Button>
-                <Button variant="outline" className="justify-start" onClick={handleTransfer} disabled={isTransferring}>
+                <Button variant="outline" className="justify-start" onClick={handleShare} disabled={isSharing}>
                   <Share2 className="h-4 w-4 mr-2" />
-                  {isTransferring ? "Processing..." : "Transfer"}
+                  {isSharing ? "Sharing..." : "Share via WhatsApp"}
                 </Button>
               </div>
             </div>

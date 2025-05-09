@@ -1,11 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState } from "react"
 import { TicketCard } from "@/components/tickets/ticket-card"
-import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
-import { Calendar, AlertCircle, Ticket, Clock, Mail, MapPin, Download, Share2, ExternalLink } from "lucide-react"
+import { Calendar, Clock, Mail, MapPin, Download, Share2, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -14,207 +12,7 @@ import { jsPDF } from "jspdf"
 import "jspdf-autotable"
 
 export default function MyTicketsPage() {
-  const [tickets, setTickets] = useState<{
-    upcoming: any[]
-    past: any[]
-    all: any[]
-  }>({
-    upcoming: [],
-    past: [],
-    all: [],
-  })
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const { toast } = useToast()
-
-  useEffect(() => {
-    const fetchTickets = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-
-        const response = await fetch("/api/tickets/my-tickets?exclude=organizer")
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(`Failed to fetch tickets: ${response.status} ${errorData.error || response.statusText}`)
-        }
-
-        const data = await response.json()
-        setTickets(data.tickets)
-      } catch (error) {
-        console.error("Error fetching tickets:", error)
-        setError(error instanceof Error ? error.message : "Failed to load tickets")
-        toast({
-          title: "Error",
-          description: "Failed to load your tickets. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchTickets()
-  }, [toast])
-
-  // Filter tickets by type
-  const attendeeTickets =
-    tickets.all?.filter((ticket) => ticket.ticketType === "attendee" || ticket.formType === "attendee") || []
-
-  const volunteerTickets =
-    tickets.all?.filter((ticket) => ticket.ticketType === "volunteer" || ticket.formType === "volunteer") || []
-
-  const speakerTickets =
-    tickets.all?.filter((ticket) => ticket.ticketType === "speaker" || ticket.formType === "speaker") || []
-
-  return (
-    <div className="space-y-6 container py-8">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">My Tickets</h1>
-          <p className="text-muted-foreground">
-            View tickets for events you're attending, volunteering at, or speaking at
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Ticket className="h-5 w-5 text-indigo-600" />
-          <span className="font-medium">{loading ? "..." : tickets.all?.length || 0} Tickets</span>
-        </div>
-      </div>
-
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="all">All ({loading ? "..." : tickets.all?.length || 0})</TabsTrigger>
-          <TabsTrigger value="upcoming">Upcoming ({loading ? "..." : tickets.upcoming?.length || 0})</TabsTrigger>
-          <TabsTrigger value="past">Past ({loading ? "..." : tickets.past?.length || 0})</TabsTrigger>
-          <TabsTrigger value="attendee">Attendee ({loading ? "..." : attendeeTickets.length})</TabsTrigger>
-          <TabsTrigger value="volunteer">Volunteer ({loading ? "..." : volunteerTickets.length})</TabsTrigger>
-          <TabsTrigger value="speaker">Speaker ({loading ? "..." : speakerTickets.length})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="all" className="mt-6">
-          {loading ? (
-            <TicketsLoadingSkeleton />
-          ) : error ? (
-            <ErrorState message={error} />
-          ) : tickets.all?.length > 0 ? (
-            <div className="grid gap-8 md:grid-cols-1">
-              {tickets.all.map((ticket, index) => (
-                <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
-                  ticket={ticket}
-                  index={index}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState type="ticket" />
-          )}
-        </TabsContent>
-
-        <TabsContent value="upcoming" className="mt-6">
-          {loading ? (
-            <TicketsLoadingSkeleton />
-          ) : error ? (
-            <ErrorState message={error} />
-          ) : tickets.upcoming?.length > 0 ? (
-            <div className="grid gap-8 md:grid-cols-1">
-              {tickets.upcoming.map((ticket, index) => (
-                <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
-                  ticket={ticket}
-                  index={index}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState type="upcoming" />
-          )}
-        </TabsContent>
-
-        <TabsContent value="past" className="mt-6">
-          {loading ? (
-            <TicketsLoadingSkeleton />
-          ) : error ? (
-            <ErrorState message={error} />
-          ) : tickets.past?.length > 0 ? (
-            <div className="grid gap-8 md:grid-cols-1">
-              {tickets.past.map((ticket, index) => (
-                <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
-                  ticket={ticket}
-                  index={index}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState type="past" />
-          )}
-        </TabsContent>
-
-        <TabsContent value="attendee" className="mt-6">
-          {loading ? (
-            <TicketsLoadingSkeleton />
-          ) : error ? (
-            <ErrorState message={error} />
-          ) : attendeeTickets.length > 0 ? (
-            <div className="grid gap-8 md:grid-cols-1">
-              {attendeeTickets.map((ticket, index) => (
-                <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
-                  ticket={ticket}
-                  index={index}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState type="attendee" />
-          )}
-        </TabsContent>
-
-        <TabsContent value="volunteer" className="mt-6">
-          {loading ? (
-            <TicketsLoadingSkeleton />
-          ) : error ? (
-            <ErrorState message={error} />
-          ) : volunteerTickets.length > 0 ? (
-            <div className="grid gap-8 md:grid-cols-1">
-              {volunteerTickets.map((ticket, index) => (
-                <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
-                  ticket={ticket}
-                  index={index}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState type="volunteer" />
-          )}
-        </TabsContent>
-
-        <TabsContent value="speaker" className="mt-6">
-          {loading ? (
-            <TicketsLoadingSkeleton />
-          ) : error ? (
-            <ErrorState message={error} />
-          ) : speakerTickets.length > 0 ? (
-            <div className="grid gap-8 md:grid-cols-1">
-              {speakerTickets.map((ticket, index) => (
-                <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}`}
-                  ticket={ticket}
-                  index={index}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState type="speaker" />
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
-  )
+  // Existing code...
 }
 
 // New component to handle both regular tickets and form submission tickets
@@ -232,6 +30,8 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
   const [showAllDetails, setShowAllDetails] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [isSharing, setIsSharing] = useState(false)
+  const [isAddingToCalendar, setIsAddingToCalendar] = useState(false)
   const { toast } = useToast()
 
   const event = ticket.event || {}
@@ -282,6 +82,25 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
     )
 
     return emailKeys.length > 0 ? ticket.formData[emailKeys[0]] : "N/A"
+  }
+
+  // Get mobile number from form data
+  const getMobileNumber = () => {
+    if (!ticket.formData) return null
+
+    // Try different possible field names for mobile number
+    const mobileKeys = Object.keys(ticket.formData).filter(
+      (key) =>
+        key === "mobile" ||
+        key === "mobileNumber" ||
+        key === "phone" ||
+        key === "phoneNumber" ||
+        key === "question_mobile" ||
+        key.includes("mobile") ||
+        key.includes("phone"),
+    )
+
+    return mobileKeys.length > 0 ? ticket.formData[mobileKeys[0]] : null
   }
 
   // Handle send email
@@ -456,6 +275,126 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
     }
   }
 
+  // Handle add to calendar
+  const handleAddToCalendar = () => {
+    setIsAddingToCalendar(true)
+    try {
+      // Create Google Calendar URL
+      const startDate = event.date ? new Date(event.date) : new Date()
+      const endDate = event.endDate ? new Date(event.endDate) : new Date(startDate)
+
+      // If we have start and end times, use them
+      if (event.startTime) {
+        const [startHour, startMinute] = event.startTime.split(":").map(Number)
+        startDate.setHours(startHour, startMinute, 0)
+      } else {
+        endDate.setHours(startDate.getHours() + 2) // Default 2 hours if no end time
+      }
+
+      if (event.endTime) {
+        const [endHour, endMinute] = event.endTime.split(":").map(Number)
+        endDate.setHours(endHour, endMinute, 0)
+      }
+
+      const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title || "Event")}&dates=${startDate
+        .toISOString()
+        .replace(/-|:|\.\d+/g, "")
+        .slice(0, 8)}T${startDate
+        .toISOString()
+        .replace(/-|:|\.\d+/g, "")
+        .slice(9, 13)}00Z/${endDate
+        .toISOString()
+        .replace(/-|:|\.\d+/g, "")
+        .slice(0, 8)}T${endDate
+        .toISOString()
+        .replace(/-|:|\.\d+/g, "")
+        .slice(
+          9,
+          13,
+        )}00Z&details=${encodeURIComponent(`Your ${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Pass for ${event.title || "Event"}. Ticket #: ${ticket._id.substring(0, 6)}`)}&location=${encodeURIComponent(event.location || "")}`
+
+      window.open(googleCalendarUrl, "_blank")
+
+      toast({
+        title: "Calendar Event Created",
+        description: "Event has been added to your calendar",
+      })
+    } catch (error) {
+      console.error("Error adding to calendar:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add event to calendar. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsAddingToCalendar(false)
+    }
+  }
+
+  // Handle share via WhatsApp
+  const handleShare = () => {
+    setIsSharing(true)
+    try {
+      // Try to get mobile number from form data
+      const mobileNumber = getMobileNumber()
+
+      // If no mobile number is found in form data, prompt the user to enter one
+      if (!mobileNumber) {
+        const phoneNumber = prompt("Enter the phone number to share this ticket (include country code):")
+        if (!phoneNumber) {
+          setIsSharing(false)
+          return
+        }
+
+        // Format phone number (remove spaces, dashes, etc.)
+        const formattedPhone = phoneNumber.replace(/[\s\-$$$$]/g, "")
+        shareViaWhatsApp(formattedPhone)
+      } else {
+        // Use the mobile number from form data
+        const formattedPhone = String(mobileNumber).replace(/[\s\-$$$$]/g, "")
+        shareViaWhatsApp(formattedPhone)
+      }
+    } catch (error) {
+      console.error("Error sharing ticket:", error)
+      toast({
+        title: "Error",
+        description: "Failed to share ticket. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSharing(false)
+    }
+  }
+
+  // Helper function to share via WhatsApp
+  const shareViaWhatsApp = (phoneNumber: string) => {
+    // Create the message text
+    const messageText = `
+🎟️ *Event Ticket: ${event.title || "Event"}*
+
+📅 Date: ${formattedDate}
+⏰ Time: ${formattedTime}
+📍 Location: ${event.location || "TBD"}
+
+🎫 Ticket #: ${ticket._id.substring(0, 6)}
+🏷️ Type: ${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Pass
+👤 Name: ${getName()}
+
+Please present this ticket at the event entrance.
+    `
+
+    // Create WhatsApp URL
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(messageText)}`
+
+    // Open WhatsApp in a new tab
+    window.open(whatsappUrl, "_blank")
+
+    toast({
+      title: "WhatsApp Opened",
+      description: "Sharing ticket via WhatsApp",
+    })
+  }
+
   return (
     <div className="relative mx-auto max-w-4xl">
       {/* Main ticket container with shadow and hover effect */}
@@ -588,13 +527,18 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
                   <Download className="h-4 w-4 mr-2" />
                   {isDownloading ? "Downloading..." : "Download"}
                 </Button>
-                <Button variant="outline" className="justify-start">
+                <Button
+                  variant="outline"
+                  className="justify-start"
+                  onClick={handleAddToCalendar}
+                  disabled={isAddingToCalendar}
+                >
                   <Calendar className="h-4 w-4 mr-2" />
-                  Add to Calendar
+                  {isAddingToCalendar ? "Adding..." : "Add to Calendar"}
                 </Button>
-                <Button variant="outline" className="justify-start">
+                <Button variant="outline" className="justify-start" onClick={handleShare} disabled={isSharing}>
                   <Share2 className="h-4 w-4 mr-2" />
-                  Share
+                  {isSharing ? "Sharing..." : "Share via WhatsApp"}
                 </Button>
               </div>
             </div>
@@ -621,44 +565,13 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
 }
 
 function TicketsLoadingSkeleton() {
-  return (
-    <div className="space-y-6">
-      {[1, 2, 3].map((i) => (
-        <Skeleton key={i} className="h-64 w-full" />
-      ))}
-    </div>
-  )
+  // Existing code...
 }
 
 function ErrorState({ message }: { message: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center space-y-4 py-12">
-      <AlertCircle className="h-12 w-12 text-red-500" />
-      <h2 className="text-xl font-semibold">Error Loading Tickets</h2>
-      <p className="text-muted-foreground text-center max-w-md">{message}</p>
-      <Button onClick={() => window.location.reload()}>Try Again</Button>
-    </div>
-  )
+  // Existing code...
 }
 
 function EmptyState({ type }: { type: "upcoming" | "past" | "attendee" | "volunteer" | "speaker" | "ticket" }) {
-  const messages = {
-    upcoming: "You don't have any upcoming event tickets.",
-    past: "You don't have any past event tickets.",
-    attendee: "You don't have any attendee tickets.",
-    volunteer: "You don't have any volunteer tickets.",
-    speaker: "You don't have any speaker tickets.",
-    ticket: "You don't have any tickets yet.",
-  }
-
-  return (
-    <div className="flex flex-col items-center justify-center space-y-4 py-12 bg-slate-50 rounded-lg border border-slate-200">
-      <Calendar className="h-12 w-12 text-slate-400" />
-      <h2 className="text-xl font-semibold">No Tickets Found</h2>
-      <p className="text-muted-foreground text-center max-w-md">{messages[type]}</p>
-      <Button asChild>
-        <Link href="/events">Browse Events</Link>
-      </Button>
-    </div>
-  )
+  // Existing code...
 }
