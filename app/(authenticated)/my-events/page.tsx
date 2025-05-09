@@ -370,57 +370,6 @@ function EventCard({ event, onClick, onManageClick, isPast = false }) {
   // Get email from application details
   const contactEmail = findEmailFromApplicationDetails(event.applicationDetails)
 
-  // Determine card style based on user role and past status
-  const getRoleStyles = () => {
-    // Add opacity for past events
-    const pastModifier = isPast ? "opacity-75 " : ""
-
-    switch (event.userRole) {
-      case "organizer":
-        return `${pastModifier}border-primary/30 bg-primary/5`
-      case "speaker":
-        return `${pastModifier}border-secondary/30 bg-secondary/5`
-      case "volunteer":
-        return `${pastModifier}border-amber-500/30 bg-amber-500/5`
-      case "attendee":
-        return `${pastModifier}border-emerald-500/30 bg-emerald-500/5`
-      default:
-        return pastModifier
-    }
-  }
-
-  // Get role icon
-  const getRoleIcon = () => {
-    switch (event.userRole) {
-      case "organizer":
-        return <Edit className="h-4 w-4 text-primary" />
-      case "speaker":
-        return <Mic className="h-4 w-4 text-secondary" />
-      case "volunteer":
-        return <HandHelping className="h-4 w-4 text-amber-500" />
-      case "attendee":
-        return <User className="h-4 w-4 text-emerald-500" />
-      default:
-        return <Calendar className="h-4 w-4" />
-    }
-  }
-
-  // Get role badge
-  const getRoleBadge = () => {
-    switch (event.userRole) {
-      case "organizer":
-        return <Badge className="bg-primary/20 text-primary border-primary/30">Organizer</Badge>
-      case "speaker":
-        return <Badge className="bg-secondary/20 text-secondary border-secondary/30">Speaker</Badge>
-      case "volunteer":
-        return <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30">Volunteer</Badge>
-      case "attendee":
-        return <Badge className="bg-emerald-500/20 text-emerald-600 border-emerald-500/30">Attendee</Badge>
-      default:
-        return null
-    }
-  }
-
   // Get status badge based on event status
   const getStatusBadge = () => {
     if (!event.status) return null
@@ -489,92 +438,95 @@ function EventCard({ event, onClick, onManageClick, isPast = false }) {
 
   return (
     <Card
-      className="overflow-hidden flex flex-col h-full cursor-pointer transition-shadow hover:shadow-md relative"
+      className="overflow-hidden flex flex-col h-full cursor-pointer transition-all hover:shadow-lg relative group bg-white border-slate-200"
       onClick={handleCardClick}
     >
-      {/* Add completed overlay for past events */}
+      {/* Diagonal ribbon for completed events */}
       {isPast && event.status.toLowerCase() !== "cancelled" && (
-        <div className="absolute inset-0 overflow-hidden z-10 pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rotate-[-35deg] bg-green-500/20 text-green-700 font-bold text-2xl py-2 px-8 border-2 border-green-500/30 rounded-md w-[150%] text-center">
-            COMPLETED
+        <div className="absolute top-0 right-0 w-full h-full overflow-hidden pointer-events-none z-10">
+          <div className="absolute top-[22px] right-[-55px] bg-red-600 text-white font-bold py-1 w-[230px] text-center transform rotate-45 shadow-md">
+            <span className="flex items-center justify-center gap-2">
+              <span className="text-lg">✕</span> EVENT COMPLETED
+            </span>
           </div>
         </div>
       )}
 
-      <CardHeader>
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-xl">{event.title}</CardTitle>
-          <div className="flex gap-2">
-            {getStatusBadge()}
-            {getRoleBadge()}
+      {/* Cancelled ribbon */}
+      {event.status.toLowerCase() === "cancelled" && (
+        <div className="absolute top-0 right-0 w-full h-full overflow-hidden pointer-events-none z-10">
+          <div className="absolute top-[22px] right-[-55px] bg-gray-600 text-white font-bold py-1 w-[230px] text-center transform rotate-45 shadow-md">
+            CANCELLED
           </div>
         </div>
-        <CardDescription>
-          <div className="flex items-center gap-1">
-            <Calendar className="h-3.5 w-3.5" />
-            <span>{formattedDate}</span>
+      )}
+
+      <CardHeader className="p-5 pb-3 bg-gradient-to-r from-slate-50 to-white border-b">
+        <div className="flex justify-between items-start">
+          <CardTitle className="text-xl font-bold text-primary line-clamp-1">{event.title}</CardTitle>
+          <div className="flex gap-2 z-20">{getStatusBadge()}</div>
+        </div>
+        <CardDescription className="mt-2 space-y-1.5">
+          <div className="flex items-center gap-1.5 text-slate-700">
+            <Calendar className="h-4 w-4 text-primary" />
+            <span className="font-medium">{formattedDate}</span>
           </div>
-          <div className="flex items-center gap-1 mt-1">
-            <MapPin className="h-3.5 w-3.5" />
+          <div className="flex items-center gap-1.5 text-slate-700">
+            <MapPin className="h-4 w-4 text-primary" />
             <span className="truncate">{event.location}</span>
           </div>
-          <div className="flex items-center gap-1 mt-1">
-            <Users className="h-3.5 w-3.5" />
+          <div className="flex items-center gap-1.5 text-slate-700">
+            <Users className="h-4 w-4 text-primary" />
             <span>
-              {attendeesCount} / {event.capacity || "∞"} attendees
+              <span className="font-medium">{attendeesCount}</span> / {event.capacity || "∞"} attendees
             </span>
           </div>
-          {contactEmail && (
-            <div className="flex items-center gap-1 mt-1">
-              <Mail className="h-3.5 w-3.5 text-blue-500" />
-              <span className="truncate text-blue-600">{contactEmail}</span>
-            </div>
-          )}
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="flex items-center gap-2 mb-3 p-2 bg-muted/50 rounded-md">
-          {getRoleIcon()}
-          <span className="font-medium">{getParticipationStatus()}</span>
+
+      <CardContent className="p-5 pt-4 flex-grow">
+        <div className="flex items-center gap-2 mb-3 p-2.5 bg-slate-50 rounded-md border border-slate-100">
+          <Edit className="h-4 w-4 text-primary" />
+          <span className="font-medium text-slate-800">{getParticipationStatus()}</span>
         </div>
 
         {event.userRole === "organizer" && (
           <>
-            <h3 className="font-medium mb-2">Form Management</h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between p-2 rounded-md hover:bg-accent transition-colors">
+            <h3 className="font-medium mb-2 text-slate-800">Form Management</h3>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between p-2 rounded-md hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-2">
                   <Edit className="h-4 w-4 text-primary" />
-                  <span>Event Page</span>
+                  <span className="text-slate-700">Event Page</span>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <ChevronRight className="h-4 w-4 text-slate-400" />
               </div>
 
-              <div className="flex items-center justify-between p-2 rounded-md hover:bg-accent transition-colors">
+              <div className="flex items-center justify-between p-2 rounded-md hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-2">
                   <HandHelping className="h-4 w-4 text-primary" />
-                  <span>Volunteer Form</span>
+                  <span className="text-slate-700">Volunteer Form</span>
                 </div>
                 {hasVolunteerForm ? (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
                     Configured
                   </Badge>
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <ChevronRight className="h-4 w-4 text-slate-400" />
                 )}
               </div>
 
-              <div className="flex items-center justify-between p-2 rounded-md hover:bg-accent transition-colors">
+              <div className="flex items-center justify-between p-2 rounded-md hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-2">
                   <Mic className="h-4 w-4 text-primary" />
-                  <span>Speaker Form</span>
+                  <span className="text-slate-700">Speaker Form</span>
                 </div>
                 {hasSpeakerForm ? (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
                     Configured
                   </Badge>
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <ChevronRight className="h-4 w-4 text-slate-400" />
                 )}
               </div>
             </div>
@@ -582,9 +534,9 @@ function EventCard({ event, onClick, onManageClick, isPast = false }) {
             {/* Application Details Section */}
             {contactEmail && (
               <div className="mt-4 p-3 bg-blue-50 rounded-md border border-blue-100">
-                <h4 className="font-medium text-blue-700 mb-2 flex items-center">
+                <h4 className="font-medium text-blue-700 mb-1 flex items-center">
                   <Mail className="h-4 w-4 mr-1" />
-                  Application Contact
+                  Contact Email
                 </h4>
                 <p className="text-sm text-blue-600 break-all">{contactEmail}</p>
               </div>
@@ -592,16 +544,23 @@ function EventCard({ event, onClick, onManageClick, isPast = false }) {
           </>
         )}
       </CardContent>
-      <CardFooter className="flex justify-between">
+
+      <CardFooter className="flex justify-between p-4 bg-slate-50 border-t">
         {event.userRole === "organizer" ? (
           <>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={onManageClick}>
-                <Settings className="h-4 w-4 mr-2" />
-                Manage
-              </Button>
-            </div>
-            <Button size="sm" asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                onManageClick(e)
+              }}
+              className="bg-white hover:bg-slate-100"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Manage
+            </Button>
+            <Button size="sm" asChild className="bg-primary hover:bg-primary/90">
               <Link href={`/events/${event.slug || event._id}`} target="_blank" onClick={(e) => e.stopPropagation()}>
                 <ExternalLink className="h-4 w-4 mr-2" />
                 View Live
@@ -609,8 +568,8 @@ function EventCard({ event, onClick, onManageClick, isPast = false }) {
             </Button>
           </>
         ) : (
-          <Button size="sm" className="w-full" asChild>
-            <Link href={`/my-events/details/${event.slug || event._id}`}>View Details</Link>
+          <Button size="sm" className="w-full bg-primary hover:bg-primary/90">
+            View Details
           </Button>
         )}
       </CardFooter>
