@@ -1,111 +1,98 @@
-import Link from "next/link"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { CalendarIcon, MapPinIcon, Clock, Users } from "lucide-react"
-import { format } from "date-fns"
-import Image from "next/image"
+"use client"
 
-interface Event {
-  _id: string
-  slug?: string
-  title: string
-  description?: string
-  date?: string
-  endDate?: string
-  location?: string
-  image?: string
-  category?: string
-  tags?: string[]
-  price?: number
-  capacity?: number
-  organizerInfo?: {
-    name: string
-    email: string
-  }
-  eventType?: "recent" | "upcoming" | "past"
+import Link from "next/link"
+import Image from "next/image"
+import { Calendar, MapPin, Clock } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+
+interface PublicEventCardProps {
+  event: any
 }
 
-export function PublicEventCard({ event }: { event: Event }) {
-  // Handle potential missing or invalid date
-  let formattedDate = "Date TBA"
-  let formattedTime = "Time TBA"
+export function PublicEventCard({ event }: PublicEventCardProps) {
+  // Format date with fallback
+  const eventDate = event.date ? new Date(event.date) : null
+  const formattedDate = eventDate
+    ? eventDate.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "Date TBA"
 
-  try {
-    if (event.date) {
-      const eventDate = new Date(event.date)
-      if (!isNaN(eventDate.getTime())) {
-        formattedDate = format(eventDate, "EEEE, MMMM d, yyyy")
-        formattedTime = format(eventDate, "h:mm a")
-      }
-    }
-  } catch (error) {
-    console.error(`Error formatting date for event ${event._id}:`, error)
-  }
+  // Format time with fallback
+  const formattedTime = eventDate
+    ? eventDate.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+    : "Time TBA"
 
-  // Use slug if available, otherwise use _id
-  const eventId = event.slug || event._id.toString()
-
-  // Default placeholder image if none provided
-  const imageSrc = event.image || "/placeholder.svg?height=400&width=600&query=tech+event"
+  // Get organizer name
+  const organizerName =
+    typeof event.organizer === "object"
+      ? `${event.organizer.firstName || ""} ${event.organizer.lastName || ""}`.trim()
+      : "Event Organizer"
 
   return (
-    <Link href={`/events/${eventId}`} className="group">
-      <Card className="overflow-hidden border-none shadow-md transition-all duration-200 hover:shadow-lg h-full">
-        <div className="relative aspect-video overflow-hidden">
-          <Image
-            src={imageSrc || "/placeholder.svg"}
-            alt={event.title}
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-            priority={false}
-            loading="lazy"
-          />
-          <div className="absolute top-3 left-3 flex flex-wrap gap-2">
-            {event.category && <Badge className="bg-primary/90 hover:bg-primary text-white">{event.category}</Badge>}
-            {event.eventType === "recent" && (
-              <Badge className="bg-green-500/90 hover:bg-green-500 text-white">New</Badge>
-            )}
-            {event.eventType === "past" && <Badge className="bg-gray-500/90 hover:bg-gray-500 text-white">Past</Badge>}
+    <Card className="overflow-hidden flex flex-col h-full border-gray-200 group">
+      <div className="relative h-52 overflow-hidden">
+        <Image
+          src={event.image || "/community-celebration.png"}
+          alt={event.title}
+          fill
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
+          onError={(e) => {
+            // @ts-ignore - fallback to default image
+            e.target.src = "/community-celebration.png"
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+        {event.category && (
+          <Badge className="absolute top-3 right-3 bg-primary hover:bg-primary/90 text-white font-medium px-3 py-1">
+            {event.category}
+          </Badge>
+        )}
+      </div>
+      <CardHeader className="pb-2 pt-4">
+        <CardTitle className="line-clamp-1 text-xl font-bold group-hover:text-primary transition-colors">
+          {event.title}
+        </CardTitle>
+        <p className="text-sm text-muted-foreground mt-1">
+          {organizerName !== "" ? `Organized by ${organizerName}` : ""}
+        </p>
+      </CardHeader>
+      <CardContent className="pb-2 flex-grow space-y-3">
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center">
+            <Calendar className="h-4 w-4 mr-2 text-primary" />
+            <span className="text-gray-700">{formattedDate}</span>
           </div>
-        </div>
-        <CardContent className="p-5">
-          <h3 className="text-xl font-bold mb-2 line-clamp-2 group-hover:text-primary transition-colors">
-            {event.title}
-          </h3>
-
-          <div className="space-y-2 mt-4 text-sm">
-            <div className="flex items-center gap-2">
-              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-              <span>{formattedDate}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <span>{formattedTime}</span>
-            </div>
-            {event.location && (
-              <div className="flex items-center gap-2">
-                <MapPinIcon className="h-4 w-4 text-muted-foreground" />
-                <span className="line-clamp-1">{event.location}</span>
-              </div>
-            )}
-            {event.organizerInfo?.name && (
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="line-clamp-1">By {event.organizerInfo.name}</span>
-              </div>
-            )}
+          <div className="flex items-center">
+            <Clock className="h-4 w-4 mr-2 text-primary" />
+            <span className="text-gray-700">{formattedTime}</span>
           </div>
-
-          {event.price !== undefined && (
-            <div className="mt-4">
-              <Badge variant="outline" className="text-primary border-primary">
-                {event.price === 0 ? "Free" : `$${event.price}`}
-              </Badge>
+          {event.location && (
+            <div className="flex items-center">
+              <MapPin className="h-4 w-4 mr-2 text-primary" />
+              <span className="line-clamp-1 text-gray-700">{event.location}</span>
             </div>
           )}
-        </CardContent>
-      </Card>
-    </Link>
+        </div>
+        {event.description && (
+          <p className="mt-3 text-sm line-clamp-2 text-gray-600 group-hover:text-gray-800 transition-colors">
+            {event.description}
+          </p>
+        )}
+      </CardContent>
+      <CardFooter className="pt-2 pb-4">
+        <Button asChild variant="default" className="w-full">
+          <Link href={`/events/${event.slug || event._id}`}>View Details</Link>
+        </Button>
+      </CardFooter>
+    </Card>
   )
 }

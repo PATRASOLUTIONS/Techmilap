@@ -4,7 +4,7 @@ import type React from "react"
 
 import Link from "next/link"
 import Image from "next/image"
-import { Calendar, MapPin, Clock } from "lucide-react"
+import { Calendar, MapPin, Clock, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -13,9 +13,10 @@ import { useRouter } from "next/navigation"
 interface EventCardProps {
   event: any
   onClick?: () => void
+  showRegisterButton?: boolean
 }
 
-export function EventCard({ event, onClick }: EventCardProps) {
+export function EventCard({ event, onClick, showRegisterButton = false }: EventCardProps) {
   const router = useRouter()
 
   // Handle card click to navigate to explore page
@@ -29,7 +30,7 @@ export function EventCard({ event, onClick }: EventCardProps) {
     if (onClick) {
       onClick()
     } else {
-      router.push(`/explore/${event.slug || event._id}`)
+      router.push(`/my-events/details/${event.slug || event._id}`)
     }
   }
 
@@ -60,20 +61,21 @@ export function EventCard({ event, onClick }: EventCardProps) {
 
   return (
     <Card
-      className="overflow-hidden flex flex-col h-full cursor-pointer transition-all duration-300 hover:shadow-lg border-gray-200 hover:border-primary/20"
+      className="overflow-hidden flex flex-col h-full cursor-pointer transition-all duration-300 hover:shadow-lg border-gray-200 hover:border-primary/20 group"
       onClick={handleCardClick}
     >
-      <div className="relative h-48 overflow-hidden">
+      <div className="relative h-52 overflow-hidden">
         <Image
           src={event.image || "/community-celebration.png"}
           alt={event.title}
           fill
-          className="object-cover transition-transform duration-500 hover:scale-105"
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
           onError={(e) => {
             // @ts-ignore - fallback to default image
             e.target.src = "/community-celebration.png"
           }}
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         {event.category && (
           <Badge className="absolute top-3 right-3 bg-primary hover:bg-primary/90 text-white font-medium px-3 py-1">
             {event.category}
@@ -81,7 +83,9 @@ export function EventCard({ event, onClick }: EventCardProps) {
         )}
       </div>
       <CardHeader className="pb-2 pt-4">
-        <CardTitle className="line-clamp-1 text-xl font-bold">{event.title}</CardTitle>
+        <CardTitle className="line-clamp-1 text-xl font-bold group-hover:text-primary transition-colors">
+          {event.title}
+        </CardTitle>
         <p className="text-sm text-muted-foreground mt-1">
           {organizerName !== "" ? `Organized by ${organizerName}` : ""}
         </p>
@@ -103,12 +107,29 @@ export function EventCard({ event, onClick }: EventCardProps) {
             </div>
           )}
         </div>
-        {event.description && <p className="mt-3 text-sm line-clamp-2 text-gray-600">{event.description}</p>}
+        {event.description && (
+          <p className="mt-3 text-sm line-clamp-2 text-gray-600 group-hover:text-gray-800 transition-colors">
+            {event.description}
+          </p>
+        )}
       </CardContent>
-      <CardFooter className="pt-2 pb-4">
-        <Button asChild variant="default" className="w-full">
-          <Link href={`/events/${event.slug || event._id}`}>View Details</Link>
+      <CardFooter className="pt-2 pb-4 flex gap-2">
+        <Button
+          asChild
+          variant="default"
+          className={`${showRegisterButton ? "flex-1" : "w-full"} group-hover:bg-primary/90 transition-colors`}
+        >
+          <Link href={`/my-events/details/${event.slug || event._id}`} className="flex items-center justify-center">
+            View Details
+            <ArrowRight className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-x-0 group-hover:translate-x-1 transition-transform" />
+          </Link>
         </Button>
+
+        {showRegisterButton && (
+          <Button asChild variant="outline" className="flex-1 hover:bg-primary/10 transition-colors">
+            <Link href={`/events/${event.slug || event._id}/register`}>Register</Link>
+          </Button>
+        )}
       </CardFooter>
     </Card>
   )
