@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
+import mongoose from "mongoose"
+import Event from "@/models/Event"
 
 // Get form questions for a specific form type
 export async function GET(request: Request, { params }: { params: { id: string; formType: string } }) {
@@ -13,38 +14,51 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     }
 
     // Connect to database
-    const client = await connectToDatabase()
-    const db = client.db()
+    await connectToDatabase()
+
+    // Check if the ID is a valid MongoDB ObjectId
+    const isValidObjectId = mongoose.isValidObjectId(eventId)
 
     // Get the event
-    const event = await db.collection("events").findOne({
-      _id: new ObjectId(eventId),
-    })
+    let event
+    if (isValidObjectId) {
+      event = await Event.findById(eventId).lean()
+    }
+
+    // If not found by ID or not a valid ObjectId, try to find by slug
+    if (!event) {
+      event = await Event.findOne({ slug: eventId }).lean()
+    }
 
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
     // Get the form status based on form type
-    let formStatus = "draft"
-    if (formType === "attendee" && event.attendeeForm) {
-      formStatus = event.attendeeForm.status || "draft"
-    } else if (formType === "volunteer" && event.volunteerForm) {
-      formStatus = event.volunteerForm.status || "draft"
-    } else if (formType === "speaker" && event.speakerForm) {
-      formStatus = event.speakerForm.status || "draft"
+    let formStatus = "published" // Default to published for public access
+    let questions = []
+
+    if (formType === "attendee") {
+      // For backward compatibility, check both attendeeForm and forms.attendee
+      formStatus = event.attendeeForm?.status || event.forms?.attendee?.status || "published"
+      questions = event.customQuestions?.attendee || event.forms?.attendee?.questions || []
+    } else if (formType === "volunteer") {
+      formStatus = event.volunteerForm?.status || event.forms?.volunteer?.status || "published"
+      questions = event.customQuestions?.volunteer || event.forms?.volunteer?.questions || []
+    } else if (formType === "speaker") {
+      formStatus = event.speakerForm?.status || event.forms?.speaker?.status || "published"
+      questions = event.customQuestions?.speaker || event.forms?.speaker?.questions || []
     }
 
-    // Safely get questions
-    let questions = []
-    if (event.customQuestions && Array.isArray(event.customQuestions[formType])) {
-      questions = event.customQuestions[formType]
-    }
+    console.log(`Form status for ${formType}: ${formStatus}`)
+    console.log(`Questions for ${formType}:`, questions)
 
     // Return the questions and status
     return NextResponse.json({
       questions: questions,
       status: formStatus,
+      eventTitle: event.title || event.displayName || "Event",
+      eventSlug: event.slug || eventId,
     })
   } catch (error) {
     console.error(`Error fetching ${params.formType} form:`, error)

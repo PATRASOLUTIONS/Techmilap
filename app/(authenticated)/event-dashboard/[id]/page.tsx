@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import MarkdownEditor from "@/components/markdown-editor"
 import { EventCreationForm } from "@/components/events/event-creation-form"
+import { PublishAllFormsButton } from "@/components/events/publish-all-forms-button"
 
 export default function EventDashboardPage() {
   const { id } = useParams() || {}
@@ -586,6 +587,9 @@ export default function EventDashboardPage() {
         </TabsContent>
 
         <TabsContent value="forms" className="space-y-4">
+          <div className="flex justify-end mb-4">
+            <PublishAllFormsButton eventId={id.toString()} onSuccess={() => router.refresh()} />
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardHeader>
