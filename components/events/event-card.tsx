@@ -3,7 +3,7 @@
 import type React from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Calendar, MapPin, Clock, ArrowRight, Ticket } from "lucide-react"
+import { Calendar, MapPin, Clock, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
@@ -28,7 +28,7 @@ export function EventCard({ event, onClick, showRegisterButton = false }: EventC
     if (onClick) {
       onClick()
     } else {
-      router.push(`/my-events/details/${event.slug || event._id}`)
+      router.push(`/explore/${event.slug || event._id}`)
     }
   }
 
@@ -73,10 +73,10 @@ export function EventCard({ event, onClick, showRegisterButton = false }: EventC
       <div className="relative bg-white rounded-xl overflow-hidden h-full flex flex-col shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
         {/* Ticket Stub - Left Side */}
         <div className="absolute left-0 top-0 bottom-0 w-[60px] bg-gray-50 border-r border-dashed border-gray-200 hidden sm:flex flex-col items-center justify-center z-10">
-          <div className="bg-primary text-white text-center py-1 px-2 text-xs font-bold w-full">{month}</div>
+          <div className="bg-gradient-to-r from-blue-400 to-blue-600 text-white text-center py-1 px-2 text-xs font-bold w-full">
+            {month}
+          </div>
           <div className="text-center py-2 font-bold text-2xl text-gray-800">{day}</div>
-          <div className="h-px w-10 bg-gray-200 my-2"></div>
-          <Ticket className="h-5 w-5 text-primary rotate-90 my-2" />
           <div className="h-px w-10 bg-gray-200 my-2"></div>
           <div className="text-xs font-mono text-gray-500 rotate-90 tracking-widest mt-4">
             #{ticketNumber.slice(0, 4)}
@@ -101,20 +101,22 @@ export function EventCard({ event, onClick, showRegisterButton = false }: EventC
 
             {/* Small Date Stub (mobile only) */}
             <div className="absolute top-3 left-3 bg-white rounded-lg overflow-hidden shadow-md sm:hidden">
-              <div className="bg-primary text-white text-center py-1 px-3 text-xs font-bold">{month}</div>
+              <div className="bg-gradient-to-r from-blue-400 to-blue-600 text-white text-center py-1 px-3 text-xs font-bold">
+                {month}
+              </div>
               <div className="text-center py-1 px-3 font-bold text-lg">{day}</div>
             </div>
 
             {/* Category Badge */}
             {event.category && (
-              <Badge className="absolute top-3 right-3 bg-primary/90 hover:bg-primary text-white font-medium px-3 py-1">
+              <Badge className="absolute top-3 right-3 bg-blue-500 hover:bg-blue-600 text-white font-medium px-3 py-1">
                 {event.category}
               </Badge>
             )}
 
             {/* Title on image */}
             <div className="absolute bottom-0 left-0 right-0 p-4">
-              <h3 className="text-xl font-bold text-white line-clamp-1 group-hover:text-primary/90 transition-colors">
+              <h3 className="text-xl font-bold text-white line-clamp-1 group-hover:text-blue-200 transition-colors">
                 {event.title}
               </h3>
               <p className="text-xs text-white/80 mt-1">
@@ -136,16 +138,16 @@ export function EventCard({ event, onClick, showRegisterButton = false }: EventC
           <div className="p-4 flex-grow space-y-3">
             <div className="space-y-2 text-sm">
               <div className="flex items-center">
-                <Calendar className="h-4 w-4 mr-2 text-primary" />
+                <Calendar className="h-4 w-4 mr-2 text-blue-500" />
                 <span className="text-gray-700">{formattedDate}</span>
               </div>
               <div className="flex items-center">
-                <Clock className="h-4 w-4 mr-2 text-primary" />
+                <Clock className="h-4 w-4 mr-2 text-blue-500" />
                 <span className="text-gray-700">{formattedTime}</span>
               </div>
               {event.location && (
                 <div className="flex items-center">
-                  <MapPin className="h-4 w-4 mr-2 text-primary" />
+                  <MapPin className="h-4 w-4 mr-2 text-blue-500" />
                   <span className="line-clamp-1 text-gray-700">{event.location}</span>
                 </div>
               )}
@@ -157,29 +159,25 @@ export function EventCard({ event, onClick, showRegisterButton = false }: EventC
               </p>
             )}
 
-            {/* Ticket Number - Bottom */}
-            <div className="pt-1 pb-2">
-              <p className="text-[10px] font-mono text-gray-400">TICKET #{ticketNumber}</p>
-            </div>
-
             {/* Buttons */}
-            <div className="pt-1 flex gap-2">
+            <div className="pt-3 flex gap-2">
               <Button
                 asChild
                 variant="default"
-                className={`${showRegisterButton ? "flex-1" : "w-full"} group-hover:bg-primary/90 transition-colors`}
+                className={`${showRegisterButton ? "flex-1" : "w-full"} bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 transition-colors`}
               >
-                <Link
-                  href={`/my-events/details/${event.slug || event._id}`}
-                  className="flex items-center justify-center"
-                >
+                <Link href={`/explore/${event.slug || event._id}`} className="flex items-center justify-center">
                   View Details
                   <ArrowRight className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-x-0 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </Button>
 
               {showRegisterButton && (
-                <Button asChild variant="outline" className="flex-1 hover:bg-primary/10 transition-colors">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="flex-1 text-blue-600 border-blue-200 hover:bg-blue-50 transition-colors"
+                >
                   <Link href={`/events/${event.slug || event._id}/register`}>Register</Link>
                 </Button>
               )}
