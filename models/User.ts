@@ -359,4 +359,5 @@ UserSchema.index({ firstName: "text", lastName: "text", email: "text" })
 UserSchema.index({ role: 1, isVerified: 1 })
 UserSchema.index({ email: 1, isVerified: 1 })
 
-export default mongoose.models.User || mongoose.model<IUser>("User", UserSchema)
+const User = mongoose.models.User || mongoose.model<IUser>("User", UserSchema)
+export default User

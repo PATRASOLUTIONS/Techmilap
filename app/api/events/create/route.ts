@@ -6,7 +6,7 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { ObjectId } from "mongodb"
 import { z } from "zod"
-import mongoose from "mongoose"
+import User from "@/models/User"
 
 // Define validation schema for event details
 const EventDetailsSchema = z.object({
@@ -262,7 +262,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update user's createdEvents array
-    await mongoose.model("User").findByIdAndUpdate(session.user.id, { $addToSet: { createdEvents: event._id } })
+    await User.findByIdAndUpdate(session.user.id, { $addToSet: { createdEvents: event._id } })
 
     return NextResponse.json(
       {
