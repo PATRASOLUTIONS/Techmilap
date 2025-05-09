@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Trash2, Plus, GripVertical } from "lucide-react"
+import { Trash2, Plus, GripVertical, RefreshCw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface CustomQuestionsFormProps {
@@ -36,9 +36,9 @@ export function CustomQuestionsForm({
 
   // Form publish status
   const [publishStatus, setPublishStatus] = useState({
-    attendee: initialFormStatus?.attendee === "published",
-    volunteer: initialFormStatus?.volunteer === "published",
-    speaker: initialFormStatus?.speaker === "published",
+    attendee: false,
+    volunteer: false,
+    speaker: false,
   })
 
   // Add a new state for tracking the published URLs
@@ -53,6 +53,14 @@ export function CustomQuestionsForm({
     attendee: "draft",
     volunteer: "draft",
     speaker: "draft",
+  })
+
+  // Add state for loading indicators
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isPublishing, setIsPublishing] = useState({
+    attendee: false,
+    volunteer: false,
+    speaker: false,
   })
 
   // Add a ref to track if form status has been fetched
@@ -385,17 +393,21 @@ export function CustomQuestionsForm({
     }
   }, [])
 
-  // Memoize the fetchFormStatus function to maintain referential stability
-  const fetchFormStatus = useCallback(async () => {
-    if (!eventId || formStatusFetched.current) return
+  // Function to force refresh the form status
+  const refreshFormStatus = async () => {
+    if (!eventId) return
 
     try {
-      formStatusFetched.current = true // Mark as fetched before the API call
+      setIsRefreshing(true)
 
-      const response = await fetch(`/api/events/${eventId}/forms/status`, {
-        cache: "force-cache", // Use force-cache to prevent refetching
+      // Add a timestamp and forceRefresh parameter to bypass cache
+      const timestamp = new Date().getTime()
+      const response = await fetch(`/api/events/${eventId}/forms/status?forceRefresh=true&t=${timestamp}`, {
+        cache: "no-store",
         headers: {
-          "Cache-Control": "max-age=3600", // Cache for 1 hour
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
         },
       })
 
@@ -404,6 +416,8 @@ export function CustomQuestionsForm({
       }
 
       const data = await response.json()
+
+      console.log("Refreshed form status:", data)
 
       // Update form status state
       setFormStatus({
@@ -448,6 +462,92 @@ export function CustomQuestionsForm({
         updateFormStatus("volunteer", data.volunteerForm?.status || "draft")
         updateFormStatus("speaker", data.speakerForm?.status || "draft")
       }
+
+      toast({
+        title: "Form status refreshed",
+        description: "The form status has been refreshed from the database.",
+      })
+    } catch (error) {
+      console.error("Error refreshing form status:", error)
+      toast({
+        title: "Error refreshing form status",
+        description: error.message || "Failed to refresh form status. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  // Memoize the fetchFormStatus function to maintain referential stability
+  const fetchFormStatus = useCallback(async () => {
+    if (!eventId) return
+
+    try {
+      // Add a timestamp to bypass cache
+      const timestamp = new Date().getTime()
+      const response = await fetch(`/api/events/${eventId}/forms/status?t=${timestamp}`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch form status: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      console.log("Initial form status:", data)
+
+      // Update form status state
+      setFormStatus({
+        attendee: data.attendeeForm?.status || "draft",
+        volunteer: data.volunteerForm?.status || "draft",
+        speaker: data.speakerForm?.status || "draft",
+      })
+
+      // Update publish status based on form status
+      setPublishStatus({
+        attendee: data.attendeeForm?.status === "published",
+        volunteer: data.volunteerForm?.status === "published",
+        speaker: data.speakerForm?.status === "published",
+      })
+
+      // Set published URLs if forms are published
+      if (data.eventSlug) {
+        const baseUrl = window.location.origin
+        if (data.attendeeForm?.status === "published") {
+          setPublishedUrls((prev) => ({
+            ...prev,
+            attendee: `${baseUrl}/events/${data.eventSlug}/register`,
+          }))
+        }
+        if (data.volunteerForm?.status === "published") {
+          setPublishedUrls((prev) => ({
+            ...prev,
+            volunteer: `${baseUrl}/events/${data.eventSlug}/volunteer`,
+          }))
+        }
+        if (data.speakerForm?.status === "published") {
+          setPublishedUrls((prev) => ({
+            ...prev,
+            speaker: `${baseUrl}/events/${data.eventSlug}/speaker`,
+          }))
+        }
+      }
+
+      // Optionally, update the parent component as well
+      if (updateFormStatus) {
+        updateFormStatus("attendee", data.attendeeForm?.status || "draft")
+        updateFormStatus("volunteer", data.volunteerForm?.status || "draft")
+        updateFormStatus("speaker", data.speakerForm?.status || "draft")
+      }
+
+      formStatusFetched.current = true
     } catch (error) {
       console.error("Error fetching form status:", error)
       toast({
@@ -482,7 +582,6 @@ export function CustomQuestionsForm({
       setSpeakerQuestions(speakerData)
 
       // IMPORTANT: Only update parent component on initial load or when data changes
-      // This was causing the infinite loop
       if (
         JSON.stringify(data) !==
         JSON.stringify({
@@ -498,8 +597,8 @@ export function CustomQuestionsForm({
         })
       }
 
-      // Fetch form status if eventId exists and hasn't been fetched yet
-      if (eventId && !formStatusFetched.current) {
+      // Fetch form status if eventId exists
+      if (eventId) {
         fetchFormStatus()
       }
     } catch (error) {
@@ -517,6 +616,7 @@ export function CustomQuestionsForm({
     }
   }, [data, updateData, eventId, fetchFormStatus, generateDefaultQuestions])
 
+  // Handle initial form status from props
   useEffect(() => {
     if (initialFormStatus) {
       setFormStatus(initialFormStatus)
@@ -550,7 +650,7 @@ export function CustomQuestionsForm({
     })
   }
 
-  const togglePublishStatus = (formType) => {
+  const togglePublishStatus = async (formType) => {
     const newStatus = !publishStatus[formType]
 
     // Update local state
@@ -566,7 +666,10 @@ export function CustomQuestionsForm({
 
     // If we have an eventId, update the database
     if (eventId) {
-      publishForm(formType, newStatus)
+      await publishForm(formType, newStatus)
+
+      // Refresh form status after publishing
+      await refreshFormStatus()
     } else {
       // Just show a toast for feedback
       toast({
@@ -581,6 +684,12 @@ export function CustomQuestionsForm({
   // Publish a form
   const publishForm = async (formType, shouldPublish = true) => {
     try {
+      // Set publishing state
+      setIsPublishing((prev) => ({
+        ...prev,
+        [formType]: true,
+      }))
+
       // Determine which questions to send based on form type
       let questionsToSend = []
 
@@ -627,13 +736,19 @@ export function CustomQuestionsForm({
         return
       }
 
-      console.log("Converting HTML to Markdown...")
+      console.log(`Publishing ${formType} form with status: ${shouldPublish ? "published" : "draft"}`)
+
+      // Add a timestamp to prevent caching
+      const timestamp = new Date().getTime()
 
       // If we have an eventId, send the request to the server
-      const response = await fetch(`/api/events/${eventId}/forms/${formType}/publish`, {
+      const response = await fetch(`/api/events/${eventId}/forms/${formType}/publish?t=${timestamp}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
         },
         body: JSON.stringify({
           status: shouldPublish ? "published" : "draft",
@@ -684,6 +799,23 @@ export function CustomQuestionsForm({
         description: error.message || `An error occurred while ${shouldPublish ? "publishing" : "updating"} the form.`,
         variant: "destructive",
       })
+
+      // Revert the local state if there was an error
+      setPublishStatus((prev) => ({
+        ...prev,
+        [formType]: !shouldPublish,
+      }))
+
+      // Update parent component if needed
+      if (updateFormStatus) {
+        updateFormStatus(formType, !shouldPublish ? "published" : "draft")
+      }
+    } finally {
+      // Reset publishing state
+      setIsPublishing((prev) => ({
+        ...prev,
+        [formType]: false,
+      }))
     }
   }
 
@@ -945,14 +1077,19 @@ export function CustomQuestionsForm({
             <CardDescription>{description}</CardDescription>
           </div>
           <div className="flex items-center gap-4">
+            <Button variant="outline" size="sm" onClick={refreshFormStatus} disabled={isRefreshing} className="mr-2">
+              <RefreshCw className={`h-4 w-4 mr-1 ${isRefreshing ? "animate-spin" : ""}`} />
+              {isRefreshing ? "Refreshing..." : "Refresh Status"}
+            </Button>
             <div className="flex items-center space-x-2">
               <Switch
                 id={`${type}-publish-toggle`}
                 checked={publishStatus[type]}
                 onCheckedChange={() => togglePublishStatus(type)}
+                disabled={isPublishing[type]}
               />
               <Label htmlFor={`${type}-publish-toggle`} className="font-medium">
-                {publishStatus[type] ? "Published" : "Draft"}
+                {isPublishing[type] ? "Updating..." : publishStatus[type] ? "Published" : "Draft"}
               </Label>
             </div>
           </div>
@@ -1046,20 +1183,55 @@ export function CustomQuestionsForm({
     )
   }
 
+  // Include the rest of the component methods (addQuestion, removeQuestion, etc.)
+  // ...
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Custom Questions</h2>
-        <p className="text-muted-foreground">
-          Add custom questions to collect additional information from attendees, volunteers, and speakers.
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold">Custom Questions</h2>
+          <p className="text-muted-foreground">
+            Add custom questions to collect additional information from attendees, volunteers, and speakers.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={refreshFormStatus}
+          disabled={isRefreshing}
+          className="flex items-center gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          {isRefreshing ? "Refreshing..." : "Refresh Form Status"}
+        </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="attendee">Attendee Questions</TabsTrigger>
-          <TabsTrigger value="volunteer">Volunteer Questions</TabsTrigger>
-          <TabsTrigger value="speaker">Speaker Questions</TabsTrigger>
+          <TabsTrigger value="attendee">
+            Attendee Questions
+            {publishStatus.attendee && (
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                Published
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="volunteer">
+            Volunteer Questions
+            {publishStatus.volunteer && (
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                Published
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="speaker">
+            Speaker Questions
+            {publishStatus.speaker && (
+              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                Published
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="attendee" className="space-y-4 mt-4">

@@ -6,6 +6,10 @@ export async function GET(request, { params }) {
   try {
     const { id } = params
 
+    // Check for force refresh in the request
+    const { searchParams } = new URL(request.url)
+    const forceRefresh = searchParams.get("forceRefresh") === "true"
+
     // Connect to the database
     await connectToDatabase({
       cache: "no-store",
@@ -21,16 +25,19 @@ export async function GET(request, { params }) {
     // Create the response
     const response = NextResponse.json({
       eventSlug: event.slug,
-      attendeeForm: event.forms?.attendee || { status: "draft" },
-      volunteerForm: event.forms?.volunteer || { status: "draft" },
-      speakerForm: event.forms?.speaker || { status: "draft" },
+      attendeeForm: event.attendeeForm || { status: "draft" },
+      volunteerForm: event.volunteerForm || { status: "draft" },
+      speakerForm: event.speakerForm || { status: "draft" },
     })
 
-    // Add strong cache headers to prevent frequent refetching
-    response.headers.set("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600")
-    response.headers.set("Surrogate-Control", "max-age=300")
-    response.headers.set("CDN-Cache-Control", "max-age=300")
-    response.headers.set("Vercel-CDN-Cache-Control", "max-age=300")
+    // Add cache headers, but allow for force refresh
+    if (!forceRefresh) {
+      response.headers.set("Cache-Control", "public, max-age=30, s-maxage=60, stale-while-revalidate=300")
+    } else {
+      response.headers.set("Cache-Control", "no-cache, no-store, must-revalidate")
+      response.headers.set("Pragma", "no-cache")
+      response.headers.set("Expires", "0")
+    }
 
     return response
   } catch (error) {
