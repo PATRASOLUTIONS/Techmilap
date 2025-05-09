@@ -59,13 +59,61 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
     }[ticket.ticketType] || "from-indigo-500 to-indigo-600"
 
   // Handle download ticket
-  const handleDownload = () => {
-    setIsDownloading(true)
-    // Simulate download delay
-    setTimeout(() => {
+  const handleDownload = async () => {
+    try {
+      setIsDownloading(true)
+
+      // Call the API to generate the PDF
+      const response = await fetch("/api/tickets/generate-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ticketId: ticket._id,
+          ticketType: "regular",
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to generate ticket PDF")
+      }
+
+      // Get the PDF blob from the response
+      const blob = await response.blob()
+
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob)
+
+      // Create a temporary link element
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `ticket-${ticket.ticketNumber || ticket._id.substring(0, 6)}.pdf`
+
+      // Append the link to the body
+      document.body.appendChild(link)
+
+      // Click the link to trigger the download
+      link.click()
+
+      // Clean up
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "Success",
+        description: "Ticket downloaded successfully!",
+      })
+    } catch (error) {
+      console.error("Error downloading ticket:", error)
+      toast({
+        title: "Error",
+        description: "Failed to download ticket. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
       setIsDownloading(false)
-      alert("Ticket download feature coming soon!")
-    }, 1000)
+    }
   }
 
   // Handle add to calendar

@@ -318,6 +318,60 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
     }
   }
 
+  // Handle download ticket
+  const handleDownload = async () => {
+    try {
+      const response = await fetch("/api/tickets/generate-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ticketId: ticket._id,
+          ticketType: "submission",
+          formType: roleType,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to generate ticket PDF")
+      }
+
+      // Get the PDF blob from the response
+      const blob = await response.blob()
+
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob)
+
+      // Create a temporary link element
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `${roleType}-pass-${ticket._id.substring(0, 6)}.pdf`
+
+      // Append the link to the body
+      document.body.appendChild(link)
+
+      // Click the link to trigger the download
+      link.click()
+
+      // Clean up
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "Success",
+        description: "Ticket downloaded successfully!",
+      })
+    } catch (error) {
+      console.error("Error downloading ticket:", error)
+      toast({
+        title: "Error",
+        description: "Failed to download ticket. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
     <div className="relative mx-auto max-w-4xl">
       {/* Main ticket container with shadow and hover effect */}
@@ -446,7 +500,7 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
                   <Mail className="h-4 w-4 mr-2" />
                   {isSendingEmail ? "Sending..." : "Send to Email"}
                 </Button>
-                <Button variant="outline" className="justify-start">
+                <Button variant="outline" className="justify-start" onClick={handleDownload}>
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </Button>
