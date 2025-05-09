@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import Image from "next/image"
+import { jsPDF } from "jspdf"
+import "jspdf-autotable"
 
 export default function MyTicketsPage() {
   const [tickets, setTickets] = useState<{
@@ -229,6 +231,7 @@ function TicketItem({ ticket, index }: { ticket: any; index: number }) {
 function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number }) {
   const [showAllDetails, setShowAllDetails] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
   const { toast } = useToast()
 
   const event = ticket.event || {}
@@ -321,42 +324,121 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
   // Handle download ticket
   const handleDownload = async () => {
     try {
-      const response = await fetch("/api/tickets/generate-pdf", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ticketId: ticket._id,
-          ticketType: "submission",
-          formType: roleType,
-        }),
+      setIsDownloading(true)
+
+      // Create a new PDF document
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to generate ticket PDF")
+      // Set document properties
+      doc.setProperties({
+        title: `${event.title || "Event"} - ${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Pass`,
+        subject: "Event Ticket",
+        author: "MyEvent Platform",
+        creator: "MyEvent Platform",
+      })
+
+      // Add title
+      doc.setFontSize(24)
+      doc.setTextColor(33, 33, 33)
+      doc.text(event.title || "Event", 105, 20, { align: "center" })
+
+      // Add ticket type
+      doc.setFontSize(16)
+      doc.setTextColor(100, 100, 100)
+      doc.text(`${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Pass`, 105, 30, { align: "center" })
+
+      // Add horizontal line
+      doc.setDrawColor(200, 200, 200)
+      doc.line(20, 35, 190, 35)
+
+      // Add event details section
+      doc.setFontSize(14)
+      doc.setTextColor(33, 33, 33)
+      doc.text("Event Details", 20, 45)
+
+      doc.setFontSize(12)
+      doc.text(`Date: ${formattedDate}`, 20, 55)
+      doc.text(`Time: ${formattedTime}`, 20, 62)
+
+      if (event.location) {
+        doc.text(`Location: ${event.location}`, 20, 69)
       }
 
-      // Get the PDF blob from the response
-      const blob = await response.blob()
+      // Add ticket details section
+      doc.setFontSize(14)
+      doc.text("Ticket Information", 20, 85)
 
-      // Create a URL for the blob
-      const url = window.URL.createObjectURL(blob)
+      doc.setFontSize(12)
+      doc.text(`Ticket #: ${ticket._id.substring(0, 6)}`, 20, 95)
+      doc.text(`Status: Confirmed`, 20, 102)
+      doc.text(`Type: ${roleType.charAt(0).toUpperCase() + roleType.slice(1)}`, 20, 109)
 
-      // Create a temporary link element
-      const link = document.createElement("a")
-      link.href = url
-      link.download = `${roleType}-pass-${ticket._id.substring(0, 6)}.pdf`
+      // Add attendee information section
+      doc.setFontSize(14)
+      doc.text("Attendee Information", 20, 125)
 
-      // Append the link to the body
-      document.body.appendChild(link)
+      doc.setFontSize(12)
+      doc.text(`Name: ${getName()}`, 20, 135)
+      doc.text(`Email: ${getEmail()}`, 20, 142)
 
-      // Click the link to trigger the download
-      link.click()
+      // Add additional form data if available
+      if (ticket.formData) {
+        let yPos = 155
 
-      // Clean up
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+        doc.setFontSize(14)
+        doc.text("Additional Information", 20, yPos)
+        yPos += 10
+
+        doc.setFontSize(12)
+
+        Object.entries(ticket.formData)
+          .filter(
+            ([key]) =>
+              key !== "name" &&
+              key !== "email" &&
+              !key.includes("Email") &&
+              !key.includes("email") &&
+              key !== "fullName" &&
+              key !== "firstName" &&
+              key !== "question_name",
+          )
+          .forEach(([key, value]) => {
+            const formattedKey = key
+              .replace(/([A-Z])/g, " $1")
+              .replace(/_/g, " ")
+              .replace(/^./, (str) => str.toUpperCase())
+
+            // Check if we need to add a new page
+            if (yPos > 250) {
+              doc.addPage()
+              yPos = 20
+            }
+
+            doc.text(`${formattedKey}: ${String(value)}`, 20, yPos)
+            yPos += 7
+          })
+      }
+
+      // Add QR code placeholder
+      doc.setFillColor(240, 240, 240)
+      doc.rect(130, 85, 40, 40, "F")
+      doc.setFontSize(8)
+      doc.setTextColor(100, 100, 100)
+      doc.text("QR Code", 150, 105, { align: "center" })
+      doc.text("Scan for entry", 150, 110, { align: "center" })
+
+      // Add footer
+      doc.setFontSize(10)
+      doc.setTextColor(150, 150, 150)
+      doc.text(`Generated on ${new Date().toLocaleString()}`, 105, 270, { align: "center" })
+      doc.text("Present this ticket at the event entrance", 105, 275, { align: "center" })
+
+      // Save the PDF
+      doc.save(`${roleType}-pass-${ticket._id.substring(0, 6)}.pdf`)
 
       toast({
         title: "Success",
@@ -369,6 +451,8 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
         description: "Failed to download ticket. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setIsDownloading(false)
     }
   }
 
@@ -500,9 +584,9 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
                   <Mail className="h-4 w-4 mr-2" />
                   {isSendingEmail ? "Sending..." : "Send to Email"}
                 </Button>
-                <Button variant="outline" className="justify-start" onClick={handleDownload}>
+                <Button variant="outline" className="justify-start" onClick={handleDownload} disabled={isDownloading}>
                   <Download className="h-4 w-4 mr-2" />
-                  Download
+                  {isDownloading ? "Downloading..." : "Download"}
                 </Button>
                 <Button variant="outline" className="justify-start">
                   <Calendar className="h-4 w-4 mr-2" />

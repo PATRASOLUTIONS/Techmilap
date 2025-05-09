@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { jsPDF } from "jspdf"
+import "jspdf-autotable"
 
 interface TicketCardProps {
   ticket: {
@@ -27,6 +29,8 @@ interface TicketCardProps {
     ticketNumber: string
     price: number
     status: string
+    userName?: string
+    userEmail?: string
   }
   index: number
 }
@@ -63,42 +67,85 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
     try {
       setIsDownloading(true)
 
-      // Call the API to generate the PDF
-      const response = await fetch("/api/tickets/generate-pdf", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ticketId: ticket._id,
-          ticketType: "regular",
-        }),
+      // Create a new PDF document
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to generate ticket PDF")
+      // Set document properties
+      doc.setProperties({
+        title: `${ticket.title} - Ticket`,
+        subject: "Event Ticket",
+        author: "MyEvent Platform",
+        creator: "MyEvent Platform",
+      })
+
+      // Add title
+      doc.setFontSize(24)
+      doc.setTextColor(33, 33, 33)
+      doc.text(ticket.title, 105, 20, { align: "center" })
+
+      // Add ticket type
+      doc.setFontSize(16)
+      doc.setTextColor(100, 100, 100)
+      doc.text(ticketTypeDisplay, 105, 30, { align: "center" })
+
+      // Add horizontal line
+      doc.setDrawColor(200, 200, 200)
+      doc.line(20, 35, 190, 35)
+
+      // Add event details section
+      doc.setFontSize(14)
+      doc.setTextColor(33, 33, 33)
+      doc.text("Event Details", 20, 45)
+
+      doc.setFontSize(12)
+      doc.text(`Date: ${formattedDate}`, 20, 55)
+      doc.text(`Time: ${startTime} - ${endTime}`, 20, 62)
+
+      if (ticket.location) {
+        doc.text(`Location: ${ticket.location}`, 20, 69)
       }
 
-      // Get the PDF blob from the response
-      const blob = await response.blob()
+      if (ticket.venue) {
+        doc.text(`Venue: ${ticket.venue}`, 20, 76)
+      }
 
-      // Create a URL for the blob
-      const url = window.URL.createObjectURL(blob)
+      // Add ticket details section
+      doc.setFontSize(14)
+      doc.text("Ticket Information", 20, 90)
 
-      // Create a temporary link element
-      const link = document.createElement("a")
-      link.href = url
-      link.download = `ticket-${ticket.ticketNumber || ticket._id.substring(0, 6)}.pdf`
+      doc.setFontSize(12)
+      doc.text(`Ticket #: ${ticket.ticketNumber}`, 20, 100)
+      doc.text(`Status: Confirmed`, 20, 107)
+      doc.text(`Price: ${ticket.price > 0 ? `$${ticket.price.toFixed(2)}` : "Free"}`, 20, 114)
 
-      // Append the link to the body
-      document.body.appendChild(link)
+      // Add attendee information section
+      doc.setFontSize(14)
+      doc.text("Attendee Information", 20, 130)
 
-      // Click the link to trigger the download
-      link.click()
+      doc.setFontSize(12)
+      doc.text(`Name: ${ticket.userName || "Not provided"}`, 20, 140)
+      doc.text(`Email: ${ticket.userEmail || "Not provided"}`, 20, 147)
 
-      // Clean up
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      // Add QR code placeholder
+      doc.setFillColor(240, 240, 240)
+      doc.rect(130, 90, 40, 40, "F")
+      doc.setFontSize(8)
+      doc.setTextColor(100, 100, 100)
+      doc.text("QR Code", 150, 110, { align: "center" })
+      doc.text("Scan for entry", 150, 115, { align: "center" })
+
+      // Add footer
+      doc.setFontSize(10)
+      doc.setTextColor(150, 150, 150)
+      doc.text(`Generated on ${new Date().toLocaleString()}`, 105, 270, { align: "center" })
+      doc.text("Present this ticket at the event entrance", 105, 275, { align: "center" })
+
+      // Save the PDF
+      doc.save(`ticket-${ticket.ticketNumber || ticket._id.substring(0, 6)}.pdf`)
 
       toast({
         title: "Success",
