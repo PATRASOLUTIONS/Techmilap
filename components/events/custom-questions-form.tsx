@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -54,6 +54,9 @@ export function CustomQuestionsForm({
     volunteer: "draft",
     speaker: "draft",
   })
+
+  // Add a ref to track if form status has been fetched
+  const formStatusFetched = useRef(false)
 
   const generateDefaultQuestions = useCallback(() => {
     const defaultAttendeeQuestions = [
@@ -382,16 +385,24 @@ export function CustomQuestionsForm({
     }
   }, [])
 
+  // Memoize the fetchFormStatus function to maintain referential stability
   const fetchFormStatus = useCallback(async () => {
-    if (!eventId) return
+    if (!eventId || formStatusFetched.current) return
 
     try {
+      formStatusFetched.current = true // Mark as fetched before the API call
+
       const response = await fetch(`/api/events/${eventId}/forms/status`, {
-        cache: "no-store",
+        cache: "force-cache", // Use force-cache to prevent refetching
+        headers: {
+          "Cache-Control": "max-age=3600", // Cache for 1 hour
+        },
       })
+
       if (!response.ok) {
         throw new Error(`Failed to fetch form status: ${response.status}`)
       }
+
       const data = await response.json()
 
       // Update form status state
@@ -487,8 +498,8 @@ export function CustomQuestionsForm({
         })
       }
 
-      // Fetch form status if eventId exists
-      if (eventId) {
+      // Fetch form status if eventId exists and hasn't been fetched yet
+      if (eventId && !formStatusFetched.current) {
         fetchFormStatus()
       }
     } catch (error) {
