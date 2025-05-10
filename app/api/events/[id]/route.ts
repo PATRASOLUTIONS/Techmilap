@@ -14,7 +14,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     // Check if we're requesting public access
     const isPublicRequest = req.headers.get("x-public-request") === "true"
-    const session = isPublicRequest ? null : await getServerSession(authOptions)
+
+    // Also check for form-related requests which should be public
+    const isFormRequest =
+      req.headers.get("x-form-request") === "true" ||
+      req.url.includes("/forms/") ||
+      req.url.includes("/register") ||
+      req.url.includes("/volunteer") ||
+      req.url.includes("/speaker")
+
+    // If it's a form request, treat it as public
+    const session = isPublicRequest || isFormRequest ? null : await getServerSession(authOptions)
 
     let event = null
     const idOrSlug = params.id
@@ -42,13 +52,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     console.log(`Found event: ${event.title} (${event._id})`)
 
     // For public requests, only return published events
-    if (isPublicRequest && event.status !== "published" && event.status !== "active") {
+    if ((isPublicRequest || isFormRequest) && event.status !== "published" && event.status !== "active") {
       console.log(`Public request for non-published event: ${event._id}`)
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
     // For authenticated requests, check permissions
-    if (!isPublicRequest && session) {
+    if (!isPublicRequest && !isFormRequest && session) {
       // Check if the user is the organizer or a super-admin
       if (event.organizer.toString() !== session.user.id && session.user.role !== "super-admin") {
         console.log(`Permission denied for user ${session.user.id} on event ${event._id}`)

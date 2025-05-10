@@ -81,6 +81,7 @@ export default function PublicFormPage() {
             "Cache-Control": "no-cache, no-store, must-revalidate",
             Pragma: "no-cache",
             Expires: "0",
+            "x-form-request": "true", // Add this header to indicate it's a form request
           },
         })
 
@@ -105,23 +106,26 @@ export default function PublicFormPage() {
         // Fetch event details including date
         const eventResponse = await fetch(`/api/events/${eventId}`, {
           cache: "no-store",
+          headers: {
+            "x-form-request": "true", // Add this header to indicate it's a form request
+          },
         })
 
         if (eventResponse.ok) {
           const eventData = await eventResponse.json()
-          setEventTitle(eventData.title || "Event")
+          setEventTitle(eventData.event.title || "Event")
 
           // Check if event date is available
-          if (eventData.date) {
-            const eventDateTime = new Date(eventData.date)
+          if (eventData.event.date) {
+            const eventDateTime = new Date(eventData.event.date)
             setEventDate(eventDateTime)
 
             // Check if event has already started or passed
             const now = new Date()
 
             // If event has a start time, use it for comparison
-            if (eventData.startTime) {
-              const [hours, minutes] = eventData.startTime.split(":").map(Number)
+            if (eventData.event.startTime) {
+              const [hours, minutes] = eventData.event.startTime.split(":").map(Number)
               eventDateTime.setHours(hours, minutes, 0, 0)
             }
 
@@ -164,6 +168,7 @@ export default function PublicFormPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-form-request": "true", // Add this header to indicate it's a form request
         },
         body: JSON.stringify({ formData }),
       })
