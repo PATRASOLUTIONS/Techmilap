@@ -23,6 +23,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     // Get the associated event
     const event = await Event.findById(submission.eventId).lean()
 
+    // Log the data for debugging
+    console.log("Public API - Ticket data:", {
+      submissionId: submission._id,
+      formType: submission.formType,
+      formData: submission.formData ? Object.keys(submission.formData) : [],
+      eventId: submission.eventId,
+    })
+
     // Return the ticket data
     return NextResponse.json({
       success: true,

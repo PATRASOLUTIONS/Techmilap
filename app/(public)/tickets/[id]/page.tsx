@@ -13,11 +13,12 @@ export const metadata = {
   description: "Your virtual event ticket",
 }
 
+// Update the getTicketData function to ensure we're getting all the necessary data
 async function getTicketData(id: string) {
   try {
     await connectToDatabase()
 
-    // Find the form submission by ID
+    // Find the form submission by ID and make sure to include all fields
     const submission = await FormSubmission.findById(id).lean()
 
     if (!submission) {
@@ -26,6 +27,14 @@ async function getTicketData(id: string) {
 
     // Get the associated event
     const event = await Event.findById(submission.eventId).lean()
+
+    // Log the data for debugging
+    console.log("Ticket data retrieved:", {
+      submissionId: submission._id,
+      formType: submission.formType,
+      formData: submission.formData,
+      eventId: submission.eventId,
+    })
 
     return {
       submission,
@@ -62,18 +71,32 @@ export default async function TicketPage({ params }: { params: { id: string } })
   // Get form type (attendee, volunteer, speaker)
   const formType = submission.formType || "attendee"
 
-  // Get name and email from form data
+  // Update the getName and getEmail functions to be more robust
   const getName = () => {
     if (!submission.formData) return "N/A"
 
     // Try different possible field names for name
-    return (
+    const nameField =
       submission.formData.name ||
       submission.formData.fullName ||
       submission.formData.firstName ||
       submission.formData["question_name"] ||
-      "N/A"
-    )
+      submission.formData["first_name"] ||
+      submission.formData["firstName"] ||
+      submission.formData["full_name"] ||
+      submission.formData["fullName"] ||
+      submission.formData["attendeeName"] ||
+      submission.formData["attendee_name"]
+
+    // If we still don't have a name, look for any field that might contain "name"
+    if (!nameField) {
+      const nameKeys = Object.keys(submission.formData).filter((key) => key.toLowerCase().includes("name"))
+      if (nameKeys.length > 0) {
+        return submission.formData[nameKeys[0]]
+      }
+    }
+
+    return nameField || "N/A"
   }
 
   const getEmail = () => {
@@ -81,7 +104,12 @@ export default async function TicketPage({ params }: { params: { id: string } })
 
     // Try different possible field names for email
     const emailKeys = Object.keys(submission.formData).filter(
-      (key) => key === "email" || key === "emailAddress" || key.includes("email") || key.includes("Email"),
+      (key) =>
+        key === "email" ||
+        key === "emailAddress" ||
+        key.toLowerCase().includes("email") ||
+        key.toLowerCase().includes("e-mail") ||
+        key.toLowerCase().includes("mail"),
     )
 
     return emailKeys.length > 0 ? submission.formData[emailKeys[0]] : "N/A"
@@ -98,6 +126,36 @@ export default async function TicketPage({ params }: { params: { id: string } })
   // Get status
   const status = submission.status || "pending"
   const isApproved = status === "approved"
+
+  // Add a function to get all form data for display
+  const getFormDataEntries = () => {
+    if (!submission.formData) return []
+
+    return Object.entries(submission.formData)
+      .filter(([key]) => {
+        // Filter out common fields we already display separately
+        const lowerKey = key.toLowerCase()
+        return (
+          !lowerKey.includes("email") &&
+          !lowerKey.includes("name") &&
+          !lowerKey.includes("password") &&
+          !lowerKey.includes("token") &&
+          !lowerKey.includes("csrf")
+        )
+      })
+      .map(([key, value]) => ({
+        key: key
+          .replace(/([A-Z])/g, " $1")
+          .replace(/_/g, " ")
+          .replace(/^./, (str) => str.toUpperCase())
+          .trim(),
+        value: String(value),
+      }))
+  }
+
+  // Add this after the existing divider and attendee information section
+  // Add additional form data section
+  const formDataEntries = getFormDataEntries()
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
@@ -173,6 +231,24 @@ export default async function TicketPage({ params }: { params: { id: string } })
                 <span>{getEmail()}</span>
               </div>
             </div>
+
+            {/* Additional form data */}
+            {formDataEntries.length > 0 && (
+              <>
+                <div className="border-t border-dashed border-gray-200 my-6"></div>
+                <div className="space-y-4 mb-6">
+                  <h2 className="font-semibold text-gray-800">Additional Information</h2>
+                  <div className="space-y-3">
+                    {formDataEntries.map(({ key, value }) => (
+                      <div key={key} className="flex items-start">
+                        <span className="text-gray-500 min-w-[120px] mr-2">{key}:</span>
+                        <span className="text-gray-700">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Divider */}
             <div className="border-t border-dashed border-gray-200 my-6"></div>
