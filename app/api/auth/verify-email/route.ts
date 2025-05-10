@@ -13,7 +13,8 @@ export async function POST(req: NextRequest) {
 
     await connectToDatabase()
 
-    const user = await User.findOne({ email })
+    // Include verificationCode and verificationCodeExpires in the query
+    const user = await User.findOne({ email }).select("+verificationCode +verificationCodeExpires")
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
@@ -22,6 +23,15 @@ export async function POST(req: NextRequest) {
     if (user.isVerified) {
       return NextResponse.json({ message: "Email already verified" }, { status: 200 })
     }
+
+    // Add debug logging
+    console.log("Verification attempt:", {
+      providedCode: code,
+      storedCode: user.verificationCode,
+      expires: user.verificationCodeExpires,
+      now: new Date(),
+      isExpired: user.verificationCodeExpires < new Date(),
+    })
 
     // Check if verification code is valid and not expired
     if (user.verificationCode !== code) {

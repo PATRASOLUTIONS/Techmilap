@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
     await connectToDatabase()
 
-    const user = await User.findOne({ email })
+    const user = await User.findOne({ email }).select("+verificationCode +verificationCodeExpires")
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
@@ -42,12 +42,12 @@ export async function POST(req: NextRequest) {
       await sendVerificationEmail(email, user.firstName, verificationCode)
     } catch (emailError) {
       console.error("Error sending verification email:", emailError)
-      return NextResponse.json({ error: "Failed to send verification email. Please try again later." }, { status: 500 })
+      return NextResponse.json({ error: "Failed to send verification email. Please try again." }, { status: 500 })
     }
 
     return NextResponse.json({
       success: true,
-      message: "Verification code sent successfully. Please check your email.",
+      message: "Verification code resent successfully. Please check your email.",
     })
   } catch (error: any) {
     console.error("Resend verification error:", error)
