@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation"
 import Image from "next/image"
-import { format, parseISO } from "date-fns"
 import { CalendarIcon, MapPinIcon, Clock, Users, Tag, Ticket } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,19 +10,12 @@ import User from "@/models/User"
 import Link from "next/link"
 
 // Helper function to safely format dates
-function safeFormatDate(dateString, formatString) {
+function formatEventDate(dateString) {
   if (!dateString) return "Date TBA"
 
   try {
-    // Try to parse the date string
-    let date
-    if (typeof dateString === "string") {
-      // Handle ISO string
-      date = parseISO(dateString)
-    } else {
-      // Handle Date object
-      date = new Date(dateString)
-    }
+    // Create a new Date object from the date string
+    const date = new Date(dateString)
 
     // Check if date is valid
     if (isNaN(date.getTime())) {
@@ -31,10 +23,46 @@ function safeFormatDate(dateString, formatString) {
       return "Date TBA"
     }
 
-    return format(date, formatString)
+    // Format the date using toLocaleDateString
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
   } catch (error) {
     console.error("Error formatting date:", error, dateString)
     return "Date TBA"
+  }
+}
+
+// Helper function to safely format time
+function formatEventTime(timeString) {
+  if (!timeString) return "Time TBA"
+
+  try {
+    // If it's just a time string like "14:30"
+    if (timeString.length <= 5 && timeString.includes(":")) {
+      const [hours, minutes] = timeString.split(":").map(Number)
+      const period = hours >= 12 ? "PM" : "AM"
+      const hour12 = hours % 12 || 12
+      return `${hour12}:${minutes.toString().padStart(2, "0")} ${period}`
+    }
+
+    // If it's a full datetime string
+    const date = new Date(timeString)
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+    }
+
+    return "Time TBA"
+  } catch (error) {
+    console.error("Error formatting time:", error, timeString)
+    return "Time TBA"
   }
 }
 
@@ -102,57 +130,17 @@ export default async function EventPage({ params }: { params: { id: string } }) 
   console.log("Event startTime:", event.startTime)
   console.log("Event endTime:", event.endTime)
 
-  // Format dates
-  let formattedDate = "Date TBA"
+  // Format dates using the same approach as in EventCard
+  const formattedDate = formatEventDate(event.date)
+  const formattedEndDate = event.endDate ? formatEventDate(event.endDate) : null
+
+  // Format time
   let formattedTime = "Time TBA"
-  let formattedEndDate = null
-
-  // Format the event date
-  if (event.date) {
-    formattedDate = safeFormatDate(event.date, "EEEE, MMMM d, yyyy")
-  }
-
-  // Format the end date if available
-  if (event.endDate) {
-    formattedEndDate = safeFormatDate(event.endDate, "EEEE, MMMM d, yyyy")
-  }
-
-  // Format the time
   if (event.startTime) {
-    try {
-      // Handle different time formats
-      const timeStr = event.startTime
+    formattedTime = formatEventTime(event.startTime)
 
-      // If it's just a time string like "14:30"
-      if (timeStr.length <= 5) {
-        const [hours, minutes] = timeStr.split(":").map(Number)
-        const period = hours >= 12 ? "PM" : "AM"
-        const hour12 = hours % 12 || 12
-        formattedTime = `${hour12}:${minutes.toString().padStart(2, "0")} ${period}`
-      } else {
-        // If it's a full datetime string
-        formattedTime = safeFormatDate(timeStr, "h:mm a")
-      }
-
-      // Add end time if available
-      if (event.endTime) {
-        const endTimeStr = event.endTime
-        let formattedEndTime
-
-        if (endTimeStr.length <= 5) {
-          const [hours, minutes] = endTimeStr.split(":").map(Number)
-          const period = hours >= 12 ? "PM" : "AM"
-          const hour12 = hours % 12 || 12
-          formattedEndTime = `${hour12}:${minutes.toString().padStart(2, "0")} ${period}`
-        } else {
-          formattedEndTime = safeFormatDate(endTimeStr, "h:mm a")
-        }
-
-        formattedTime = `${formattedTime} - ${formattedEndTime}`
-      }
-    } catch (error) {
-      console.error("Error formatting time:", error)
-      formattedTime = "Time TBA"
+    if (event.endTime) {
+      formattedTime += ` - ${formatEventTime(event.endTime)}`
     }
   }
 
