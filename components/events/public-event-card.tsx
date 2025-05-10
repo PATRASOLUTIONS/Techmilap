@@ -64,8 +64,8 @@ export function PublicEventCard({ event }: PublicEventCardProps) {
           {/* Ticket Top - Image and Category */}
           <div className="relative h-48 overflow-hidden">
             <Image
-              src={event.image || "/placeholder.svg?height=400&width=600&query=tech+event"}
-              alt={event.title}
+              src={event.image || "/vibrant-tech-event.png"}
+              alt={event.title || "Event"}
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-105"
               onError={(e) => {

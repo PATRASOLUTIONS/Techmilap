@@ -78,7 +78,6 @@ export function EventCard({ event, onClick, showRegisterButton = false }: EventC
           </div>
           <div className="text-center py-2 font-bold text-2xl text-gray-800">{day}</div>
           <div className="h-px w-10 bg-gray-200 my-2"></div>
-         
         </div>
 
         {/* Main Ticket Content */}
@@ -86,8 +85,8 @@ export function EventCard({ event, onClick, showRegisterButton = false }: EventC
           {/* Ticket Top - Image and Category */}
           <div className="relative h-48 overflow-hidden">
             <Image
-              src={event.image || "/placeholder.svg?height=400&width=600&query=tech+event"}
-              alt={event.title}
+              src={event.image || "/vibrant-tech-event.png"}
+              alt={event.title || "Event"}
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-105"
               onError={(e) => {

@@ -66,6 +66,12 @@ function formatEventTime(timeString) {
   }
 }
 
+function getImageUrl(url) {
+  if (!url) return "/vibrant-tech-event.png"
+  if (url.startsWith("http") || url.startsWith("/")) return url
+  return `/${url}`
+}
+
 async function getEvent(id: string) {
   try {
     await connectToDatabase()
@@ -105,6 +111,13 @@ async function getEvent(id: string) {
         organizerInfo = await User.findById(event.organizer, { name: 1, email: 1 }).lean()
       } catch (error) {
         console.error("Error fetching organizer:", error)
+      }
+    }
+
+    if (event) {
+      // Process image URL
+      if (event.image) {
+        event.image = getImageUrl(event.image)
       }
     }
 
@@ -159,11 +172,17 @@ export default async function EventPage({ params }: { params: { id: string } }) 
           {/* Event Image */}
           <div className="relative aspect-video overflow-hidden rounded-lg shadow-md">
             <Image
-              src={event.image || "/placeholder.svg?height=600&width=1200&query=tech+event"}
-              alt={event.title}
+              src={event.image || "/vibrant-tech-event.png"}
+              alt={event.title || "Event"}
               fill
               className="object-cover"
               priority
+              onError={(e) => {
+                // @ts-ignore - fallback to default image
+                e.target.src = "/vibrant-tech-event.png"
+                // Prevent infinite loop
+                e.currentTarget.onerror = null
+              }}
             />
           </div>
 
