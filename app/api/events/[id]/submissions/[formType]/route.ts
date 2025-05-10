@@ -56,14 +56,17 @@ export async function POST(request: Request, { params }: { params: { id: string;
     const userId = session?.user?.id || null
 
     // Extract user information from form data
-    const userName = formData.name || formData.firstName + " " + formData.lastName || "Anonymous"
-    const userEmail = formData.email || formData.userEmail || formData.corporateEmail || null
+    const userName =
+      formData.name ||
+      (formData.firstName && formData.lastName ? `${formData.firstName} ${formData.lastName}` : "") ||
+      "Anonymous"
+    const userEmail = formData.email || formData.userEmail || formData.corporateEmail || session?.user?.email || null
 
     // Create the submission
     const submission = {
       eventId: event._id,
       formType,
-      userId: userId, // This is now optional
+      userId: userId ? new ObjectId(userId) : null, // Make userId optional
       userName: userName, // Store name from form
       userEmail: userEmail, // Store email from form
       data: formData,
@@ -72,8 +75,8 @@ export async function POST(request: Request, { params }: { params: { id: string;
       updatedAt: new Date(),
     }
 
-    // Save to database
-    const result = await db.collection("formSubmissions").insertOne(submission)
+    // Save to database - use the correct collection name with lowercase 's'
+    const result = await db.collection("formsubmissions").insertOne(submission)
 
     if (!result.acknowledged) {
       throw new Error("Failed to save submission")
@@ -134,9 +137,9 @@ export async function GET(request: Request, { params }: { params: { id: string; 
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
-    // Get submissions for this event and form type
+    // Get submissions for this event and form type - use the correct collection name with lowercase 's'
     const submissions = await db
-      .collection("formSubmissions")
+      .collection("formsubmissions")
       .find({
         eventId: event._id,
         formType,

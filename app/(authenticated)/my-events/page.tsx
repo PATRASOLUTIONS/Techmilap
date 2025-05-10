@@ -17,6 +17,9 @@ import {
   ChevronRight,
   Clock,
   Mail,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,6 +27,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface Event {
   _id: string
@@ -48,11 +52,26 @@ interface Event {
   }
 }
 
+interface FormSubmission {
+  _id: string
+  eventId: string
+  formType: "attendee" | "volunteer" | "speaker"
+  status: "pending" | "approved" | "rejected"
+  createdAt: string
+  event?: {
+    title: string
+    date: string
+    location: string
+    slug?: string
+  }
+}
+
 export default function MyEventsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [events, setEvents] = useState<Event[]>([])
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([])
   const [pastEvents, setPastEvents] = useState<Event[]>([])
+  const [pendingSubmissions, setPendingSubmissions] = useState<FormSubmission[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -133,6 +152,9 @@ export default function MyEventsPage() {
 
         // Sort events into upcoming and past based on current time
         sortEvents(sanitizedEvents, currentTime)
+
+        // Fetch pending submissions
+        await fetchPendingSubmissions()
       } catch (error) {
         console.error("Error fetching events:", error)
         const errorMessage =
@@ -151,6 +173,29 @@ export default function MyEventsPage() {
 
     fetchEvents()
   }, [toast, currentTime])
+
+  // Function to fetch pending submissions
+  const fetchPendingSubmissions = async () => {
+    try {
+      const response = await fetch("/api/submissions/my-pending", {
+        cache: "no-store",
+      })
+
+      if (!response.ok) {
+        console.error("Failed to fetch pending submissions:", response.statusText)
+        return
+      }
+
+      const data = await response.json()
+      console.log("Pending submissions:", data)
+
+      if (Array.isArray(data.submissions)) {
+        setPendingSubmissions(data.submissions)
+      }
+    } catch (error) {
+      console.error("Error fetching pending submissions:", error)
+    }
+  }
 
   // Function to sort events into upcoming and past
   const sortEvents = (events: Event[], currentDate: Date) => {
@@ -266,58 +311,233 @@ export default function MyEventsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">My Organized Events</h1>
-      </div>
-      <div className="flex flex-col space-y-2">
-        <p className="text-muted-foreground">View events you're organizing. Create, manage and track your events.</p>
-      </div>
+      <Tabs defaultValue="organized" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="organized">Organized Events</TabsTrigger>
+          <TabsTrigger value="applications">My Applications</TabsTrigger>
+        </TabsList>
 
-      <div className="flex items-center justify-between">
-        <div className="max-w-sm">
-          <Input
-            placeholder="Search events..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full"
-          />
-        </div>
-        <div className="flex items-center text-sm text-muted-foreground">
-          <Clock className="h-4 w-4 mr-1" />
-          <span>Last updated: {currentTime.toLocaleTimeString()}</span>
-        </div>
-      </div>
+        <TabsContent value="organized">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold tracking-tight">My Organized Events</h1>
+          </div>
+          <div className="flex flex-col space-y-2">
+            <p className="text-muted-foreground">
+              View events you're organizing. Create, manage and track your events.
+            </p>
+          </div>
 
-      <div className="mt-6">
-        {loading ? (
-          <EventsLoadingSkeleton />
-        ) : (
-          <div className="space-y-10">
-            <div>
-              <h2 className="text-xl font-semibold mb-4 flex items-center">
-                <Calendar className="h-5 w-5 mr-2 text-primary" />
-                Your Events ({filteredEvents.length})
-              </h2>
-              {filteredEvents.length > 0 ? (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {filteredEvents.map((event) => (
-                    <EventCard
-                      key={`${event._id}-${event.userRole}`}
-                      event={event}
-                      onClick={() => handleEventClick(event._id, event.userRole || "organizer", event.slug)}
-                      onManageClick={(e) => handleManageClick(e, event._id)}
-                      isPast={new Date(event.date) < currentTime}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState role="organizer" type="all" />
-              )}
+          <div className="flex items-center justify-between mt-4">
+            <div className="max-w-sm">
+              <Input
+                placeholder="Search events..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            <div className="flex items-center text-sm text-muted-foreground">
+              <Clock className="h-4 w-4 mr-1" />
+              <span>Last updated: {currentTime.toLocaleTimeString()}</span>
             </div>
           </div>
-        )}
-      </div>
+
+          <div className="mt-6">
+            {loading ? (
+              <EventsLoadingSkeleton />
+            ) : (
+              <div className="space-y-10">
+                <div>
+                  <h2 className="text-xl font-semibold mb-4 flex items-center">
+                    <Calendar className="h-5 w-5 mr-2 text-primary" />
+                    Your Events ({filteredEvents.length})
+                  </h2>
+                  {filteredEvents.length > 0 ? (
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      {filteredEvents.map((event) => (
+                        <EventCard
+                          key={`${event._id}-${event.userRole}`}
+                          event={event}
+                          onClick={() => handleEventClick(event._id, event.userRole || "organizer", event.slug)}
+                          onManageClick={(e) => handleManageClick(e, event._id)}
+                          isPast={new Date(event.date) < currentTime}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <EmptyState role="organizer" type="all" />
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="applications">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold tracking-tight">My Applications</h1>
+          </div>
+          <div className="flex flex-col space-y-2">
+            <p className="text-muted-foreground">
+              View events you've applied for. Check the status of your applications.
+            </p>
+          </div>
+
+          <div className="mt-6">
+            {loading ? (
+              <EventsLoadingSkeleton />
+            ) : (
+              <div className="space-y-10">
+                <div>
+                  <h2 className="text-xl font-semibold mb-4 flex items-center">
+                    <AlertCircle className="h-5 w-5 mr-2 text-amber-500" />
+                    Pending Applications ({pendingSubmissions.length})
+                  </h2>
+                  {pendingSubmissions.length > 0 ? (
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      {pendingSubmissions.map((submission) => (
+                        <SubmissionCard
+                          key={submission._id}
+                          submission={submission}
+                          onClick={() => {
+                            if (submission.event?.slug) {
+                              router.push(`/events/${submission.event.slug}`)
+                            } else {
+                              router.push(`/events/${submission.eventId}`)
+                            }
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-medium">No Pending Applications</h3>
+                      <p className="text-muted-foreground mt-2 max-w-md">
+                        You don't have any pending applications for events.
+                      </p>
+                      <Button className="mt-6" asChild>
+                        <Link href="/explore">Explore Events</Link>
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
+  )
+}
+
+function SubmissionCard({ submission, onClick }) {
+  // Format the date with fallback
+  const formattedDate = submission.event?.date
+    ? new Date(submission.event.date).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "Date not specified"
+
+  // Get the appropriate icon and text for the form type
+  const getFormTypeInfo = (formType) => {
+    switch (formType) {
+      case "attendee":
+        return { icon: <User className="h-4 w-4 text-emerald-500" />, text: "Attendee Registration" }
+      case "volunteer":
+        return { icon: <HandHelping className="h-4 w-4 text-amber-500" />, text: "Volunteer Application" }
+      case "speaker":
+        return { icon: <Mic className="h-4 w-4 text-blue-500" />, text: "Speaker Application" }
+      default:
+        return { icon: <User className="h-4 w-4 text-gray-500" />, text: "Application" }
+    }
+  }
+
+  const formTypeInfo = getFormTypeInfo(submission.formType)
+
+  // Get the appropriate status badge
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "pending":
+        return (
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+            <AlertCircle className="h-3 w-3 mr-1" /> Pending
+          </Badge>
+        )
+      case "approved":
+        return (
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+            <CheckCircle className="h-3 w-3 mr-1" /> Approved
+          </Badge>
+        )
+      case "rejected":
+        return (
+          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+            <XCircle className="h-3 w-3 mr-1" /> Rejected
+          </Badge>
+        )
+      default:
+        return (
+          <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
+            Unknown
+          </Badge>
+        )
+    }
+  }
+
+  return (
+    <Card
+      className="overflow-hidden flex flex-col h-full cursor-pointer transition-all hover:shadow-lg relative group bg-white border-slate-200"
+      onClick={onClick}
+    >
+      <CardHeader className="p-5 pb-3 bg-gradient-to-r from-slate-50 to-white border-b">
+        <div className="flex justify-between items-start">
+          <CardTitle className="text-xl font-bold text-primary line-clamp-1">
+            {submission.event?.title || "Event"}
+          </CardTitle>
+        </div>
+        <CardDescription className="mt-2 space-y-1.5">
+          <div className="flex items-center gap-1.5 text-slate-700">
+            <Calendar className="h-4 w-4 text-primary" />
+            <span className="font-medium">{formattedDate}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-slate-700">
+            <MapPin className="h-4 w-4 text-primary" />
+            <span className="truncate">{submission.event?.location || "Location not specified"}</span>
+          </div>
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="p-5 pt-4 flex-grow">
+        <div className="flex items-center gap-2 mb-3 p-2.5 bg-slate-50 rounded-md border border-slate-100">
+          {formTypeInfo.icon}
+          <span className="font-medium text-slate-800">{formTypeInfo.text}</span>
+        </div>
+
+        <div className="flex items-center justify-between p-2 rounded-md bg-slate-50">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-slate-500" />
+            <span className="text-slate-700">
+              Submitted on{" "}
+              {new Date(submission.createdAt).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })}
+            </span>
+          </div>
+          {getStatusBadge(submission.status)}
+        </div>
+      </CardContent>
+
+      <CardFooter className="flex justify-between p-4 bg-slate-50 border-t">
+        <Button size="sm" className="w-full bg-primary hover:bg-primary/90">
+          View Event Details
+        </Button>
+      </CardFooter>
+    </Card>
   )
 }
 

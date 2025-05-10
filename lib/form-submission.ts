@@ -179,7 +179,7 @@ export async function handleFormSubmission(
       updatedAt: new Date(),
     }
 
-    // Insert the submission
+    // Insert the submission - use the correct collection name with lowercase 's'
     const result = await db.collection("formsubmissions").insertOne(submission)
 
     // Send confirmation email to the user
