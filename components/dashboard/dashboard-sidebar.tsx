@@ -23,6 +23,7 @@ import {
   BookMarked,
   ListChecks,
   Tag,
+  History,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -209,6 +210,21 @@ export function DashboardSidebar() {
       title: "Settings",
       href: "/settings",
       icon: Settings,
+    },
+    {
+      href: "/settings/email-templates",
+      label: "Email Templates",
+      icon: Mail,
+    },
+    {
+      href: "/settings/email-designs",
+      label: "Email Designs",
+      icon: Palette,
+    },
+    {
+      href: "/settings/email-history",
+      label: "Email History",
+      icon: History,
     },
   ]
 

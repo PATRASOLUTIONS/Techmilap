@@ -1,5 +1,6 @@
 import { connectToDatabase } from "@/lib/mongodb"
 import EmailTemplate from "@/models/EmailTemplate"
+import SentEmail from "@/models/SentEmail"
 import { sendEmail } from "@/lib/email-service"
 import User from "@/models/User"
 
@@ -11,6 +12,7 @@ interface SendTemplatedEmailParams {
   eventId?: string
   variables: Record<string, string>
   customSubject?: string
+  metadata?: Record<string, any>
 }
 
 // Enhance the getUserDesignPreference function
@@ -38,56 +40,155 @@ async function getUserDesignPreference(userId: string): Promise<string> {
   }
 }
 
-// Update the getEmailTemplate function to ensure proper user-specific template handling:
-// Export the getEmailTemplate function
+// Enhanced getEmailTemplate function with better prioritization and fallback
 export async function getEmailTemplate(userId: string, templateType: string, eventId?: string) {
   try {
     await connectToDatabase()
 
-    // First try to find an event-specific template
+    let template = null
+
+    // Priority 1: Event-specific template for this user
     if (eventId) {
-      const eventTemplate = await EmailTemplate.findOne({
+      template = await EmailTemplate.findOne({
         userId,
         templateType,
         eventId,
         isDefault: true,
       })
 
-      if (eventTemplate) {
-        return eventTemplate
+      if (template) {
+        console.log(`Found event-specific template for user ${userId}, event ${eventId}, type ${templateType}`)
+        return template
       }
     }
 
-    // Then try to find a default template for this user and type
-    const defaultTemplate = await EmailTemplate.findOne({
+    // Priority 2: User's default template for this type
+    template = await EmailTemplate.findOne({
       userId,
       templateType,
       isDefault: true,
+      eventId: { $exists: false },
     })
 
-    if (defaultTemplate) {
-      return defaultTemplate
+    if (template) {
+      console.log(`Found user default template for user ${userId}, type ${templateType}`)
+      return template
     }
 
-    // Finally, try to find any template of this type for the user
-    const anyTemplate = await EmailTemplate.findOne({
+    // Priority 3: Any template of this type for the user
+    template = await EmailTemplate.findOne({
       userId,
       templateType,
-    })
+    }).sort({ lastUsed: -1 }) // Get the most recently used one
 
-    if (anyTemplate) {
-      return anyTemplate
+    if (template) {
+      console.log(`Found non-default template for user ${userId}, type ${templateType}`)
+      return template
     }
 
-    // If no user-specific template is found, log this information
-    console.log(`No template found for user ${userId}, type ${templateType}. Will use system default.`)
-    return null
+    // Priority 4: System default template (created by admin)
+    template = await EmailTemplate.findOne({
+      templateType,
+      isDefault: true,
+    }).sort({ usageCount: -1 }) // Get the most used one
+
+    if (template) {
+      console.log(`Found system default template for type ${templateType}`)
+      return template
+    }
+
+    // If no template is found, log this information
+    console.log(`No template found for user ${userId}, type ${templateType}. Will create a default template.`)
+
+    // Create a default template
+    const defaultTemplate = await createDefaultTemplate(userId, templateType)
+    return defaultTemplate
   } catch (error) {
     console.error("Error getting email template:", error)
     return null
   }
 }
 
+// Function to create a default template if none exists
+async function createDefaultTemplate(userId: string, templateType: string) {
+  try {
+    const defaultContent = getDefaultTemplateContent(templateType)
+    const defaultSubject = getDefaultTemplateSubject(templateType)
+    const defaultVariables = getDefaultTemplateVariables(templateType)
+
+    const newTemplate = new EmailTemplate({
+      userId,
+      templateName: `Default ${templateType.charAt(0).toUpperCase() + templateType.slice(1)} Template`,
+      templateType,
+      designTemplate: "modern",
+      subject: defaultSubject,
+      content: defaultContent,
+      isDefault: true,
+      variables: defaultVariables,
+    })
+
+    await newTemplate.save()
+    console.log(`Created default template for user ${userId}, type ${templateType}`)
+    return newTemplate
+  } catch (error) {
+    console.error(`Error creating default template for user ${userId}, type ${templateType}:`, error)
+    return null
+  }
+}
+
+// Helper functions for default templates
+function getDefaultTemplateSubject(templateType: string): string {
+  switch (templateType) {
+    case "success":
+      return "Your Registration Has Been Approved"
+    case "rejection":
+      return "Update Regarding Your Registration"
+    case "ticket":
+      return "Your Event Ticket"
+    case "certificate":
+      return "Your Certificate of Participation"
+    case "reminder":
+      return "Reminder: Upcoming Event"
+    case "custom":
+    default:
+      return "Important Information About Your Event"
+  }
+}
+
+function getDefaultTemplateContent(templateType: string): string {
+  switch (templateType) {
+    case "success":
+      return "Dear {{attendeeName}},\n\nYour registration for **{{eventName}}** has been confirmed!\n\n**Event Details:**\n- Date: {{eventDate}}\n- Time: {{eventTime}}\n- Location: {{eventLocation}}\n\nWe look forward to seeing you there!\n\nBest regards,\n{{organizerName}}"
+    case "rejection":
+      return "Dear {{attendeeName}},\n\nThank you for your interest in **{{eventName}}**.\n\nWe regret to inform you that we are unable to confirm your registration at this time.\n\nPlease contact us if you have any questions.\n\nBest regards,\n{{organizerName}}"
+    case "ticket":
+      return "# Event Ticket\n\n**{{eventName}}**\n\nAttendee: {{attendeeName}}\nTicket ID: {{ticketId}}\nDate: {{eventDate}}\nTime: {{eventTime}}\nLocation: {{eventLocation}}\n\n*Please present this ticket at the event entrance.*"
+    case "certificate":
+      return "# Certificate of Participation\n\nThis is to certify that\n\n**{{attendeeName}}**\n\nhas successfully participated in\n\n**{{eventName}}**\n\nheld on {{eventDate}} at {{eventLocation}}.\n\n{{organizerName}}\nEvent Organizer"
+    case "reminder":
+      return "Dear {{attendeeName}},\n\nThis is a friendly reminder about the upcoming event:\n\n**{{eventName}}**\n\n**Event Details:**\n- Date: {{eventDate}}\n- Time: {{eventTime}}\n- Location: {{eventLocation}}\n\nWe look forward to seeing you there!\n\nBest regards,\n{{organizerName}}"
+    case "custom":
+    default:
+      return "Dear {{recipientName}},\n\nThank you for your interest in our events.\n\n{{customMessage}}\n\nBest regards,\n{{organizerName}}"
+  }
+}
+
+function getDefaultTemplateVariables(templateType: string): string[] {
+  const commonVars = ["attendeeName", "eventName", "eventDate", "eventTime", "eventLocation", "organizerName"]
+
+  switch (templateType) {
+    case "ticket":
+      return [...commonVars, "ticketId", "ticketUrl"]
+    case "certificate":
+      return [...commonVars, "certificateId"]
+    case "custom":
+      return ["recipientName", "customMessage", "organizerName"]
+    default:
+      return commonVars
+  }
+}
+
+// Enhanced sendTemplatedEmail function with email tracking
 export async function sendTemplatedEmail({
   userId,
   templateType,
@@ -96,8 +197,11 @@ export async function sendTemplatedEmail({
   eventId,
   variables,
   customSubject,
+  metadata = {},
 }: SendTemplatedEmailParams) {
   try {
+    await connectToDatabase()
+
     // Get the appropriate template
     const template = await getEmailTemplate(userId, templateType, eventId)
 
@@ -121,14 +225,50 @@ export async function sendTemplatedEmail({
 
     // Apply the design template
     const htmlContent = applyDesignTemplate(content, designPreference, recipientName)
+    const plainTextContent = stripHtml(content)
+
+    // Create a record of the email being sent
+    const sentEmail = new SentEmail({
+      userId,
+      eventId,
+      recipientEmail,
+      recipientName,
+      subject,
+      content: htmlContent,
+      templateId: template._id,
+      designTemplate: designPreference,
+      emailType: templateType,
+      status: "pending",
+      metadata,
+    })
+
+    await sentEmail.save()
 
     // Send the email
     const result = await sendEmail({
       to: recipientEmail,
       subject,
-      text: stripHtml(content),
+      text: plainTextContent,
       html: htmlContent,
     })
+
+    // Update the sent email record with the result
+    if (result) {
+      await SentEmail.findByIdAndUpdate(sentEmail._id, {
+        status: "sent",
+      })
+
+      // Update template usage statistics
+      await EmailTemplate.findByIdAndUpdate(template._id, {
+        lastUsed: new Date(),
+        $inc: { usageCount: 1 },
+      })
+    } else {
+      await SentEmail.findByIdAndUpdate(sentEmail._id, {
+        status: "failed",
+        errorMessage: "Failed to send email",
+      })
+    }
 
     return result
   } catch (error) {

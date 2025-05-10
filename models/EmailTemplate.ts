@@ -22,8 +22,8 @@ const EmailTemplateSchema = new mongoose.Schema(
     },
     designTemplate: {
       type: String,
-      enum: ["simple", "modern", "elegant", "colorful", "minimal"],
-      default: "simple",
+      enum: ["simple", "modern", "elegant", "colorful", "minimal", "corporate"],
+      default: "modern",
     },
     subject: {
       type: String,
@@ -47,6 +47,15 @@ const EmailTemplateSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Event",
       // Not required as templates can be global for a user
+      index: true,
+    },
+    lastUsed: {
+      type: Date,
+      default: null,
+    },
+    usageCount: {
+      type: Number,
+      default: 0,
     },
   },
   {
@@ -57,6 +66,7 @@ const EmailTemplateSchema = new mongoose.Schema(
 // Create compound indexes for common queries
 EmailTemplateSchema.index({ userId: 1, templateType: 1 })
 EmailTemplateSchema.index({ userId: 1, eventId: 1 })
+EmailTemplateSchema.index({ userId: 1, templateType: 1, eventId: 1 })
 
 // Add pre-save hook to ensure only one default template per type per user
 EmailTemplateSchema.pre("save", async function (next) {
@@ -67,6 +77,7 @@ EmailTemplateSchema.pre("save", async function (next) {
       templateType: this.templateType,
       isDefault: true,
       _id: { $ne: this._id }, // Exclude current document
+      eventId: this.eventId || null, // Match on eventId if present
     })
 
     if (existingDefault) {

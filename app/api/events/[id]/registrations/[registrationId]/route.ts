@@ -35,11 +35,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     // Get the organizer's email
     let organizerEmail = null
+    let organizerUser = null
     if (event.organizerId) {
       try {
-        const organizer = await db.collection("users").findOne({ _id: new ObjectId(event.organizerId) })
-        if (organizer && organizer.email) {
-          organizerEmail = organizer.email
+        organizerUser = await db.collection("users").findOne({ _id: new ObjectId(event.organizerId) })
+        if (organizerUser && organizerUser.email) {
+          organizerEmail = organizerUser.email
           console.log(`Found organizer email: ${organizerEmail}`)
         } else {
           console.log("Organizer found but no email available")
@@ -109,20 +110,40 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       try {
         if (status === "approved") {
           console.log(`Sending approval email to ${finalEmail}`)
+
+          // Enhanced event details for the email
+          const enhancedEventDetails = {
+            ...event,
+            organizer: event.organizerId,
+            organizerName: organizerUser?.name || "Event Organizer",
+            attendeeId: registration._id.toString(),
+          }
+
           emailSent = await sendRegistrationApprovalEmail({
             eventName: event.title,
             attendeeEmail: finalEmail,
             attendeeName: finalName,
-            eventDetails: event,
+            eventDetails: enhancedEventDetails,
             eventId: params.id,
             organizerEmail: organizerEmail, // Pass the organizer email
           })
         } else if (status === "rejected") {
           console.log(`Sending rejection email to ${finalEmail}`)
+
+          // Enhanced event details for the email
+          const enhancedEventDetails = {
+            ...event,
+            organizer: event.organizerId,
+            organizerName: organizerUser?.name || "Event Organizer",
+            attendeeId: registration._id.toString(),
+          }
+
           emailSent = await sendRegistrationRejectionEmail({
             eventName: event.title,
             attendeeEmail: finalEmail,
             attendeeName: finalName,
+            eventId: params.id,
+            eventDetails: enhancedEventDetails,
           })
         }
 
