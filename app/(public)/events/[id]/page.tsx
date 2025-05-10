@@ -23,16 +23,8 @@ function formatEventDate(dateString) {
       return "Date TBA"
     }
 
-    // Use UTC methods to avoid timezone issues
-    const year = date.getUTCFullYear()
-    const month = date.getUTCMonth()
-    const day = date.getUTCDate()
-
-    // Create a new date object using local timezone for display
-    const localDate = new Date(year, month, day)
-
     // Format the date using toLocaleDateString
-    return localDate.toLocaleDateString("en-US", {
+    return date.toLocaleDateString("en-US", {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -116,19 +108,6 @@ async function getEvent(id: string) {
       }
     }
 
-    // Inside the getEvent function, before returning the event
-    // Add this code right before the return statement:
-    if (event && event.date) {
-      // Ensure date is properly formatted
-      const dateObj = new Date(event.date)
-      if (!isNaN(dateObj.getTime())) {
-        // Store the original date string for debugging
-        event._originalDate = event.date
-        // Format date consistently
-        event.date = dateObj.toISOString()
-      }
-    }
-
     return {
       ...event,
       organizerInfo,
@@ -141,13 +120,6 @@ async function getEvent(id: string) {
 
 export default async function EventPage({ params }: { params: { id: string } }) {
   const event = await getEvent(params.id)
-
-  // Add after the event = await getEvent(params.id) line
-  console.log("Original event date:", event.date)
-  if (event.date) {
-    console.log("Parsed date object:", new Date(event.date))
-    console.log("UTC string:", new Date(event.date).toUTCString())
-  }
 
   if (!event) {
     notFound()
