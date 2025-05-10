@@ -5,20 +5,20 @@ const FormSubmissionSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
-      index: true, // Add index for better query performance
+      required: false, // Changed from true to false to make it optional
+      index: true,
     },
     eventId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Event",
       required: true,
-      index: true, // Add index for better query performance
+      index: true,
     },
     formType: {
       type: String,
       enum: ["attendee", "volunteer", "speaker"],
       required: true,
-      index: true, // Add index for better query performance
+      index: true,
     },
     data: {
       type: mongoose.Schema.Types.Mixed,
@@ -28,7 +28,7 @@ const FormSubmissionSchema = new mongoose.Schema(
       type: String,
       enum: ["pending", "approved", "rejected"],
       default: "pending",
-      index: true, // Add index for better query performance
+      index: true,
     },
     notes: {
       type: String,
@@ -40,6 +40,15 @@ const FormSubmissionSchema = new mongoose.Schema(
     },
     reviewedAt: {
       type: Date,
+    },
+    // Add these fields to store user information from the form
+    userName: {
+      type: String,
+      required: false,
+    },
+    userEmail: {
+      type: String,
+      required: false,
     },
   },
   {

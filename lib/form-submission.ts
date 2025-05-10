@@ -162,15 +162,12 @@ export async function handleFormSubmission(
     // Construct name from available fields
     const name = fullName || (firstName && lastName ? `${firstName} ${lastName}` : firstName || "Attendee")
 
-    // REMOVED: Check for duplicate submission
-    // We're allowing multiple submissions from the same email
-
     // Create the submission document with consistent email and name
     const submission = {
       eventId: event._id,
-      userId: userId ? new ObjectId(userId) : null,
-      userName: name,
-      userEmail: email, // Use consistent email
+      userId: userId ? new ObjectId(userId) : null, // Make userId optional
+      userName: name, // Store name from form
+      userEmail: email, // Store email from form
       formType,
       status,
       data: {
