@@ -340,8 +340,12 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
 
   const roleType = ticket.formType || ticket.ticketType || "attendee"
 
-  // QR code data
-  const qrCodeData = `SUBMISSION:${ticket._id}:${roleType}:${event._id || "unknown"}`
+  // Create the virtual ticket URL
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+  const virtualTicketUrl = `${baseUrl}/tickets/${ticket._id}`
+
+  // QR code data - now points to the virtual ticket URL
+  const qrCodeData = virtualTicketUrl
 
   // Get role type color
   const roleTypeColor =
@@ -550,6 +554,12 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
       doc.text("QR Code", 150, 105, { align: "center" })
       doc.text("Scan for entry", 150, 110, { align: "center" })
 
+      // Add virtual ticket URL
+      doc.setFontSize(10)
+      doc.setTextColor(0, 0, 255)
+      doc.text("View virtual ticket:", 130, 135)
+      doc.text(virtualTicketUrl, 130, 140, { maxWidth: 60 })
+
       // Add footer
       doc.setFontSize(10)
       doc.setTextColor(150, 150, 150)
@@ -611,7 +621,8 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
         .slice(
           9,
           13,
-        )}00Z&details=${encodeURIComponent(`Your ${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Pass for ${event.title || "Event"}. Ticket #: ${ticket._id.substring(0, 6)}`)}&location=${encodeURIComponent(event.location || "")}`
+        )}00Z&details=${encodeURIComponent(`Your ${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Pass for ${event.title || "Event"}. Ticket #: ${ticket._id.substring(0, 6)}
+View your ticket: ${virtualTicketUrl}`)}&location=${encodeURIComponent(event.location || "")}`
 
       window.open(googleCalendarUrl, "_blank")
 
@@ -680,6 +691,8 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
 🏷️ Type: ${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Pass
 👤 Name: ${getName()}
 
+🔗 View your ticket: ${virtualTicketUrl}
+
 Please present this ticket at the event entrance.
     `
 
@@ -727,6 +740,8 @@ Please present this ticket at the event entrance.
             <div className="bg-white p-2 rounded-md shadow-sm mb-4 w-32 h-32 flex items-center justify-center">
               <TicketQRCode data={qrCodeData} size={120} />
             </div>
+
+            <div className="text-xs text-center text-gray-500 mb-2">Scan for virtual ticket</div>
           </div>
 
           {/* Right ticket content */}
