@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TicketCard } from "@/components/tickets/ticket-card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -9,9 +9,9 @@ import { Calendar, AlertCircle, Ticket, Clock, Mail, MapPin, Download, Share2, E
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
-import Image from "next/image"
 import { jsPDF } from "jspdf"
 import "jspdf-autotable"
+import QRCode from "qrcode"
 
 export default function MyTicketsPage() {
   const [tickets, setTickets] = useState<{
@@ -262,6 +262,60 @@ function TicketItem({ ticket, index }: { ticket: any; index: number }) {
   }
 }
 
+// QR Code component that generates QR code client-side
+function TicketQRCode({ data, size = 120 }: { data: string; size?: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!canvasRef.current) return
+
+    const generateQR = async () => {
+      try {
+        await QRCode.toCanvas(canvasRef.current, data, {
+          width: size,
+          margin: 1,
+          color: {
+            dark: "#000000",
+            light: "#FFFFFF",
+          },
+        })
+        setIsLoaded(true)
+      } catch (err) {
+        console.error("Error generating QR code:", err)
+        setError("Failed to generate QR code")
+      }
+    }
+
+    generateQR()
+  }, [data, size])
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center w-full h-full bg-gray-100 rounded-md">
+        <p className="text-xs text-gray-500 text-center p-2">QR Code Generation Failed</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative w-full h-full flex items-center justify-center">
+      {!isLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+          <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+        </div>
+      )}
+      <canvas
+        ref={canvasRef}
+        className={`w-full h-full ${isLoaded ? "opacity-100" : "opacity-0"}`}
+        width={size}
+        height={size}
+      />
+    </div>
+  )
+}
+
 // Component to display form submission as a ticket
 function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number }) {
   const [showAllDetails, setShowAllDetails] = useState(false)
@@ -285,6 +339,9 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
     event.startTime && event.endTime ? `${event.startTime} - ${event.endTime}` : "Time not specified"
 
   const roleType = ticket.formType || ticket.ticketType || "attendee"
+
+  // QR code data
+  const qrCodeData = `SUBMISSION:${ticket._id}:${roleType}:${event._id || "unknown"}`
 
   // Get role type color
   const roleTypeColor =
@@ -668,17 +725,8 @@ Please present this ticket at the event entrance.
             </div>
 
             <div className="bg-white p-2 rounded-md shadow-sm mb-4 w-32 h-32 flex items-center justify-center">
-              <Image
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`SUBMISSION:${ticket._id}:${roleType}:${event._id || "unknown"}`)}`}
-                alt="QR Code"
-                width={120}
-                height={120}
-              />
+              <TicketQRCode data={qrCodeData} size={120} />
             </div>
-
-            <div className="text-xs text-center text-gray-500 mb-2">Scan for entry</div>
-
-            <Button className={`bg-gradient-to-r ${roleTypeColor} text-white w-full`}>Check In</Button>
           </div>
 
           {/* Right ticket content */}
