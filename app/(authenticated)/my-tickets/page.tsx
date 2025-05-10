@@ -340,12 +340,14 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
 
   const roleType = ticket.formType || ticket.ticketType || "attendee"
 
-  // Create the virtual ticket URL
+  // Create the virtual ticket URL - ensure it's a complete URL with http/https
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
   const virtualTicketUrl = `${baseUrl}/tickets/${ticket._id}`
 
-  // QR code data - now points to the virtual ticket URL
-  const qrCodeData = virtualTicketUrl
+  // QR code data - ensure it's the complete URL
+  const qrCodeData = virtualTicketUrl.startsWith("http")
+    ? virtualTicketUrl
+    : `https://${virtualTicketUrl.replace(/^\/\//, "")}`
 
   // Get role type color
   const roleTypeColor =
@@ -741,7 +743,14 @@ Please present this ticket at the event entrance.
               <TicketQRCode data={qrCodeData} size={120} />
             </div>
 
-            <div className="text-xs text-center text-gray-500 mb-2">Scan for virtual ticket</div>
+            <a
+              href={qrCodeData}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-center text-indigo-600 hover:underline mb-2"
+            >
+              Tap to view virtual ticket
+            </a>
           </div>
 
           {/* Right ticket content */}
