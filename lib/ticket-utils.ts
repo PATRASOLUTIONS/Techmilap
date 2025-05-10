@@ -8,34 +8,19 @@
 export function extractNameFromFormData(formData: any): string {
   if (!formData) return "N/A"
 
-  // Try common field names for name
-  const possibleNameFields = [
-    "name",
-    "fullName",
-    "full_name",
-    "firstName",
-    "first_name",
-    "attendeeName",
-    "attendee_name",
-    "displayName",
-    "display_name",
-    "question_name",
-    "Name",
-    "FullName",
-    "FirstName",
-  ]
-
-  for (const field of possibleNameFields) {
-    if (formData[field] && typeof formData[field] === "string") {
-      return formData[field]
-    }
+  // First try direct name fields
+  if (formData.name) return formData.name
+  if (formData.fullName) return formData.fullName
+  if (formData.firstName) {
+    const lastName = formData.lastName || ""
+    return `${formData.firstName} ${lastName}`.trim()
   }
 
-  // If still not found, look for any field containing "name"
-  for (const key in formData) {
-    if (key.toLowerCase().includes("name") && typeof formData[key] === "string" && formData[key].length > 0) {
-      return formData[key]
-    }
+  // Then try fields that start with question_name_
+  const nameKeys = Object.keys(formData).filter((key) => key.startsWith("question_name_"))
+
+  if (nameKeys.length > 0) {
+    return formData[nameKeys[0]]
   }
 
   return "N/A"
@@ -47,34 +32,15 @@ export function extractNameFromFormData(formData: any): string {
 export function extractEmailFromFormData(formData: any): string {
   if (!formData) return "N/A"
 
-  // Try common field names for email
-  const possibleEmailFields = [
-    "email",
-    "emailAddress",
-    "email_address",
-    "userEmail",
-    "user_email",
-    "attendeeEmail",
-    "attendee_email",
-    "Email",
-    "EmailAddress",
-  ]
+  // First try direct email fields
+  if (formData.email) return formData.email
+  if (formData.emailAddress) return formData.emailAddress
 
-  for (const field of possibleEmailFields) {
-    if (formData[field] && typeof formData[field] === "string") {
-      return formData[field]
-    }
-  }
+  // Then try fields that start with question_email_
+  const emailKeys = Object.keys(formData).filter((key) => key.startsWith("question_email_"))
 
-  // If still not found, look for any field containing "email"
-  for (const key in formData) {
-    if (
-      (key.toLowerCase().includes("email") || key.toLowerCase().includes("mail")) &&
-      typeof formData[key] === "string" &&
-      formData[key].includes("@")
-    ) {
-      return formData[key]
-    }
+  if (emailKeys.length > 0) {
+    return formData[emailKeys[0]]
   }
 
   return "N/A"
@@ -86,4 +52,51 @@ export function extractEmailFromFormData(formData: any): string {
 export function generateTicketUrl(ticketId: string): string {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://myevent.vercel.app"
   return `${baseUrl}/tickets/${ticketId}`
+}
+
+/**
+ * Formats form data for display by removing dynamic IDs from field names
+ */
+export function formatFormDataForDisplay(formData: any): Array<{ key: string; value: string }> {
+  if (!formData) return []
+
+  return Object.entries(formData)
+    .filter(([key, value]) => {
+      // Filter out common fields we already display separately
+      const lowerKey = key.toLowerCase()
+      return (
+        !key.startsWith("question_email_") &&
+        !key.startsWith("question_name_") &&
+        !lowerKey.includes("email") &&
+        !lowerKey.includes("name") &&
+        !lowerKey.includes("password") &&
+        !lowerKey.includes("token") &&
+        !lowerKey.includes("csrf") &&
+        typeof value === "string" &&
+        value.toString().trim() !== ""
+      )
+    })
+    .map(([key, value]) => {
+      // Format the key for display
+      let displayKey = key
+        .replace(/([A-Z])/g, " $1")
+        .replace(/_/g, " ")
+        .replace(/^./, (str) => str.toUpperCase())
+        .trim()
+
+      // Handle question_* format
+      if (displayKey.startsWith("Question ")) {
+        // Extract the field name without the ID
+        const parts = key.split("_")
+        if (parts.length >= 2) {
+          // Use the second part (the actual field name)
+          displayKey = parts[1].charAt(0).toUpperCase() + parts[1].slice(1)
+        }
+      }
+
+      return {
+        key: displayKey,
+        value: String(value),
+      }
+    })
 }

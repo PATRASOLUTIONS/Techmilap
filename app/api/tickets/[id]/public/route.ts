@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import FormSubmission from "@/models/FormSubmission"
 import Event from "@/models/Event"
+import { extractNameFromFormData, extractEmailFromFormData } from "@/lib/ticket-utils"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -31,24 +32,18 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       eventId: submission.eventId,
     })
 
-    // Log the full submission data for debugging
-    console.log("Full submission data:", JSON.stringify(submission, null, 2))
+    // Extract name and email from form data
+    const name = extractNameFromFormData(submission.formData)
+    const email = extractEmailFromFormData(submission.formData)
 
-    // Ensure we're returning the complete submission data
+    // Return the ticket data
     return NextResponse.json({
       success: true,
       ticket: {
         ...submission,
         // Add these fields explicitly to ensure they're included
-        userName:
-          submission.userName ||
-          submission.user?.name ||
-          (submission.formData &&
-            (submission.formData.name || submission.formData.fullName || submission.formData.firstName)),
-        userEmail:
-          submission.userEmail ||
-          submission.user?.email ||
-          (submission.formData && (submission.formData.email || submission.formData.emailAddress)),
+        displayName: name,
+        displayEmail: email,
         event: event || null,
       },
     })

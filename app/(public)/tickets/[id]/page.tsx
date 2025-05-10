@@ -13,12 +13,11 @@ export const metadata = {
   description: "Your virtual event ticket",
 }
 
-// Update the getTicketData function to ensure we're getting all the necessary data
 async function getTicketData(id: string) {
   try {
     await connectToDatabase()
 
-    // Find the form submission by ID and make sure to include all fields
+    // Find the form submission by ID
     const submission = await FormSubmission.findById(id).lean()
 
     if (!submission) {
@@ -32,8 +31,7 @@ async function getTicketData(id: string) {
     console.log("Ticket data retrieved:", {
       submissionId: submission._id,
       formType: submission.formType,
-      formData: submission.formData,
-      eventId: submission.eventId,
+      formData: submission.formData ? Object.keys(submission.formData) : [],
     })
 
     return {
@@ -71,97 +69,41 @@ export default async function TicketPage({ params }: { params: { id: string } })
   // Get form type (attendee, volunteer, speaker)
   const formType = submission.formType || "attendee"
 
-  // Update the getName and getEmail functions to be more robust and handle the specific data structure
-  // Replace the existing getName and getEmail functions with these:
-
+  // Get name from form data - specifically handling the question_name_[id] pattern
   const getName = () => {
-    // First check if we have user information directly on the submission
-    if (submission.userName) return submission.userName
-    if (submission.user?.name) return submission.user.name
+    if (!submission.formData) return "N/A"
 
-    // Then check the form data with multiple possible field names
-    if (submission.formData) {
-      // Try common field names for name
-      const possibleNameFields = [
-        "name",
-        "fullName",
-        "full_name",
-        "firstName",
-        "first_name",
-        "attendeeName",
-        "attendee_name",
-        "displayName",
-        "display_name",
-        "question_name",
-        "Name",
-        "FullName",
-        "FirstName",
-      ]
-
-      for (const field of possibleNameFields) {
-        if (submission.formData[field] && typeof submission.formData[field] === "string") {
-          return submission.formData[field]
-        }
-      }
-
-      // If still not found, look for any field containing "name"
-      for (const key in submission.formData) {
-        if (
-          key.toLowerCase().includes("name") &&
-          typeof submission.formData[key] === "string" &&
-          submission.formData[key].length > 0
-        ) {
-          return submission.formData[key]
-        }
-      }
+    // First try direct name fields
+    if (submission.formData.name) return submission.formData.name
+    if (submission.formData.fullName) return submission.formData.fullName
+    if (submission.formData.firstName) {
+      const lastName = submission.formData.lastName || ""
+      return `${submission.formData.firstName} ${lastName}`.trim()
     }
 
-    // If we get here, try to use the email as a fallback
-    const email = getEmail()
-    if (email && email !== "N/A") {
-      // Return the part before @ in the email
-      return email.split("@")[0]
+    // Then try fields that start with question_name_
+    const nameKeys = Object.keys(submission.formData).filter((key) => key.startsWith("question_name_"))
+
+    if (nameKeys.length > 0) {
+      return submission.formData[nameKeys[0]]
     }
 
     return "N/A"
   }
 
+  // Get email from form data - specifically handling the question_email_[id] pattern
   const getEmail = () => {
-    // First check if we have user information directly on the submission
-    if (submission.userEmail) return submission.userEmail
-    if (submission.user?.email) return submission.user.email
+    if (!submission.formData) return "N/A"
 
-    // Then check the form data with multiple possible field names
-    if (submission.formData) {
-      // Try common field names for email
-      const possibleEmailFields = [
-        "email",
-        "emailAddress",
-        "email_address",
-        "userEmail",
-        "user_email",
-        "attendeeEmail",
-        "attendee_email",
-        "Email",
-        "EmailAddress",
-      ]
+    // First try direct email fields
+    if (submission.formData.email) return submission.formData.email
+    if (submission.formData.emailAddress) return submission.formData.emailAddress
 
-      for (const field of possibleEmailFields) {
-        if (submission.formData[field] && typeof submission.formData[field] === "string") {
-          return submission.formData[field]
-        }
-      }
+    // Then try fields that start with question_email_
+    const emailKeys = Object.keys(submission.formData).filter((key) => key.startsWith("question_email_"))
 
-      // If still not found, look for any field containing "email"
-      for (const key in submission.formData) {
-        if (
-          (key.toLowerCase().includes("email") || key.toLowerCase().includes("mail")) &&
-          typeof submission.formData[key] === "string" &&
-          submission.formData[key].includes("@")
-        ) {
-          return submission.formData[key]
-        }
-      }
+    if (emailKeys.length > 0) {
+      return submission.formData[emailKeys[0]]
     }
 
     return "N/A"
@@ -177,36 +119,53 @@ export default async function TicketPage({ params }: { params: { id: string } })
 
   // Get status
   const status = submission.status || "pending"
-  const isApproved = status === "approved"
+  const isApproved = status === "approved" || status === "confirmed"
 
   // Add a function to get all form data for display
   const getFormDataEntries = () => {
     if (!submission.formData) return []
 
     return Object.entries(submission.formData)
-      .filter(([key]) => {
+      .filter(([key, value]) => {
         // Filter out common fields we already display separately
         const lowerKey = key.toLowerCase()
         return (
+          !key.startsWith("question_email_") &&
+          !key.startsWith("question_name_") &&
           !lowerKey.includes("email") &&
           !lowerKey.includes("name") &&
           !lowerKey.includes("password") &&
           !lowerKey.includes("token") &&
-          !lowerKey.includes("csrf")
+          !lowerKey.includes("csrf") &&
+          typeof value === "string" &&
+          value.trim() !== ""
         )
       })
-      .map(([key, value]) => ({
-        key: key
+      .map(([key, value]) => {
+        // Format the key for display
+        let displayKey = key
           .replace(/([A-Z])/g, " $1")
           .replace(/_/g, " ")
           .replace(/^./, (str) => str.toUpperCase())
-          .trim(),
-        value: String(value),
-      }))
+          .trim()
+
+        // Handle question_* format
+        if (displayKey.startsWith("Question ")) {
+          // Extract the field name without the ID
+          const parts = key.split("_")
+          if (parts.length >= 2) {
+            // Use the second part (the actual field name)
+            displayKey = parts[1].charAt(0).toUpperCase() + parts[1].slice(1)
+          }
+        }
+
+        return {
+          key: displayKey,
+          value: String(value),
+        }
+      })
   }
 
-  // Add this after the existing divider and attendee information section
-  // Add additional form data section
   const formDataEntries = getFormDataEntries()
 
   return (
@@ -250,7 +209,9 @@ export default async function TicketPage({ params }: { params: { id: string } })
             {/* Ticket number */}
             <div className="mb-6 text-center">
               <div className="text-xs text-gray-500 uppercase">Ticket #</div>
-              <div className="text-xl font-mono font-bold">{submission._id.toString().substring(0, 8)}</div>
+              <div className="text-xl font-mono font-bold">
+                {submission.ticketNumber || submission._id.toString().substring(0, 8)}
+              </div>
             </div>
 
             {/* Time and location */}
@@ -320,7 +281,7 @@ export default async function TicketPage({ params }: { params: { id: string } })
             <div className="flex justify-between items-center">
               <div className="text-xs text-gray-500">
                 {isApproved ? "Approved" : "Submitted"} on{" "}
-                {new Date(submission.updatedAt || submission.createdAt).toLocaleDateString()}
+                {new Date(submission.purchasedAt || submission.updatedAt || submission.createdAt).toLocaleDateString()}
               </div>
 
               {event && (
