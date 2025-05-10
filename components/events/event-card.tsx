@@ -78,9 +78,7 @@ export function EventCard({ event, onClick, showRegisterButton = false }: EventC
           </div>
           <div className="text-center py-2 font-bold text-2xl text-gray-800">{day}</div>
           <div className="h-px w-10 bg-gray-200 my-2"></div>
-          <div className="text-xs font-mono text-gray-500 rotate-90 tracking-widest mt-4">
-            #{ticketNumber.slice(0, 4)}
-          </div>
+         
         </div>
 
         {/* Main Ticket Content */}
