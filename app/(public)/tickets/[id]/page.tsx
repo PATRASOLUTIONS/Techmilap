@@ -21,6 +21,7 @@ async function getTicketData(id: string) {
     const submission = await FormSubmission.findById(id).lean()
 
     if (!submission) {
+      console.error("Ticket not found:", id)
       return null
     }
 
@@ -32,6 +33,8 @@ async function getTicketData(id: string) {
       submissionId: submission._id,
       formType: submission.formType,
       formData: submission.formData ? Object.keys(submission.formData) : [],
+      userName: submission.userName,
+      userEmail: submission.userEmail,
     })
 
     return {
@@ -44,6 +47,101 @@ async function getTicketData(id: string) {
   }
 }
 
+// Helper function to extract name from form data
+function extractName(submission) {
+  // First try the userName field (added in our recent updates)
+  if (submission.userName && submission.userName !== "N/A") {
+    return submission.userName
+  }
+
+  // If no formData, return N/A
+  if (!submission.formData) return "N/A"
+
+  // Try common name fields
+  const nameFields = ["name", "fullName", "full_name", "firstName", "first_name", "attendeeName", "attendee_name"]
+  for (const field of nameFields) {
+    if (submission.formData[field]) {
+      return submission.formData[field]
+    }
+  }
+
+  // Try to combine first and last name
+  if (submission.formData.firstName && submission.formData.lastName) {
+    return `${submission.formData.firstName} ${submission.formData.lastName}`
+  }
+  if (submission.formData.first_name && submission.formData.last_name) {
+    return `${submission.formData.first_name} ${submission.formData.last_name}`
+  }
+
+  // Try fields that start with question_name_
+  const nameKeys = Object.keys(submission.formData).filter(
+    (key) => key.toLowerCase().includes("name") || key.startsWith("question_name_"),
+  )
+
+  if (nameKeys.length > 0) {
+    return submission.formData[nameKeys[0]]
+  }
+
+  return "N/A"
+}
+
+// Helper function to extract email from form data
+function extractEmail(submission) {
+  // First try the userEmail field (added in our recent updates)
+  if (submission.userEmail && submission.userEmail !== "N/A") {
+    return submission.userEmail
+  }
+
+  // If no formData, return N/A
+  if (!submission.formData) return "N/A"
+
+  // Try common email fields
+  const emailFields = ["email", "emailAddress", "email_address", "attendeeEmail", "attendee_email"]
+  for (const field of emailFields) {
+    if (submission.formData[field]) {
+      return submission.formData[field]
+    }
+  }
+
+  // Try fields that start with question_email_
+  const emailKeys = Object.keys(submission.formData).filter(
+    (key) => key.toLowerCase().includes("email") || key.startsWith("question_email_"),
+  )
+
+  if (emailKeys.length > 0) {
+    return submission.formData[emailKeys[0]]
+  }
+
+  return "N/A"
+}
+
+// Helper function to format date properly
+function formatEventDate(dateString) {
+  if (!dateString) return "Date not available"
+
+  try {
+    // Parse the date string
+    const date = new Date(dateString)
+
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.error("Invalid date:", dateString)
+      return "Invalid date"
+    }
+
+    // Format the date
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+  } catch (error) {
+    console.error("Error formatting date:", error)
+    return "Date format error"
+  }
+}
+
 export default async function TicketPage({ params }: { params: { id: string } }) {
   const ticketData = await getTicketData(params.id)
 
@@ -53,15 +151,8 @@ export default async function TicketPage({ params }: { params: { id: string } })
 
   const { submission, event } = ticketData
 
-  // Format dates
-  const formattedDate = event?.date
-    ? new Date(event.date).toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    : "Date not available"
+  // Format dates - with better error handling
+  const formattedDate = event?.date ? formatEventDate(event.date) : "Date not available"
 
   const formattedTime =
     event?.startTime && event?.endTime ? `${event.startTime} - ${event.endTime}` : "Time not specified"
@@ -69,45 +160,9 @@ export default async function TicketPage({ params }: { params: { id: string } })
   // Get form type (attendee, volunteer, speaker)
   const formType = submission.formType || "attendee"
 
-  // Get name from form data - specifically handling the question_name_[id] pattern
-  const getName = () => {
-    if (!submission.formData) return "N/A"
-
-    // First try direct name fields
-    if (submission.formData.name) return submission.formData.name
-    if (submission.formData.fullName) return submission.formData.fullName
-    if (submission.formData.firstName) {
-      const lastName = submission.formData.lastName || ""
-      return `${submission.formData.firstName} ${lastName}`.trim()
-    }
-
-    // Then try fields that start with question_name_
-    const nameKeys = Object.keys(submission.formData).filter((key) => key.startsWith("question_name_"))
-
-    if (nameKeys.length > 0) {
-      return submission.formData[nameKeys[0]]
-    }
-
-    return "N/A"
-  }
-
-  // Get email from form data - specifically handling the question_email_[id] pattern
-  const getEmail = () => {
-    if (!submission.formData) return "N/A"
-
-    // First try direct email fields
-    if (submission.formData.email) return submission.formData.email
-    if (submission.formData.emailAddress) return submission.formData.emailAddress
-
-    // Then try fields that start with question_email_
-    const emailKeys = Object.keys(submission.formData).filter((key) => key.startsWith("question_email_"))
-
-    if (emailKeys.length > 0) {
-      return submission.formData[emailKeys[0]]
-    }
-
-    return "N/A"
-  }
+  // Get name and email with our improved extraction functions
+  const name = extractName(submission)
+  const email = extractEmail(submission)
 
   // Get role type color
   const roleTypeColor =
@@ -138,7 +193,7 @@ export default async function TicketPage({ params }: { params: { id: string } })
           !lowerKey.includes("token") &&
           !lowerKey.includes("csrf") &&
           typeof value === "string" &&
-          value.trim() !== ""
+          value.toString().trim() !== ""
         )
       })
       .map(([key, value]) => {
@@ -236,12 +291,12 @@ export default async function TicketPage({ params }: { params: { id: string } })
 
               <div className="flex items-center text-gray-700">
                 <User className="h-5 w-5 mr-3 text-gray-500" />
-                <span>{getName()}</span>
+                <span>{name}</span>
               </div>
 
               <div className="flex items-center text-gray-700">
                 <Mail className="h-5 w-5 mr-3 text-gray-500" />
-                <span>{getEmail()}</span>
+                <span>{email}</span>
               </div>
             </div>
 

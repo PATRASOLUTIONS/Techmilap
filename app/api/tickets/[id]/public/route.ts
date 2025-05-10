@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import FormSubmission from "@/models/FormSubmission"
 import Event from "@/models/Event"
-import { extractNameFromFormData, extractEmailFromFormData } from "@/lib/ticket-utils"
+import { extractNameFromFormData, extractEmailFromFormData, formatEventDate } from "@/lib/ticket-utils"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -24,17 +24,26 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     // Get the associated event
     const event = await Event.findById(submission.eventId).lean()
 
+    if (!event) {
+      return NextResponse.json({ error: "Event not found for this ticket" }, { status: 404 })
+    }
+
     // Log the data for debugging
     console.log("Public API - Ticket data:", {
       submissionId: submission._id,
       formType: submission.formType,
       formData: submission.formData ? Object.keys(submission.formData) : [],
       eventId: submission.eventId,
+      userName: submission.userName,
+      userEmail: submission.userEmail,
     })
 
     // Extract name and email from form data
-    const name = extractNameFromFormData(submission.formData)
-    const email = extractEmailFromFormData(submission.formData)
+    const name = extractNameFromFormData(submission.formData, submission)
+    const email = extractEmailFromFormData(submission.formData, submission)
+
+    // Format the event date
+    const formattedDate = formatEventDate(event.date)
 
     // Return the ticket data
     return NextResponse.json({
@@ -44,7 +53,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         // Add these fields explicitly to ensure they're included
         displayName: name,
         displayEmail: email,
-        event: event || null,
+        formattedDate: formattedDate,
+        event: {
+          ...event,
+          formattedDate: formattedDate,
+        },
       },
     })
   } catch (error) {
