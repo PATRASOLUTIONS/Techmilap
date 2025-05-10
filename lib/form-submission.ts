@@ -162,21 +162,8 @@ export async function handleFormSubmission(
     // Construct name from available fields
     const name = fullName || (firstName && lastName ? `${firstName} ${lastName}` : firstName || "Attendee")
 
-    // Check for duplicate submission
-    const existingSubmission = await db.collection("formsubmissions").findOne({
-      eventId: event._id,
-      userEmail: email,
-      formType,
-    })
-
-    if (existingSubmission) {
-      return {
-        success: false,
-        message: `You have already submitted a ${formType} form for this event`,
-        submissionId: existingSubmission._id.toString(),
-        status: existingSubmission.status,
-      }
-    }
+    // REMOVED: Check for duplicate submission
+    // We're allowing multiple submissions from the same email
 
     // Create the submission document with consistent email and name
     const submission = {

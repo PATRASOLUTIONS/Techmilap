@@ -47,8 +47,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     // Connect to MongoDB
+    let db
     try {
-      const { db } = await connectToDatabase()
+      const dbConnection = await connectToDatabase()
+      db = dbConnection.db
       console.log("Connected to database")
     } catch (dbError) {
       console.error("Database connection error:", dbError)
@@ -116,7 +118,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     // Verify that the event exists before proceeding
-    const { db } = await connectToDatabase()
     let eventObjectId
     try {
       eventObjectId = new ObjectId(params.id)
@@ -137,10 +138,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
-    // Check if event is published
-    if (event.status !== "published" && event.status !== "active") {
-      return NextResponse.json({ error: "This event is not currently accepting registrations" }, { status: 403 })
-    }
+    // Check if event is published - REMOVED THIS CHECK TO ALLOW ANYONE TO SUBMIT
+    // if (event.status !== "published" && event.status !== "active") {
+    //   return NextResponse.json({ error: "This event is not currently accepting registrations" }, { status: 403 })
+    // }
 
     // Check if event has reached capacity
     if (event.capacity > 0) {
@@ -155,23 +156,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
     }
 
-    // Check for duplicate registration
-    const existingRegistration = await db.collection("formsubmissions").findOne({
-      eventId: eventObjectId,
-      userEmail: finalEmail,
-      formType: "attendee",
-    })
+    // Check for duplicate registration - REMOVED THIS CHECK TO ALLOW MULTIPLE SUBMISSIONS
+    // const existingRegistration = await db.collection("formsubmissions").findOne({
+    //   eventId: eventObjectId,
+    //   userEmail: finalEmail,
+    //   formType: "attendee",
+    // })
 
-    if (existingRegistration) {
-      return NextResponse.json(
-        {
-          error: "You have already registered for this event",
-          registrationId: existingRegistration._id.toString(),
-          status: existingRegistration.status,
-        },
-        { status: 409 },
-      )
-    }
+    // if (existingRegistration) {
+    //   return NextResponse.json(
+    //     {
+    //       error: "You have already registered for this event",
+    //       registrationId: existingRegistration._id.toString(),
+    //       status: existingRegistration.status,
+    //     },
+    //     { status: 409 },
+    //   )
+    // }
 
     try {
       // Create a direct submission to the database as a fallback
@@ -225,6 +226,40 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       )
 
       console.log("handleFormSubmission result:", submissionResult)
+
+      // If handleFormSubmission returns an error about duplicate submission, ignore it and create a new submission
+      if (!submissionResult.success && submissionResult.message?.includes("already submitted")) {
+        // Create a direct submission to bypass the duplicate check
+        const submission = {
+          eventId: eventObjectId,
+          userId: null,
+          userName: finalName,
+          userEmail: finalEmail, // Use the consistent email
+          formType: "attendee",
+          status: "pending", // Set to pending instead of approved
+          data: {
+            firstName: firstName || "",
+            lastName: lastName || "",
+            name: finalName,
+            email: finalEmail, // Store consistent email in data
+            ...additionalInfo,
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }
+
+        const result = await db.collection("formsubmissions").insertOne(submission)
+        console.log("Direct submission saved with ID (bypassing duplicate check):", result.insertedId)
+
+        // Send confirmation email to the user
+        await sendConfirmationEmail(event, finalEmail, finalName)
+
+        return NextResponse.json({
+          success: true,
+          message: "Registration submitted and pending approval",
+          registrationId: result.insertedId.toString(),
+        })
+      }
 
       return NextResponse.json({
         success: submissionResult.success,
