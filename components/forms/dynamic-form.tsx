@@ -15,9 +15,10 @@ import { useToast } from "@/hooks/use-toast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
-import { CalendarIcon, Loader2 } from "lucide-react"
+import { CalendarIcon, Loader2, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { validateField, getValidationType } from "@/lib/form-validation"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface DynamicFormProps {
   formFields: any[]
@@ -42,6 +43,7 @@ export function DynamicForm({
   const { toast } = useToast()
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
   const [termsAccepted, setTermsAccepted] = useState(false)
+  const [formError, setFormError] = useState("")
 
   // Ensure formFields is always an array
   const safeFormFields = Array.isArray(formFields) ? formFields : []
@@ -161,11 +163,20 @@ export function DynamicForm({
   const handleSubmit = async (values: any) => {
     try {
       setLocalSubmitting(true)
+      setFormError("") // Clear any previous form errors
       console.log("Form submitted with values:", values)
 
       // Validate the form
       const isValid = validateForm()
       if (!isValid) {
+        setLocalSubmitting(false)
+        setFormError("Please correct the errors in the form before submitting.")
+        return
+      }
+
+      // Check if terms are accepted
+      if (!termsAccepted) {
+        setFormError("You must accept the terms and conditions to proceed.")
         setLocalSubmitting(false)
         return
       }
@@ -190,6 +201,10 @@ export function DynamicForm({
       await onSubmit(cleanData)
     } catch (error) {
       console.error("Form submission error:", error)
+
+      // Set a user-friendly error message
+      setFormError(error instanceof Error ? error.message : "Failed to submit form. Please try again.")
+
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to submit form. Please try again.",
@@ -407,6 +422,15 @@ export function DynamicForm({
         <h2 className="text-2xl font-bold">{formTitle}</h2>
         <p className="text-muted-foreground">{formDescription}</p>
       </div>
+
+      {/* Display form-level error if any */}
+      {formError && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{formError}</AlertDescription>
+        </Alert>
+      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">

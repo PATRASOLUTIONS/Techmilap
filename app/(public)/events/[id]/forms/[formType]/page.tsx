@@ -58,6 +58,7 @@ export default function PublicFormPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState("")
+  const [formError, setFormError] = useState("")
   const [eventTitle, setEventTitle] = useState("")
   const [formStatus, setFormStatus] = useState("draft")
   const [eventDate, setEventDate] = useState(null)
@@ -156,6 +157,7 @@ export default function PublicFormPage() {
 
     try {
       setSubmitting(true)
+      setFormError("") // Clear any previous errors
       console.log(`Submitting form data for event ${eventId} and form type ${apiFormType}:`, formData)
 
       const response = await fetch(`/api/events/${eventId}/submissions/${apiFormType}`, {
@@ -166,9 +168,17 @@ export default function PublicFormPage() {
         body: JSON.stringify({ formData }),
       })
 
+      const responseData = await response.json()
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to submit form")
+        // Extract specific error message from response if available
+        const errorMessage = responseData.error || responseData.message || "Failed to submit form"
+        throw new Error(errorMessage)
+      }
+
+      if (!responseData.success) {
+        // Handle case where API returns success: false
+        throw new Error(responseData.message || "Form submission was not successful")
       }
 
       setSubmitted(true)
@@ -178,6 +188,10 @@ export default function PublicFormPage() {
       })
     } catch (error) {
       console.error("Error submitting form:", error)
+
+      // Set a user-friendly error message
+      setFormError(error.message || "Failed to submit form. Please try again.")
+
       toast({
         title: "Error",
         description: error.message || "Failed to submit form. Please try again.",
@@ -382,6 +396,19 @@ export default function PublicFormPage() {
         <h2 className="text-xl font-semibold mb-2">{config.title}</h2>
         <p className="text-muted-foreground">{config.description}</p>
       </div>
+
+      {/* Display form error if any */}
+      {formError && (
+        <Card className="border-red-200 bg-red-50 mb-6">
+          <CardContent className="pt-6">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              <p className="font-medium text-red-700">Error</p>
+            </div>
+            <p className="text-gray-700 mt-2">{formError}</p>
+          </CardContent>
+        </Card>
+      )}
 
       {formFields.length > 0 ? (
         <DynamicForm
