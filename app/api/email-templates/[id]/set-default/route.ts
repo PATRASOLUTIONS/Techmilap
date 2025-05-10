@@ -35,25 +35,26 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       )
     }
 
-    // First, unset default for all templates of the same type for this user
+    // Find all other templates of the same type for this user and set isDefault to false
     await EmailTemplate.updateMany(
       {
         userId: template.userId,
         templateType: template.templateType,
+        _id: { $ne: template._id },
         isDefault: true,
       },
       { $set: { isDefault: false } },
     )
 
-    // Then set this template as default
+    // Set this template as default
     template.isDefault = true
     await template.save()
 
     return NextResponse.json({ success: true, template })
   } catch (error: any) {
-    console.error("Error setting default template:", error)
+    console.error("Error setting template as default:", error)
     return NextResponse.json(
-      { error: error.message || "An error occurred while setting the default template" },
+      { error: error.message || "An error occurred while setting the template as default" },
       { status: 500 },
     )
   }

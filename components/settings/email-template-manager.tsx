@@ -143,7 +143,7 @@ export function EmailTemplateManager({ userId }: EmailTemplateManagerProps) {
 
     switch (type) {
       case "ticket":
-        return [...commonVars, "ticketId"]
+        return [...commonVars, "ticketId", "ticketUrl"]
       case "certificate":
         return [...commonVars, "certificateId"]
       case "custom":
@@ -385,6 +385,7 @@ export function EmailTemplateManager({ userId }: EmailTemplateManagerProps) {
       eventLocation: "Convention Center, New York",
       organizerName: "Tech Events Inc.",
       ticketId: "TICKET-12345",
+      ticketUrl: "https://example.com/tickets/TICKET-12345",
       certificateId: "CERT-67890",
       recipientName: "Jane Smith",
       customMessage: "We have an exciting announcement to share with you soon!",
