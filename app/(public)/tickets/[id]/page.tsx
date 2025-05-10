@@ -71,48 +71,100 @@ export default async function TicketPage({ params }: { params: { id: string } })
   // Get form type (attendee, volunteer, speaker)
   const formType = submission.formType || "attendee"
 
-  // Update the getName and getEmail functions to be more robust
+  // Update the getName and getEmail functions to be more robust and handle the specific data structure
+  // Replace the existing getName and getEmail functions with these:
+
   const getName = () => {
-    if (!submission.formData) return "N/A"
+    // First check if we have user information directly on the submission
+    if (submission.userName) return submission.userName
+    if (submission.user?.name) return submission.user.name
 
-    // Try different possible field names for name
-    const nameField =
-      submission.formData.name ||
-      submission.formData.fullName ||
-      submission.formData.firstName ||
-      submission.formData["question_name"] ||
-      submission.formData["first_name"] ||
-      submission.formData["firstName"] ||
-      submission.formData["full_name"] ||
-      submission.formData["fullName"] ||
-      submission.formData["attendeeName"] ||
-      submission.formData["attendee_name"]
+    // Then check the form data with multiple possible field names
+    if (submission.formData) {
+      // Try common field names for name
+      const possibleNameFields = [
+        "name",
+        "fullName",
+        "full_name",
+        "firstName",
+        "first_name",
+        "attendeeName",
+        "attendee_name",
+        "displayName",
+        "display_name",
+        "question_name",
+        "Name",
+        "FullName",
+        "FirstName",
+      ]
 
-    // If we still don't have a name, look for any field that might contain "name"
-    if (!nameField) {
-      const nameKeys = Object.keys(submission.formData).filter((key) => key.toLowerCase().includes("name"))
-      if (nameKeys.length > 0) {
-        return submission.formData[nameKeys[0]]
+      for (const field of possibleNameFields) {
+        if (submission.formData[field] && typeof submission.formData[field] === "string") {
+          return submission.formData[field]
+        }
+      }
+
+      // If still not found, look for any field containing "name"
+      for (const key in submission.formData) {
+        if (
+          key.toLowerCase().includes("name") &&
+          typeof submission.formData[key] === "string" &&
+          submission.formData[key].length > 0
+        ) {
+          return submission.formData[key]
+        }
       }
     }
 
-    return nameField || "N/A"
+    // If we get here, try to use the email as a fallback
+    const email = getEmail()
+    if (email && email !== "N/A") {
+      // Return the part before @ in the email
+      return email.split("@")[0]
+    }
+
+    return "N/A"
   }
 
   const getEmail = () => {
-    if (!submission.formData) return "N/A"
+    // First check if we have user information directly on the submission
+    if (submission.userEmail) return submission.userEmail
+    if (submission.user?.email) return submission.user.email
 
-    // Try different possible field names for email
-    const emailKeys = Object.keys(submission.formData).filter(
-      (key) =>
-        key === "email" ||
-        key === "emailAddress" ||
-        key.toLowerCase().includes("email") ||
-        key.toLowerCase().includes("e-mail") ||
-        key.toLowerCase().includes("mail"),
-    )
+    // Then check the form data with multiple possible field names
+    if (submission.formData) {
+      // Try common field names for email
+      const possibleEmailFields = [
+        "email",
+        "emailAddress",
+        "email_address",
+        "userEmail",
+        "user_email",
+        "attendeeEmail",
+        "attendee_email",
+        "Email",
+        "EmailAddress",
+      ]
 
-    return emailKeys.length > 0 ? submission.formData[emailKeys[0]] : "N/A"
+      for (const field of possibleEmailFields) {
+        if (submission.formData[field] && typeof submission.formData[field] === "string") {
+          return submission.formData[field]
+        }
+      }
+
+      // If still not found, look for any field containing "email"
+      for (const key in submission.formData) {
+        if (
+          (key.toLowerCase().includes("email") || key.toLowerCase().includes("mail")) &&
+          typeof submission.formData[key] === "string" &&
+          submission.formData[key].includes("@")
+        ) {
+          return submission.formData[key]
+        }
+      }
+    }
+
+    return "N/A"
   }
 
   // Get role type color

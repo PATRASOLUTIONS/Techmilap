@@ -80,16 +80,7 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
     }[ticketType] || "from-indigo-500 to-indigo-600"
 
   // Create QR code data with all required information
-  const qrCodeData = JSON.stringify({
-    ticketId: ticket._id,
-    ticketNumber: ticketNumber,
-    eventName: eventTitle,
-    participantName: userName,
-    email: userEmail,
-    designation: ticketTypeDisplay,
-    type: ticketType,
-    eventId: ticket.eventId || event._id || "unknown",
-  })
+  const qrCodeData = `${process.env.NEXT_PUBLIC_APP_URL || "https://myevent.vercel.app"}/tickets/${ticket._id}`
 
   // Generate QR code URL
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeData)}`

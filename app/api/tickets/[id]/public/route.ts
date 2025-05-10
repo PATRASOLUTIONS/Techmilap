@@ -31,11 +31,24 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       eventId: submission.eventId,
     })
 
-    // Return the ticket data
+    // Log the full submission data for debugging
+    console.log("Full submission data:", JSON.stringify(submission, null, 2))
+
+    // Ensure we're returning the complete submission data
     return NextResponse.json({
       success: true,
       ticket: {
         ...submission,
+        // Add these fields explicitly to ensure they're included
+        userName:
+          submission.userName ||
+          submission.user?.name ||
+          (submission.formData &&
+            (submission.formData.name || submission.formData.fullName || submission.formData.firstName)),
+        userEmail:
+          submission.userEmail ||
+          submission.user?.email ||
+          (submission.formData && (submission.formData.email || submission.formData.emailAddress)),
         event: event || null,
       },
     })
