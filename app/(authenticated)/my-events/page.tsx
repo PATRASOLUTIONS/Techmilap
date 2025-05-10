@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useSession } from "next-auth/react"
 
 interface Event {
   _id: string
@@ -80,6 +81,13 @@ export default function MyEventsPage() {
   const searchParams = useSearchParams()
   const roleParam = searchParams.get("role")
   const [activeTab, setActiveTab] = useState(roleParam || "all")
+  const { data: session } = useSession()
+
+  // Check if user is an event planner or super admin
+  const isEventPlanner = session?.user?.role === "event-planner" || session?.user?.role === "super-admin"
+
+  // Set default tab based on user role
+  const [defaultTab, setDefaultTab] = useState(isEventPlanner ? "organized" : "applications")
 
   // Update current time every minute
   useEffect(() => {
@@ -91,69 +99,80 @@ export default function MyEventsPage() {
   }, [])
 
   useEffect(() => {
+    // Set default tab based on user role when session loads
+    if (session) {
+      setDefaultTab(isEventPlanner ? "organized" : "applications")
+    }
+  }, [session, isEventPlanner])
+
+  useEffect(() => {
     const fetchEvents = async () => {
       try {
         setLoading(true)
         setError(null)
-        console.log("Fetching events for user...")
 
-        // Add a client-side timeout
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+        // Only fetch organized events if user is an event planner
+        if (isEventPlanner) {
+          console.log("Fetching events for event planner...")
 
-        // Fetch only events where user is an organizer
-        const response = await fetch(`/api/events/my-events/all?role=organizer`, {
-          signal: controller.signal,
-          cache: "no-store", // Prevent caching issues
-        })
+          // Add a client-side timeout
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
-        clearTimeout(timeoutId)
+          // Fetch only events where user is an organizer
+          const response = await fetch(`/api/events/my-events/all?role=organizer`, {
+            signal: controller.signal,
+            cache: "no-store", // Prevent caching issues
+          })
 
-        if (!response.ok) {
-          let errorMessage = "Failed to fetch events"
-          try {
-            const errorData = await response.json()
-            console.error("Error response:", errorData)
-            errorMessage = errorData.error || errorMessage
-          } catch (e) {
-            console.error("Could not parse error response")
+          clearTimeout(timeoutId)
+
+          if (!response.ok) {
+            let errorMessage = "Failed to fetch events"
+            try {
+              const errorData = await response.json()
+              console.error("Error response:", errorData)
+              errorMessage = errorData.error || errorMessage
+            } catch (e) {
+              console.error("Could not parse error response")
+            }
+            throw new Error(`${errorMessage} (${response.status} ${response.statusText})`)
           }
-          throw new Error(`${errorMessage} (${response.status} ${response.statusText})`)
+
+          const data = await response.json()
+          console.log("Events data received:", data)
+
+          // Ensure we have an array of events, even if empty
+          const eventsList = Array.isArray(data.events) ? data.events : []
+          console.log(`Found ${eventsList.length} events`)
+
+          // Filter to only include events where user is an organizer
+          const organizerEvents = eventsList.filter((event) => event.userRole === "organizer")
+
+          // Validate and sanitize each event
+          const sanitizedEvents = organizerEvents.map((event) => ({
+            _id: event._id || "",
+            title: event.title || "Untitled Event",
+            date: event.date || new Date().toISOString(),
+            location: event.location || "No location specified",
+            capacity: event.capacity || 0,
+            status: event.status || "draft",
+            attendees: Array.isArray(event.attendees) ? event.attendees : [],
+            customQuestions: event.customQuestions || {},
+            createdAt: event.createdAt || new Date().toISOString(),
+            updatedAt: event.updatedAt || new Date().toISOString(),
+            slug: event.slug || event._id || "",
+            userRole: "organizer", // Force organizer role
+            applicationDetails: event.applicationDetails || {},
+          }))
+
+          setEvents(sanitizedEvents)
+
+          // Sort events into upcoming and past based on current time
+          sortEvents(sanitizedEvents, currentTime)
         }
 
-        const data = await response.json()
-        console.log("Events data received:", data)
-
-        // Ensure we have an array of events, even if empty
-        const eventsList = Array.isArray(data.events) ? data.events : []
-        console.log(`Found ${eventsList.length} events`)
-
-        // Filter to only include events where user is an organizer
-        const organizerEvents = eventsList.filter((event) => event.userRole === "organizer")
-
-        // Validate and sanitize each event
-        const sanitizedEvents = organizerEvents.map((event) => ({
-          _id: event._id || "",
-          title: event.title || "Untitled Event",
-          date: event.date || new Date().toISOString(),
-          location: event.location || "No location specified",
-          capacity: event.capacity || 0,
-          status: event.status || "draft",
-          attendees: Array.isArray(event.attendees) ? event.attendees : [],
-          customQuestions: event.customQuestions || {},
-          createdAt: event.createdAt || new Date().toISOString(),
-          updatedAt: event.updatedAt || new Date().toISOString(),
-          slug: event.slug || event._id || "",
-          userRole: "organizer", // Force organizer role
-          applicationDetails: event.applicationDetails || {},
-        }))
-
-        setEvents(sanitizedEvents)
-
-        // Sort events into upcoming and past based on current time
-        sortEvents(sanitizedEvents, currentTime)
-
-        // Fetch pending submissions
+        // Always fetch pending submissions for all users
         await fetchPendingSubmissions()
       } catch (error) {
         console.error("Error fetching events:", error)
@@ -172,7 +191,7 @@ export default function MyEventsPage() {
     }
 
     fetchEvents()
-  }, [toast, currentTime])
+  }, [toast, currentTime, isEventPlanner, session])
 
   // Function to fetch pending submissions
   const fetchPendingSubmissions = async () => {
@@ -309,9 +328,69 @@ export default function MyEventsPage() {
     )
   }
 
+  // For regular users, just show the applications tab without tabs UI
+  if (!isEventPlanner) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold tracking-tight">My Applications</h1>
+        </div>
+        <div className="flex flex-col space-y-2">
+          <p className="text-muted-foreground">
+            View events you've applied for. Check the status of your applications.
+          </p>
+        </div>
+
+        <div className="mt-6">
+          {loading ? (
+            <EventsLoadingSkeleton />
+          ) : (
+            <div className="space-y-10">
+              <div>
+                <h2 className="text-xl font-semibold mb-4 flex items-center">
+                  <AlertCircle className="h-5 w-5 mr-2 text-amber-500" />
+                  Pending Applications ({pendingSubmissions.length})
+                </h2>
+                {pendingSubmissions.length > 0 ? (
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {pendingSubmissions.map((submission) => (
+                      <SubmissionCard
+                        key={submission._id}
+                        submission={submission}
+                        onClick={() => {
+                          if (submission.event?.slug) {
+                            router.push(`/events/${submission.event.slug}`)
+                          } else {
+                            router.push(`/events/${submission.eventId}`)
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium">No Pending Applications</h3>
+                    <p className="text-muted-foreground mt-2 max-w-md">
+                      You don't have any pending applications for events.
+                    </p>
+                    <Button className="mt-6" asChild>
+                      <Link href="/explore">Explore Events</Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // For event planners, show both tabs
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="organized" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="organized">Organized Events</TabsTrigger>
           <TabsTrigger value="applications">My Applications</TabsTrigger>
