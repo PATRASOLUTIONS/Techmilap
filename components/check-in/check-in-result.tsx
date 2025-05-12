@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, AlertCircle, User, Clock } from "lucide-react"
+import { CheckCircle, XCircle, AlertCircle, User, Clock, Mail } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 
 interface CheckInResultProps {
@@ -25,7 +25,7 @@ export function CheckInResult({ result, onReset }: CheckInResultProps) {
 
   const isSuccess = result.status === "checked_in"
   const isAlreadyCheckedIn = result.status === "already_checked_in"
-  const isInvalid = result.status === "invalid"
+  const isInvalid = result.status === "invalid" || result.status === "error"
 
   const getStatusColor = () => {
     if (isSuccess) return "bg-green-50 border-green-200"
@@ -69,7 +69,10 @@ export function CheckInResult({ result, onReset }: CheckInResultProps) {
               <User className="h-4 w-4 text-gray-500" />
               <div>
                 <div className="font-medium">{attendeeName}</div>
-                <div className="text-sm text-gray-500">{attendeeEmail}</div>
+                <div className="text-sm text-gray-500 flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  {attendeeEmail}
+                </div>
               </div>
             </div>
 
@@ -89,7 +92,11 @@ export function CheckInResult({ result, onReset }: CheckInResultProps) {
               </div>
             )}
 
-            {isInvalid && <div className="text-sm text-red-600">{result.message}</div>}
+            {isInvalid && (
+              <div className="text-sm text-red-600 mt-2 p-2 bg-red-50 rounded border border-red-100">
+                {result.message || "Invalid ticket. Please check the ID and try again."}
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

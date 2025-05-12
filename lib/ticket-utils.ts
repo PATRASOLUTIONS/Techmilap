@@ -26,7 +26,8 @@ export function extractNameFromFormData(formData: any, submission?: any): string
     (key) =>
       (key.toLowerCase().startsWith("question_name_") ||
         key.toLowerCase().startsWith("question name ") ||
-        key.toLowerCase().includes("_name_")) &&
+        key.toLowerCase().includes("_name_") ||
+        key.toLowerCase().includes(" name ")) &&
       formData[key] &&
       formData[key] !== "N/A",
   )
@@ -41,6 +42,23 @@ export function extractNameFromFormData(formData: any, submission?: any): string
     return submission.name
   }
 
+  // If submission has userName field
+  if (submission && submission.userName && submission.userName !== "N/A") {
+    return submission.userName
+  }
+
+  // Look for any field that might contain a name
+  for (const key in formData) {
+    if (
+      (key.toLowerCase().includes("name") || key.toLowerCase().includes("full")) &&
+      typeof formData[key] === "string" &&
+      formData[key].trim() !== "" &&
+      formData[key] !== "N/A"
+    ) {
+      return formData[key]
+    }
+  }
+
   return "Attendee"
 }
 
@@ -51,7 +69,7 @@ export function extractEmailFromFormData(formData: any, submission?: any): strin
   if (!formData) return ""
 
   // Try standard email fields first
-  const emailFields = ["email", "emailAddress", "attendeeEmail"]
+  const emailFields = ["email", "emailAddress", "attendeeEmail", "userEmail"]
   for (const field of emailFields) {
     if (formData[field]) {
       return formData[field]
@@ -63,7 +81,8 @@ export function extractEmailFromFormData(formData: any, submission?: any): strin
     (key) =>
       (key.toLowerCase().startsWith("question_email_") ||
         key.toLowerCase().startsWith("question email ") ||
-        key.toLowerCase().includes("_email_")) &&
+        key.toLowerCase().includes("_email_") ||
+        key.toLowerCase().includes(" email ")) &&
       formData[key],
   )
 
@@ -77,6 +96,11 @@ export function extractEmailFromFormData(formData: any, submission?: any): strin
     return submission.email
   }
 
+  // If submission has userEmail field
+  if (submission && submission.userEmail) {
+    return submission.userEmail
+  }
+
   // Last resort: look for any field that looks like an email
   for (const key in formData) {
     const value = formData[key]
@@ -84,6 +108,11 @@ export function extractEmailFromFormData(formData: any, submission?: any): strin
       console.log(`Found potential email in field: ${key} = ${value}`)
       return value
     }
+  }
+
+  // If we have a user object in the submission
+  if (submission && submission.user && submission.user.email) {
+    return submission.user.email
   }
 
   return ""

@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+import { extractNameFromFormData, extractEmailFromFormData } from "@/lib/ticket-utils"
 
 // Import models
 const Ticket = mongoose.models.Ticket || mongoose.model("Ticket", require("@/models/Ticket").default.schema)
@@ -47,124 +48,181 @@ export async function POST(req: NextRequest) {
     // First, try to find the ticket by ID
     let ticket = null
     let attendeeInfo = null
+    let formSubmission = null
+
+    console.log(`Looking up ticket with ID: ${ticketId}`)
 
     // Check if it's a valid MongoDB ObjectId
     if (mongoose.isValidObjectId(ticketId)) {
+      // Try to find as a Ticket first
       ticket = await Ticket.findById(ticketId)
+
+      // If not found as a Ticket, try to find it as a FormSubmission
+      if (!ticket) {
+        formSubmission = await FormSubmission.findById(ticketId)
+      }
+    } else {
+      // If not a valid ObjectId, try to find by other identifiers
+      console.log("Not a valid ObjectId, trying other lookup methods")
+
+      // Try to find by email in FormSubmission
+      formSubmission = await FormSubmission.findOne({
+        eventId: eventId,
+        formType: "attendee",
+        status: "approved",
+        $or: [{ userEmail: ticketId }, { "formData.email": ticketId }, { "formData.emailAddress": ticketId }],
+      })
+
+      if (!formSubmission) {
+        // Try to find by name in FormSubmission
+        formSubmission = await FormSubmission.findOne({
+          eventId: eventId,
+          formType: "attendee",
+          status: "approved",
+          $or: [{ userName: ticketId }, { "formData.name": ticketId }, { "formData.fullName": ticketId }],
+        })
+      }
     }
 
-    // If not found as a Ticket, try to find it as a FormSubmission
-    if (!ticket) {
-      const formSubmission = await FormSubmission.findById(ticketId)
+    // Process FormSubmission if found
+    if (formSubmission) {
+      console.log("Found form submission:", formSubmission._id)
 
-      if (formSubmission) {
-        // Verify this submission is for the correct event
-        if (formSubmission.eventId.toString() !== eventId) {
-          return NextResponse.json({
-            success: false,
-            status: "invalid",
-            message: "This ticket is for a different event",
-          })
-        }
-
-        // Verify this is an approved attendee submission
-        if (formSubmission.formType !== "attendee" || formSubmission.status !== "approved") {
-          return NextResponse.json({
-            success: false,
-            status: "invalid",
-            message: "This is not a valid approved ticket",
-          })
-        }
-
-        // Extract attendee info
-        attendeeInfo = {
-          name: formSubmission.userName || "Unknown",
-          email: formSubmission.userEmail || "No email",
-          registeredAt: formSubmission.createdAt,
-          ticketType: "Standard",
-        }
-
-        // Update the check-in status
-        const now = new Date()
-        const updateResult = await FormSubmission.findByIdAndUpdate(
-          ticketId,
-          {
-            $inc: { checkInCount: 1 },
-            $set: {
-              isCheckedIn: true,
-              checkedInAt: now,
-              checkedInBy: new mongoose.Types.ObjectId(session.user.id),
-            },
-          },
-          { new: true },
-        )
-
-        // Check if already checked in
-        if (updateResult.checkInCount > 1) {
-          return NextResponse.json({
-            success: false,
-            status: "already_checked_in",
-            message: "This attendee has already been checked in",
-            checkInCount: updateResult.checkInCount,
-            checkedInAt: updateResult.checkedInAt,
-            attendee: attendeeInfo,
-          })
-        }
-
+      // Verify this submission is for the correct event
+      if (formSubmission.eventId.toString() !== eventId) {
         return NextResponse.json({
-          success: true,
-          status: "checked_in",
-          message: "Attendee successfully checked in",
+          success: false,
+          status: "invalid",
+          message: "This ticket is for a different event",
+        })
+      }
+
+      // Verify this is an approved attendee submission
+      if (formSubmission.formType !== "attendee" || formSubmission.status !== "approved") {
+        return NextResponse.json({
+          success: false,
+          status: "invalid",
+          message: "This is not a valid approved ticket",
+        })
+      }
+
+      // Extract attendee info from form data
+      const formData = formSubmission.formData || {}
+
+      // Log the form data for debugging
+      console.log("Form data:", JSON.stringify(formData, null, 2))
+
+      const name = extractNameFromFormData(formData, formSubmission)
+      const email = extractEmailFromFormData(formData, formSubmission)
+
+      console.log(`Extracted name: ${name}, email: ${email}`)
+
+      // Extract attendee info
+      attendeeInfo = {
+        name: name || formSubmission.userName || "Unknown",
+        email: email || formSubmission.userEmail || "No email",
+        registeredAt: formSubmission.createdAt,
+        ticketType: "Standard",
+      }
+
+      // Update the check-in status
+      const now = new Date()
+      const updateResult = await FormSubmission.findByIdAndUpdate(
+        formSubmission._id,
+        {
+          $inc: { checkInCount: 1 },
+          $set: {
+            isCheckedIn: true,
+            checkedInAt: now,
+            checkedInBy: new mongoose.Types.ObjectId(session.user.id),
+          },
+        },
+        { new: true },
+      )
+
+      // Check if already checked in
+      if (updateResult.checkInCount > 1) {
+        return NextResponse.json({
+          success: false,
+          status: "already_checked_in",
+          message: "This attendee has already been checked in",
           checkInCount: updateResult.checkInCount,
           checkedInAt: updateResult.checkedInAt,
           attendee: attendeeInfo,
         })
       }
 
-      return NextResponse.json({ error: "Ticket not found" }, { status: 404 })
-    }
-
-    // If we found a Ticket, verify it's for the correct event
-    if (ticket.event.toString() !== eventId) {
       return NextResponse.json({
-        success: false,
-        status: "invalid",
-        message: "This ticket is for a different event",
+        success: true,
+        status: "checked_in",
+        message: "Attendee successfully checked in",
+        checkInCount: updateResult.checkInCount,
+        checkedInAt: updateResult.checkedInAt,
+        attendee: attendeeInfo,
       })
     }
 
-    // Update the check-in status
-    const now = new Date()
-    ticket.checkInCount += 1
-    ticket.isCheckedIn = true
-    ticket.checkedInAt = now
-    ticket.checkedInBy = new mongoose.Types.ObjectId(session.user.id)
-    await ticket.save()
+    // Process Ticket if found
+    if (ticket) {
+      console.log("Found ticket:", ticket._id)
 
-    // Check if already checked in
-    if (ticket.checkInCount > 1) {
+      // Verify it's for the correct event
+      if (ticket.event.toString() !== eventId) {
+        return NextResponse.json({
+          success: false,
+          status: "invalid",
+          message: "This ticket is for a different event",
+        })
+      }
+
+      // Update the check-in status
+      const now = new Date()
+      ticket.checkInCount += 1
+      ticket.isCheckedIn = true
+      ticket.checkedInAt = now
+      ticket.checkedInBy = new mongoose.Types.ObjectId(session.user.id)
+      await ticket.save()
+
+      // Check if already checked in
+      if (ticket.checkInCount > 1) {
+        return NextResponse.json({
+          success: false,
+          status: "already_checked_in",
+          message: "This ticket has already been checked in",
+          checkInCount: ticket.checkInCount,
+          checkedInAt: ticket.checkedInAt,
+          ticket,
+        })
+      }
+
       return NextResponse.json({
-        success: false,
-        status: "already_checked_in",
-        message: "This ticket has already been checked in",
+        success: true,
+        status: "checked_in",
+        message: "Ticket successfully checked in",
         checkInCount: ticket.checkInCount,
         checkedInAt: ticket.checkedInAt,
         ticket,
       })
     }
 
-    return NextResponse.json({
-      success: true,
-      status: "checked_in",
-      message: "Ticket successfully checked in",
-      checkInCount: ticket.checkInCount,
-      checkedInAt: ticket.checkedInAt,
-      ticket,
-    })
+    // If we get here, no ticket or submission was found
+    return NextResponse.json(
+      {
+        success: false,
+        status: "invalid",
+        message: "No valid ticket found with the provided ID. Please check the ID and try again.",
+      },
+      { status: 404 },
+    )
   } catch (error: any) {
     console.error("Error checking in ticket:", error)
     return NextResponse.json(
-      { error: error.message || "An error occurred while checking in the ticket" },
+      {
+        success: false,
+        status: "error",
+        message: error.message || "An error occurred while checking in the ticket",
+        error: error.toString(),
+      },
       { status: 500 },
     )
   }
