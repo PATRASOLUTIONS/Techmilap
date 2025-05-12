@@ -50,7 +50,18 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
         // If we get here, both permissions were granted
       } catch (mediaErr: any) {
         console.error("Error requesting media permissions", mediaErr);
-        // Continue anyway, as we only need camera for QR scanning
+
+        // Try again with just camera permission if both failed
+        try {
+          await navigator.mediaDevices.getUserMedia({ 
+            video: true 
+          });
+          // Camera permission granted, which is all we need for QR scanning
+        } catch (cameraErr: any) {
+          console.error("Error requesting camera permission", cameraErr);
+          // Let the next steps handle the error
+          throw cameraErr;
+        }
       }
 
       const devices = await Html5Qrcode.getCameras()
