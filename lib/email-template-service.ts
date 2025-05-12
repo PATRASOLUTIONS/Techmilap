@@ -206,11 +206,15 @@ export async function sendTemplatedEmail({
     const template = await getEmailTemplate(userId, templateType, eventId)
 
     if (!template) {
+      console.error(`No template found for type: ${templateType}, userId: ${userId}, eventId: ${eventId || "none"}`)
       throw new Error(`No template found for type: ${templateType}`)
     }
 
+    console.log(`Using template: ${template.templateName} (${template._id})`)
+
     // Get the user's design preference
     const designPreference = await getUserDesignPreference(userId)
+    console.log(`Using design preference: ${designPreference}`)
 
     // Replace variables in subject and content
     let subject = customSubject || template.subject
@@ -219,8 +223,8 @@ export async function sendTemplatedEmail({
     // Replace all variables in the content
     Object.entries(variables).forEach(([key, value]) => {
       const regex = new RegExp(`{{${key}}}`, "g")
-      subject = subject.replace(regex, value)
-      content = content.replace(regex, value)
+      subject = subject.replace(regex, value || `[No ${key} provided]`)
+      content = content.replace(regex, value || `[No ${key} provided]`)
     })
 
     // Apply the design template
@@ -243,8 +247,10 @@ export async function sendTemplatedEmail({
     })
 
     await sentEmail.save()
+    console.log(`Created sent email record: ${sentEmail._id}`)
 
     // Send the email
+    console.log(`Sending email to ${recipientEmail} with subject: ${subject}`)
     const result = await sendEmail({
       to: recipientEmail,
       subject,
@@ -254,6 +260,7 @@ export async function sendTemplatedEmail({
 
     // Update the sent email record with the result
     if (result) {
+      console.log(`Email sent successfully to ${recipientEmail}`)
       await SentEmail.findByIdAndUpdate(sentEmail._id, {
         status: "sent",
       })
@@ -264,6 +271,7 @@ export async function sendTemplatedEmail({
         $inc: { usageCount: 1 },
       })
     } else {
+      console.error(`Failed to send email to ${recipientEmail}`)
       await SentEmail.findByIdAndUpdate(sentEmail._id, {
         status: "failed",
         errorMessage: "Failed to send email",

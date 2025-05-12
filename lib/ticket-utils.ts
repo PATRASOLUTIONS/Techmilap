@@ -6,70 +6,87 @@
  * Extracts a name from form data using various common field patterns
  */
 export function extractNameFromFormData(formData: any, submission?: any): string {
-  // First try the userName field if available in the submission
-  if (submission?.userName && submission.userName !== "N/A") {
-    return submission.userName
-  }
+  if (!formData) return "Attendee"
 
-  if (!formData) return "N/A"
-
-  // Try common name fields
-  const nameFields = ["name", "fullName", "full_name", "firstName", "first_name", "attendeeName", "attendee_name"]
+  // Try standard name fields first
+  const nameFields = ["name", "fullName", "attendeeName", "firstName"]
   for (const field of nameFields) {
-    if (formData[field]) {
+    if (formData[field] && formData[field] !== "N/A") {
       return formData[field]
     }
   }
 
-  // Try to combine first and last name
+  // If we have firstName and lastName, combine them
   if (formData.firstName && formData.lastName) {
     return `${formData.firstName} ${formData.lastName}`
   }
-  if (formData.first_name && formData.last_name) {
-    return `${formData.first_name} ${formData.last_name}`
-  }
 
-  // Try fields that start with question_name_ or contain "name"
-  const nameKeys = Object.keys(formData).filter(
-    (key) => key.toLowerCase().includes("name") || key.startsWith("question_name_"),
+  // Look for question_name_* pattern
+  const questionNameField = Object.keys(formData).find(
+    (key) =>
+      (key.toLowerCase().startsWith("question_name_") ||
+        key.toLowerCase().startsWith("question name ") ||
+        key.toLowerCase().includes("_name_")) &&
+      formData[key] &&
+      formData[key] !== "N/A",
   )
 
-  if (nameKeys.length > 0) {
-    return formData[nameKeys[0]]
+  if (questionNameField) {
+    console.log(`Found name in custom field: ${questionNameField} = ${formData[questionNameField]}`)
+    return formData[questionNameField]
   }
 
-  return "N/A"
+  // If submission has a name field directly
+  if (submission && submission.name && submission.name !== "N/A") {
+    return submission.name
+  }
+
+  return "Attendee"
 }
 
 /**
  * Extracts an email from form data using various common field patterns
  */
 export function extractEmailFromFormData(formData: any, submission?: any): string {
-  // First try the userEmail field if available in the submission
-  if (submission?.userEmail && submission.userEmail !== "N/A") {
-    return submission.userEmail
-  }
+  if (!formData) return ""
 
-  if (!formData) return "N/A"
-
-  // Try common email fields
-  const emailFields = ["email", "emailAddress", "email_address", "attendeeEmail", "attendee_email"]
+  // Try standard email fields first
+  const emailFields = ["email", "emailAddress", "attendeeEmail"]
   for (const field of emailFields) {
     if (formData[field]) {
       return formData[field]
     }
   }
 
-  // Try fields that start with question_email_ or contain "email"
-  const emailKeys = Object.keys(formData).filter(
-    (key) => key.toLowerCase().includes("email") || key.startsWith("question_email_"),
+  // Look for question_email_* pattern
+  const questionEmailField = Object.keys(formData).find(
+    (key) =>
+      (key.toLowerCase().startsWith("question_email_") ||
+        key.toLowerCase().startsWith("question email ") ||
+        key.toLowerCase().includes("_email_")) &&
+      formData[key],
   )
 
-  if (emailKeys.length > 0) {
-    return formData[emailKeys[0]]
+  if (questionEmailField) {
+    console.log(`Found email in custom field: ${questionEmailField} = ${formData[questionEmailField]}`)
+    return formData[questionEmailField]
   }
 
-  return "N/A"
+  // If submission has an email field directly
+  if (submission && submission.email) {
+    return submission.email
+  }
+
+  // Last resort: look for any field that looks like an email
+  for (const key in formData) {
+    const value = formData[key]
+    if (typeof value === "string" && value.includes("@") && value.includes(".")) {
+      console.log(`Found potential email in field: ${key} = ${value}`)
+      return value
+    }
+  }
+
+  return ""
 }
 
 /**

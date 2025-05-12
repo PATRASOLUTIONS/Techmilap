@@ -103,6 +103,13 @@ export async function sendEmail({ to, subject, text, html, retries = 3 }) {
         from: `Tech Milap <${process.env.EMAIL_USER || "noreply@techmilap.com"}>`,
       }
 
+      console.log(`Sending request to Azure Logic Apps with payload:`, {
+        to: payload.emailTo,
+        subject: payload.emailSubject,
+        isHtml: payload.isHtml,
+        bodyLength: payload.emailBody ? payload.emailBody.length : 0,
+      })
+
       // Send the request to Azure Logic Apps
       const response = await fetch(AZURE_LOGIC_APP_URL, {
         method: "POST",
@@ -114,6 +121,7 @@ export async function sendEmail({ to, subject, text, html, retries = 3 }) {
 
       if (!response.ok) {
         const errorText = await response.text()
+        console.error(`Azure Logic Apps error response: ${response.status} - ${errorText}`)
         throw new Error(`Azure Logic Apps returned error: ${response.status} - ${errorText}`)
       }
 
