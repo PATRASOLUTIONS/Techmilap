@@ -1,11 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { DynamicForm } from "@/components/forms/dynamic-form"
 import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, AlertCircle, Calendar, Clock, RefreshCcw } from "lucide-react"
+import { ArrowLeft, AlertCircle, Calendar, Clock, RefreshCcw, Bug } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { FormSuccessMessage } from "@/components/ui/form-success-message"
@@ -49,6 +49,7 @@ const formTypeConfig = {
 }
 
 export default function PublicFormPage() {
+  const router = useRouter()
   const { id, formType } = useParams()
   const eventId = Array.isArray(id) ? id[0] : id
   const formTypeValue = Array.isArray(formType) ? formType[0] : formType
@@ -64,6 +65,8 @@ export default function PublicFormPage() {
   const [eventDate, setEventDate] = useState(null)
   const [isEventPassed, setIsEventPassed] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
+  const [debugInfo, setDebugInfo] = useState("")
+  const [showDebug, setShowDebug] = useState(false)
 
   // Determine the API endpoint based on the form type
   const apiFormType = formTypeValue === "register" ? "attendee" : formTypeValue
@@ -77,6 +80,9 @@ export default function PublicFormPage() {
     } catch (error) {
       console.error("JSON parse error:", error)
       console.error("Response text:", text.substring(0, 500) + "...") // Log first 500 chars
+
+      // Save debug info
+      setDebugInfo(text.substring(0, 2000))
 
       // Check if it's an HTML response
       if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
@@ -98,11 +104,14 @@ export default function PublicFormPage() {
     const fetchFormData = async () => {
       try {
         setLoading(true)
-        console.log(`Fetching form data for event ${eventId} and form type ${apiFormType}`)
+        console.log(`Fetching form data for event ${eventId} and form type ${formTypeValue}`)
 
         // Add a timestamp to prevent caching
         const timestamp = new Date().getTime()
-        const response = await fetch(`/api/events/${eventId}/forms/${apiFormType}?t=${timestamp}`, {
+        const url = `/api/events/${eventId}/forms/${formTypeValue}?t=${timestamp}`
+        console.log(`Fetching from URL: ${url}`)
+
+        const response = await fetch(url, {
           method: "GET",
           cache: "no-store",
           headers: {
@@ -114,6 +123,9 @@ export default function PublicFormPage() {
             "x-form-request": "true", // Add this header to indicate it's a form request
           },
         })
+
+        console.log(`Response status: ${response.status}`)
+        console.log(`Response headers:`, Object.fromEntries(response.headers.entries()))
 
         if (!response.ok) {
           // Parse the response carefully
@@ -174,15 +186,19 @@ export default function PublicFormPage() {
       }
     }
 
-    if (eventId && apiFormType) {
+    if (eventId && formTypeValue) {
       fetchFormData()
     }
-  }, [eventId, apiFormType, formTypeValue, retryCount])
+  }, [eventId, formTypeValue, retryCount])
 
   const handleRetry = () => {
     setRetryCount((prev) => prev + 1)
     setError("")
     setLoading(true)
+  }
+
+  const toggleDebug = () => {
+    setShowDebug(!showDebug)
   }
 
   const handleSubmit = async (formData) => {
@@ -249,6 +265,13 @@ export default function PublicFormPage() {
       setSubmitting(false)
     }
   }
+
+  // Redirect to the event page if the form type is invalid
+  useEffect(() => {
+    if (!["register", "attendee", "volunteer", "speaker"].includes(formTypeValue)) {
+      router.push(`/events/${eventId}`)
+    }
+  }, [formTypeValue, eventId, router])
 
   if (loading) {
     return (
@@ -324,7 +347,20 @@ export default function PublicFormPage() {
                   Back to Event
                 </Link>
               </Button>
+              {error.includes("parse") && (
+                <Button variant="outline" onClick={toggleDebug} className="ml-auto">
+                  <Bug className="mr-2 h-4 w-4" />
+                  {showDebug ? "Hide Debug Info" : "Show Debug Info"}
+                </Button>
+              )}
             </div>
+
+            {showDebug && debugInfo && (
+              <div className="mt-4 p-3 bg-gray-100 rounded-md overflow-auto max-h-96">
+                <h3 className="font-medium mb-2">Debug Information</h3>
+                <pre className="text-xs whitespace-pre-wrap break-words">{debugInfo}</pre>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
