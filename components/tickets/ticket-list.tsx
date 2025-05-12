@@ -7,25 +7,54 @@ import EmptyTickets from "./empty-tickets"
 
 interface TicketListProps {
   tickets: any[]
+  onDownload?: (ticket: any) => void
+  onSendEmail?: (ticketId: string, ticketType: string) => void
+  downloadingTicket?: boolean
+  downloadingTicketId?: string | null
+  sendingEmail?: boolean
 }
 
-export default function TicketList({ tickets }: TicketListProps) {
+export default function TicketList({
+  tickets,
+  onDownload,
+  onSendEmail,
+  downloadingTicket,
+  downloadingTicketId,
+  sendingEmail,
+}: TicketListProps) {
   const [activeTab, setActiveTab] = useState("all")
 
   if (!tickets || tickets.length === 0) {
     return <EmptyTickets />
   }
 
-  const attendeeTickets = tickets.filter((ticket) => ticket.ticketType === "attendee")
-  const volunteerTickets = tickets.filter((ticket) => ticket.ticketType === "volunteer")
-  const speakerTickets = tickets.filter((ticket) => ticket.ticketType === "speaker")
+  // Safely filter tickets with proper type checking
+  const attendeeTickets = tickets.filter((ticket) => ticket && ticket.ticketType === "attendee")
+
+  const volunteerTickets = tickets.filter((ticket) => ticket && ticket.ticketType === "volunteer")
+
+  const speakerTickets = tickets.filter((ticket) => ticket && ticket.ticketType === "speaker")
+
   const upcomingTickets = tickets.filter((ticket) => {
-    const eventDate = new Date(ticket.date)
-    return eventDate >= new Date()
+    if (!ticket || !ticket.date) return false
+    try {
+      const eventDate = new Date(ticket.date)
+      return eventDate >= new Date()
+    } catch (e) {
+      console.error("Invalid date format:", ticket.date)
+      return false
+    }
   })
+
   const pastTickets = tickets.filter((ticket) => {
-    const eventDate = new Date(ticket.date)
-    return eventDate < new Date()
+    if (!ticket || !ticket.date) return false
+    try {
+      const eventDate = new Date(ticket.date)
+      return eventDate < new Date()
+    } catch (e) {
+      console.error("Invalid date format:", ticket.date)
+      return false
+    }
   })
 
   return (
@@ -42,13 +71,15 @@ export default function TicketList({ tickets }: TicketListProps) {
 
         <TabsContent value="all" className="space-y-6">
           {tickets.map((ticket, index) => (
-            <TicketCard key={ticket._id} ticket={ticket} index={index} />
+            <TicketCard key={ticket._id || index} ticket={ticket} index={index} />
           ))}
         </TabsContent>
 
         <TabsContent value="upcoming" className="space-y-6">
           {upcomingTickets.length > 0 ? (
-            upcomingTickets.map((ticket, index) => <TicketCard key={ticket._id} ticket={ticket} index={index} />)
+            upcomingTickets.map((ticket, index) => (
+              <TicketCard key={ticket._id || index} ticket={ticket} index={index} />
+            ))
           ) : (
             <p className="text-center text-muted-foreground py-8">No upcoming tickets found.</p>
           )}
@@ -56,7 +87,7 @@ export default function TicketList({ tickets }: TicketListProps) {
 
         <TabsContent value="past" className="space-y-6">
           {pastTickets.length > 0 ? (
-            pastTickets.map((ticket, index) => <TicketCard key={ticket._id} ticket={ticket} index={index} />)
+            pastTickets.map((ticket, index) => <TicketCard key={ticket._id || index} ticket={ticket} index={index} />)
           ) : (
             <p className="text-center text-muted-foreground py-8">No past tickets found.</p>
           )}
@@ -64,7 +95,9 @@ export default function TicketList({ tickets }: TicketListProps) {
 
         <TabsContent value="attendee" className="space-y-6">
           {attendeeTickets.length > 0 ? (
-            attendeeTickets.map((ticket, index) => <TicketCard key={ticket._id} ticket={ticket} index={index} />)
+            attendeeTickets.map((ticket, index) => (
+              <TicketCard key={ticket._id || index} ticket={ticket} index={index} />
+            ))
           ) : (
             <p className="text-center text-muted-foreground py-8">No attendee tickets found.</p>
           )}
@@ -72,7 +105,9 @@ export default function TicketList({ tickets }: TicketListProps) {
 
         <TabsContent value="volunteer" className="space-y-6">
           {volunteerTickets.length > 0 ? (
-            volunteerTickets.map((ticket, index) => <TicketCard key={ticket._id} ticket={ticket} index={index} />)
+            volunteerTickets.map((ticket, index) => (
+              <TicketCard key={ticket._id || index} ticket={ticket} index={index} />
+            ))
           ) : (
             <p className="text-center text-muted-foreground py-8">No volunteer tickets found.</p>
           )}
@@ -80,7 +115,9 @@ export default function TicketList({ tickets }: TicketListProps) {
 
         <TabsContent value="speaker" className="space-y-6">
           {speakerTickets.length > 0 ? (
-            speakerTickets.map((ticket, index) => <TicketCard key={ticket._id} ticket={ticket} index={index} />)
+            speakerTickets.map((ticket, index) => (
+              <TicketCard key={ticket._id || index} ticket={ticket} index={index} />
+            ))
           ) : (
             <p className="text-center text-muted-foreground py-8">No speaker tickets found.</p>
           )}
