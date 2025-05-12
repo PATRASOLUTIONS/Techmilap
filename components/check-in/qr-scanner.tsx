@@ -14,7 +14,7 @@ interface QRScannerProps {
 
 export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps) {
   const [error, setError] = useState<string | null>(null)
-  const [permissionGranted, setPermissionGranted] = useState(false)
+  const [permissionState, setPermissionState] = useState<"prompt" | "granted" | "denied">("prompt")
   const [availableCameras, setAvailableCameras] = useState<Array<{ id: string; label: string }>>([])
   const [selectedCamera, setSelectedCamera] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -26,20 +26,31 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
     // Initialize the scanner when the component mounts
     scannerRef.current = new Html5Qrcode(scannerContainerId)
 
-    // Get available cameras
-    Html5Qrcode.getCameras()
-      .then((devices) => {
-        if (devices && devices.length) {
-          setAvailableCameras(devices)
-          setSelectedCamera(devices[0].id)
-          setPermissionGranted(true)
-        } else {
-          setError("No cameras found on this device")
+    // Check if we have camera permissions
+    navigator.permissions
+      .query({ name: "camera" as PermissionName })
+      .then((permissionStatus) => {
+        setPermissionState(permissionStatus.state as "prompt" | "granted" | "denied")
+
+        // Listen for permission changes
+        permissionStatus.onchange = () => {
+          setPermissionState(permissionStatus.state as "prompt" | "granted" | "denied")
+
+          // If permissions were just granted, try to get cameras
+          if (permissionStatus.state === "granted" && availableCameras.length === 0) {
+            getCameras()
+          }
+        }
+
+        // If already granted, get cameras
+        if (permissionStatus.state === "granted") {
+          getCameras()
         }
       })
       .catch((err) => {
-        console.error("Error getting cameras", err)
-        setError("Error accessing camera: " + err.message)
+        console.error("Error checking camera permission:", err)
+        // Fallback to just trying to get cameras
+        getCameras()
       })
 
     // Clean up the scanner when the component unmounts
@@ -49,6 +60,28 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
       }
     }
   }, [])
+
+  const getCameras = () => {
+    Html5Qrcode.getCameras()
+      .then((devices) => {
+        if (devices && devices.length) {
+          setAvailableCameras(devices)
+          setSelectedCamera(devices[0].id)
+          setPermissionState("granted")
+        } else {
+          setError("No cameras found on this device")
+        }
+      })
+      .catch((err) => {
+        console.error("Error getting cameras", err)
+        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+          setPermissionState("denied")
+          setError("Camera access denied. Please enable camera permissions in your browser settings.")
+        } else {
+          setError("Error accessing camera: " + err.message)
+        }
+      })
+  }
 
   const startScanner = async () => {
     if (!scannerRef.current || !selectedCamera) return
@@ -125,7 +158,26 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
           <div id={scannerContainerId} className="w-full max-w-sm h-64 bg-gray-100 rounded-lg overflow-hidden relative">
             {!isScanning && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/5">
-                <Camera className="h-12 w-12 text-gray-400" />
+                {permissionState === "denied" ? (
+                  <div className="text-center p-4">
+                    <Camera className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                    <h3 className="font-medium text-gray-900">Camera Access Required</h3>
+                    <p className="text-sm text-gray-500 mt-1 mb-3">
+                      Please enable camera access in your browser settings to scan QR codes.
+                    </p>
+                    <div className="text-xs text-gray-500 mt-2 space-y-1 text-left">
+                      <p className="font-medium">How to enable camera access:</p>
+                      <p>1. Click the camera/lock icon in your browser's address bar</p>
+                      <p>2. Select "Allow" for camera access</p>
+                      <p>3. Refresh this page</p>
+                    </div>
+                    <Button onClick={() => window.location.reload()} variant="outline" size="sm" className="mt-3">
+                      Refresh Page
+                    </Button>
+                  </div>
+                ) : (
+                  <Camera className="h-12 w-12 text-gray-400" />
+                )}
               </div>
             )}
           </div>
@@ -134,11 +186,11 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
             {!isScanning ? (
               <Button
                 onClick={startScanner}
-                disabled={!selectedCamera || isLoading}
+                disabled={!selectedCamera || isLoading || permissionState === "denied"}
                 className="bg-green-600 hover:bg-green-700"
               >
                 {isLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Camera className="h-4 w-4 mr-2" />}
-                Start Scanning
+                {permissionState === "prompt" ? "Allow Camera & Start" : "Start Scanning"}
               </Button>
             ) : (
               <Button onClick={stopScanner} variant="destructive" disabled={isLoading}>
@@ -162,6 +214,13 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
           {availableCameras.length > 0 && (
             <div className="text-sm text-gray-500 mt-2">
               Using camera: {availableCameras.find((c) => c.id === selectedCamera)?.label || "Unknown"}
+            </div>
+          )}
+
+          {permissionState === "denied" && (
+            <div className="mt-4 text-sm text-gray-500">
+              <p className="font-medium">Alternative option:</p>
+              <p>You can use the "Manual Check-in" tab to enter ticket IDs without using the camera.</p>
             </div>
           )}
         </div>

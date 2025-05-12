@@ -13,7 +13,7 @@ import { CheckInStats } from "@/components/check-in/check-in-stats"
 import { CheckInHistory } from "@/components/check-in/check-in-history"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, QrCode, Search, BarChart, History } from "lucide-react"
+import { ArrowLeft, QrCode, Search, BarChart, History, Camera } from "lucide-react"
 import Link from "next/link"
 
 export default function EventCheckInPage() {
@@ -29,6 +29,35 @@ export default function EventCheckInPage() {
   const [activeTab, setActiveTab] = useState("scan")
   const [manualTicketId, setManualTicketId] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
+  const [cameraPermission, setCameraPermission] = useState<"prompt" | "granted" | "denied">("prompt")
+
+  const checkCameraPermission = () => {
+    if (typeof navigator !== "undefined" && navigator.permissions) {
+      navigator.permissions
+        .query({ name: "camera" as PermissionName })
+        .then((permissionStatus) => {
+          setCameraPermission(permissionStatus.state as "prompt" | "granted" | "denied")
+
+          // If camera is denied, switch to manual tab
+          if (permissionStatus.state === "denied" && activeTab === "scan") {
+            setActiveTab("manual")
+            toast({
+              title: "Camera Access Denied",
+              description: "Switched to manual check-in mode. You can enter ticket IDs manually.",
+              variant: "warning",
+            })
+          }
+
+          // Listen for permission changes
+          permissionStatus.onchange = () => {
+            setCameraPermission(permissionStatus.state as "prompt" | "granted" | "denied")
+          }
+        })
+        .catch((err) => {
+          console.error("Error checking camera permission:", err)
+        })
+    }
+  }
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -56,6 +85,7 @@ export default function EventCheckInPage() {
 
     if (eventId) {
       fetchEvent()
+      checkCameraPermission()
     }
   }, [eventId, toast])
 
@@ -210,6 +240,20 @@ export default function EventCheckInPage() {
 
   return (
     <div className="container mx-auto py-8">
+      {cameraPermission === "denied" && (
+        <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <Camera className="h-5 w-5 text-amber-400" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-amber-700">
+                <span className="font-medium">Camera access is disabled.</span> Using manual check-in mode instead.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-2">
           <Button variant="outline" size="icon" asChild>
