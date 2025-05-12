@@ -24,6 +24,7 @@ import {
   ListChecks,
   Tag,
   History,
+  QrCode,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -134,6 +135,11 @@ export function DashboardSidebar() {
         { title: "Create Event", href: "/dashboard/events/create", icon: PlusCircle },
         { title: "Explore Events", href: "/explore", icon: Compass },
       ],
+    },
+    {
+      title: "Web Check-in",
+      href: "/event-check-in",
+      icon: QrCode,
     },
     {
       title: "Event Reviews",
