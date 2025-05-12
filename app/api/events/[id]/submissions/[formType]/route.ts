@@ -1,164 +1,92 @@
 import { NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
-import { isValidObjectId } from "mongoose"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { handleFormSubmission } from "@/lib/form-submission"
 
 export async function POST(request: Request, { params }: { params: { id: string; formType: string } }) {
   try {
-    const { id, formType } = params
+    const eventId = params.id
+    const formType = params.formType // attendee, volunteer, or speaker
 
+    // Validate form type
     if (!["attendee", "volunteer", "speaker"].includes(formType)) {
-      return NextResponse.json({ error: "Invalid form type" }, { status: 400 })
+      return NextResponse.json(
+        { error: "Invalid form type" },
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      )
     }
 
-    // Get the request body
-    const body = await request.json()
-    const formData = body.formData
+    // Parse the request body
+    let requestData
+    try {
+      requestData = await request.json()
+    } catch (parseError) {
+      console.error("Error parsing request body:", parseError)
+      return NextResponse.json(
+        { error: "Invalid request body. Please provide valid JSON." },
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      )
+    }
+
+    const { formData } = requestData
 
     if (!formData) {
-      return NextResponse.json({ error: "Form data is required" }, { status: 400 })
+      return NextResponse.json(
+        { error: "Missing form data" },
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      )
     }
 
-    // Connect to database
-    const { db } = await connectToDatabase()
-
-    // Get the event
-    let event
+    // Get the user session if available
+    let session
     try {
-      const objectId = new ObjectId(id)
-      event = await db.collection("events").findOne({ _id: objectId })
-    } catch (error) {
-      // If not a valid ObjectId, try to find by slug
-      event = await db.collection("events").findOne({ slug: id })
+      session = await getServerSession(authOptions)
+    } catch (sessionError) {
+      console.error("Error getting session:", sessionError)
+      // Continue without session
     }
 
-    if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 })
-    }
-
-    // Check if the form is published
-    let formStatus = "draft"
-    if (formType === "attendee" && event.attendeeForm) {
-      formStatus = event.attendeeForm.status || "draft"
-    } else if (formType === "volunteer" && event.volunteerForm) {
-      formStatus = event.volunteerForm.status || "draft"
-    } else if (formType === "speaker" && event.speakerForm) {
-      formStatus = event.speakerForm.status || "draft"
-    }
-
-    if (formStatus !== "published") {
-      return NextResponse.json({ error: "This form is not currently accepting submissions" }, { status: 403 })
-    }
-
-    // Get user session if available
-    const session = await getServerSession(authOptions)
+    // Get the user ID from the session if available
     const userId = session?.user?.id || null
 
-    // Extract user information from form data
-    const userName =
-      formData.name ||
-      (formData.firstName && formData.lastName ? `${formData.firstName} ${formData.lastName}` : "") ||
-      "Anonymous"
-    const userEmail = formData.email || formData.userEmail || formData.corporateEmail || session?.user?.email || null
+    // Handle the form submission
+    const result = await handleFormSubmission(eventId, formType, formData, userId)
 
-    // Create the submission
-    const submission = {
-      eventId: event._id,
-      formType,
-      userId: userId ? new ObjectId(userId) : null, // Make userId optional
-      userName: userName, // Store name from form
-      userEmail: userEmail, // Store email from form
-      data: formData,
-      status: "pending",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
-
-    // Save to database - use the correct collection name with lowercase 's'
-    const result = await db.collection("formsubmissions").insertOne(submission)
-
-    if (!result.acknowledged) {
-      throw new Error("Failed to save submission")
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Form submitted successfully",
-      submissionId: result.insertedId,
+    // Return the result
+    return NextResponse.json(result, {
+      status: result.success ? 200 : 400,
+      headers: {
+        "Content-Type": "application/json",
+      },
     })
   } catch (error) {
-    console.error(`Error submitting ${params.formType} form:`, error)
-    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    console.error(`Error handling ${params.formType} form submission:`, error)
     return NextResponse.json(
       {
-        error: "Failed to submit form. Please try again.",
-        details: errorMessage,
+        success: false,
+        error: error instanceof Error ? error.message : "An unexpected error occurred",
       },
-      { status: 500 },
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
     )
-  }
-}
-
-export async function GET(request: Request, { params }: { params: { id: string; formType: string } }) {
-  try {
-    const { id, formType } = params
-
-    // Ensure user is authenticated and authorized
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Connect to database
-    const { db } = await connectToDatabase()
-
-    // Get the event
-    let event
-    try {
-      // Validate if id is a valid ObjectId
-      if (isValidObjectId(id)) {
-        const objectId = new ObjectId(id)
-        event = await db.collection("events").findOne({ _id: objectId })
-      } else {
-        // If not a valid ObjectId, try to find by slug
-        event = await db.collection("events").findOne({ slug: id })
-      }
-    } catch (error) {
-      console.error("Error finding event:", error)
-      return NextResponse.json({ error: "Invalid event ID format" }, { status: 400 })
-    }
-
-    if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 })
-    }
-
-    // Check if user is the event organizer
-    if (
-      event.organizer.toString() !== session.user.id &&
-      session.user.role !== "admin" &&
-      session.user.role !== "super-admin"
-    ) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-    }
-
-    // Get submissions for this event and form type - use the correct collection name with lowercase 's'
-    const submissions = await db
-      .collection("formsubmissions")
-      .find({
-        eventId: event._id,
-        formType,
-      })
-      .sort({ createdAt: -1 })
-      .toArray()
-
-    return NextResponse.json({
-      submissions,
-    })
-  } catch (error) {
-    console.error(`Error fetching ${params.formType} submissions:`, error)
-    return NextResponse.json({ error: "Failed to fetch submissions. Please try again." }, { status: 500 })
   }
 }

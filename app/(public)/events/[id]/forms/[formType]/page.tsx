@@ -5,7 +5,7 @@ import { useParams } from "next/navigation"
 import { DynamicForm } from "@/components/forms/dynamic-form"
 import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, AlertCircle, Calendar, Clock } from "lucide-react"
+import { ArrowLeft, AlertCircle, Calendar, Clock, RefreshCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { FormSuccessMessage } from "@/components/ui/form-success-message"
@@ -63,9 +63,36 @@ export default function PublicFormPage() {
   const [formStatus, setFormStatus] = useState("draft")
   const [eventDate, setEventDate] = useState(null)
   const [isEventPassed, setIsEventPassed] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
 
   // Determine the API endpoint based on the form type
   const apiFormType = formTypeValue === "register" ? "attendee" : formTypeValue
+
+  // Function to safely parse JSON with error handling
+  const safeJsonParse = async (response) => {
+    const text = await response.text()
+    try {
+      // Try to parse the text as JSON
+      return { success: true, data: JSON.parse(text) }
+    } catch (error) {
+      console.error("JSON parse error:", error)
+      console.error("Response text:", text.substring(0, 500) + "...") // Log first 500 chars
+
+      // Check if it's an HTML response
+      if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
+        return {
+          success: false,
+          error: "Server returned HTML instead of JSON. This might indicate a server error.",
+        }
+      }
+
+      return {
+        success: false,
+        error: "Failed to parse server response as JSON",
+        rawResponse: text.substring(0, 1000), // Include part of the raw response for debugging
+      }
+    }
+  }
 
   useEffect(() => {
     const fetchFormData = async () => {
@@ -76,8 +103,11 @@ export default function PublicFormPage() {
         // Add a timestamp to prevent caching
         const timestamp = new Date().getTime()
         const response = await fetch(`/api/events/${eventId}/forms/${apiFormType}?t=${timestamp}`, {
+          method: "GET",
           cache: "no-store",
           headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
             "Cache-Control": "no-cache, no-store, must-revalidate",
             Pragma: "no-cache",
             Expires: "0",
@@ -86,29 +116,25 @@ export default function PublicFormPage() {
         })
 
         if (!response.ok) {
-          // Check if the response is HTML (error page) rather than JSON
-          const contentType = response.headers.get("content-type")
-          if (contentType && contentType.includes("text/html")) {
-            throw new Error("Server returned an HTML error page instead of JSON. The form might not be available.")
-          }
+          // Parse the response carefully
+          const result = await safeJsonParse(response)
 
-          try {
-            const errorData = await response.json()
-            throw new Error(errorData.error || "Failed to fetch form data")
-          } catch (jsonError) {
-            // If JSON parsing fails, use a generic error message
-            throw new Error("Failed to fetch form data. The server returned an invalid response.")
+          if (result.success) {
+            throw new Error(result.data.error || "Failed to fetch form data")
+          } else {
+            throw new Error(result.error || "Failed to fetch form data")
           }
         }
 
-        let data
-        try {
-          data = await response.json()
-          console.log("Form data response:", data)
-        } catch (jsonError) {
-          console.error("Error parsing JSON response:", jsonError)
-          throw new Error("Failed to parse form data. The server returned an invalid JSON response.")
+        // Parse the JSON response carefully
+        const result = await safeJsonParse(response)
+
+        if (!result.success) {
+          throw new Error(result.error || "Failed to parse form data")
         }
+
+        const data = result.data
+        console.log("Form data response:", data)
 
         // Check if the form is published
         if (data.status !== "published") {
@@ -119,45 +145,26 @@ export default function PublicFormPage() {
 
         setFormStatus("published")
         setFormFields(data.questions || [])
+        setEventTitle(data.eventTitle || "Event")
 
-        // Fetch event details including date
-        try {
-          const eventResponse = await fetch(`/api/events/${eventId}`, {
-            cache: "no-store",
-            headers: {
-              "x-form-request": "true", // Add this header to indicate it's a form request
-            },
-          })
+        // Check if event date is available from the form data
+        if (data.eventDate) {
+          const eventDateTime = new Date(data.eventDate)
+          setEventDate(eventDateTime)
 
-          if (eventResponse.ok) {
-            const eventData = await eventResponse.json()
-            setEventTitle(eventData.event.title || "Event")
+          // Check if event has already started or passed
+          const now = new Date()
 
-            // Check if event date is available
-            if (eventData.event.date) {
-              const eventDateTime = new Date(eventData.event.date)
-              setEventDate(eventDateTime)
-
-              // Check if event has already started or passed
-              const now = new Date()
-
-              // If event has a start time, use it for comparison
-              if (eventData.event.startTime) {
-                const [hours, minutes] = eventData.event.startTime.split(":").map(Number)
-                eventDateTime.setHours(hours, minutes, 0, 0)
-              }
-
-              if (now >= eventDateTime) {
-                setIsEventPassed(true)
-                setError("This form is closed because the event has already started or passed.")
-              }
-            }
-          } else {
-            console.warn("Could not fetch event details, but continuing with form display")
+          // If event has a start time, use it for comparison
+          if (data.startTime) {
+            const [hours, minutes] = data.startTime.split(":").map(Number)
+            eventDateTime.setHours(hours, minutes, 0, 0)
           }
-        } catch (eventError) {
-          console.error("Error fetching event details:", eventError)
-          // Don't fail the form load if event details can't be fetched
+
+          if (now >= eventDateTime) {
+            setIsEventPassed(true)
+            setError("This form is closed because the event has already started or passed.")
+          }
         }
       } catch (error) {
         console.error("Error fetching form data:", error)
@@ -170,7 +177,13 @@ export default function PublicFormPage() {
     if (eventId && apiFormType) {
       fetchFormData()
     }
-  }, [eventId, apiFormType, formTypeValue])
+  }, [eventId, apiFormType, formTypeValue, retryCount])
+
+  const handleRetry = () => {
+    setRetryCount((prev) => prev + 1)
+    setError("")
+    setLoading(true)
+  }
 
   const handleSubmit = async (formData) => {
     // Prevent submission if event has passed
@@ -191,19 +204,25 @@ export default function PublicFormPage() {
       const response = await fetch(`/api/events/${eventId}/submissions/${apiFormType}`, {
         method: "POST",
         headers: {
+          Accept: "application/json",
           "Content-Type": "application/json",
           "x-form-request": "true", // Add this header to indicate it's a form request
         },
         body: JSON.stringify({ formData }),
       })
 
-      const responseData = await response.json()
+      // Parse the response carefully
+      const result = await safeJsonParse(response)
 
-      if (!response.ok) {
+      if (!response.ok || !result.success) {
         // Extract specific error message from response if available
-        const errorMessage = responseData.error || responseData.message || "Failed to submit form"
+        const errorMessage = result.success
+          ? result.data.error || result.data.message || "Failed to submit form"
+          : result.error || "Failed to submit form"
         throw new Error(errorMessage)
       }
+
+      const responseData = result.data
 
       if (!responseData.success) {
         // Handle case where API returns success: false
@@ -261,14 +280,20 @@ export default function PublicFormPage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-2xl font-bold">{isEventPassed ? "Form Closed" : "Form Not Available"}</h1>
+          <h1 className="text-2xl font-bold">
+            {isEventPassed ? "Form Closed" : error.includes("parse") ? "Error Loading Form" : "Form Not Available"}
+          </h1>
         </div>
         <Card className={isEventPassed ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"}>
           <CardContent className="pt-6">
             <div className="flex items-center space-x-2 mb-4">
               <AlertCircle className={`h-5 w-5 ${isEventPassed ? "text-red-500" : "text-amber-500"}`} />
               <p className={`font-medium ${isEventPassed ? "text-red-700" : "text-amber-700"}`}>
-                {isEventPassed ? "Event Has Already Started" : "Form Not Available"}
+                {isEventPassed
+                  ? "Event Has Already Started"
+                  : error.includes("parse")
+                    ? "Technical Error"
+                    : "Form Not Available"}
               </p>
             </div>
             <p className="text-gray-700 mb-4">{error}</p>
@@ -287,6 +312,12 @@ export default function PublicFormPage() {
             )}
 
             <div className="flex flex-col sm:flex-row gap-3 mt-6">
+              {error.includes("parse") && (
+                <Button onClick={handleRetry} className="mb-2 sm:mb-0">
+                  <RefreshCcw className="mr-2 h-4 w-4" />
+                  Try Again
+                </Button>
+              )}
               <Button asChild>
                 <Link href={`/events/${eventId}`}>
                   <ArrowLeft className="mr-2 h-4 w-4" />
