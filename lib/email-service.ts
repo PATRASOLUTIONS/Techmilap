@@ -1,8 +1,11 @@
-// Import nodemailer for sending emails
-import nodemailer from "nodemailer"
+// Import required modules
 import { format, addMinutes } from "date-fns"
 import { rateLimit } from "@/lib/rate-limit"
 import { sendTemplatedEmail } from "@/lib/email-template-service"
+
+// Azure Logic Apps URL for sending emails
+const AZURE_LOGIC_APP_URL =
+  "https://prod-22.southindia.logic.azure.com:443/workflows/6df0b999ee0c4e67b8c86d428bbc0eb6/triggers/When_a_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_a_HTTP_request_is_received%2Frun&sv=1.0&sig=mUyOOITrrkN_fiKdv12Yp11TJmNA_eZNzJ_-gQYpuDU"
 
 // Create a rate limiter for email sending
 const emailRateLimiter = rateLimit({
@@ -10,26 +13,6 @@ const emailRateLimiter = rateLimit({
   uniqueTokenPerInterval: 500, // Max 500 users per interval
   limit: 10, // 10 emails per interval per token
 })
-
-// Function to create a Gmail transporter with retry logic
-function createGmailTransporter() {
-  return nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-    // Add TLS options for security
-    tls: {
-      rejectUnauthorized: true, // Verify TLS certificates
-      minVersion: "TLSv1.2", // Require minimum TLS 1.2
-    },
-    // Add pool configuration for better performance
-    pool: true,
-    maxConnections: 5,
-    maxMessages: 100,
-  })
-}
 
 // Function to format date in Indian Standard Time (IST)
 function formatEventDate(dateInput) {
@@ -85,7 +68,7 @@ function sanitizeHtml(html) {
     .replace(/javascript:/g, "")
 }
 
-// Generic function to send emails - exported as required
+// Generic function to send emails using Azure Logic Apps - exported as required
 export async function sendEmail({ to, subject, text, html, retries = 3 }) {
   // Validate email address format
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
@@ -111,24 +94,31 @@ export async function sendEmail({ to, subject, text, html, retries = 3 }) {
       attempt++
       console.log(`Email attempt ${attempt} to ${to} with subject: ${subject}`)
 
-      const transporter = createGmailTransporter()
-
-      const mailOptions = {
-        from: `"Tech Milap" <${process.env.EMAIL_USER}>`,
-        to,
-        subject,
-        text,
-        html: sanitizedHtml,
-        // Add headers for better deliverability
-        headers: {
-          "X-Priority": "1",
-          "X-MSMail-Priority": "High",
-          Importance: "High",
-        },
+      // Prepare the request payload for Azure Logic Apps
+      const payload = {
+        emailTo: to,
+        emailSubject: subject,
+        emailBody: sanitizedHtml || text,
+        isHtml: !!sanitizedHtml,
+        from: `Tech Milap <${process.env.EMAIL_USER || "noreply@techmilap.com"}>`,
       }
 
-      const info = await transporter.sendMail(mailOptions)
-      console.log(`Email sent to ${to} with subject ${subject}. Message ID: ${info.messageId}`)
+      // Send the request to Azure Logic Apps
+      const response = await fetch(AZURE_LOGIC_APP_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Azure Logic Apps returned error: ${response.status} - ${errorText}`)
+      }
+
+      const result = await response.json()
+      console.log(`Email sent to ${to} with subject ${subject}. Response:`, result)
       return true
     } catch (error) {
       console.error(`Error sending email to ${to} (attempt ${attempt}/${retries}):`, error)
