@@ -14,6 +14,10 @@ export interface ITicket extends Document {
   createdBy: mongoose.Types.ObjectId
   createdAt: Date
   updatedAt: Date
+  isCheckedIn: boolean
+  checkedInAt?: Date
+  checkedInBy?: mongoose.Types.ObjectId
+  checkInCount: number
 }
 
 const TicketSchema = new Schema<ITicket>(
@@ -69,6 +73,21 @@ const TicketSchema = new Schema<ITicket>(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: [true, "Creator is required"],
+    },
+    isCheckedIn: {
+      type: Boolean,
+      default: false,
+    },
+    checkedInAt: {
+      type: Date,
+    },
+    checkedInBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+    checkInCount: {
+      type: Number,
+      default: 0,
     },
   },
   {

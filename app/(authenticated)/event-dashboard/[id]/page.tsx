@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Users, Eye, Mic, HandHelping, SettingsIcon } from "lucide-react"
+import { ArrowLeft, Users, Eye, Mic, HandHelping, SettingsIcon, QrCode } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import ReactMarkdown from "react-markdown"
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input"
 import MarkdownEditor from "@/components/markdown-editor"
 import { EventCreationForm } from "@/components/events/event-creation-form"
 import { PublishAllFormsButton } from "@/components/events/publish-all-forms-button"
+import { CheckCircle, BarChart } from "lucide-react"
 
 export default function EventDashboardPage() {
   const { id } = useParams() || {}
@@ -402,6 +403,10 @@ export default function EventDashboardPage() {
           <TabsTrigger value="volunteers">Volunteers</TabsTrigger>
           <TabsTrigger value="speakers">Speakers</TabsTrigger>
           <TabsTrigger value="forms">Forms</TabsTrigger>
+          <TabsTrigger value="check-in">
+            <QrCode className="h-4 w-4 mr-1" />
+            Check-in
+          </TabsTrigger>
           <TabsTrigger value="settings">
             <SettingsIcon className="h-4 w-4 mr-1" />
             Settings
@@ -786,6 +791,57 @@ export default function EventDashboardPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="check-in" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Event Check-in</CardTitle>
+                <CardDescription>Scan tickets and manage attendee check-ins</CardDescription>
+              </div>
+              <Button asChild>
+                <Link href={`/event-dashboard/${eventId}/check-in`}>
+                  <QrCode className="mr-2 h-4 w-4" />
+                  Go to Check-in
+                </Link>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Use the check-in system to scan tickets and track attendance at your event. You can scan QR codes,
+                manually enter ticket IDs, and view real-time check-in statistics.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                <div className="border rounded-lg p-4 flex flex-col items-center text-center">
+                  <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center mb-3">
+                    <QrCode className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <h3 className="font-medium mb-1">Scan QR Codes</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Quickly scan attendee tickets using your device's camera
+                  </p>
+                </div>
+
+                <div className="border rounded-lg p-4 flex flex-col items-center text-center">
+                  <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mb-3">
+                    <CheckCircle className="h-6 w-6 text-green-600" />
+                  </div>
+                  <h3 className="font-medium mb-1">Verify Tickets</h3>
+                  <p className="text-sm text-muted-foreground">Instantly verify ticket validity and check-in status</p>
+                </div>
+
+                <div className="border rounded-lg p-4 flex flex-col items-center text-center">
+                  <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center mb-3">
+                    <BarChart className="h-6 w-6 text-amber-600" />
+                  </div>
+                  <h3 className="font-medium mb-1">Track Attendance</h3>
+                  <p className="text-sm text-muted-foreground">Monitor real-time attendance and check-in statistics</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* New Settings Tab Content */}

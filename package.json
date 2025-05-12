@@ -54,6 +54,7 @@
     "embla-carousel-react": "8.5.1",
     "framer-motion": "latest",
     "gcp-metadata": "latest",
+    "html5-qrcode": "latest",
     "input-otp": "1.4.1",
     "jspdf": "latest",
     "jspdf-autotable": "latest",
