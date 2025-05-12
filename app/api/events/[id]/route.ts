@@ -10,7 +10,12 @@ import mongoose from "mongoose"
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     console.log(`GET request for event ID/slug: ${params.id}`)
-    await connectToDatabase()
+    try {
+      await connectToDatabase()
+    } catch (dbError) {
+      console.error("Database connection error:", dbError)
+      return NextResponse.json({ error: "Failed to connect to database. Please try again later." }, { status: 500 })
+    }
 
     // Check if we're requesting public access
     const isPublicRequest = req.headers.get("x-public-request") === "true"
@@ -32,21 +37,26 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // Check if the ID is a valid MongoDB ObjectId
     const isValidObjectId = mongoose.isValidObjectId(idOrSlug)
 
-    if (isValidObjectId) {
-      // If it's a valid ObjectId, try to find by ID first
-      console.log(`Looking up event by ID: ${idOrSlug}`)
-      event = await Event.findById(idOrSlug).lean()
-    }
+    try {
+      if (isValidObjectId) {
+        // If it's a valid ObjectId, try to find by ID first
+        console.log(`Looking up event by ID: ${idOrSlug}`)
+        event = await Event.findById(idOrSlug).lean()
+      }
 
-    // If not found by ID or not a valid ObjectId, try to find by slug
-    if (!event) {
-      console.log(`Event not found by ID or not a valid ObjectId, trying slug: ${idOrSlug}`)
-      event = await Event.findOne({ slug: idOrSlug }).lean()
-    }
+      // If not found by ID or not a valid ObjectId, try to find by slug
+      if (!event) {
+        console.log(`Event not found by ID or not a valid ObjectId, trying slug: ${idOrSlug}`)
+        event = await Event.findOne({ slug: idOrSlug }).lean()
+      }
 
-    if (!event) {
-      console.log(`Event not found for ID/slug: ${idOrSlug}`)
-      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      if (!event) {
+        console.log(`Event not found for ID/slug: ${idOrSlug}`)
+        return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      }
+    } catch (findError) {
+      console.error("Error finding event:", findError)
+      return NextResponse.json({ error: "An error occurred while finding the event" }, { status: 500 })
     }
 
     console.log(`Found event: ${event.title} (${event._id})`)
@@ -75,7 +85,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     event.speakerForm = event.speakerForm || { status: "draft" }
 
     // Fetch tickets for the event
-    const tickets = await Ticket.find({ event: event._id }).lean()
+    let tickets = []
+    try {
+      tickets = await Ticket.find({ event: event._id }).lean()
+    } catch (ticketError) {
+      console.error("Error fetching tickets:", ticketError)
+      // Don't fail the request if tickets can't be fetched
+      tickets = []
+    }
 
     // Add tickets to the event object
     event.tickets = tickets
@@ -85,9 +102,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       volunteer: event.volunteerForm.status,
       speaker: event.speakerForm.status,
     })
-
-    // Fetch custom questions
-    const customQuestions = event.customQuestions || { attendee: [], volunteer: [], speaker: [] }
 
     // Ensure all necessary fields are included in the response
     const eventData = {

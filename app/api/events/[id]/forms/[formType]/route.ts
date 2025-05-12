@@ -14,24 +14,34 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     }
 
     // Connect to database
-    await connectToDatabase()
+    try {
+      await connectToDatabase()
+    } catch (dbError) {
+      console.error("Database connection error:", dbError)
+      return NextResponse.json({ error: "Failed to connect to database. Please try again later." }, { status: 500 })
+    }
 
     // Check if the ID is a valid MongoDB ObjectId
     const isValidObjectId = mongoose.isValidObjectId(eventId)
 
     // Get the event
     let event
-    if (isValidObjectId) {
-      event = await Event.findById(eventId).lean()
-    }
+    try {
+      if (isValidObjectId) {
+        event = await Event.findById(eventId).lean()
+      }
 
-    // If not found by ID or not a valid ObjectId, try to find by slug
-    if (!event) {
-      event = await Event.findOne({ slug: eventId }).lean()
-    }
+      // If not found by ID or not a valid ObjectId, try to find by slug
+      if (!event) {
+        event = await Event.findOne({ slug: eventId }).lean()
+      }
 
-    if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      if (!event) {
+        return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      }
+    } catch (eventError) {
+      console.error("Error fetching event:", eventError)
+      return NextResponse.json({ error: "Failed to fetch event. Please try again later." }, { status: 500 })
     }
 
     // Get the form status based on form type

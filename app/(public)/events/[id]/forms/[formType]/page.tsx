@@ -86,12 +86,29 @@ export default function PublicFormPage() {
         })
 
         if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Failed to fetch form data")
+          // Check if the response is HTML (error page) rather than JSON
+          const contentType = response.headers.get("content-type")
+          if (contentType && contentType.includes("text/html")) {
+            throw new Error("Server returned an HTML error page instead of JSON. The form might not be available.")
+          }
+
+          try {
+            const errorData = await response.json()
+            throw new Error(errorData.error || "Failed to fetch form data")
+          } catch (jsonError) {
+            // If JSON parsing fails, use a generic error message
+            throw new Error("Failed to fetch form data. The server returned an invalid response.")
+          }
         }
 
-        const data = await response.json()
-        console.log("Form data response:", data)
+        let data
+        try {
+          data = await response.json()
+          console.log("Form data response:", data)
+        } catch (jsonError) {
+          console.error("Error parsing JSON response:", jsonError)
+          throw new Error("Failed to parse form data. The server returned an invalid JSON response.")
+        }
 
         // Check if the form is published
         if (data.status !== "published") {
@@ -104,36 +121,43 @@ export default function PublicFormPage() {
         setFormFields(data.questions || [])
 
         // Fetch event details including date
-        const eventResponse = await fetch(`/api/events/${eventId}`, {
-          cache: "no-store",
-          headers: {
-            "x-form-request": "true", // Add this header to indicate it's a form request
-          },
-        })
+        try {
+          const eventResponse = await fetch(`/api/events/${eventId}`, {
+            cache: "no-store",
+            headers: {
+              "x-form-request": "true", // Add this header to indicate it's a form request
+            },
+          })
 
-        if (eventResponse.ok) {
-          const eventData = await eventResponse.json()
-          setEventTitle(eventData.event.title || "Event")
+          if (eventResponse.ok) {
+            const eventData = await eventResponse.json()
+            setEventTitle(eventData.event.title || "Event")
 
-          // Check if event date is available
-          if (eventData.event.date) {
-            const eventDateTime = new Date(eventData.event.date)
-            setEventDate(eventDateTime)
+            // Check if event date is available
+            if (eventData.event.date) {
+              const eventDateTime = new Date(eventData.event.date)
+              setEventDate(eventDateTime)
 
-            // Check if event has already started or passed
-            const now = new Date()
+              // Check if event has already started or passed
+              const now = new Date()
 
-            // If event has a start time, use it for comparison
-            if (eventData.event.startTime) {
-              const [hours, minutes] = eventData.event.startTime.split(":").map(Number)
-              eventDateTime.setHours(hours, minutes, 0, 0)
+              // If event has a start time, use it for comparison
+              if (eventData.event.startTime) {
+                const [hours, minutes] = eventData.event.startTime.split(":").map(Number)
+                eventDateTime.setHours(hours, minutes, 0, 0)
+              }
+
+              if (now >= eventDateTime) {
+                setIsEventPassed(true)
+                setError("This form is closed because the event has already started or passed.")
+              }
             }
-
-            if (now >= eventDateTime) {
-              setIsEventPassed(true)
-              setError("This form is closed because the event has already started or passed.")
-            }
+          } else {
+            console.warn("Could not fetch event details, but continuing with form display")
           }
+        } catch (eventError) {
+          console.error("Error fetching event details:", eventError)
+          // Don't fail the form load if event details can't be fetched
         }
       } catch (error) {
         console.error("Error fetching form data:", error)
