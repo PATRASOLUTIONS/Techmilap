@@ -89,27 +89,28 @@ export default function EventCheckInPage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="flex flex-col space-y-6">
+      <div className="flex flex-col space-y-8">
         <div className="flex flex-col space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Web Check-in</h1>
-          <p className="text-muted-foreground">Select an event to start checking in attendees</p>
+          <h1 className="text-3xl font-bold tracking-tight">Event Check-in Dashboard</h1>
+          <p className="text-muted-foreground">Manage attendee check-ins for your upcoming events</p>
         </div>
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
-              <Card key={i} className="overflow-hidden">
-                <CardHeader className="pb-2">
+              <Card key={i} className="overflow-hidden border-0 shadow-md bg-white">
+                <CardHeader className="pb-2 bg-gray-50 border-b">
                   <Skeleton className="h-6 w-3/4 mb-2" />
                   <Skeleton className="h-4 w-1/2" />
                 </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col space-y-2">
+                <CardContent className="pt-4">
+                  <div className="flex flex-col space-y-3">
                     <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-2 w-full mt-2" />
                   </div>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="border-t bg-gray-50 py-3">
                   <Skeleton className="h-10 w-full" />
                 </CardFooter>
               </Card>
@@ -117,61 +118,90 @@ export default function EventCheckInPage() {
           </div>
         ) : events.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {events.map((event) => (
-              <Card key={event._id} className="overflow-hidden">
-                <CardHeader className="pb-2">
-                  <CardTitle className="line-clamp-1">{event.title}</CardTitle>
-                  <CardDescription className="flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
-                    <span>{formatDate(event.startDate)}</span>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5" /> Total Registrations
-                      </span>
-                      <span className="font-medium">{event.registrationsCount || 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground flex items-center gap-1">
-                        <QrCode className="h-3.5 w-3.5" /> Checked In
-                      </span>
-                      <span className="font-medium">{event.checkedInCount || 0}</span>
-                    </div>
-                    {event.registrationsCount > 0 && (
-                      <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                        <div
-                          className="bg-green-600 h-2.5 rounded-full"
-                          style={{
-                            width: `${Math.min(100, Math.round(((event.checkedInCount || 0) / (event.registrationsCount || 1)) * 100))}%`,
-                          }}
-                        ></div>
+            {events.map((event) => {
+              const checkInPercentage = event.registrationsCount
+                ? Math.min(100, Math.round(((event.checkedInCount || 0) / event.registrationsCount) * 100))
+                : 0
+
+              return (
+                <Card
+                  key={event._id}
+                  className="overflow-hidden border shadow-md hover:shadow-lg transition-shadow duration-300 bg-white"
+                >
+                  <CardHeader className="pb-3 border-b bg-gradient-to-r from-gray-50 to-white">
+                    <CardTitle className="line-clamp-1 text-lg">{event.title}</CardTitle>
+                    <CardDescription className="flex items-center gap-1.5 mt-1">
+                      <Calendar className="h-3.5 w-3.5 text-gray-500" />
+                      <span>{formatDate(event.startDate)}</span>
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <div className="flex flex-col space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-gray-50 rounded-lg p-3 text-center">
+                          <div className="text-sm text-muted-foreground mb-1 flex items-center justify-center gap-1.5">
+                            <Users className="h-3.5 w-3.5" /> Registrations
+                          </div>
+                          <div className="font-semibold text-lg">{event.registrationsCount || 0}</div>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-3 text-center">
+                          <div className="text-sm text-muted-foreground mb-1 flex items-center justify-center gap-1.5">
+                            <QrCode className="h-3.5 w-3.5" /> Checked In
+                          </div>
+                          <div className="font-semibold text-lg">{event.checkedInCount || 0}</div>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button asChild className="w-full">
-                    <Link href={`/event-dashboard/${event._id}/check-in`}>
-                      <QrCode className="mr-2 h-4 w-4" /> Start Check-in
-                    </Link>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
+
+                      {event.registrationsCount > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Check-in Progress</span>
+                            <span className="font-medium">{checkInPercentage}%</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2.5">
+                            <div
+                              className={`h-2.5 rounded-full ${
+                                checkInPercentage > 75
+                                  ? "bg-green-500"
+                                  : checkInPercentage > 40
+                                    ? "bg-blue-500"
+                                    : "bg-amber-500"
+                              }`}
+                              style={{ width: `${checkInPercentage}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="border-t bg-gray-50 py-3">
+                    <Button
+                      asChild
+                      className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 transition-colors"
+                    >
+                      <Link href={`/event-dashboard/${event._id}/check-in`}>
+                        <QrCode className="mr-2 h-4 w-4" /> Start Check-in Process
+                      </Link>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              )
+            })}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-12 px-4 border rounded-lg bg-gray-50">
-            <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center mb-4">
-              <Calendar className="h-6 w-6 text-gray-500" />
+          <div className="flex flex-col items-center justify-center py-12 px-4 border rounded-lg bg-white shadow-sm">
+            <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+              <Calendar className="h-8 w-8 text-gray-400" />
             </div>
-            <h3 className="text-lg font-medium mb-2">No Events Found</h3>
-            <p className="text-muted-foreground text-center mb-6">
-              You don't have any upcoming events to check in attendees.
+            <h3 className="text-xl font-medium mb-2">No Events Found</h3>
+            <p className="text-muted-foreground text-center mb-6 max-w-md">
+              You don't have any upcoming events to check in attendees. Create an event to get started with the check-in
+              process.
             </p>
-            <Button asChild>
+            <Button
+              asChild
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 transition-colors"
+            >
               <Link href="/dashboard/events/create">Create an Event</Link>
             </Button>
           </div>
