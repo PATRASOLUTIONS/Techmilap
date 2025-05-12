@@ -26,33 +26,6 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
     // Initialize the scanner when the component mounts
     scannerRef.current = new Html5Qrcode(scannerContainerId)
 
-    // Check if we have camera permissions
-    navigator.permissions
-      .query({ name: "camera" as PermissionName })
-      .then((permissionStatus) => {
-        setPermissionState(permissionStatus.state as "prompt" | "granted" | "denied")
-
-        // Listen for permission changes
-        permissionStatus.onchange = () => {
-          setPermissionState(permissionStatus.state as "prompt" | "granted" | "denied")
-
-          // If permissions were just granted, try to get cameras
-          if (permissionStatus.state === "granted" && availableCameras.length === 0) {
-            getCameras()
-          }
-        }
-
-        // If already granted, get cameras
-        if (permissionStatus.state === "granted") {
-          getCameras()
-        }
-      })
-      .catch((err) => {
-        console.error("Error checking camera permission:", err)
-        // Fallback to just trying to get cameras
-        getCameras()
-      })
-
     // Clean up the scanner when the component unmounts
     return () => {
       if (scannerRef.current && scannerRef.current.isScanning) {
@@ -61,35 +34,53 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
     }
   }, [])
 
-  const getCameras = () => {
-    Html5Qrcode.getCameras()
-      .then((devices) => {
-        if (devices && devices.length) {
-          setAvailableCameras(devices)
-          setSelectedCamera(devices[0].id)
-          setPermissionState("granted")
-        } else {
-          setError("No cameras found on this device")
-        }
-      })
-      .catch((err) => {
-        console.error("Error getting cameras", err)
-        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-          setPermissionState("denied")
-          setError("Camera access denied. Please enable camera permissions in your browser settings.")
-        } else {
-          setError("Error accessing camera: " + err.message)
-        }
-      })
+  // We don't check permissions on mount anymore - we'll do it when the user clicks the start button
+
+  const getCameras = async () => {
+    try {
+      setIsLoading(true)
+      const devices = await Html5Qrcode.getCameras()
+
+      if (devices && devices.length) {
+        setAvailableCameras(devices)
+        setSelectedCamera(devices[0].id)
+        setPermissionState("granted")
+        return true
+      } else {
+        setError("No cameras found on this device")
+        return false
+      }
+    } catch (err: any) {
+      console.error("Error getting cameras", err)
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        setPermissionState("denied")
+        setError("Camera access denied. Please enable camera permissions in your browser settings.")
+      } else {
+        setError("Error accessing camera: " + err.message)
+      }
+      return false
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const startScanner = async () => {
-    if (!scannerRef.current || !selectedCamera) return
+    if (!scannerRef.current) return
 
     setIsLoading(true)
     setError(null)
 
     try {
+      // First, request camera permissions by trying to get cameras
+      // This will trigger the browser permission popup
+      const hasCamera = await getCameras()
+
+      if (!hasCamera || !selectedCamera) {
+        setIsLoading(false)
+        return
+      }
+
+      // Now start the scanner with the selected camera
       await scannerRef.current.start(
         selectedCamera,
         {
@@ -186,7 +177,7 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
             {!isScanning ? (
               <Button
                 onClick={startScanner}
-                disabled={!selectedCamera || isLoading || permissionState === "denied"}
+                disabled={isLoading || permissionState === "denied"}
                 className="bg-green-600 hover:bg-green-700"
               >
                 {isLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Camera className="h-4 w-4 mr-2" />}
