@@ -15,10 +15,12 @@ interface SendTemplatedEmailParams {
   metadata?: Record<string, any>
 }
 
-// Enhance the getUserDesignPreference function
+// Enhanced getUserDesignPreference function to fetch from database
 async function getUserDesignPreference(userId: string): Promise<string> {
   try {
     await connectToDatabase()
+    console.log(`Fetching design preference for user ${userId}`)
+
     const user = await User.findById(userId).select("emailDesignPreference")
 
     if (!user) {
@@ -29,6 +31,7 @@ async function getUserDesignPreference(userId: string): Promise<string> {
     // Check if the preference is valid
     const validDesigns = ["modern", "elegant", "colorful", "minimal", "corporate"]
     if (user.emailDesignPreference && validDesigns.includes(user.emailDesignPreference)) {
+      console.log(`Found user design preference: ${user.emailDesignPreference}`)
       return user.emailDesignPreference
     } else {
       console.warn(`Invalid design preference "${user.emailDesignPreference}" for user ${userId}, using default`)
@@ -44,6 +47,7 @@ async function getUserDesignPreference(userId: string): Promise<string> {
 export async function getEmailTemplate(userId: string, templateType: string, eventId?: string) {
   try {
     await connectToDatabase()
+    console.log(`Fetching email template for user ${userId}, type ${templateType}, event ${eventId || "none"}`)
 
     let template = null
 
@@ -201,6 +205,7 @@ export async function sendTemplatedEmail({
 }: SendTemplatedEmailParams) {
   try {
     await connectToDatabase()
+    console.log(`Preparing templated email for user ${userId}, type ${templateType}, recipient ${recipientEmail}`)
 
     // Get the appropriate template
     const template = await getEmailTemplate(userId, templateType, eventId)

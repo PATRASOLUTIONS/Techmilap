@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import User, { UserRole } from "@/models/User"
 import { sendVerificationEmail } from "@/lib/email-service"
+import { initializeEmailDefaults } from "@/lib/email-defaults"
 
 // Function to generate a random 6-digit OTP
 function generateOTP(): string {
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
     const verificationCodeExpires = new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
 
     // Create new user
-    const user = new User({
+    const newUser = await User.create({
       firstName,
       lastName,
       email,
@@ -79,7 +80,8 @@ export async function POST(req: NextRequest) {
       mobileNumber,
     })
 
-    await user.save()
+    // Initialize default email templates and design preference
+    await initializeEmailDefaults(newUser._id.toString())
 
     // Send verification email
     try {

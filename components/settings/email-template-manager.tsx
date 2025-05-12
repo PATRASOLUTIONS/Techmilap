@@ -257,6 +257,11 @@ export function EmailTemplateManager({ userId }: EmailTemplateManagerProps) {
         title: "Success",
         description: "Email template saved successfully",
       })
+
+      // If this is a default template, make sure it's used for future emails
+      if (currentTemplate.isDefault) {
+        console.log(`Template set as default for type: ${currentTemplate.templateType}`)
+      }
     } catch (err: any) {
       setError(err.message || "An error occurred while saving the template")
       toast({

@@ -106,6 +106,9 @@ export function EmailDesignManager({ userId }: { userId: string }) {
           title: "Success",
           description: data.message || "Your email design preference has been updated successfully.",
         })
+
+        // Update all default templates to use this design
+        await updateTemplatesWithDesign(selectedDesign)
       } else {
         throw new Error(data.error || "Failed to save design preference")
       }
@@ -118,6 +121,39 @@ export function EmailDesignManager({ userId }: { userId: string }) {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Add this new function to update templates with the selected design
+  const updateTemplatesWithDesign = async (design: string) => {
+    try {
+      // Fetch all default templates for this user
+      const response = await fetch(`/api/email-templates?userId=${userId}&isDefault=true`)
+      if (!response.ok) {
+        throw new Error("Failed to fetch templates")
+      }
+
+      const data = await response.json()
+      const defaultTemplates = data.templates || []
+
+      // Update each template with the new design
+      for (const template of defaultTemplates) {
+        await fetch(`/api/email-templates/${template._id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ...template,
+            designTemplate: design,
+          }),
+        })
+      }
+
+      console.log(`Updated ${defaultTemplates.length} templates with design: ${design}`)
+    } catch (error) {
+      console.error("Error updating templates with new design:", error)
+      // Don't show an error toast here, as this is a background operation
     }
   }
 
