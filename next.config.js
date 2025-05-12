@@ -34,6 +34,10 @@ const nextConfig = {
       {
         source: "/(.*)",
         headers: [
+        { 
+         key: "Permissions-Policy",
+         value:  "camera=(self)",
+        },
           {
             key: "X-Content-Type-Options",
             value: "nosniff",
