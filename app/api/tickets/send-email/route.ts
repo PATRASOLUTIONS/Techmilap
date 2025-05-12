@@ -6,6 +6,8 @@ import User from "@/models/User"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { sendTemplatedEmail } from "@/lib/email-template-service"
+import FormSubmission from "@/models/FormSubmission"
+import { extractNameFromFormData, extractEmailFromFormData } from "@/lib/ticket-utils"
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,90 +17,75 @@ export async function POST(req: NextRequest) {
     }
 
     await connectToDatabase()
-    const { ticketId } = await req.json()
+    const { ticketId, ticketType, formType } = await req.json()
 
     if (!ticketId) {
       return NextResponse.json({ error: "Ticket ID is required" }, { status: 400 })
     }
 
-    // Find the ticket
-    const ticket = await Ticket.findById(ticketId)
-    if (!ticket) {
-      return NextResponse.json({ error: "Ticket not found" }, { status: 404 })
+    console.log(`Processing email request for ticket: ${ticketId}, type: ${ticketType || formType || "unknown"}`)
+
+    // Check if this is a form submission ticket or a regular ticket
+    let ticket, event, attendeeName, attendeeEmail, formData
+
+    if (ticketType === "submission" || formType) {
+      // This is a form submission ticket
+      const submission = await FormSubmission.findById(ticketId).populate("event").lean()
+
+      if (!submission) {
+        console.error(`Form submission not found for ID: ${ticketId}`)
+        return NextResponse.json({ error: "Ticket not found" }, { status: 404 })
+      }
+
+      ticket = submission
+      event = submission.event
+      formData = submission.formData || {}
+
+      // Extract name and email from form data
+      attendeeName = extractNameFromFormData(formData, submission)
+      attendeeEmail = extractEmailFromFormData(formData, submission)
+    } else {
+      // This is a regular ticket
+      ticket = await Ticket.findById(ticketId)
+
+      if (!ticket) {
+        console.error(`Ticket not found for ID: ${ticketId}`)
+        return NextResponse.json({ error: "Ticket not found" }, { status: 404 })
+      }
+
+      // Find the event
+      event = await Event.findById(ticket.event)
+
+      // Get attendee information from the ticket
+      attendeeName = ticket.attendeeName || "Attendee"
+      attendeeEmail = ticket.attendeeEmail || ""
+      formData = ticket.formData || {}
     }
 
-    // Find the event
-    const event = await Event.findById(ticket.event)
     if (!event) {
+      console.error(`Event not found for ticket: ${ticketId}`)
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
     // Check if user has permission to send email for this ticket
-    if (session.user.role !== "super-admin" && event.organizer.toString() !== session.user.id) {
+    // For form submissions, check if the user is the event organizer or the ticket owner
+    const isOrganizer = event.organizer && event.organizer.toString() === session.user.id
+    const isTicketOwner = ticket.userId && ticket.userId.toString() === session.user.id
+
+    if (session.user.role !== "super-admin" && !isOrganizer && !isTicketOwner) {
+      console.error(`User ${session.user.id} doesn't have permission to send email for ticket ${ticketId}`)
       return NextResponse.json({ error: "You don't have permission to send emails for this event" }, { status: 403 })
     }
 
-    // Get attendee information from the ticket
-    let attendeeName = "Attendee"
-    let attendeeEmail = ""
-
-    if (ticket.isFormSubmission && ticket.formData) {
-      // Try to extract name from form data
-      const formData = ticket.formData
-
-      // Look for name fields with various patterns
-      const nameFields = ["name", "fullName", "attendeeName", "firstName"]
-
-      // Also check for question_name_* pattern
-      const questionNameField = Object.keys(formData).find(
-        (key) => key.startsWith("question_name_") || key.startsWith("question_fullName_"),
-      )
-
-      if (questionNameField) {
-        attendeeName = formData[questionNameField]
-      } else {
-        // Try standard name fields
-        for (const field of nameFields) {
-          if (formData[field]) {
-            attendeeName = formData[field]
-            break
-          }
-        }
-
-        // If we have firstName and lastName, combine them
-        if (formData.firstName && formData.lastName) {
-          attendeeName = `${formData.firstName} ${formData.lastName}`
-        }
-      }
-
-      // Look for email fields with various patterns
-      const emailFields = ["email", "emailAddress", "attendeeEmail"]
-
-      // Also check for question_email_* pattern
-      const questionEmailField = Object.keys(formData).find(
-        (key) => key.startsWith("question_email_") || key.startsWith("question_emailAddress_"),
-      )
-
-      if (questionEmailField) {
-        attendeeEmail = formData[questionEmailField]
-      } else {
-        // Try standard email fields
-        for (const field of emailFields) {
-          if (formData[field]) {
-            attendeeEmail = formData[field]
-            break
-          }
-        }
-      }
-    }
-
     if (!attendeeEmail) {
+      console.error(`Could not find attendee email in ticket data for ticket ${ticketId}`)
       return NextResponse.json({ error: "Could not find attendee email in ticket data" }, { status: 400 })
     }
 
     // Get the event organizer
     const organizer = await User.findById(event.organizer)
     if (!organizer) {
+      console.error(`Event organizer not found for event ${event._id}`)
       return NextResponse.json({ error: "Event organizer not found" }, { status: 404 })
     }
 
@@ -110,13 +97,21 @@ export async function POST(req: NextRequest) {
     const variables = {
       attendeeName,
       eventName: event.title,
-      eventDate: new Date(event.date).toLocaleDateString(),
-      eventTime: `${event.startTime} - ${event.endTime}`,
+      eventDate: new Date(event.date).toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: "Asia/Tokyo", // Use Tokyo timezone to prevent date shift
+      }),
+      eventTime: `${event.startTime || "00:00"} - ${event.endTime || "00:00"}`,
       eventLocation: event.location || "TBD",
       ticketId: ticket.ticketNumber || ticket._id.toString().substring(0, 8).toUpperCase(),
       ticketUrl,
       organizerName: organizer.name || "Event Organizer",
     }
+
+    console.log(`Sending ticket email to ${attendeeEmail} for event ${event.title}`)
 
     // Send the email using the template
     const result = await sendTemplatedEmail({
@@ -130,8 +125,10 @@ export async function POST(req: NextRequest) {
     })
 
     if (result) {
+      console.log(`Successfully sent ticket email to ${attendeeEmail}`)
       return NextResponse.json({ success: true, message: "Ticket email sent successfully" })
     } else {
+      console.error(`Failed to send ticket email to ${attendeeEmail}`)
       return NextResponse.json({ error: "Failed to send ticket email" }, { status: 500 })
     }
   } catch (error) {

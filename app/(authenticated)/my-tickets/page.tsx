@@ -427,8 +427,8 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
         },
         body: JSON.stringify({
           ticketId: ticket._id,
-          ticketType: "submission",
-          formType: roleType,
+          ticketType: ticket.isFormSubmission ? "submission" : undefined,
+          formType: ticket.formType || roleType,
         }),
       })
 
@@ -864,7 +864,7 @@ Please present this ticket at the event entrance.
               <div className="grid grid-cols-2 gap-3">
                 <Button variant="outline" className="justify-start" onClick={handleSendEmail} disabled={isSendingEmail}>
                   <Mail className="h-4 w-4 mr-2" />
-                  {isSendingEmail ? "Sending..." : "Send to Email"}
+                  {isSendingEmail ? "Sending..." : "Share via Email"}
                 </Button>
                 <Button variant="outline" className="justify-start" onClick={handleDownload} disabled={isDownloading}>
                   <Download className="h-4 w-4 mr-2" />
