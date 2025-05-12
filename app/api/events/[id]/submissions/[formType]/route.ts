@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+import { isValidObjectId } from "mongoose"
 
 export async function POST(request: Request, { params }: { params: { id: string; formType: string } }) {
   try {
@@ -117,11 +118,17 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     // Get the event
     let event
     try {
-      const objectId = new ObjectId(id)
-      event = await db.collection("events").findOne({ _id: objectId })
+      // Validate if id is a valid ObjectId
+      if (isValidObjectId(id)) {
+        const objectId = new ObjectId(id)
+        event = await db.collection("events").findOne({ _id: objectId })
+      } else {
+        // If not a valid ObjectId, try to find by slug
+        event = await db.collection("events").findOne({ slug: id })
+      }
     } catch (error) {
-      // If not a valid ObjectId, try to find by slug
-      event = await db.collection("events").findOne({ slug: id })
+      console.error("Error finding event:", error)
+      return NextResponse.json({ error: "Invalid event ID format" }, { status: 400 })
     }
 
     if (!event) {

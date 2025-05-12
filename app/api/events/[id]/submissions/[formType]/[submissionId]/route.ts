@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+import { isValidObjectId } from "mongoose"
 
 // Import models
 const Event = mongoose.models.Event || mongoose.model("Event", require("@/models/Event").default.schema)
@@ -34,6 +35,11 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Validate the submissionId is a valid ObjectId
+    if (!isValidObjectId(params.submissionId)) {
+      return NextResponse.json({ error: `Invalid submission ID format: ${params.submissionId}` }, { status: 400 })
+    }
+
     await connectToDatabase()
 
     // Check if the event exists
@@ -44,7 +50,11 @@ export async function PATCH(
     }
 
     // Check if the user is the organizer or a super-admin
-    if (event.organizer.toString() !== session.user.id && session.user.role !== "super-admin") {
+    if (
+      event.organizer.toString() !== session.user.id &&
+      session.user.role !== "admin" &&
+      session.user.role !== "super-admin"
+    ) {
       return NextResponse.json({ error: "Forbidden: You don't have permission to access this event" }, { status: 403 })
     }
 

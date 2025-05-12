@@ -763,6 +763,16 @@ export function SubmissionsTable({
 
   const handleUpdateStatus = async (submissionId: string, newStatus: string) => {
     try {
+      // Basic validation for submissionId format
+      if (!submissionId || submissionId.length < 24) {
+        toast({
+          title: "Error",
+          description: "Invalid submission ID format",
+          variant: "destructive",
+        })
+        return
+      }
+
       const response = await fetch(`/api/events/${eventId}/submissions/${formType}/${submissionId}`, {
         method: "PATCH",
         headers: {
@@ -772,7 +782,8 @@ export function SubmissionsTable({
       })
 
       if (!response.ok) {
-        throw new Error("Failed to update submission status")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update submission status")
       }
 
       // Update the submission in the local state
@@ -794,6 +805,17 @@ export function SubmissionsTable({
 
   const handleBulkApprove = async () => {
     try {
+      // Validate submission IDs
+      const invalidIds = selectedSubmissions.filter((id) => !id || id.length < 24)
+      if (invalidIds.length > 0) {
+        toast({
+          title: "Error",
+          description: "Some selected submissions have invalid ID formats",
+          variant: "destructive",
+        })
+        return
+      }
+
       const response = await fetch(`/api/events/${eventId}/submissions/${formType}/bulk-approve`, {
         method: "PATCH",
         headers: {
@@ -803,7 +825,8 @@ export function SubmissionsTable({
       })
 
       if (!response.ok) {
-        throw new Error("Failed to bulk approve submissions")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to bulk approve submissions")
       }
 
       // Update the submission in the local state
