@@ -4,8 +4,9 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, AlertCircle, User, Clock, Mail } from "lucide-react"
+import { CheckCircle, XCircle, AlertCircle, User, Clock, Mail, Info } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 interface CheckInResultProps {
   result: any
@@ -99,6 +100,46 @@ export function CheckInResult({ result, onReset }: CheckInResultProps) {
             )}
           </div>
         </div>
+
+        {/* Debug information accordion */}
+        <Accordion type="single" collapsible className="mt-4">
+          <AccordionItem value="debug">
+            <AccordionTrigger className="text-xs text-gray-500">
+              <Info className="h-3 w-3 mr-1" /> Technical Details
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="text-xs text-gray-600 space-y-1">
+                {result.debug && (
+                  <>
+                    {result.debug.submissionId && <div>Submission ID: {result.debug.submissionId}</div>}
+                    {result.debug.ticketId && <div>Ticket ID: {result.debug.ticketId}</div>}
+                    {result.debug.lookupMethod && <div>Lookup Method: {result.debug.lookupMethod}</div>}
+                    {result.debug.eventInfo && (
+                      <div>
+                        Event: {result.debug.eventInfo.title} ({result.debug.eventInfo.id})
+                      </div>
+                    )}
+                  </>
+                )}
+                {result.attendee?.formData && (
+                  <div>
+                    <div className="font-medium mt-1">Form Data Fields:</div>
+                    <div className="pl-2">
+                      {Object.keys(result.attendee.formData).map((key) => (
+                        <div key={key}>
+                          {key}:{" "}
+                          {typeof result.attendee.formData[key] === "string"
+                            ? result.attendee.formData[key]
+                            : "[complex value]"}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </CardContent>
       <CardFooter className="flex justify-end">
         <Button onClick={onReset}>Scan Another Ticket</Button>
