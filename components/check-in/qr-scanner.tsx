@@ -40,28 +40,48 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
     try {
       setIsLoading(true)
 
-      // First, explicitly request both camera and microphone permissions
-      // This will trigger the browser permission popup for both
-      try {
-        await navigator.mediaDevices.getUserMedia({ 
-          video: true, 
-          audio: true 
-        });
-        // If we get here, both permissions were granted
-      } catch (mediaErr: any) {
-        console.error("Error requesting media permissions", mediaErr);
+      // Check if we're in a secure context (HTTPS)
+      if (!window.isSecureContext) {
+        setError("Camera access requires a secure connection (HTTPS). Please use HTTPS to access this page.");
+        return false;
+      }
 
-        // Try again with just camera permission if both failed
+      // Check if mediaDevices API is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setError("Your browser doesn't support camera access. Please try a different browser.");
+        return false;
+      }
+
+      // Try a different approach for requesting permissions
+      // First, request camera permission only
+      try {
+        console.log("Requesting camera permission first...");
+        await navigator.mediaDevices.getUserMedia({ 
+          video: true 
+        });
+        console.log("Camera permission granted successfully");
+
+        // Then, try to request microphone permission
         try {
+          console.log("Now requesting microphone permission...");
           await navigator.mediaDevices.getUserMedia({ 
-            video: true 
+            audio: true 
           });
-          // Camera permission granted, which is all we need for QR scanning
-        } catch (cameraErr: any) {
-          console.error("Error requesting camera permission", cameraErr);
-          // Let the next steps handle the error
-          throw cameraErr;
+          console.log("Microphone permission granted successfully");
+        } catch (micErr: any) {
+          // It's okay if microphone permission fails, we can still proceed with camera only
+          console.log("Microphone permission denied, but we can continue with camera only");
+          console.log("MicError name:", micErr.name);
+          console.log("MicError message:", micErr.message);
         }
+      } catch (cameraErr: any) {
+        console.error("Error requesting camera permission", cameraErr);
+        console.log("CameraError name:", cameraErr.name);
+        console.log("CameraError message:", cameraErr.message);
+        console.log("CameraError constraint:", cameraErr.constraint);
+
+        // Camera permission is essential, so we need to throw the error
+        throw cameraErr;
       }
 
       const devices = await Html5Qrcode.getCameras()
@@ -79,9 +99,15 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
       console.error("Error getting cameras", err)
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
         setPermissionState("denied")
-        setError("Camera or microphone access denied. Please enable both permissions in your browser settings.")
+        setError("Camera access denied. Please enable camera permission in your browser settings.")
+      } else if (err.name === "NotFoundError") {
+        setError("No camera found on your device. Please connect a camera and try again.")
+      } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
+        setError("Camera is in use by another application. Please close other apps that might be using the camera.")
+      } else if (err.name === "OverconstrainedError") {
+        setError("Camera constraints cannot be satisfied. Please try a different camera if available.")
       } else {
-        setError("Error accessing camera or microphone: " + err.message)
+        setError("Error accessing camera: " + err.message)
       }
       return false
     } finally {
@@ -177,15 +203,21 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
                 {permissionState === "denied" ? (
                   <div className="text-center p-4">
                     <Camera className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                    <h3 className="font-medium text-gray-900">Camera & Microphone Access Required</h3>
+                    <h3 className="font-medium text-gray-900">Camera Access Required</h3>
                     <p className="text-sm text-gray-500 mt-1 mb-3">
-                      Please enable camera and microphone access in your browser settings to scan QR codes.
+                      Please enable camera access in your browser settings to scan QR codes. Microphone access is optional.
                     </p>
                     <div className="text-xs text-gray-500 mt-2 space-y-1 text-left">
                       <p className="font-medium">How to enable access:</p>
                       <p>1. Click the camera/lock icon in your browser's address bar</p>
-                      <p>2. Select "Allow" for both camera and microphone access</p>
+                      <p>2. Select "Allow" for camera access</p>
                       <p>3. Refresh this page</p>
+                    </div>
+                    <div className="text-xs text-amber-600 mt-2 p-2 bg-amber-50 rounded-md">
+                      <p className="font-medium">Troubleshooting:</p>
+                      <p>• Make sure you're using a secure (HTTPS) connection</p>
+                      <p>• Try using Chrome, Edge, or Safari for best compatibility</p>
+                      <p>• If using iOS, ensure camera access is enabled in device settings</p>
                     </div>
                     <Button onClick={() => window.location.reload()} variant="outline" size="sm" className="mt-3">
                       Refresh Page
@@ -206,7 +238,7 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
                 className="bg-green-600 hover:bg-green-700"
               >
                 {isLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Camera className="h-4 w-4 mr-2" />}
-                {permissionState === "prompt" ? "Allow Camera & Microphone" : "Start Scanning"}
+                {permissionState === "prompt" ? "Allow Camera Access" : "Start Scanning"}
               </Button>
             ) : (
               <Button onClick={stopScanner} variant="destructive" disabled={isLoading}>

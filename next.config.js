@@ -36,8 +36,12 @@ const nextConfig = {
         headers: [
         { 
          key: "Permissions-Policy",
-         value:  "camera=*, microphone=*",
+         value:  "camera=(self), microphone=(self)",
         },
+          {
+            key: "Content-Security-Policy",
+            value: "default-src * 'self' data: blob:; script-src * 'self' 'unsafe-inline' 'unsafe-eval'; style-src * 'self' 'unsafe-inline'; img-src * 'self' data: blob:; media-src * 'self' data: blob:; connect-src * 'self'; font-src * 'self'; object-src 'none'; frame-src * 'self'; worker-src * 'self' blob:; frame-ancestors 'self'; form-action 'self'; base-uri 'self'; manifest-src 'self'",
+          },
           {
             key: "X-Content-Type-Options",
             value: "nosniff",
