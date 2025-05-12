@@ -129,12 +129,13 @@ function formatEventDate(dateString) {
       return "Invalid date"
     }
 
-    // Format the date
+    // Format the date with Asia/Tokyo timezone to prevent date shift
     return date.toLocaleDateString("en-US", {
       weekday: "long",
       year: "numeric",
       month: "long",
       day: "numeric",
+      timeZone: "Asia/Tokyo",
     })
   } catch (error) {
     console.error("Error formatting date:", error)
