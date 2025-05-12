@@ -2,15 +2,16 @@ import mongoose from "mongoose"
 
 const FormSubmissionSchema = new mongoose.Schema(
   {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false, // Changed from true to false to make it optional
+      index: true,
+    },
     eventId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Event",
       required: true,
-      index: true,
-    },
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
       index: true,
     },
     formType: {
@@ -19,43 +20,35 @@ const FormSubmissionSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    data: {
+      type: mongoose.Schema.Types.Mixed,
+      required: true,
+    },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected", "confirmed", "cancelled"],
+      enum: ["pending", "approved", "rejected"],
       default: "pending",
       index: true,
-    },
-    formData: {
-      type: mongoose.Schema.Types.Mixed,
-      default: {},
-    },
-    userName: {
-      type: String,
-      trim: true,
-    },
-    userEmail: {
-      type: String,
-      trim: true,
     },
     notes: {
       type: String,
       trim: true,
     },
-    ticketNumber: {
-      type: String,
-      trim: true,
-      index: true,
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
-    purchasedAt: {
+    reviewedAt: {
       type: Date,
     },
-    checkInStatus: {
+    // Add these fields to store user information from the form
+    userName: {
       type: String,
-      enum: ["not_checked_in", "checked_in"],
-      default: "not_checked_in",
+      required: false,
     },
-    checkInTime: {
-      type: Date,
+    userEmail: {
+      type: String,
+      required: false,
     },
   },
   {
@@ -64,10 +57,10 @@ const FormSubmissionSchema = new mongoose.Schema(
 )
 
 // Create compound indexes for common queries
-FormSubmissionSchema.index({ eventId: 1, formType: 1 })
-FormSubmissionSchema.index({ eventId: 1, status: 1 })
-FormSubmissionSchema.index({ userId: 1, eventId: 1 })
+FormSubmissionSchema.index({ eventId: 1, formType: 1, status: 1 }) // For finding submissions by event and type
+FormSubmissionSchema.index({ userId: 1, status: 1 }) // For finding user's submissions by status
 
+// Create the model - ensure it's only created once
 const FormSubmission = mongoose.models.FormSubmission || mongoose.model("FormSubmission", FormSubmissionSchema)
 
 export default FormSubmission

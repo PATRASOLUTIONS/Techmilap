@@ -2,7 +2,7 @@ import Link from "next/link"
 import { TicketIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-export default function EmptyTickets() {
+export function EmptyTickets() {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
       <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
