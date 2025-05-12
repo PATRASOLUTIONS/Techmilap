@@ -9,17 +9,17 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { QRScanner } from "@/components/check-in/qr-scanner"
-import { CheckInResult } from "@/components/check-in/check-in-result"
 import { CheckInStats } from "@/components/check-in/check-in-stats"
 import { CheckInHistory } from "@/components/check-in/check-in-history"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, QrCode, Search, BarChart, History, Bug } from "lucide-react"
+import { ArrowLeft, Bug } from "lucide-react"
 import Link from "next/link"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { BrowserCompatibilityWarning } from "@/components/check-in/browser-compatibility-warning"
 
 export default function EventCheckInPage() {
   const { id } = useParams() || {}
@@ -40,6 +40,14 @@ export default function EventCheckInPage() {
   const [loadingAttendees, setLoadingAttendees] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [allowDuplicateCheckIn, setAllowDuplicateCheckIn] = useState(false)
+  const [isCameraSupported, setIsCameraSupported] = useState(true)
+
+  // Check if the MediaDevices API is supported
+  useEffect(() => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setIsCameraSupported(false)
+    }
+  }, [])
 
   // We don't check camera permission on page load anymore
   // We'll let the QRScanner component handle this when the user clicks "Start Scanning"
@@ -121,6 +129,7 @@ export default function EventCheckInPage() {
   }
 
   const handleScan = async (data: string) => {
+    if (!data) return
     try {
       // Stop scanning while processing
       setIsScanning(false)
@@ -440,7 +449,7 @@ export default function EventCheckInPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
-          <TabsTrigger value="scan">
+          {/* <TabsTrigger value="scan">
             <QrCode className="h-4 w-4 mr-2" />
             Scan Tickets
           </TabsTrigger>
@@ -455,10 +464,14 @@ export default function EventCheckInPage() {
           <TabsTrigger value="history">
             <History className="h-4 w-4 mr-2" />
             Check-in History
-          </TabsTrigger>
+          </TabsTrigger> */}
+          <TabsTrigger value="qr-scanner">QR Scanner</TabsTrigger>
+          <TabsTrigger value="manual">Manual Check-In</TabsTrigger>
+          <TabsTrigger value="stats">Statistics</TabsTrigger>
+          <TabsTrigger value="history">Check-in History</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="scan" className="space-y-4">
+        {/* <TabsContent value="scan" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               {scanResult ? (
@@ -535,6 +548,43 @@ export default function EventCheckInPage() {
 
             <CheckInStats eventId={eventId} refreshInterval={10000} />
           </div>
+        </TabsContent>
+
+        <TabsContent value="stats">
+          <CheckInStats eventId={eventId} refreshInterval={5000} />
+        </TabsContent>
+
+        <TabsContent value="history">
+          <CheckInHistory eventId={eventId} />
+        </TabsContent> */}
+        <TabsContent value="qr-scanner">
+          {!isCameraSupported ? (
+            <BrowserCompatibilityWarning />
+          ) : (
+            <QRScanner onScan={handleScan} isScanning={isScanning} setIsScanning={setIsScanning} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="manual">
+          <Card>
+            <CardContent className="pt-6">
+              <form onSubmit={handleManualCheckIn} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="ticket-id">Ticket ID, Email, or Name</Label>
+                  <Input
+                    id="ticket-id"
+                    placeholder="Enter ticket ID, email, or attendee name"
+                    value={manualTicketId}
+                    onChange={(e) => setManualTicketId(e.target.value)}
+                    disabled={isProcessing}
+                  />
+                </div>
+                <Button type="submit" disabled={!manualTicketId || isProcessing}>
+                  {isProcessing ? "Checking..." : "Check In"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="stats">

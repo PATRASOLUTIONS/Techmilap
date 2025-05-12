@@ -18,45 +18,80 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
   const [availableCameras, setAvailableCameras] = useState<Array<{ id: string; label: string }>>([])
   const [selectedCamera, setSelectedCamera] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [stream, setStream] = useState<MediaStream | null>(null)
 
   const scannerRef = useRef<Html5Qrcode | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
   const scannerContainerId = "qr-reader"
 
   useEffect(() => {
     // Initialize the scanner when the component mounts
     scannerRef.current = new Html5Qrcode(scannerContainerId)
 
-    // Clean up the scanner when the component unmounts
+    // Clean up the scanner and stream when the component unmounts
     return () => {
       if (scannerRef.current && scannerRef.current.isScanning) {
         scannerRef.current.stop().catch((err) => console.error("Error stopping scanner", err))
       }
+
+      // Stop any active media streams
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop())
+      }
     }
-  }, [])
+  }, [stream])
 
-  // We don't check permissions on mount anymore - we'll do it when the user clicks the start button
+  // Function to directly request camera permissions using getUserMedia
+  const requestCameraPermission = async () => {
+    setIsLoading(true)
+    setError(null)
 
-  const getCameras = async () => {
     try {
-      setIsLoading(true)
-      const devices = await Html5Qrcode.getCameras()
+      // First, check if we already have permission
+      const permissionStatus = await navigator.permissions.query({ name: "camera" as PermissionName })
 
-      if (devices && devices.length) {
-        setAvailableCameras(devices)
-        setSelectedCamera(devices[0].id)
-        setPermissionState("granted")
+      if (permissionStatus.state === "denied") {
+        setPermissionState("denied")
+        setError("Camera access denied. Please enable camera permissions in your browser settings.")
+        setIsLoading(false)
+        return false
+      }
+
+      // Request camera access directly with getUserMedia
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      })
+
+      // Store the stream for later cleanup
+      setStream(mediaStream)
+      setPermissionState("granted")
+
+      // Now that we have permission, get the list of cameras
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const videoDevices = devices.filter((device) => device.kind === "videoinput")
+
+      if (videoDevices.length > 0) {
+        const formattedDevices = videoDevices.map((device) => ({
+          id: device.deviceId,
+          label: device.label || `Camera ${videoDevices.indexOf(device) + 1}`,
+        }))
+
+        setAvailableCameras(formattedDevices)
+        setSelectedCamera(formattedDevices[0].id)
         return true
       } else {
         setError("No cameras found on this device")
         return false
       }
     } catch (err: any) {
-      console.error("Error getting cameras", err)
+      console.error("Error accessing camera:", err)
+
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
         setPermissionState("denied")
         setError("Camera access denied. Please enable camera permissions in your browser settings.")
       } else {
-        setError("Error accessing camera: " + err.message)
+        setError(`Error accessing camera: ${err.message || "Unknown error"}`)
       }
       return false
     } finally {
@@ -71,11 +106,10 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
     setError(null)
 
     try {
-      // First, request camera permissions by trying to get cameras
-      // This will trigger the browser permission popup
-      const hasCamera = await getCameras()
+      // First, request camera permissions directly
+      const hasPermission = await requestCameraPermission()
 
-      if (!hasCamera || !selectedCamera) {
+      if (!hasPermission || !selectedCamera) {
         setIsLoading(false)
         return
       }
@@ -97,7 +131,7 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
       setIsScanning(true)
     } catch (err: any) {
       console.error("Error starting scanner", err)
-      setError("Error starting scanner: " + err.message)
+      setError(`Error starting scanner: ${err.message || "Unknown error"}`)
     } finally {
       setIsLoading(false)
     }
@@ -111,9 +145,15 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
     try {
       await scannerRef.current.stop()
       setIsScanning(false)
+
+      // Stop the media stream
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop())
+        setStream(null)
+      }
     } catch (err: any) {
       console.error("Error stopping scanner", err)
-      setError("Error stopping scanner: " + err.message)
+      setError(`Error stopping scanner: ${err.message || "Unknown error"}`)
     } finally {
       setIsLoading(false)
     }
