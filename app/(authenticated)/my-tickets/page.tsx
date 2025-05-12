@@ -363,14 +363,24 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
     if (!ticket.formData) return "N/A"
 
     // Try different possible field names for name
-    const nameField =
-      ticket.formData.name ||
-      ticket.formData.fullName ||
-      ticket.formData.firstName ||
-      ticket.formData["question_name"] ||
-      "N/A"
+    let nameField =
+      ticket.formData.name || ticket.formData.fullName || ticket.formData.firstName || ticket.formData["question_name"]
 
-    return nameField
+    // If name is still not found, look for custom question fields containing "name"
+    if (!nameField || nameField === "N/A") {
+      // Look for keys that match the pattern "Question name" followed by a timestamp
+      const nameKeys = Object.keys(ticket.formData).filter(
+        (key) =>
+          key.toLowerCase().includes("question name") ||
+          (key.toLowerCase().includes("question") && key.toLowerCase().includes("name")),
+      )
+
+      if (nameKeys.length > 0) {
+        nameField = ticket.formData[nameKeys[0]]
+      }
+    }
+
+    return nameField || "N/A"
   }
 
   const getEmail = () => {
