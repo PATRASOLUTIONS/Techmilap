@@ -29,8 +29,18 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
 
     // Clean up the scanner when the component unmounts
     return () => {
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop().catch((err) => console.error("Error stopping scanner", err))
+      if (scannerRef.current) {
+        if (scannerRef.current.isScanning) {
+          scannerRef.current.stop().catch((err) => console.error("Error stopping scanner", err))
+        }
+        // Additional cleanup to help prevent memory leaks
+        try {
+          // Force release any camera resources
+          scannerRef.current.clear();
+          console.log("Scanner resources cleared");
+        } catch (err) {
+          console.error("Error clearing scanner resources", err);
+        }
       }
     }
   }, [])
@@ -163,7 +173,10 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
     }
   }
 
-  const startScanner = async () => {
+  // Maximum number of retries for camera initialization
+  const MAX_RETRIES = 3;
+
+  const startScanner = async (retryCount = 0) => {
     if (!scannerRef.current) {
       console.error("Scanner reference is null");
       setError("Scanner initialization failed. Please refresh the page and try again.");
@@ -174,7 +187,7 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
     setError(null)
 
     try {
-      console.log("Starting scanner process...");
+      console.log(`Starting scanner process... (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
 
       // First, request camera permissions by trying to get cameras
       // This will trigger the browser permission popup
@@ -186,6 +199,19 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
         return
       }
 
+      // Make sure any previous scanner instance is fully stopped and cleared
+      if (scannerRef.current.isScanning) {
+        console.log("Stopping previous scanner instance before starting new one");
+        try {
+          await scannerRef.current.stop();
+          // Small delay to ensure resources are released
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (stopErr) {
+          console.log("Error stopping previous scanner (non-fatal):", stopErr);
+          // Continue anyway
+        }
+      }
+
       console.log("Starting scanner with camera ID:", selectedCamera);
 
       try {
@@ -195,6 +221,10 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
           {
             fps: 10,
             qrbox: { width: 250, height: 250 },
+            // Add additional configuration to help with stability
+            aspectRatio: 1.0,
+            disableFlip: false,
+            formatsToSupport: [Html5Qrcode.FORMATS.QR_CODE]
           },
           (decodedText) => {
             console.log("QR code scanned:", decodedText);
@@ -210,43 +240,50 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
       } catch (startErr: any) {
         console.error("Error starting scanner with selected camera", startErr);
 
-        // If we get a NotFoundError and we're not already in fallback mode, try the fallback
-        if (startErr.name === "NotFoundError" && !fallbackMode) {
-          console.log("Got NotFoundError, trying fallback camera method...");
+        // If we've reached the maximum number of retries, throw the error
+        if (retryCount >= MAX_RETRIES) {
+          console.log(`Maximum retries (${MAX_RETRIES}) reached, giving up`);
+          throw startErr;
+        }
 
-          // Try to get cameras using the fallback method
-          const hasFallbackCamera = await getFallbackCameras();
+        // Handle different error types with specific retry strategies
+        if (startErr.name === "NotFoundError") {
+          console.log("Got NotFoundError, trying alternative approach...");
 
-          if (hasFallbackCamera && selectedCamera) {
-            console.log("Retrying with fallback camera:", selectedCamera);
+          if (!fallbackMode) {
+            // Try to get cameras using the fallback method
+            console.log("Switching to fallback camera method");
+            const hasFallbackCamera = await getFallbackCameras();
 
-            try {
-              // Try starting the scanner again with the fallback camera
-              await scannerRef.current.start(
-                selectedCamera,
-                {
-                  fps: 10,
-                  qrbox: { width: 250, height: 250 },
-                },
-                (decodedText) => {
-                  console.log("QR code scanned (fallback):", decodedText);
-                  onScan(decodedText)
-                },
-                (errorMessage) => {
-                  console.log("QR scan error in fallback mode (non-fatal):", errorMessage);
-                },
-              )
-              console.log("Scanner started successfully in fallback mode");
-              setIsScanning(true)
-            } catch (fallbackErr: any) {
-              console.error("Error starting scanner in fallback mode", fallbackErr);
-              throw fallbackErr; // Let the outer catch handle this
+            if (hasFallbackCamera && selectedCamera) {
+              console.log("Retrying with fallback camera:", selectedCamera);
+
+              // Retry with a small delay to allow resources to be released
+              await new Promise(resolve => setTimeout(resolve, 500));
+              return startScanner(retryCount + 1);
+            } else {
+              throw new Error("Failed to initialize camera in fallback mode");
             }
           } else {
-            throw new Error("Failed to initialize camera in fallback mode");
+            // Already in fallback mode, try refreshing the camera list
+            console.log("Already in fallback mode, refreshing camera list");
+            await getCameras();
+
+            // Retry with a longer delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return startScanner(retryCount + 1);
           }
+        } else if (startErr.name === "AbortError") {
+          console.log("Got AbortError, retrying after delay...");
+
+          // For AbortError, wait a bit longer before retrying
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          return startScanner(retryCount + 1);
         } else {
-          throw startErr; // Re-throw if it's not a NotFoundError or if fallback already failed
+          // For other errors, try a simple retry with delay
+          console.log(`Got ${startErr.name}, retrying after delay...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return startScanner(retryCount + 1);
         }
       }
     } catch (err: any) {
@@ -258,7 +295,9 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
       } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
         setError("Could not access your camera. It may be in use by another application.");
       } else if (err.name === "AbortError") {
-        setError("Camera access was aborted. Please try again.");
+        setError("Camera access was aborted. This often happens when the camera is disconnected or the browser cancels the request. Please try again.");
+      } else if (err.name === "OverconstrainedError") {
+        setError("Camera constraints cannot be satisfied. Try using a different camera if available.");
       } else {
         setError("Error starting scanner: " + err.message);
       }
@@ -284,8 +323,22 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
     setIsLoading(true)
 
     try {
+      // First try the normal stop method
       await scannerRef.current.stop()
       console.log("Scanner stopped successfully");
+
+      // Try to force release any camera resources
+      try {
+        // @ts-ignore - clear() might not be in the type definitions but it exists in the library
+        if (typeof scannerRef.current.clear === 'function') {
+          scannerRef.current.clear();
+          console.log("Scanner resources cleared after stop");
+        }
+      } catch (clearErr) {
+        console.log("Non-fatal error clearing scanner resources:", clearErr);
+        // This is non-fatal, so we continue
+      }
+
       setIsScanning(false)
     } catch (err: any) {
       console.error("Error stopping scanner", err)
@@ -293,11 +346,36 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
       // Even if there's an error stopping the scanner, we should update the UI state
       setIsScanning(false)
 
-      // Only show error message if it's not a NotFoundError (which is expected if camera was disconnected)
-      if (err.name !== "NotFoundError") {
-        setError("Error stopping scanner: " + err.message)
-      } else {
+      // Try to force release camera resources even if stop() failed
+      try {
+        // @ts-ignore - clear() might not be in the type definitions but it exists in the library
+        if (typeof scannerRef.current.clear === 'function') {
+          scannerRef.current.clear();
+          console.log("Scanner resources cleared after stop error");
+        }
+      } catch (clearErr) {
+        console.log("Non-fatal error clearing scanner resources:", clearErr);
+      }
+
+      // Handle specific error types
+      if (err.name === "NotFoundError") {
         console.log("NotFoundError while stopping scanner - camera likely disconnected");
+        // No need to show error to user for this case
+      } else if (err.name === "AbortError") {
+        console.log("AbortError while stopping scanner - operation was aborted");
+        // No need to show error to user for this case either
+      } else {
+        // For other errors, show a message to the user
+        setError("Error stopping scanner: " + err.message)
+      }
+
+      // Create a new scanner instance to ensure a clean state
+      try {
+        scannerRef.current = new Html5Qrcode(scannerContainerId);
+        console.log("Created new scanner instance after stop error");
+      } catch (newErr) {
+        console.error("Error creating new scanner instance:", newErr);
+        // This is more serious, but we've already updated the UI state
       }
     } finally {
       setIsLoading(false)
@@ -320,6 +398,9 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
       if (scannerRef.current && scannerRef.current.isScanning) {
         console.log("Stopping current scanner before switching camera");
         await stopScanner();
+
+        // Add a small delay to ensure resources are released
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
       // Switch to next camera
@@ -333,33 +414,60 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
       // Restart scanner if it was scanning
       if (isScanning) {
         console.log("Was scanning before switch, will restart scanner after delay");
+
         // Use a longer delay to ensure the camera has time to initialize
-        setTimeout(() => {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        try {
           console.log("Restarting scanner with new camera");
-          startScanner().catch(err => {
-            console.error("Error restarting scanner after camera switch", err);
-            // If we get a NotFoundError, try refreshing the camera list
-            if (err.name === "NotFoundError") {
-              console.log("Camera not found after switch, trying to refresh camera list");
-              getCameras().then(hasCamera => {
-                if (hasCamera && selectedCamera) {
-                  console.log("Camera list refreshed, trying to restart scanner");
-                  startScanner().catch(finalErr => {
-                    console.error("Final error restarting scanner", finalErr);
-                  });
-                }
-              }).catch(refreshErr => {
-                console.error("Error refreshing camera list", refreshErr);
-              });
+          // Start with retry count 0
+          await startScanner(0);
+        } catch (err: any) {
+          console.error("Error restarting scanner after camera switch", err);
+
+          // If we get a NotFoundError or AbortError, try one more time with a longer delay
+          if (err.name === "NotFoundError" || err.name === "AbortError") {
+            console.log(`Got ${err.name} after camera switch, trying one more time with longer delay`);
+
+            // Refresh camera list
+            try {
+              await getCameras();
+              console.log("Camera list refreshed after error");
+            } catch (refreshErr) {
+              console.error("Error refreshing camera list", refreshErr);
+              // Continue anyway
             }
-          });
-        }, 1000);
+
+            // Wait longer
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            try {
+              // Try one more time with retry count 0 (will allow for MAX_RETRIES attempts)
+              await startScanner(0);
+            } catch (finalErr) {
+              console.error("Final error restarting scanner", finalErr);
+              // Let the error be handled by the UI
+              throw finalErr;
+            }
+          } else {
+            // For other errors, just propagate
+            throw err;
+          }
+        }
       } else {
         console.log("Not scanning, camera switched without restarting scanner");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error during camera switch", err);
-      setError("Failed to switch camera: " + (err as Error).message);
+
+      // Provide more specific error messages based on the error type
+      if (err.name === "NotFoundError") {
+        setError("Could not find the selected camera. Please try a different camera or refresh the page.");
+      } else if (err.name === "AbortError") {
+        setError("Camera switch was interrupted. Please try again.");
+      } else {
+        setError("Failed to switch camera: " + err.message);
+      }
     } finally {
       setIsLoading(false);
     }

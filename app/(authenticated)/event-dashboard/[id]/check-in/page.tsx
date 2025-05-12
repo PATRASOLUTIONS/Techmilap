@@ -41,6 +41,14 @@ export default function EventCheckInPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [allowDuplicateCheckIn, setAllowDuplicateCheckIn] = useState(false)
 
+  // Stop scanning when switching away from scan tab
+  useEffect(() => {
+    if (activeTab !== "scan" && isScanning) {
+      console.log("Stopping scanner because tab changed")
+      setIsScanning(false)
+    }
+  }, [activeTab, isScanning])
+
   // We don't check camera permission on page load anymore
   // We'll let the QRScanner component handle this when the user clicks "Start Scanning"
 
@@ -493,7 +501,7 @@ export default function EventCheckInPage() {
                 </CardHeader>
                 <CardContent>
                   {scanResult ? (
-                    <CheckInResult result={scanResult} onReset={() => setScanResult(null)} />
+                    <CheckInResult result={scanResult} onReset={resetScan} />
                   ) : (
                     <form onSubmit={handleManualCheckIn} className="space-y-4">
                       <div className="space-y-2">
