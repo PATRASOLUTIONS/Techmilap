@@ -39,6 +39,20 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
   const getCameras = async () => {
     try {
       setIsLoading(true)
+
+      // First, explicitly request both camera and microphone permissions
+      // This will trigger the browser permission popup for both
+      try {
+        await navigator.mediaDevices.getUserMedia({ 
+          video: true, 
+          audio: true 
+        });
+        // If we get here, both permissions were granted
+      } catch (mediaErr: any) {
+        console.error("Error requesting media permissions", mediaErr);
+        // Continue anyway, as we only need camera for QR scanning
+      }
+
       const devices = await Html5Qrcode.getCameras()
 
       if (devices && devices.length) {
@@ -54,9 +68,9 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
       console.error("Error getting cameras", err)
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
         setPermissionState("denied")
-        setError("Camera access denied. Please enable camera permissions in your browser settings.")
+        setError("Camera or microphone access denied. Please enable both permissions in your browser settings.")
       } else {
-        setError("Error accessing camera: " + err.message)
+        setError("Error accessing camera or microphone: " + err.message)
       }
       return false
     } finally {
@@ -152,14 +166,14 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
                 {permissionState === "denied" ? (
                   <div className="text-center p-4">
                     <Camera className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                    <h3 className="font-medium text-gray-900">Camera Access Required</h3>
+                    <h3 className="font-medium text-gray-900">Camera & Microphone Access Required</h3>
                     <p className="text-sm text-gray-500 mt-1 mb-3">
-                      Please enable camera access in your browser settings to scan QR codes.
+                      Please enable camera and microphone access in your browser settings to scan QR codes.
                     </p>
                     <div className="text-xs text-gray-500 mt-2 space-y-1 text-left">
-                      <p className="font-medium">How to enable camera access:</p>
+                      <p className="font-medium">How to enable access:</p>
                       <p>1. Click the camera/lock icon in your browser's address bar</p>
-                      <p>2. Select "Allow" for camera access</p>
+                      <p>2. Select "Allow" for both camera and microphone access</p>
                       <p>3. Refresh this page</p>
                     </div>
                     <Button onClick={() => window.location.reload()} variant="outline" size="sm" className="mt-3">
@@ -181,7 +195,7 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
                 className="bg-green-600 hover:bg-green-700"
               >
                 {isLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Camera className="h-4 w-4 mr-2" />}
-                {permissionState === "prompt" ? "Allow Camera & Start" : "Start Scanning"}
+                {permissionState === "prompt" ? "Allow Camera & Microphone" : "Start Scanning"}
               </Button>
             ) : (
               <Button onClick={stopScanner} variant="destructive" disabled={isLoading}>
