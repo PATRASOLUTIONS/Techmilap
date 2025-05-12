@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     if (ticketType === "submission" || formType) {
       // This is a form submission ticket
       console.log(`Looking for form submission with ID: ${ticketId}`)
-      const submission = await FormSubmission.findById(ticketId).populate("event")
+      const submission = await FormSubmission.findById(ticketId)
 
       if (!submission) {
         console.error(`Form submission not found for ID: ${ticketId}`)
@@ -40,7 +40,15 @@ export async function POST(req: NextRequest) {
 
       console.log(`Found form submission: ${submission._id}`)
       ticket = submission
-      event = submission.event
+
+      // Get the event separately instead of using populate
+      event = await Event.findById(submission.eventId)
+
+      if (!event) {
+        console.error(`Event not found for submission: ${ticketId}`)
+        return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      }
+
       formData = submission.formData || {}
 
       // Extract name and email from form data

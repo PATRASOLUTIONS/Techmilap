@@ -2,14 +2,14 @@
 
 import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { TicketCard } from "./ticket-card"
-import { EmptyTickets } from "./empty-tickets"
+import TicketCard from "./ticket-card"
+import EmptyTickets from "./empty-tickets"
 
 interface TicketListProps {
   tickets: any[]
 }
 
-export function TicketList({ tickets }: TicketListProps) {
+export default function TicketList({ tickets }: TicketListProps) {
   const [activeTab, setActiveTab] = useState("all")
 
   if (!tickets || tickets.length === 0) {

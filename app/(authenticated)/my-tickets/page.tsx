@@ -1,246 +1,226 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TicketCard } from "@/components/tickets/ticket-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
-import { Calendar, AlertCircle, Ticket, Clock, Mail, MapPin, Download, Share2, ExternalLink } from "lucide-react"
+import { Calendar, AlertCircle, Clock, Mail, MapPin, Download, Share2, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { jsPDF } from "jspdf"
 import "jspdf-autotable"
 import QRCode from "qrcode"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import { Loader2 } from "lucide-react"
+import TicketList from "@/components/tickets/ticket-list"
+import EmptyTickets from "@/components/tickets/empty-tickets"
+import { toast } from "@/hooks/use-toast"
 
 export default function MyTicketsPage() {
-  const [tickets, setTickets] = useState<{
-    upcoming: any[]
-    past: any[]
-    all: any[]
-  }>({
-    upcoming: [],
-    past: [],
-    all: [],
-  })
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [debugInfo, setDebugInfo] = useState<any>(null)
-  const { toast } = useToast()
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [downloadingTicket, setDownloadingTicket] = useState(false)
+  const [downloadingTicketId, setDownloadingTicketId] = useState(null)
 
   useEffect(() => {
-    const fetchTickets = async () => {
-      try {
-        setLoading(true)
-        setError(null)
+    if (status === "unauthenticated") {
+      router.push("/login")
+    } else if (status === "authenticated") {
+      fetchTickets()
+    }
+  }, [status, router])
 
-        console.log("Fetching tickets...")
-        const response = await fetch("/api/tickets/my-tickets?exclude=organizer")
-        console.log("Response status:", response.status)
+  const fetchTickets = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/tickets/my-tickets")
+      const data = await response.json()
 
-        if (!response.ok) {
-          let errorMessage = `Failed to fetch tickets: ${response.status} ${response.statusText}`
-          try {
-            const errorData = await response.json()
-            errorMessage = `${errorMessage} - ${errorData.error || "Unknown error"}`
-            setDebugInfo(errorData)
-          } catch (e) {
-            console.error("Error parsing error response:", e)
-          }
-          throw new Error(errorMessage)
-        }
-
-        const data = await response.json()
-        console.log("Tickets data:", data)
-        setDebugInfo(data)
-
-        // Check if data has the expected structure
-        if (!data.tickets) {
-          throw new Error("Invalid response format: missing tickets property")
-        }
-
-        setTickets(data.tickets)
-      } catch (error) {
-        console.error("Error fetching tickets:", error)
-        setError(error instanceof Error ? error.message : "Failed to load tickets")
+      if (response.ok) {
+        setTickets(data.tickets || [])
+      } else {
+        console.error("Failed to fetch tickets:", data.error)
         toast({
           title: "Error",
-          description: "Failed to load your tickets. Please try again.",
+          description: data.error || "Failed to fetch tickets",
           variant: "destructive",
         })
-      } finally {
-        setLoading(false)
       }
+    } catch (error) {
+      console.error("Error fetching tickets:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
+  }
 
-    fetchTickets()
-  }, [toast])
+  const handleSendEmail = async (ticketId, ticketType) => {
+    try {
+      setSendingEmail(true)
+      const response = await fetch("/api/tickets/send-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ticketId, ticketType }),
+      })
 
-  // Filter tickets by type
-  const attendeeTickets =
-    tickets.all?.filter((ticket) => ticket.ticketType === "attendee" || ticket.formType === "attendee") || []
+      const data = await response.json()
 
-  const volunteerTickets =
-    tickets.all?.filter((ticket) => ticket.ticketType === "volunteer" || ticket.formType === "volunteer") || []
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Ticket email sent successfully",
+        })
+      } else {
+        console.error("Failed to send ticket email:", data.error)
+        toast({
+          title: "Error",
+          description: data.error || "Failed to send ticket email",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error sending ticket email:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+    } finally {
+      setSendingEmail(false)
+    }
+  }
 
-  const speakerTickets =
-    tickets.all?.filter((ticket) => ticket.ticketType === "speaker" || ticket.formType === "speaker") || []
+  const handleDownload = async (ticket) => {
+    try {
+      setDownloadingTicket(true)
+      setDownloadingTicketId(ticket._id)
+
+      // Create a new PDF document
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      })
+
+      // Set up the document
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(24)
+      doc.setTextColor(0, 0, 0)
+
+      // Add title
+      doc.text("EVENT TICKET", 105, 20, { align: "center" })
+
+      // Add event details
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(18)
+      doc.text(ticket.eventName || "Event", 105, 35, { align: "center" })
+
+      // Add ticket details
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(12)
+      doc.text(`Ticket #: ${ticket.ticketNumber || ticket._id.substring(0, 8).toUpperCase()}`, 20, 50)
+      doc.text(`Attendee: ${ticket.attendeeName || "N/A"}`, 20, 60)
+      doc.text(`Email: ${ticket.attendeeEmail || "N/A"}`, 20, 70)
+
+      // Format date with Tokyo timezone to prevent date shift
+      let eventDate = "Date not available"
+      if (ticket.eventDate) {
+        try {
+          const date = new Date(ticket.eventDate)
+          eventDate = date.toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            timeZone: "Asia/Tokyo",
+          })
+        } catch (error) {
+          console.error("Error formatting date:", error)
+        }
+      }
+
+      doc.text(`Date: ${eventDate}`, 20, 80)
+      doc.text(`Time: ${ticket.eventTime || "TBD"}`, 20, 90)
+      doc.text(`Location: ${ticket.eventLocation || "TBD"}`, 20, 100)
+
+      // Generate QR code
+      try {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+        const ticketUrl = `${appUrl}/tickets/${ticket._id}`
+        const qrCodeDataUrl = await QRCode.toDataURL(ticketUrl)
+
+        // Add QR code to the PDF
+        doc.addImage(qrCodeDataUrl, "PNG", 70, 110, 70, 70)
+        doc.setFontSize(10)
+        doc.text("Scan to view digital ticket", 105, 190, { align: "center" })
+      } catch (qrError) {
+        console.error("Error generating QR code:", qrError)
+        // Add placeholder text if QR code generation fails
+        doc.setFontSize(10)
+        doc.text("QR code not available", 105, 150, { align: "center" })
+      }
+
+      // Add footer
+      doc.setFontSize(10)
+      doc.text("This ticket is valid only with a matching ID. Non-transferable.", 105, 210, { align: "center" })
+      doc.text(`Generated on ${new Date().toLocaleDateString()}`, 105, 220, { align: "center" })
+
+      // Save the PDF
+      doc.save(`Ticket-${ticket.eventName || "Event"}-${ticket._id.substring(0, 6)}.pdf`)
+    } catch (error) {
+      console.error("Error downloading ticket:", error)
+      toast({
+        title: "Error",
+        description: "Failed to download ticket",
+        variant: "destructive",
+      })
+    } finally {
+      setDownloadingTicket(false)
+      setDownloadingTicketId(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="mt-4 text-lg text-muted-foreground">Loading your tickets...</p>
+      </div>
+    )
+  }
+
+  if (tickets.length === 0) {
+    return <EmptyTickets />
+  }
 
   return (
-    <div className="space-y-6 container py-8">
-      <div className="flex justify-between items-center">
+    <div className="container max-w-5xl py-8">
+      <div className="flex flex-col space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">My Tickets</h1>
-          <p className="text-muted-foreground">
-            View tickets for events you're attending, volunteering at, or speaking at
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">My Tickets</h1>
+          <p className="text-muted-foreground mt-2">View and manage all your event tickets in one place.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Ticket className="h-5 w-5 text-indigo-600" />
-          <span className="font-medium">{loading ? "..." : tickets.all?.length || 0} Tickets</span>
-        </div>
+
+        <TicketList
+          tickets={tickets}
+          onDownload={handleDownload}
+          onSendEmail={handleSendEmail}
+          downloadingTicket={downloadingTicket}
+          downloadingTicketId={downloadingTicketId}
+          sendingEmail={sendingEmail}
+        />
       </div>
-
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="all">All ({loading ? "..." : tickets.all?.length || 0})</TabsTrigger>
-          <TabsTrigger value="upcoming">Upcoming ({loading ? "..." : tickets.upcoming?.length || 0})</TabsTrigger>
-          <TabsTrigger value="past">Past ({loading ? "..." : tickets.past?.length || 0})</TabsTrigger>
-          <TabsTrigger value="attendee">Attendee ({loading ? "..." : attendeeTickets.length})</TabsTrigger>
-          <TabsTrigger value="volunteer">Volunteer ({loading ? "..." : volunteerTickets.length})</TabsTrigger>
-          <TabsTrigger value="speaker">Speaker ({loading ? "..." : speakerTickets.length})</TabsTrigger>
-          <TabsTrigger value="debug">Debug</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="all" className="mt-6">
-          {loading ? (
-            <TicketsLoadingSkeleton />
-          ) : error ? (
-            <ErrorState message={error} />
-          ) : tickets.all?.length > 0 ? (
-            <div className="grid gap-8 md:grid-cols-1">
-              {tickets.all.map((ticket, index) => (
-                <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}-${index}`}
-                  ticket={ticket}
-                  index={index}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState type="ticket" />
-          )}
-        </TabsContent>
-
-        <TabsContent value="upcoming" className="mt-6">
-          {loading ? (
-            <TicketsLoadingSkeleton />
-          ) : error ? (
-            <ErrorState message={error} />
-          ) : tickets.upcoming?.length > 0 ? (
-            <div className="grid gap-8 md:grid-cols-1">
-              {tickets.upcoming.map((ticket, index) => (
-                <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}-${index}`}
-                  ticket={ticket}
-                  index={index}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState type="upcoming" />
-          )}
-        </TabsContent>
-
-        <TabsContent value="past" className="mt-6">
-          {loading ? (
-            <TicketsLoadingSkeleton />
-          ) : error ? (
-            <ErrorState message={error} />
-          ) : tickets.past?.length > 0 ? (
-            <div className="grid gap-8 md:grid-cols-1">
-              {tickets.past.map((ticket, index) => (
-                <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}-${index}`}
-                  ticket={ticket}
-                  index={index}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState type="past" />
-          )}
-        </TabsContent>
-
-        <TabsContent value="attendee" className="mt-6">
-          {loading ? (
-            <TicketsLoadingSkeleton />
-          ) : error ? (
-            <ErrorState message={error} />
-          ) : attendeeTickets.length > 0 ? (
-            <div className="grid gap-8 md:grid-cols-1">
-              {attendeeTickets.map((ticket, index) => (
-                <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}-${index}`}
-                  ticket={ticket}
-                  index={index}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState type="attendee" />
-          )}
-        </TabsContent>
-
-        <TabsContent value="volunteer" className="mt-6">
-          {loading ? (
-            <TicketsLoadingSkeleton />
-          ) : error ? (
-            <ErrorState message={error} />
-          ) : volunteerTickets.length > 0 ? (
-            <div className="grid gap-8 md:grid-cols-1">
-              {volunteerTickets.map((ticket, index) => (
-                <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}-${index}`}
-                  ticket={ticket}
-                  index={index}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState type="volunteer" />
-          )}
-        </TabsContent>
-
-        <TabsContent value="speaker" className="mt-6">
-          {loading ? (
-            <TicketsLoadingSkeleton />
-          ) : error ? (
-            <ErrorState message={error} />
-          ) : speakerTickets.length > 0 ? (
-            <div className="grid gap-8 md:grid-cols-1">
-              {speakerTickets.map((ticket, index) => (
-                <TicketItem
-                  key={`${ticket._id}-${ticket.ticketType || ticket.formType || "unknown"}-${index}`}
-                  ticket={ticket}
-                  index={index}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState type="speaker" />
-          )}
-        </TabsContent>
-
-        <TabsContent value="debug" className="mt-6">
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-medium mb-2">Debug Information</h3>
-            <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-96 text-xs">
-              {JSON.stringify(debugInfo, null, 2)}
-            </pre>
-          </div>
-        </TabsContent>
-      </Tabs>
     </div>
   )
 }
