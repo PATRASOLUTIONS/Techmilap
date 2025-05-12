@@ -14,7 +14,10 @@ export const metadata: Metadata = {
     icon: "/logo-circular.png",
     apple: "/logo-circular.png",
   },
-    generator: 'v0.dev'
+  generator: 'v0.dev',
+  other: {
+    'permissions-policy': 'camera=*, microphone=*'
+  }
 }
 
 export default function RootLayout({
@@ -24,6 +27,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta httpEquiv="Permissions-Policy" content="camera=*, microphone=*" />
+      </head>
       <body className={inter.className}>
         <SessionProvider>{children}</SessionProvider>
         <Toaster />
