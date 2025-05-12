@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
     await connectToDatabase()
 
-    const { ticketId, eventId } = await req.json()
+    const { ticketId, eventId, allowDuplicateCheckIn = false } = await req.json()
 
     if (!ticketId) {
       return NextResponse.json({ error: "Ticket ID is required" }, { status: 400 })
@@ -64,26 +64,6 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`[CHECK-IN] Event found: ${event.title}, looking up ticket: ${ticketId}`)
-
-    // Debug: Get all attendee submissions for this event to check if they exist
-    const allSubmissions = await FormSubmission.find({
-      eventId: eventId,
-      formType: "attendee",
-      status: "approved",
-    }).limit(5)
-
-    console.log(`[CHECK-IN] Found ${allSubmissions.length} approved attendee submissions for this event`)
-    if (allSubmissions.length > 0) {
-      console.log(`[CHECK-IN] Sample submission ID: ${allSubmissions[0]._id}`)
-      console.log(
-        `[CHECK-IN] Sample submission data:`,
-        JSON.stringify({
-          name: allSubmissions[0].userName || extractNameFromFormData(allSubmissions[0].formData, allSubmissions[0]),
-          email: allSubmissions[0].userEmail || extractEmailFromFormData(allSubmissions[0].formData, allSubmissions[0]),
-          formData: allSubmissions[0].formData ? Object.keys(allSubmissions[0].formData) : "No form data",
-        }),
-      )
-    }
 
     // First, try to find the ticket by ID
     let ticket = null
@@ -247,6 +227,25 @@ export async function POST(req: NextRequest) {
         formData: formData,
       }
 
+      // Check if already checked in and not allowing duplicates
+      if (formSubmission.isCheckedIn && !allowDuplicateCheckIn) {
+        console.log(`[CHECK-IN] Already checked in and duplicate check-ins not allowed`)
+        return NextResponse.json({
+          success: false,
+          status: "already_checked_in",
+          message: "This attendee has already been checked in",
+          checkInCount: formSubmission.checkInCount || 1,
+          checkedInAt: formSubmission.checkedInAt,
+          lastCheckedInAt: formSubmission.lastCheckedInAt || formSubmission.checkedInAt,
+          attendee: attendeeInfo,
+          debug: {
+            submissionId: formSubmission._id.toString(),
+            lookupMethod,
+            isWebCheckIn: true,
+          },
+        })
+      }
+
       // Update the check-in status
       const now = new Date()
       const checkInCount = formSubmission.checkInCount || 0
@@ -260,6 +259,8 @@ export async function POST(req: NextRequest) {
             checkedInAt: formSubmission.checkedInAt || now,
             lastCheckedInAt: now,
             checkedInBy: new mongoose.Types.ObjectId(session.user.id),
+            isWebCheckIn: true,
+            webCheckInDate: now,
           },
         },
         { new: true },
@@ -267,11 +268,11 @@ export async function POST(req: NextRequest) {
 
       // Check if already checked in
       if (checkInCount > 0) {
-        console.log(`[CHECK-IN] Already checked in ${checkInCount} times`)
+        console.log(`[CHECK-IN] Already checked in ${checkInCount} times, but allowing duplicate check-in`)
         return NextResponse.json({
-          success: false,
-          status: "already_checked_in",
-          message: "This attendee has already been checked in",
+          success: true,
+          status: "duplicate_check_in",
+          message: "This attendee has been checked in again",
           checkInCount: updateResult.checkInCount,
           checkedInAt: updateResult.checkedInAt,
           lastCheckedInAt: updateResult.lastCheckedInAt,
@@ -279,6 +280,7 @@ export async function POST(req: NextRequest) {
           debug: {
             submissionId: formSubmission._id.toString(),
             lookupMethod,
+            isWebCheckIn: true,
           },
         })
       }
@@ -294,6 +296,7 @@ export async function POST(req: NextRequest) {
         debug: {
           submissionId: formSubmission._id.toString(),
           lookupMethod,
+          isWebCheckIn: true,
         },
       })
     }
@@ -317,6 +320,25 @@ export async function POST(req: NextRequest) {
         })
       }
 
+      // Check if already checked in and not allowing duplicates
+      if (ticket.isCheckedIn && !allowDuplicateCheckIn) {
+        console.log(`[CHECK-IN] Ticket already checked in and duplicate check-ins not allowed`)
+        return NextResponse.json({
+          success: false,
+          status: "already_checked_in",
+          message: "This ticket has already been checked in",
+          checkInCount: ticket.checkInCount || 1,
+          checkedInAt: ticket.checkedInAt,
+          lastCheckedInAt: ticket.lastCheckedInAt || ticket.checkedInAt,
+          ticket,
+          debug: {
+            ticketId: ticket._id.toString(),
+            lookupMethod,
+            isWebCheckIn: true,
+          },
+        })
+      }
+
       // Update the check-in status
       const now = new Date()
       const checkInCount = ticket.checkInCount || 0
@@ -326,15 +348,17 @@ export async function POST(req: NextRequest) {
       ticket.checkedInAt = ticket.checkedInAt || now
       ticket.lastCheckedInAt = now
       ticket.checkedInBy = new mongoose.Types.ObjectId(session.user.id)
+      ticket.isWebCheckIn = true
+      ticket.webCheckInDate = now
       await ticket.save()
 
       // Check if already checked in
       if (checkInCount > 0) {
-        console.log(`[CHECK-IN] Ticket already checked in ${checkInCount} times`)
+        console.log(`[CHECK-IN] Ticket already checked in ${checkInCount} times, but allowing duplicate check-in`)
         return NextResponse.json({
-          success: false,
-          status: "already_checked_in",
-          message: "This ticket has already been checked in",
+          success: true,
+          status: "duplicate_check_in",
+          message: "This ticket has been checked in again",
           checkInCount: ticket.checkInCount,
           checkedInAt: ticket.checkedInAt,
           lastCheckedInAt: ticket.lastCheckedInAt,
@@ -342,6 +366,7 @@ export async function POST(req: NextRequest) {
           debug: {
             ticketId: ticket._id.toString(),
             lookupMethod,
+            isWebCheckIn: true,
           },
         })
       }
@@ -357,6 +382,7 @@ export async function POST(req: NextRequest) {
         debug: {
           ticketId: ticket._id.toString(),
           lookupMethod,
+          isWebCheckIn: true,
         },
       })
     }

@@ -16,8 +16,11 @@ export interface ITicket extends Document {
   updatedAt: Date
   isCheckedIn: boolean
   checkedInAt?: Date
+  lastCheckedInAt?: Date
   checkedInBy?: mongoose.Types.ObjectId
   checkInCount: number
+  isWebCheckIn?: boolean
+  webCheckInDate?: Date
 }
 
 const TicketSchema = new Schema<ITicket>(
@@ -81,6 +84,9 @@ const TicketSchema = new Schema<ITicket>(
     checkedInAt: {
       type: Date,
     },
+    lastCheckedInAt: {
+      type: Date,
+    },
     checkedInBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -88,6 +94,13 @@ const TicketSchema = new Schema<ITicket>(
     checkInCount: {
       type: Number,
       default: 0,
+    },
+    isWebCheckIn: {
+      type: Boolean,
+      default: false,
+    },
+    webCheckInDate: {
+      type: Date,
     },
   },
   {

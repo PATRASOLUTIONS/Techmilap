@@ -1,6 +1,8 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 
 import type React from "react"
 
@@ -37,6 +39,7 @@ export default function EventCheckInPage() {
   const [attendeesList, setAttendeesList] = useState<any[]>([])
   const [loadingAttendees, setLoadingAttendees] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [allowDuplicateCheckIn, setAllowDuplicateCheckIn] = useState(false)
 
   const checkCameraPermission = () => {
     if (typeof navigator !== "undefined" && navigator.permissions) {
@@ -99,14 +102,38 @@ export default function EventCheckInPage() {
   const fetchAttendees = async () => {
     try {
       setLoadingAttendees(true)
-      const response = await fetch(`/api/events/${eventId}/attendees/list`)
+      const response = await fetch(`/api/events/${eventId}/submissions?formType=attendee&status=approved`)
 
       if (!response.ok) {
         throw new Error("Failed to fetch attendees")
       }
 
       const data = await response.json()
-      setAttendeesList(data.attendees || [])
+
+      // Transform the data to include name and email
+      const transformedAttendees = data.submissions.map((submission: any) => {
+        const formData = submission.formData || {}
+        const name =
+          formData.name ||
+          formData.fullName ||
+          (formData.firstName && formData.lastName ? `${formData.firstName} ${formData.lastName}` : null) ||
+          submission.userName ||
+          "Unknown"
+
+        const email = formData.email || formData.emailAddress || submission.userEmail || "No email"
+
+        return {
+          _id: submission._id,
+          name,
+          email,
+          isCheckedIn: submission.isCheckedIn || false,
+          checkInCount: submission.checkInCount || 0,
+          checkedInAt: submission.checkedInAt,
+          formData,
+        }
+      })
+
+      setAttendeesList(transformedAttendees || [])
     } catch (err: any) {
       console.error("Error fetching attendees:", err)
       toast({
@@ -137,6 +164,7 @@ export default function EventCheckInPage() {
         body: JSON.stringify({
           ticketId,
           eventId,
+          allowDuplicateCheckIn,
         }),
       })
 
@@ -147,11 +175,19 @@ export default function EventCheckInPage() {
 
       // Show toast notification
       if (result.success) {
-        toast({
-          title: "Check-in Successful",
-          description: `${result.attendee?.name || result.ticket?.name || "Attendee"} has been checked in.`,
-          variant: "default",
-        })
+        if (result.status === "duplicate_check_in") {
+          toast({
+            title: "Duplicate Check-in",
+            description: `${result.attendee?.name || result.ticket?.name || "Attendee"} has been checked in again.`,
+            variant: "warning",
+          })
+        } else {
+          toast({
+            title: "Check-in Successful",
+            description: `${result.attendee?.name || result.ticket?.name || "Attendee"} has been checked in.`,
+            variant: "default",
+          })
+        }
       } else if (result.status === "already_checked_in") {
         toast({
           title: "Already Checked In",
@@ -183,7 +219,7 @@ export default function EventCheckInPage() {
     if (!manualTicketId.trim()) {
       toast({
         title: "Error",
-        description: "Please enter a ticket ID",
+        description: "Please enter a ticket ID, email, or name",
         variant: "destructive",
       })
       return
@@ -201,6 +237,7 @@ export default function EventCheckInPage() {
         body: JSON.stringify({
           ticketId: manualTicketId.trim(),
           eventId,
+          allowDuplicateCheckIn,
         }),
       })
 
@@ -211,11 +248,19 @@ export default function EventCheckInPage() {
 
       // Show toast notification
       if (result.success) {
-        toast({
-          title: "Check-in Successful",
-          description: `${result.attendee?.name || result.ticket?.name || "Attendee"} has been checked in.`,
-          variant: "default",
-        })
+        if (result.status === "duplicate_check_in") {
+          toast({
+            title: "Duplicate Check-in",
+            description: `${result.attendee?.name || result.ticket?.name || "Attendee"} has been checked in again.`,
+            variant: "warning",
+          })
+        } else {
+          toast({
+            title: "Check-in Successful",
+            description: `${result.attendee?.name || result.ticket?.name || "Attendee"} has been checked in.`,
+            variant: "default",
+          })
+        }
       } else if (result.status === "already_checked_in") {
         toast({
           title: "Already Checked In",
@@ -320,10 +365,18 @@ export default function EventCheckInPage() {
             <p className="text-sm text-muted-foreground">Scan tickets and manage attendee check-ins</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={toggleDebugMode}>
-          <Bug className="h-4 w-4 mr-2" />
-          {debugMode ? "Hide Debug" : "Debug Mode"}
-        </Button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center space-x-2">
+            <Switch id="allow-duplicate" checked={allowDuplicateCheckIn} onCheckedChange={setAllowDuplicateCheckIn} />
+            <Label htmlFor="allow-duplicate" className="text-sm">
+              Allow duplicate check-ins
+            </Label>
+          </div>
+          <Button variant="outline" size="sm" onClick={toggleDebugMode}>
+            <Bug className="h-4 w-4 mr-2" />
+            {debugMode ? "Hide Debug" : "Debug Mode"}
+          </Button>
+        </div>
       </div>
 
       {debugMode && (
@@ -370,7 +423,7 @@ export default function EventCheckInPage() {
                           <div className="flex items-center gap-2">
                             {attendee.isCheckedIn && (
                               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                Checked In
+                                Checked In {attendee.checkInCount > 1 ? `(${attendee.checkInCount}x)` : ""}
                               </Badge>
                             )}
                             <Button size="sm" variant="outline">
@@ -440,10 +493,6 @@ export default function EventCheckInPage() {
             Statistics
           </TabsTrigger>
           <TabsTrigger value="history">
-            <History />
-            Statistics
-          </TabsTrigger>
-          <TabsTrigger value="history">
             <History className="h-4 w-4 mr-2" />
             Check-in History
           </TabsTrigger>
@@ -461,6 +510,12 @@ export default function EventCheckInPage() {
               <div className="mt-4 text-sm text-gray-500">
                 <p>Scan the QR code on the attendee's ticket to check them in.</p>
                 <p>The system will verify the ticket and update the check-in status.</p>
+                {!allowDuplicateCheckIn && (
+                  <p className="text-amber-600 mt-2">
+                    <strong>Note:</strong> Duplicate check-ins are currently disabled. Enable the option above to allow
+                    checking in the same attendee multiple times.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -504,6 +559,11 @@ export default function EventCheckInPage() {
                 </CardContent>
                 <CardFooter className="flex justify-between border-t pt-4 text-xs text-gray-500">
                   <div>Having trouble? Try enabling Debug Mode to see all attendees.</div>
+                  {!allowDuplicateCheckIn && (
+                    <div className="text-amber-600">
+                      <strong>Note:</strong> Duplicate check-ins are disabled
+                    </div>
+                  )}
                 </CardFooter>
               </Card>
 

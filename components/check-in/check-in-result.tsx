@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, AlertCircle, User, Clock, Mail, Info } from "lucide-react"
+import { CheckCircle, XCircle, AlertCircle, User, Clock, Mail, Info, Globe } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
@@ -24,36 +24,43 @@ export function CheckInResult({ result, onReset }: CheckInResultProps) {
 
   if (!result) return null
 
-  const isSuccess = result.status === "checked_in"
+  const isSuccess = result.status === "checked_in" || result.status === "duplicate_check_in"
   const isAlreadyCheckedIn = result.status === "already_checked_in"
+  const isDuplicateCheckIn = result.status === "duplicate_check_in"
   const isInvalid = result.status === "invalid" || result.status === "error"
 
   const getStatusColor = () => {
-    if (isSuccess) return "bg-green-50 border-green-200"
+    if (isSuccess && !isDuplicateCheckIn) return "bg-green-50 border-green-200"
+    if (isSuccess && isDuplicateCheckIn) return "bg-blue-50 border-blue-200"
     if (isAlreadyCheckedIn) return "bg-amber-50 border-amber-200"
     return "bg-red-50 border-red-200"
   }
 
   const getStatusIcon = () => {
-    if (isSuccess) return <CheckCircle className="h-12 w-12 text-green-500" />
+    if (isSuccess && !isDuplicateCheckIn) return <CheckCircle className="h-12 w-12 text-green-500" />
+    if (isSuccess && isDuplicateCheckIn) return <CheckCircle className="h-12 w-12 text-blue-500" />
     if (isAlreadyCheckedIn) return <AlertCircle className="h-12 w-12 text-amber-500" />
     return <XCircle className="h-12 w-12 text-red-500" />
   }
 
   const getStatusText = () => {
-    if (isSuccess) return "Check-in Successful"
+    if (isSuccess && !isDuplicateCheckIn) return "Check-in Successful"
+    if (isSuccess && isDuplicateCheckIn) return "Duplicate Check-in"
     if (isAlreadyCheckedIn) return "Already Checked In"
     return "Invalid Ticket"
   }
 
   const getStatusBadge = () => {
-    if (isSuccess) return <Badge className="bg-green-500">Success</Badge>
+    if (isSuccess && !isDuplicateCheckIn) return <Badge className="bg-green-500">Success</Badge>
+    if (isSuccess && isDuplicateCheckIn) return <Badge className="bg-blue-500">Duplicate</Badge>
     if (isAlreadyCheckedIn) return <Badge className="bg-amber-500">Already Checked In</Badge>
     return <Badge variant="destructive">Invalid</Badge>
   }
 
   const attendeeName = result.attendee?.name || result.ticket?.name || "Unknown"
   const attendeeEmail = result.attendee?.email || result.ticket?.email || "No email"
+  const isWebCheckIn =
+    result.debug?.isWebCheckIn || result.attendee?.isWebCheckIn || result.ticket?.isWebCheckIn || false
 
   return (
     <Card className={`w-full border ${getStatusColor()} transition-all duration-300`}>
@@ -84,9 +91,15 @@ export function CheckInResult({ result, onReset }: CheckInResultProps) {
                   <div className="text-sm">
                     {isSuccess ? "Checked in" : "First checked in"}: {timeAgo}
                   </div>
-                  {isAlreadyCheckedIn && result.checkInCount > 1 && (
+                  {(isAlreadyCheckedIn || isDuplicateCheckIn) && result.checkInCount > 1 && (
                     <div className="text-sm text-amber-600">
                       This ticket has been scanned {result.checkInCount} times
+                    </div>
+                  )}
+                  {isWebCheckIn && (
+                    <div className="flex items-center gap-1 text-sm text-blue-600 mt-1">
+                      <Globe className="h-3 w-3" />
+                      Web check-in
                     </div>
                   )}
                 </div>
@@ -114,6 +127,7 @@ export function CheckInResult({ result, onReset }: CheckInResultProps) {
                     {result.debug.submissionId && <div>Submission ID: {result.debug.submissionId}</div>}
                     {result.debug.ticketId && <div>Ticket ID: {result.debug.ticketId}</div>}
                     {result.debug.lookupMethod && <div>Lookup Method: {result.debug.lookupMethod}</div>}
+                    {result.debug.isWebCheckIn && <div>Web Check-in: Yes</div>}
                     {result.debug.eventInfo && (
                       <div>
                         Event: {result.debug.eventInfo.title} ({result.debug.eventInfo.id})
