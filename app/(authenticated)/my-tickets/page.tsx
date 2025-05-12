@@ -332,6 +332,7 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
         year: "numeric",
         month: "long",
         day: "numeric",
+        timeZone: "Asia/Tokyo", // Use Tokyo timezone to prevent date shift
       })
     : "Date not available"
 
@@ -548,13 +549,30 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
           })
       }
 
-      // Add QR code placeholder
-      doc.setFillColor(240, 240, 240)
-      doc.rect(130, 85, 40, 40, "F")
-      doc.setFontSize(8)
-      doc.setTextColor(100, 100, 100)
-      doc.text("QR Code", 150, 105, { align: "center" })
-      doc.text("Scan for entry", 150, 110, { align: "center" })
+      // Generate QR code and add it to the PDF
+      try {
+        // Generate QR code as data URL
+        const qrCodeDataUrl = await QRCode.toDataURL(qrCodeData, {
+          margin: 1,
+          width: 150,
+          color: {
+            dark: "#000000",
+            light: "#FFFFFF",
+          },
+        })
+
+        // Add QR code to PDF
+        doc.addImage(qrCodeDataUrl, "PNG", 130, 85, 40, 40)
+      } catch (qrError) {
+        console.error("Error generating QR code for PDF:", qrError)
+        // Add placeholder if QR code generation fails
+        doc.setFillColor(240, 240, 240)
+        doc.rect(130, 85, 40, 40, "F")
+        doc.setFontSize(8)
+        doc.setTextColor(100, 100, 100)
+        doc.text("QR Code", 150, 105, { align: "center" })
+        doc.text("Generation Failed", 150, 110, { align: "center" })
+      }
 
       // Add virtual ticket URL
       doc.setFontSize(10)
