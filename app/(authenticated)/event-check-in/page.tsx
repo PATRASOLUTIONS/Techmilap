@@ -26,6 +26,7 @@ export default function EventCheckInPage() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
+        setLoading(true)
         const response = await fetch("/api/events/my-events")
         if (response.ok) {
           const data = await response.json()
@@ -39,8 +40,8 @@ export default function EventCheckInPage() {
                   const statsData = await statsResponse.json()
                   return {
                     ...event,
-                    checkedInCount: statsData.checkedInCount || 0,
-                    registrationsCount: statsData.totalCount || 0,
+                    registrationsCount: statsData.stats?.total || 0,
+                    checkedInCount: statsData.stats?.checkedIn || 0,
                   }
                 }
                 return event
@@ -66,12 +67,24 @@ export default function EventCheckInPage() {
   }, [session])
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
+    try {
+      if (!dateString) return "Date not available"
+      const date = new Date(dateString)
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return "Date not available"
+      }
+
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    } catch (error) {
+      console.error("Error formatting date:", error)
+      return "Date not available"
+    }
   }
 
   return (
@@ -132,7 +145,7 @@ export default function EventCheckInPage() {
                         <div
                           className="bg-green-600 h-2.5 rounded-full"
                           style={{
-                            width: `${Math.min(100, Math.round(((event.checkedInCount || 0) / event.registrationsCount) * 100))}%`,
+                            width: `${Math.min(100, Math.round(((event.checkedInCount || 0) / (event.registrationsCount || 1)) * 100))}%`,
                           }}
                         ></div>
                       </div>
