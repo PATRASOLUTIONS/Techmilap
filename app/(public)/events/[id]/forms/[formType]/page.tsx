@@ -67,35 +67,44 @@ export default function PublicFormPage() {
   const [retryCount, setRetryCount] = useState(0)
   const [debugInfo, setDebugInfo] = useState("")
   const [showDebug, setShowDebug] = useState(false)
+  const [fetchError, setFetchError] = useState(null)
 
   // Determine the API endpoint based on the form type
   const apiFormType = formTypeValue === "register" ? "attendee" : formTypeValue
 
   // Function to safely parse JSON with error handling
   const safeJsonParse = async (response) => {
-    const text = await response.text()
     try {
-      // Try to parse the text as JSON
-      return { success: true, data: JSON.parse(text) }
-    } catch (error) {
-      console.error("JSON parse error:", error)
-      console.error("Response text:", text.substring(0, 500) + "...") // Log first 500 chars
+      const text = await response.text()
+      setDebugInfo(text.substring(0, 5000)) // Save first 5000 chars for debugging
 
-      // Save debug info
-      setDebugInfo(text.substring(0, 2000))
+      try {
+        // Try to parse the text as JSON
+        return { success: true, data: JSON.parse(text) }
+      } catch (error) {
+        console.error("JSON parse error:", error)
+        console.error("Response text:", text.substring(0, 500) + "...") // Log first 500 chars
 
-      // Check if it's an HTML response
-      if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
+        // Check if it's an HTML response
+        if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
+          return {
+            success: false,
+            error: "Server returned HTML instead of JSON. This might indicate a server error.",
+          }
+        }
+
         return {
           success: false,
-          error: "Server returned HTML instead of JSON. This might indicate a server error.",
+          error: "Failed to parse server response as JSON",
+          rawResponse: text.substring(0, 1000), // Include part of the raw response for debugging
         }
       }
-
+    } catch (fetchError) {
+      console.error("Error reading response:", fetchError)
       return {
         success: false,
-        error: "Failed to parse server response as JSON",
-        rawResponse: text.substring(0, 1000), // Include part of the raw response for debugging
+        error: "Failed to read server response",
+        details: fetchError instanceof Error ? fetchError.message : "Unknown error",
       }
     }
   }
@@ -104,6 +113,7 @@ export default function PublicFormPage() {
     const fetchFormData = async () => {
       try {
         setLoading(true)
+        setFetchError(null)
         console.log(`Fetching form data for event ${eventId} and form type ${formTypeValue}`)
 
         // Add a timestamp to prevent caching
@@ -111,75 +121,90 @@ export default function PublicFormPage() {
         const url = `/api/events/${eventId}/forms/${formTypeValue}?t=${timestamp}`
         console.log(`Fetching from URL: ${url}`)
 
-        const response = await fetch(url, {
-          method: "GET",
-          cache: "no-store",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            Pragma: "no-cache",
-            Expires: "0",
-            "x-form-request": "true", // Add this header to indicate it's a form request
-          },
-        })
+        // Use a timeout to abort the fetch if it takes too long
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
-        console.log(`Response status: ${response.status}`)
-        console.log(`Response headers:`, Object.fromEntries(response.headers.entries()))
+        try {
+          const response = await fetch(url, {
+            method: "GET",
+            cache: "no-store",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+              Expires: "0",
+              "x-form-request": "true", // Add this header to indicate it's a form request
+            },
+            signal: controller.signal,
+          })
 
-        if (!response.ok) {
-          // Parse the response carefully
+          clearTimeout(timeoutId)
+
+          console.log(`Response status: ${response.status}`)
+          console.log(`Response headers:`, Object.fromEntries(response.headers.entries()))
+
+          if (!response.ok) {
+            // Parse the response carefully
+            const result = await safeJsonParse(response)
+
+            if (result.success) {
+              throw new Error(result.data.error || "Failed to fetch form data")
+            } else {
+              throw new Error(result.error || "Failed to fetch form data")
+            }
+          }
+
+          // Parse the JSON response carefully
           const result = await safeJsonParse(response)
 
-          if (result.success) {
-            throw new Error(result.data.error || "Failed to fetch form data")
-          } else {
-            throw new Error(result.error || "Failed to fetch form data")
-          }
-        }
-
-        // Parse the JSON response carefully
-        const result = await safeJsonParse(response)
-
-        if (!result.success) {
-          throw new Error(result.error || "Failed to parse form data")
-        }
-
-        const data = result.data
-        console.log("Form data response:", data)
-
-        // Check if the form is published
-        if (data.status !== "published") {
-          setFormStatus("draft")
-          setError("This form is not currently available. The event organizer has not published it yet.")
-          return
-        }
-
-        setFormStatus("published")
-        setFormFields(data.questions || [])
-        setEventTitle(data.eventTitle || "Event")
-
-        // Check if event date is available from the form data
-        if (data.eventDate) {
-          const eventDateTime = new Date(data.eventDate)
-          setEventDate(eventDateTime)
-
-          // Check if event has already started or passed
-          const now = new Date()
-
-          // If event has a start time, use it for comparison
-          if (data.startTime) {
-            const [hours, minutes] = data.startTime.split(":").map(Number)
-            eventDateTime.setHours(hours, minutes, 0, 0)
+          if (!result.success) {
+            throw new Error(result.error || "Failed to parse form data")
           }
 
-          if (now >= eventDateTime) {
-            setIsEventPassed(true)
-            setError("This form is closed because the event has already started or passed.")
+          const data = result.data
+          console.log("Form data response:", data)
+
+          // Check if the form is published
+          if (data.status !== "published") {
+            setFormStatus("draft")
+            setError("This form is not currently available. The event organizer has not published it yet.")
+            return
           }
+
+          setFormStatus("published")
+          setFormFields(data.questions || [])
+          setEventTitle(data.eventTitle || "Event")
+
+          // Check if event date is available from the form data
+          if (data.eventDate) {
+            const eventDateTime = new Date(data.eventDate)
+            setEventDate(eventDateTime)
+
+            // Check if event has already started or passed
+            const now = new Date()
+
+            // If event has a start time, use it for comparison
+            if (data.startTime) {
+              const [hours, minutes] = data.startTime.split(":").map(Number)
+              eventDateTime.setHours(hours, minutes, 0, 0)
+            }
+
+            if (now >= eventDateTime) {
+              setIsEventPassed(true)
+              setError("This form is closed because the event has already started or passed.")
+            }
+          }
+        } catch (fetchError) {
+          if (fetchError.name === "AbortError") {
+            throw new Error("Request timed out. The server took too long to respond.")
+          }
+          throw fetchError
         }
       } catch (error) {
         console.error("Error fetching form data:", error)
+        setFetchError(error)
         setError(error.message || "Failed to load form. Please try again later.")
       } finally {
         setLoading(false)
@@ -314,12 +339,19 @@ export default function PublicFormPage() {
               <p className={`font-medium ${isEventPassed ? "text-red-700" : "text-amber-700"}`}>
                 {isEventPassed
                   ? "Event Has Already Started"
-                  : error.includes("parse")
+                  : error.includes("parse") || error.includes("HTML")
                     ? "Technical Error"
                     : "Form Not Available"}
               </p>
             </div>
             <p className="text-gray-700 mb-4">{error}</p>
+
+            {fetchError && fetchError.stack && (
+              <div className="mb-4 p-3 bg-white rounded-md text-xs overflow-auto max-h-32">
+                <p className="font-medium mb-1">Error details:</p>
+                <pre className="whitespace-pre-wrap break-words">{fetchError.stack}</pre>
+              </div>
+            )}
 
             {isEventPassed && eventDate && (
               <div className="flex flex-col gap-2 mb-4 p-3 bg-white rounded-md">
@@ -335,7 +367,7 @@ export default function PublicFormPage() {
             )}
 
             <div className="flex flex-col sm:flex-row gap-3 mt-6">
-              {error.includes("parse") && (
+              {(error.includes("parse") || error.includes("HTML") || error.includes("timed out")) && (
                 <Button onClick={handleRetry} className="mb-2 sm:mb-0">
                   <RefreshCcw className="mr-2 h-4 w-4" />
                   Try Again
@@ -347,7 +379,7 @@ export default function PublicFormPage() {
                   Back to Event
                 </Link>
               </Button>
-              {error.includes("parse") && (
+              {(error.includes("parse") || error.includes("HTML")) && (
                 <Button variant="outline" onClick={toggleDebug} className="ml-auto">
                   <Bug className="mr-2 h-4 w-4" />
                   {showDebug ? "Hide Debug Info" : "Show Debug Info"}

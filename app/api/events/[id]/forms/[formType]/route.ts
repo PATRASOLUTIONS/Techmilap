@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
 import Event from "@/models/Event"
 
 // Get form questions for a specific form type
 export async function GET(request: Request, { params }: { params: { id: string; formType: string } }) {
   console.log(`Form request received for event: ${params.id}, form type: ${params.formType}`)
+
+  // Set headers for all responses to ensure proper content type
+  const headers = {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+  }
 
   try {
     const eventId = params.id
@@ -18,9 +23,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
         { error: "Invalid form type" },
         {
           status: 400,
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers,
         },
       )
     }
@@ -29,40 +32,48 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     const normalizedFormType = formType === "register" ? "attendee" : formType
     console.log(`Normalized form type: ${normalizedFormType}`)
 
-    // Connect to database
+    // Connect to database directly using mongoose
     try {
-      console.log("Connecting to database...")
-      await connectToDatabase()
-      console.log("Database connection successful")
+      console.log("Connecting to MongoDB...")
+
+      // Check if already connected
+      if (mongoose.connection.readyState !== 1) {
+        if (!process.env.MONGODB_URI) {
+          throw new Error("MONGODB_URI environment variable is not defined")
+        }
+
+        await mongoose.connect(process.env.MONGODB_URI)
+        console.log("MongoDB connection established")
+      } else {
+        console.log("MongoDB already connected")
+      }
     } catch (dbError) {
       console.error("Database connection error:", dbError)
       return NextResponse.json(
-        { error: "Failed to connect to database. Please try again later." },
+        {
+          error: "Failed to connect to database. Please try again later.",
+          details: dbError instanceof Error ? dbError.message : "Unknown database error",
+        },
         {
           status: 500,
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers,
         },
       )
     }
 
-    // Check if the ID is a valid MongoDB ObjectId
-    const isValidObjectId = mongoose.isValidObjectId(eventId)
-    console.log(`Is valid ObjectId: ${isValidObjectId}`)
-
-    // Get the event
+    // Get the event - simplified approach
     let event
     try {
-      if (isValidObjectId) {
-        console.log(`Looking up event by ID: ${eventId}`)
-        event = await Event.findById(eventId).lean()
+      console.log(`Looking up event with ID/slug: ${eventId}`)
+
+      // First try to find by ID if it's a valid ObjectId
+      if (mongoose.isValidObjectId(eventId)) {
+        event = await Event.findById(eventId).lean().exec()
       }
 
       // If not found by ID or not a valid ObjectId, try to find by slug
       if (!event) {
-        console.log(`Event not found by ID, trying slug: ${eventId}`)
-        event = await Event.findOne({ slug: eventId }).lean()
+        event = await Event.findOne({ slug: eventId }).lean().exec()
       }
 
       if (!event) {
@@ -71,9 +82,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
           { error: "Event not found" },
           {
             status: 404,
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers,
           },
         )
       }
@@ -82,80 +91,76 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     } catch (eventError) {
       console.error("Error fetching event:", eventError)
       return NextResponse.json(
-        { error: "Failed to fetch event. Please try again later." },
+        {
+          error: "Failed to fetch event. Please try again later.",
+          details: eventError instanceof Error ? eventError.message : "Unknown error fetching event",
+        },
         {
           status: 500,
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers,
         },
       )
     }
 
-    // Get the form status based on form type
-    let formStatus = "published" // Default to published for public access
+    // Default values for form data
+    let formStatus = "published"
     let questions = []
 
     try {
-      console.log(`Extracting ${normalizedFormType} form data`)
-
-      // Safely access nested properties
-      const getNestedProperty = (obj, path) => {
-        return path.split(".").reduce((prev, curr) => {
-          return prev && prev[curr] ? prev[curr] : null
-        }, obj)
-      }
-
+      // Safely extract form data based on form type
       if (normalizedFormType === "attendee") {
-        // For backward compatibility, check both attendeeForm and forms.attendee
-        formStatus =
-          getNestedProperty(event, "attendeeForm.status") ||
-          getNestedProperty(event, "forms.attendee.status") ||
-          "published"
+        // Check attendeeForm first (legacy)
+        if (event.attendeeForm && typeof event.attendeeForm === "object") {
+          formStatus = event.attendeeForm.status || "published"
+        }
+        // Then check forms.attendee (new structure)
+        else if (event.forms && event.forms.attendee && typeof event.forms.attendee === "object") {
+          formStatus = event.forms.attendee.status || "published"
+        }
 
-        questions =
-          getNestedProperty(event, "customQuestions.attendee") ||
-          getNestedProperty(event, "forms.attendee.questions") ||
-          []
+        // Get questions from either location
+        if (event.customQuestions && Array.isArray(event.customQuestions.attendee)) {
+          questions = event.customQuestions.attendee
+        } else if (event.forms && event.forms.attendee && Array.isArray(event.forms.attendee.questions)) {
+          questions = event.forms.attendee.questions
+        }
       } else if (normalizedFormType === "volunteer") {
-        formStatus =
-          getNestedProperty(event, "volunteerForm.status") ||
-          getNestedProperty(event, "forms.volunteer.status") ||
-          "published"
+        if (event.volunteerForm && typeof event.volunteerForm === "object") {
+          formStatus = event.volunteerForm.status || "published"
+        } else if (event.forms && event.forms.volunteer && typeof event.forms.volunteer === "object") {
+          formStatus = event.forms.volunteer.status || "published"
+        }
 
-        questions =
-          getNestedProperty(event, "customQuestions.volunteer") ||
-          getNestedProperty(event, "forms.volunteer.questions") ||
-          []
+        if (event.customQuestions && Array.isArray(event.customQuestions.volunteer)) {
+          questions = event.customQuestions.volunteer
+        } else if (event.forms && event.forms.volunteer && Array.isArray(event.forms.volunteer.questions)) {
+          questions = event.forms.volunteer.questions
+        }
       } else if (normalizedFormType === "speaker") {
-        formStatus =
-          getNestedProperty(event, "speakerForm.status") ||
-          getNestedProperty(event, "forms.speaker.status") ||
-          "published"
+        if (event.speakerForm && typeof event.speakerForm === "object") {
+          formStatus = event.speakerForm.status || "published"
+        } else if (event.forms && event.forms.speaker && typeof event.forms.speaker === "object") {
+          formStatus = event.forms.speaker.status || "published"
+        }
 
-        questions =
-          getNestedProperty(event, "customQuestions.speaker") ||
-          getNestedProperty(event, "forms.speaker.questions") ||
-          []
+        if (event.customQuestions && Array.isArray(event.customQuestions.speaker)) {
+          questions = event.customQuestions.speaker
+        } else if (event.forms && event.forms.speaker && Array.isArray(event.forms.speaker.questions)) {
+          questions = event.forms.speaker.questions
+        }
       }
 
       console.log(`Form status: ${formStatus}`)
-      console.log(`Found ${Array.isArray(questions) ? questions.length : 0} questions`)
-
-      // Ensure questions is always an array
-      if (!Array.isArray(questions)) {
-        console.warn(`Questions for ${normalizedFormType} form is not an array:`, questions)
-        questions = []
-      }
+      console.log(`Found ${questions.length} questions`)
     } catch (formError) {
-      console.error(`Error extracting ${normalizedFormType} form data:`, formError)
+      console.error(`Error extracting form data:`, formError)
       // Don't fail the request, just use empty questions
       questions = []
     }
 
     // Check if event has already started or passed
     const now = new Date()
-    let eventDate
+    let eventDate = null
     let isEventPassed = false
 
     try {
@@ -164,10 +169,16 @@ export async function GET(request: Request, { params }: { params: { id: string; 
         eventDate = new Date(event.date)
 
         // If event has a start time, use it for comparison
-        if (event.startTime) {
+        if (event.startTime && typeof event.startTime === "string") {
           console.log(`Event start time: ${event.startTime}`)
-          const [hours, minutes] = event.startTime.split(":").map(Number)
-          eventDate.setHours(hours, minutes, 0, 0)
+          const timeParts = event.startTime.split(":")
+          if (timeParts.length >= 2) {
+            const hours = Number.parseInt(timeParts[0], 10)
+            const minutes = Number.parseInt(timeParts[1], 10)
+            if (!isNaN(hours) && !isNaN(minutes)) {
+              eventDate.setHours(hours, minutes, 0, 0)
+            }
+          }
         }
 
         isEventPassed = now >= eventDate
@@ -177,7 +188,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
       }
     } catch (dateError) {
       console.error("Error parsing event date:", dateError)
-      eventDate = now // Default to current date if parsing fails
+      // Don't fail the request, just assume event hasn't passed
     }
 
     // If event has passed, override form status to closed
@@ -188,12 +199,12 @@ export async function GET(request: Request, { params }: { params: { id: string; 
 
     // Prepare the response data
     const responseData = {
-      questions: questions,
-      status: formStatus,
+      questions: Array.isArray(questions) ? questions : [],
+      status: formStatus || "published",
       eventTitle: event.title || event.displayName || "Event",
       eventSlug: event.slug || eventId,
-      eventDate: event.date,
-      startTime: event.startTime,
+      eventDate: event.date || null,
+      startTime: event.startTime || null,
       isEventPassed: isEventPassed,
     }
 
@@ -202,22 +213,20 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     // Return the questions, status, and event details
     return new NextResponse(JSON.stringify(responseData), {
       status: 200,
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
     })
   } catch (error) {
-    console.error(`Error in form API route:`, error)
+    console.error(`Unhandled error in form API route:`, error)
+
+    // Ensure we return a proper JSON response even for unhandled errors
     return new NextResponse(
       JSON.stringify({
-        error: "Failed to fetch form. Please try again.",
+        error: "An unexpected error occurred. Please try again later.",
         details: error instanceof Error ? error.message : "Unknown error",
       }),
       {
         status: 500,
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
       },
     )
   }
