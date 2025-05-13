@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { DynamicForm } from "@/components/forms/dynamic-form"
 import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, AlertCircle, Calendar, Clock, RefreshCcw, Bug } from "lucide-react"
+import { ArrowLeft, AlertCircle, Calendar, Clock, RefreshCcw, Bug, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { FormSuccessMessage } from "@/components/ui/form-success-message"
@@ -68,9 +68,7 @@ export default function PublicFormPage() {
   const [debugInfo, setDebugInfo] = useState("")
   const [showDebug, setShowDebug] = useState(false)
   const [fetchError, setFetchError] = useState(null)
-
-  // Determine the API endpoint based on the form type
-  const apiFormType = formTypeValue === "register" ? "attendee" : formTypeValue
+  const [debugResponse, setDebugResponse] = useState(null)
 
   // Function to safely parse JSON with error handling
   const safeJsonParse = async (response) => {
@@ -109,6 +107,42 @@ export default function PublicFormPage() {
     }
   }
 
+  // Test the debug endpoint
+  useEffect(() => {
+    const testDebugEndpoint = async () => {
+      try {
+        const debugUrl = `/api/events/${eventId}/forms/debug`
+        console.log(`Testing debug endpoint: ${debugUrl}`)
+
+        const response = await fetch(debugUrl, {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+        })
+
+        const result = await safeJsonParse(response)
+
+        if (result.success) {
+          console.log("Debug endpoint response:", result.data)
+          setDebugResponse(result.data)
+        } else {
+          console.error("Debug endpoint error:", result.error)
+          setDebugResponse({ error: result.error })
+        }
+      } catch (error) {
+        console.error("Error testing debug endpoint:", error)
+        setDebugResponse({ error: error.message })
+      }
+    }
+
+    if (eventId) {
+      testDebugEndpoint()
+    }
+  }, [eventId])
+
   useEffect(() => {
     const fetchFormData = async () => {
       try {
@@ -135,7 +169,6 @@ export default function PublicFormPage() {
               "Cache-Control": "no-cache, no-store, must-revalidate",
               Pragma: "no-cache",
               Expires: "0",
-              "x-form-request": "true", // Add this header to indicate it's a form request
             },
             signal: controller.signal,
           })
@@ -240,6 +273,7 @@ export default function PublicFormPage() {
     try {
       setSubmitting(true)
       setFormError("") // Clear any previous errors
+      const apiFormType = formTypeConfig[formTypeValue]?.apiEndpoint || formTypeValue // Use formTypeValue as default
       console.log(`Submitting form data for event ${eventId} and form type ${apiFormType}:`, formData)
 
       const response = await fetch(`/api/events/${eventId}/submissions/${apiFormType}`, {
@@ -247,7 +281,6 @@ export default function PublicFormPage() {
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
-          "x-form-request": "true", // Add this header to indicate it's a form request
         },
         body: JSON.stringify({ formData }),
       })
@@ -353,6 +386,15 @@ export default function PublicFormPage() {
               </div>
             )}
 
+            {debugResponse && (
+              <div className="mb-4 p-3 bg-white rounded-md">
+                <p className="font-medium mb-1">Debug endpoint test:</p>
+                <pre className="text-xs whitespace-pre-wrap break-words overflow-auto max-h-32">
+                  {JSON.stringify(debugResponse, null, 2)}
+                </pre>
+              </div>
+            )}
+
             {isEventPassed && eventDate && (
               <div className="flex flex-col gap-2 mb-4 p-3 bg-white rounded-md">
                 <div className="flex items-center text-gray-600">
@@ -385,6 +427,12 @@ export default function PublicFormPage() {
                   {showDebug ? "Hide Debug Info" : "Show Debug Info"}
                 </Button>
               )}
+              <Button variant="outline" asChild>
+                <Link href={`/events/${eventId}`} target="_blank">
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Open Event Page
+                </Link>
+              </Button>
             </div>
 
             {showDebug && debugInfo && (

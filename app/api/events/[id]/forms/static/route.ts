@@ -1,8 +1,6 @@
-import { NextResponse } from "next/server"
-
-// Get form questions for a specific form type - SIMPLIFIED VERSION
-export async function GET(request: Request, { params }: { params: { id: string; formType: string } }) {
-  console.log(`Form request received for event: ${params.id}, form type: ${params.formType}`)
+// Static form data endpoint for testing
+export async function GET(request: Request, { params }: { params: { id: string } }) {
+  console.log(`Static form request received for event: ${params.id}`)
 
   // Set headers for all responses to ensure proper content type
   const headers = {
@@ -11,7 +9,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
   }
 
   try {
-    // Return a static response for testing
+    // Return a static form data response
     const responseData = {
       questions: [
         {
@@ -28,29 +26,42 @@ export async function GET(request: Request, { params }: { params: { id: string; 
           placeholder: "Enter your email address",
           required: true,
         },
+        {
+          id: "phone",
+          type: "text",
+          label: "Phone Number",
+          placeholder: "Enter your phone number",
+          required: false,
+        },
+        {
+          id: "comments",
+          type: "textarea",
+          label: "Additional Comments",
+          placeholder: "Any additional information you'd like to share",
+          required: false,
+        },
       ],
       status: "published",
-      eventTitle: "Test Event",
+      eventTitle: "Test Event for " + params.id,
       eventSlug: params.id,
       eventDate: new Date().toISOString(),
       startTime: "10:00",
       isEventPassed: false,
     }
 
-    console.log("Sending static test response")
+    console.log("Sending static form data response")
 
     // Return the static response
-    return new NextResponse(JSON.stringify(responseData), {
+    return new Response(JSON.stringify(responseData), {
       status: 200,
       headers,
     })
   } catch (error) {
-    console.error(`Unhandled error in form API route:`, error)
+    console.error(`Error in static form endpoint:`, error)
 
-    // Ensure we return a proper JSON response even for unhandled errors
-    return new NextResponse(
+    return new Response(
       JSON.stringify({
-        error: "An unexpected error occurred. Please try again later.",
+        error: "An error occurred in the static form endpoint",
         details: error instanceof Error ? error.message : "Unknown error",
       }),
       {
