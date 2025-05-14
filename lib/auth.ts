@@ -61,6 +61,7 @@ export const authOptions: NextAuthOptions = {
             mobileNumber: user.mobileNumber,
           }
         } catch (error: any) {
+          console.error("Authentication error:", error)
           throw new Error(error.message || "Authentication failed")
         }
       },
@@ -121,9 +122,8 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 }
 
 // Add the missing export
-export const getServerSession = async () => {
-  return await getNextAuthServerSession(authOptions)
-}
+export const getServerSession = () => getNextAuthServerSession(authOptions)

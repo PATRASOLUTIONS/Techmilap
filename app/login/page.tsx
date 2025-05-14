@@ -80,6 +80,7 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
     setError("")
+    setShowSuccessMessage(false) // Reset success message
 
     // Simple validation
     if (!email) {
@@ -104,13 +105,22 @@ export default function LoginPage() {
         password,
       })
 
+      // Check for authentication errors
       if (result?.error) {
+        console.error("Authentication error:", result.error)
         setError(result.error)
         toast({
           variant: "destructive",
           title: "Authentication Error",
           description: result.error,
         })
+        setIsLoading(false)
+        return
+      }
+
+      // Only proceed if authentication was successful
+      if (!result?.ok) {
+        setError("An unexpected error occurred during login")
         setIsLoading(false)
         return
       }
@@ -125,29 +135,39 @@ export default function LoginPage() {
       setShowSuccessMessage(true)
 
       // Fetch user data to determine role
-      const userResponse = await fetch("/api/auth/me")
+      try {
+        const userResponse = await fetch("/api/auth/me")
 
-      if (userResponse.ok) {
-        const userData = await userResponse.json()
-        const userRole = userData.role || "user"
+        if (userResponse.ok) {
+          const userData = await userResponse.json()
+          const userRole = userData.role || "user"
 
-        // If there's a callback URL, use that
-        if (callbackUrl) {
-          window.location.href = decodeURIComponent(callbackUrl)
-          return
-        }
+          // If there's a callback URL, use that
+          if (callbackUrl) {
+            window.location.href = decodeURIComponent(callbackUrl)
+            return
+          }
 
-        // Redirect based on role
-        if (userRole === "super-admin") {
-          window.location.href = "/super-admin"
-        } else if (userRole === "event-planner") {
-          window.location.href = "/dashboard"
+          // Redirect based on role
+          if (userRole === "super-admin") {
+            window.location.href = "/super-admin"
+          } else if (userRole === "event-planner") {
+            window.location.href = "/dashboard"
+          } else {
+            window.location.href = "/user-dashboard"
+          }
         } else {
-          window.location.href = "/user-dashboard"
+          // Fallback redirect if we can't determine the role
+          console.error("Failed to fetch user data:", await userResponse.text())
+          setError("Failed to fetch user data. Please try again.")
+          setIsLoading(false)
+          setShowSuccessMessage(false)
         }
-      } else {
-        // Fallback redirect if we can't determine the role
-        window.location.href = "/user-dashboard"
+      } catch (fetchError) {
+        console.error("Error fetching user data:", fetchError)
+        setError("An error occurred while fetching user data. Please try again.")
+        setIsLoading(false)
+        setShowSuccessMessage(false)
       }
     } catch (err) {
       console.error("Login error:", err)
@@ -158,6 +178,7 @@ export default function LoginPage() {
         description: "An error occurred during login",
       })
       setIsLoading(false)
+      setShowSuccessMessage(false)
     }
   }
 
