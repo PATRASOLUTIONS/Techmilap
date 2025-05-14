@@ -47,6 +47,9 @@ export function DashboardSidebar() {
   // State to track if sidebar is collapsed (desktop only)
   const [isCollapsed, setIsCollapsed] = useState(false)
 
+  // Add a new state to track the last clicked icon
+  const [lastClickedIcon, setLastClickedIcon] = useState<string | null>(null)
+
   useEffect(() => {
     setMounted(true)
     console.log("Dashboard sidebar mounted, session:", session?.user)
@@ -82,6 +85,16 @@ export function DashboardSidebar() {
   const handleLogout = async () => {
     await signOut({ redirect: false })
     router.push("/")
+  }
+
+  // Add this function after the handleLogout function
+  const handleIconClick = (itemTitle: string) => {
+    setLastClickedIcon(itemTitle)
+
+    // Reset the animation after 2 seconds
+    setTimeout(() => {
+      setLastClickedIcon(null)
+    }, 2000)
   }
 
   // Get submenu icon based on title
@@ -351,9 +364,22 @@ export function DashboardSidebar() {
                                       ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-700 font-medium"
                                       : "hover:bg-slate-100 hover:text-blue-600",
                                   )}
+                                  onClick={() => handleIconClick(child.title)}
                                 >
                                   <Link href={child.href} className="flex items-center gap-3">
-                                    <IconComponent className="h-4 w-4" />
+                                    <motion.div
+                                      animate={
+                                        lastClickedIcon === child.title
+                                          ? {
+                                              y: [0, -5, 0, -5, 0, -3, 0],
+                                              rotate: [0, -5, 5, -5, 5, -3, 0],
+                                              transition: { duration: 2 },
+                                            }
+                                          : {}
+                                      }
+                                    >
+                                      <IconComponent className="h-4 w-4" />
+                                    </motion.div>
                                     {child.title}
                                   </Link>
                                 </Button>
@@ -375,6 +401,7 @@ export function DashboardSidebar() {
                         ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-700"
                         : "hover:bg-slate-100 hover:text-blue-600",
                     )}
+                    onClick={() => handleIconClick(item.title)}
                   >
                     <Link href={item.href} className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-md bg-gradient-to-r from-blue-500/10 to-cyan-500/10 flex items-center justify-center">
@@ -535,9 +562,22 @@ export function DashboardSidebar() {
                                     ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-700 font-medium"
                                     : "hover:bg-slate-100 hover:text-blue-600",
                                 )}
+                                onClick={() => handleIconClick(child.title)}
                               >
                                 <Link href={child.href} className="flex items-center gap-3">
-                                  <IconComponent className="h-4 w-4" />
+                                  <motion.div
+                                    animate={
+                                      lastClickedIcon === child.title
+                                        ? {
+                                            y: [0, -5, 0, -5, 0, -3, 0],
+                                            rotate: [0, -5, 5, -5, 5, -3, 0],
+                                            transition: { duration: 2 },
+                                          }
+                                        : {}
+                                    }
+                                  >
+                                    <IconComponent className="h-4 w-4" />
+                                  </motion.div>
                                   {child.title}
                                 </Link>
                               </Button>
@@ -561,16 +601,26 @@ export function DashboardSidebar() {
                       : "hover:bg-slate-100 hover:text-blue-600",
                   )}
                   title={isCollapsed ? item.title : undefined}
+                  onClick={() => handleIconClick(item.title)}
                 >
                   <Link href={item.href} className={cn("flex items-center", isCollapsed ? "justify-center" : "gap-3")}>
-                    <div
+                    <motion.div
                       className={cn(
                         "rounded-md bg-gradient-to-r from-blue-500/10 to-cyan-500/10 flex items-center justify-center",
                         isCollapsed ? "h-10 w-10" : "h-8 w-8",
                       )}
+                      animate={
+                        lastClickedIcon === item.title
+                          ? {
+                              y: [0, -5, 0, -5, 0, -3, 0],
+                              rotate: [0, -5, 5, -5, 5, -3, 0],
+                              transition: { duration: 2 },
+                            }
+                          : {}
+                      }
                     >
                       <item.icon className="h-4 w-4 text-blue-600" />
-                    </div>
+                    </motion.div>
                     {!isCollapsed && item.title}
                   </Link>
                 </Button>
