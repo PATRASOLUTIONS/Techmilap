@@ -35,6 +35,18 @@ export default function LoginPage() {
 
   const { toast } = useToast()
 
+  // Clean URL if there's an error parameter
+  useEffect(() => {
+    // Check if we have error parameters in the URL
+    if (searchParams.has("error") || searchParams.has("callbackUrl")) {
+      // Only clean the URL if it contains error-related parameters
+      if (searchParams.get("callbackUrl")?.includes("error") || searchParams.get("error")) {
+        // Replace the current URL with a clean /login path
+        window.history.replaceState({}, document.title, "/login")
+      }
+    }
+  }, [searchParams])
+
   // Check if user just registered or verified email
   useEffect(() => {
     if (searchParams.get("registered") === "true") {
@@ -56,8 +68,8 @@ export default function LoginPage() {
       // Get the callback URL if it exists
       const callbackUrl = searchParams.get("callbackUrl")
 
-      // If there's a specific callback URL, use that instead of role-based redirection
-      if (callbackUrl) {
+      // If there's a specific callback URL that's not an error page, use it
+      if (callbackUrl && !callbackUrl.includes("error")) {
         router.push(decodeURIComponent(callbackUrl))
         return
       }
@@ -96,11 +108,12 @@ export default function LoginPage() {
     }
 
     try {
-      // Get callback URL if it exists
+      // Get callback URL if it exists and is not an error page
       const callbackUrl = searchParams.get("callbackUrl")
+      const validCallbackUrl = callbackUrl && !callbackUrl.includes("error") ? callbackUrl : null
 
       const result = await signIn("credentials", {
-        redirect: false,
+        redirect: false, // Important: never redirect automatically
         email,
         password,
       })
@@ -130,6 +143,10 @@ export default function LoginPage() {
               ? "Invalid credentials"
               : result.error,
         })
+
+        // Clean the URL if there are error parameters
+        window.history.replaceState({}, document.title, "/login")
+
         setIsLoading(false)
         return
       }
@@ -138,6 +155,10 @@ export default function LoginPage() {
       if (!result?.ok) {
         setError("Invalid credentials")
         setIsLoading(false)
+
+        // Clean the URL if there are error parameters
+        window.history.replaceState({}, document.title, "/login")
+
         return
       }
 
@@ -158,9 +179,9 @@ export default function LoginPage() {
           const userData = await userResponse.json()
           const userRole = userData.role || "user"
 
-          // If there's a callback URL, use that
-          if (callbackUrl) {
-            window.location.href = decodeURIComponent(callbackUrl)
+          // If there's a valid callback URL, use that
+          if (validCallbackUrl) {
+            window.location.href = decodeURIComponent(validCallbackUrl)
             return
           }
 
@@ -178,12 +199,18 @@ export default function LoginPage() {
           setError("Failed to fetch user data. Please try again.")
           setIsLoading(false)
           setShowSuccessMessage(false)
+
+          // Clean the URL
+          window.history.replaceState({}, document.title, "/login")
         }
       } catch (fetchError) {
         console.error("Error fetching user data:", fetchError)
         setError("An error occurred while fetching user data. Please try again.")
         setIsLoading(false)
         setShowSuccessMessage(false)
+
+        // Clean the URL
+        window.history.replaceState({}, document.title, "/login")
       }
     } catch (err) {
       console.error("Login error:", err)
@@ -195,6 +222,9 @@ export default function LoginPage() {
       })
       setIsLoading(false)
       setShowSuccessMessage(false)
+
+      // Clean the URL
+      window.history.replaceState({}, document.title, "/login")
     }
   }
 
