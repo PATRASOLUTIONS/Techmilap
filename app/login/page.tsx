@@ -35,22 +35,17 @@ export default function LoginPage() {
 
   const { toast } = useToast()
 
-  // Clean URL if there's an error parameter or we're on an error page
+  // Clean URL if there's an error parameter
   useEffect(() => {
-    // Check if we're on an error page or have error parameters
-    const currentPath = window.location.pathname
-    const currentSearch = window.location.search
-
-    if (
-      currentPath.includes("/error") ||
-      currentPath.includes("/api/auth/error") ||
-      currentSearch.includes("error") ||
-      currentSearch.includes("callbackUrl")
-    ) {
-      // Clean the URL by replacing with just /login
-      window.history.replaceState({}, document.title, "/login")
+    // Check if we have error parameters in the URL
+    if (searchParams.has("error") || searchParams.has("callbackUrl")) {
+      // Only clean the URL if it contains error-related parameters
+      if (searchParams.get("callbackUrl")?.includes("error") || searchParams.get("error")) {
+        // Replace the current URL with a clean /login path
+        window.history.replaceState({}, document.title, "/login")
+      }
     }
-  }, [])
+  }, [searchParams])
 
   // Check if user just registered or verified email
   useEffect(() => {
@@ -117,9 +112,8 @@ export default function LoginPage() {
       const callbackUrl = searchParams.get("callbackUrl")
       const validCallbackUrl = callbackUrl && !callbackUrl.includes("error") ? callbackUrl : null
 
-      // Important: Use the direct credentials approach to avoid redirects
       const result = await signIn("credentials", {
-        redirect: false, // Never redirect automatically
+        redirect: false, // Important: never redirect automatically
         email,
         password,
       })
