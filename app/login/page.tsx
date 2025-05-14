@@ -108,11 +108,27 @@ export default function LoginPage() {
       // Check for authentication errors
       if (result?.error) {
         console.error("Authentication error:", result.error)
-        setError(result.error)
+
+        // Display a generic error message for invalid credentials
+        if (
+          result.error.includes("Invalid credentials") ||
+          result.error.includes("No user found") ||
+          result.error.includes("Invalid password")
+        ) {
+          setError("Invalid credentials")
+        } else {
+          setError(result.error)
+        }
+
         toast({
           variant: "destructive",
           title: "Authentication Error",
-          description: result.error,
+          description:
+            result.error.includes("Invalid credentials") ||
+            result.error.includes("No user found") ||
+            result.error.includes("Invalid password")
+              ? "Invalid credentials"
+              : result.error,
         })
         setIsLoading(false)
         return
@@ -120,7 +136,7 @@ export default function LoginPage() {
 
       // Only proceed if authentication was successful
       if (!result?.ok) {
-        setError("An unexpected error occurred during login")
+        setError("Invalid credentials")
         setIsLoading(false)
         return
       }
@@ -171,11 +187,11 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error("Login error:", err)
-      setError("An error occurred during login")
+      setError("Invalid credentials")
       toast({
         variant: "destructive",
         title: "Error",
-        description: "An error occurred during login",
+        description: "Invalid credentials",
       })
       setIsLoading(false)
       setShowSuccessMessage(false)

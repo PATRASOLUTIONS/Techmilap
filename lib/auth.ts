@@ -23,8 +23,10 @@ export const authOptions: NextAuthOptions = {
 
           const user = await User.findOne({ email: credentials.email.toLowerCase() }).select("+password")
 
+          // Generic error for security - don't reveal if email exists or password is wrong
           if (!user) {
-            throw new Error("No user found with this email")
+            console.log(`Login attempt failed: User not found for email ${credentials.email}`)
+            throw new Error("Invalid credentials")
           }
 
           // Check if the user's email is verified
@@ -35,7 +37,8 @@ export const authOptions: NextAuthOptions = {
           const isPasswordValid = await compare(credentials.password, user.password)
 
           if (!isPasswordValid) {
-            throw new Error("Invalid password")
+            console.log(`Login attempt failed: Invalid password for email ${credentials.email}`)
+            throw new Error("Invalid credentials")
           }
 
           return {
