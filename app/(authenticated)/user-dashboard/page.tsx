@@ -1,98 +1,133 @@
 import { getServerSession } from "next-auth/next"
-import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
+import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import { Calendar, ChevronRight, Users, Ticket } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Ticket, Star, Calendar, Clock } from "lucide-react"
 
-export default async function UserDashboard() {
+export default async function UserDashboardPage() {
   const session = await getServerSession(authOptions)
 
   if (!session) {
     redirect("/login")
   }
 
-  // If user is an event planner or super admin, redirect to appropriate dashboard
-  if (session.user.role === "event-planner") {
-    redirect("/dashboard")
-  } else if (session.user.role === "super-admin") {
-    redirect("/super-admin")
-  }
+  console.log("User dashboard page rendering for user:", session.user.name, "with role:", session.user.role)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">My Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back, {session.user.name}! Here's your event overview.</p>
+        <p className="text-muted-foreground">
+          Welcome back, {session.user.name}! Here's an overview of your activities.
+        </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Things you can do</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-2">
-            <Button asChild variant="outline" className="justify-between">
-              <Link href="/explore">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>Explore Events</span>
-                </div>
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="justify-between">
-              <Link href="/my-events">
-                <div className="flex items-center gap-2">
-                  <Ticket className="h-4 w-4" />
-                  <span>My Tickets</span>
-                </div>
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="justify-between">
-              <Link href="/profile">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  <span>Update Profile</span>
-                </div>
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>Upcoming Events</CardTitle>
-            <CardDescription>Events you're registered for</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* This would be populated from the database in a real implementation */}
-            <div className="text-center py-6 text-muted-foreground">
-              <p>You haven't registered for any upcoming events yet.</p>
-              <Button asChild variant="link" className="mt-2">
-                <Link href="/explore">Explore Events</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>Your Activity</CardTitle>
-            <CardDescription>Recent actions and notifications</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">My Tickets</CardTitle>
+            <Ticket className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-center py-6 text-muted-foreground">
-              <p>No recent activity to show.</p>
-              <p className="text-sm mt-1">Your activity will appear here as you use the platform.</p>
-            </div>
+            <div className="text-2xl font-bold">5</div>
+            <p className="text-xs text-muted-foreground">For upcoming events</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">My Reviews</CardTitle>
+            <Star className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">12</div>
+            <p className="text-xs text-muted-foreground">Across 8 events</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Upcoming Events</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">3</div>
+            <p className="text-xs text-muted-foreground">Next event in 2 days</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Past Events</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">15</div>
+            <p className="text-xs text-muted-foreground">Attended in total</p>
           </CardContent>
         </Card>
       </div>
+
+      <Tabs defaultValue="upcoming">
+        <TabsList>
+          <TabsTrigger value="upcoming">Upcoming Events</TabsTrigger>
+          <TabsTrigger value="tickets">My Tickets</TabsTrigger>
+        </TabsList>
+        <TabsContent value="upcoming" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Upcoming Events</CardTitle>
+              <CardDescription>Events you're registered for in the next 30 days.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {[1, 2, 3].map((i) => (
+                    <Card key={i}>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Tech Conference {i}</CardTitle>
+                        <CardDescription>May {10 + i}, 2023</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-sm">
+                          <p>Location: Conference Center {i}</p>
+                          <p>Status: Confirmed</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="tickets" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>My Tickets</CardTitle>
+              <CardDescription>All your event tickets in one place.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Card key={i}>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">Ticket #{1000 + i}</CardTitle>
+                        <CardDescription>{i <= 3 ? `Tech Conference ${i}` : `Workshop ${i - 3}`}</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-sm">
+                          <p>Date: {i <= 3 ? `May ${10 + i}, 2023` : `June ${i}, 2023`}</p>
+                          <p>Type: {i % 2 === 0 ? "VIP" : "Standard"}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

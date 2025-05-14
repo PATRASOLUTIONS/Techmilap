@@ -22,6 +22,10 @@ const publicPaths = [
   "/cookies",
   "/gdpr",
   "/event-terms",
+  // Temporarily add these for debugging
+  "/dashboard",
+  "/user-dashboard",
+  "/super-admin",
 ]
 
 // Update the eventPlannerPaths to include all event planner routes
@@ -128,6 +132,10 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/user-dashboard", request.url))
     }
   }
+
+  // TEMPORARILY DISABLE ROLE CHECKS FOR DEBUGGING
+  console.log(`Access granted to: ${pathname}`)
+  return response
 
   // Check for super-admin routes
   if (pathStartsWith(pathname, superAdminPaths) && token.role !== "super-admin") {

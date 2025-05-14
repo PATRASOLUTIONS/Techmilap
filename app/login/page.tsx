@@ -32,35 +32,9 @@ export default function LoginPage() {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [registeredSuccess, setRegisteredSuccess] = useState(false)
   const [verifiedSuccess, setVerifiedSuccess] = useState(false)
+  const [redirectUrl, setRedirectUrl] = useState("")
 
   const { toast } = useToast()
-
-  // Redirect if already authenticated based on role
-  useEffect(() => {
-    if (status === "authenticated" && session?.user) {
-      console.log("User is authenticated, redirecting based on role:", session.user.role)
-
-      // Get the callback URL if it exists
-      const callbackUrl = searchParams.get("callbackUrl")
-
-      // If there's a specific callback URL, use that instead of role-based redirection
-      if (callbackUrl) {
-        router.push(decodeURIComponent(callbackUrl))
-        return
-      }
-
-      // Otherwise, redirect based on role
-      const role = session.user.role
-
-      if (role === "super-admin") {
-        router.push("/super-admin")
-      } else if (role === "event-planner") {
-        router.push("/dashboard")
-      } else {
-        router.push("/user-dashboard")
-      }
-    }
-  }, [session, status, router, searchParams])
 
   // Check if user just registered or verified email
   useEffect(() => {
@@ -76,6 +50,36 @@ export default function LoginPage() {
   useEffect(() => {
     if (error) setError("")
   }, [email, password])
+
+  // Redirect if already authenticated based on role
+  useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      console.log("User is authenticated, redirecting based on role:", session.user.role)
+
+      // Get the callback URL if it exists
+      const callbackUrl = searchParams.get("callbackUrl")
+
+      // If there's a specific callback URL, use that instead of role-based redirection
+      if (callbackUrl) {
+        console.log("Redirecting to callback URL:", callbackUrl)
+        router.push(decodeURIComponent(callbackUrl))
+        return
+      }
+
+      // Otherwise, redirect based on role
+      const role = session.user.role
+
+      let targetUrl = "/user-dashboard"
+      if (role === "super-admin") {
+        targetUrl = "/super-admin"
+      } else if (role === "event-planner") {
+        targetUrl = "/dashboard"
+      }
+
+      console.log("Redirecting to role-based URL:", targetUrl)
+      router.push(targetUrl)
+    }
+  }, [session, status, router, searchParams])
 
   // Handle login with role-based redirection
   const handleLogin = async (e: React.FormEvent) => {
@@ -97,6 +101,8 @@ export default function LoginPage() {
     }
 
     try {
+      console.log("Attempting login for email:", email)
+
       // Get callback URL if it exists
       const callbackUrl = searchParams.get("callbackUrl")
 
@@ -107,6 +113,7 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
+        console.error("Login error:", result.error)
         setError(result.error)
         toast({
           variant: "destructive",
@@ -117,6 +124,8 @@ export default function LoginPage() {
         return
       }
 
+      console.log("Login successful, result:", result)
+
       // Show success toast
       toast({
         variant: "success",
@@ -126,32 +135,54 @@ export default function LoginPage() {
 
       setShowSuccessMessage(true)
 
-      // Use a direct window.location approach for more reliable redirection
-      // If there's a callback URL, use that
-      if (callbackUrl) {
-        window.location.href = decodeURIComponent(callbackUrl)
-        return
-      }
+      // Determine redirect URL based on user role
+      try {
+        console.log("Fetching user data to determine role")
+        const userResponse = await fetch("/api/auth/me")
 
-      // Fetch user data to determine role-based redirect
-      const userResponse = await fetch("/api/auth/me")
-      if (userResponse.ok) {
-        const userData = await userResponse.json()
-        const userRole = userData.role || "user"
+        if (userResponse.ok) {
+          const userData = await userResponse.json()
+          console.log("User data fetched:", userData)
 
-        console.log("User role detected for redirect:", userRole)
+          const userRole = userData.role || "user"
+          console.log("User role for redirect:", userRole)
 
-        // Force a hard redirect based on role
-        if (userRole === "super-admin") {
-          window.location.href = "/super-admin"
-        } else if (userRole === "event-planner") {
-          window.location.href = "/dashboard"
+          // If there's a callback URL, use that
+          if (callbackUrl) {
+            const decodedUrl = decodeURIComponent(callbackUrl)
+            console.log("Using callback URL for redirect:", decodedUrl)
+            setRedirectUrl(decodedUrl)
+
+            // Use a timeout to ensure the UI updates before redirect
+            setTimeout(() => {
+              window.location.href = decodedUrl
+            }, 1000)
+            return
+          }
+
+          // Otherwise redirect based on role
+          let targetUrl = "/user-dashboard"
+          if (userRole === "super-admin") {
+            targetUrl = "/super-admin"
+          } else if (userRole === "event-planner") {
+            targetUrl = "/dashboard"
+          }
+
+          console.log("Setting redirect URL to:", targetUrl)
+          setRedirectUrl(targetUrl)
+
+          // Use a timeout to ensure the UI updates before redirect
+          setTimeout(() => {
+            window.location.href = targetUrl
+          }, 1000)
         } else {
-          window.location.href = "/user-dashboard"
+          console.error("Failed to fetch user data:", await userResponse.text())
+          // Fallback redirect
+          window.location.href = "/dashboard"
         }
-      } else {
-        // Fallback redirect if we can't determine the role
-        console.error("Could not fetch user data for redirection, using fallback")
+      } catch (error) {
+        console.error("Error during role-based redirect:", error)
+        // Fallback redirect
         window.location.href = "/dashboard"
       }
     } catch (err) {
@@ -183,6 +214,7 @@ export default function LoginPage() {
             className="mx-auto mb-4 animate-pulse"
           />
           <p className="text-[#170f83]">Redirecting to dashboard...</p>
+          {redirectUrl && <p className="text-sm text-gray-500 mt-2">Going to: {redirectUrl}</p>}
         </div>
       </div>
     )
@@ -295,7 +327,9 @@ export default function LoginPage() {
                       >
                         <Alert className="bg-[#170f83]/10 border-[#170f83]/20 text-[#170f83] flex items-center space-x-2">
                           <Info className="h-4 w-4" />
-                          <AlertDescription>Login successful! Redirecting...</AlertDescription>
+                          <AlertDescription>
+                            Login successful! Redirecting to {redirectUrl || "dashboard"}...
+                          </AlertDescription>
                         </Alert>
                       </motion.div>
                     )}
