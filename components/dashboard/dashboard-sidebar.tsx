@@ -35,7 +35,7 @@ import { motion, AnimatePresence } from "framer-motion"
 
 export function DashboardSidebar() {
   const pathname = usePathname()
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const router = useRouter()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -50,16 +50,49 @@ export function DashboardSidebar() {
   // Add a new state to track the last clicked icon
   const [lastClickedIcon, setLastClickedIcon] = useState<string | null>(null)
 
+  // Add a state to store the user role to prevent flickering
+  const [userRole, setUserRole] = useState<string>("loading")
+
+  const refreshUserRole = async () => {
+    try {
+      const response = await fetch("/api/auth/me")
+      if (response.ok) {
+        const userData = await response.json()
+        if (userData.role && userData.role !== userRole) {
+          console.log("Updating user role from API:", userData.role)
+          setUserRole(userData.role)
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing user role:", error)
+    }
+  }
+
   useEffect(() => {
     setMounted(true)
-    console.log("Dashboard sidebar mounted, session:", session?.user)
-  }, [session])
 
-  if (!mounted) {
+    // Only update the role when session is available and different from current
+    if (status === "authenticated" && session?.user?.role) {
+      console.log("Setting user role to:", session.user.role)
+      setUserRole(session.user.role)
+    } else if (status === "unauthenticated") {
+      console.log("User is not authenticated")
+      setUserRole("user") // Default to user if not authenticated
+    }
+  }, [session, status])
+
+  // Call this function when the component mounts
+  useEffect(() => {
+    if (mounted && userRole !== "loading") {
+      refreshUserRole()
+    }
+  }, [mounted, userRole])
+
+  // Don't render anything until we're mounted and have determined the role
+  if (!mounted || userRole === "loading") {
     return null
   }
 
-  const userRole = session?.user?.role || "user"
   console.log("Rendering sidebar for user role:", userRole)
 
   const isActive = (path: string) => {
@@ -96,6 +129,8 @@ export function DashboardSidebar() {
       setLastClickedIcon(null)
     }, 2000)
   }
+
+  // Add this function after handleIconClick
 
   // Get submenu icon based on title
   const getSubmenuIcon = (title) => {
@@ -625,6 +660,13 @@ export function DashboardSidebar() {
                   </Link>
                 </Button>
               ),
+            )}
+            {userRole === "super-admin" && (
+              <div className="mt-4 px-2">
+                <Button variant="outline" size="sm" className="w-full text-xs" onClick={refreshUserRole}>
+                  Debug: Refresh Role ({userRole})
+                </Button>
+              </div>
             )}
           </div>
         </ScrollArea>

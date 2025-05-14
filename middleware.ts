@@ -95,14 +95,19 @@ export async function middleware(request: NextRequest) {
 
   // If no token and trying to access a protected route, redirect to login
   if (!token) {
+    console.log("No token found, redirecting to login")
     const url = new URL("/login", request.url)
     url.searchParams.set("callbackUrl", encodeURIComponent(request.url))
     return NextResponse.redirect(url)
   }
 
+  // Log the token role for debugging
+  console.log(`Token found with role: ${token.role || "no role"}`)
+
   // If user is already authenticated and trying to access login/signup pages, redirect based on role
   if (token && (pathname === "/login" || pathname === "/signup")) {
     const role = (token.role as string) || "user"
+    console.log(`Redirecting authenticated user with role ${role} from login/signup`)
 
     if (role === "super-admin") {
       return NextResponse.redirect(new URL("/super-admin", request.url))

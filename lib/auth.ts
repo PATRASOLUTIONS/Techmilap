@@ -95,8 +95,14 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (token) {
+        // Ensure role is always set, defaulting to "user" if not present
         session.user.id = token.id as string
-        session.user.role = token.role as string
+        session.user.role = (token.role as string) || "user"
+
+        // Log the role being set in the session for debugging
+        console.log(`Setting session role to: ${session.user.role}`)
+
+        // Add other user properties
         session.user.corporateEmail = token.corporateEmail as string
         session.user.designation = token.designation as string
         session.user.eventOrganizer = token.eventOrganizer as string

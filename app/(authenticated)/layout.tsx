@@ -14,7 +14,9 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
       redirect("/login")
     }
 
-    console.log("Authenticated layout rendering for user:", session.user.name, "with role:", session.user.role)
+    // Ensure we have a role, defaulting to "user" if not set
+    const userRole = session.user.role || "user"
+    console.log("Authenticated layout rendering for user:", session.user.name, "with role:", userRole)
 
     return (
       <div className="flex min-h-screen flex-col">
