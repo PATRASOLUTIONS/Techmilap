@@ -1,6 +1,4 @@
 "use client"
-
-import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 
@@ -17,9 +15,8 @@ import { CheckInStats } from "@/components/check-in/check-in-stats"
 import { CheckInHistory } from "@/components/check-in/check-in-history"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, QrCode, Search, BarChart, History, Bug } from "lucide-react"
+import { ArrowLeft, QrCode, Search, BarChart, History } from "lucide-react"
 import Link from "next/link"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 export default function EventCheckInPage() {
   const { id } = useParams() || {}
@@ -35,10 +32,6 @@ export default function EventCheckInPage() {
   const [manualTicketId, setManualTicketId] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
   const [cameraPermission, setCameraPermission] = useState<"prompt" | "granted" | "denied">("prompt")
-  const [debugMode, setDebugMode] = useState(false)
-  const [attendeesList, setAttendeesList] = useState<any[]>([])
-  const [loadingAttendees, setLoadingAttendees] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
   const [allowDuplicateCheckIn, setAllowDuplicateCheckIn] = useState(false)
 
   // Stop scanning when switching away from scan tab
@@ -80,53 +73,6 @@ export default function EventCheckInPage() {
       fetchEvent()
     }
   }, [eventId, toast])
-
-  const fetchAttendees = async () => {
-    try {
-      setLoadingAttendees(true)
-      const response = await fetch(`/api/events/${eventId}/submissions?formType=attendee&status=approved`)
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch attendees")
-      }
-
-      const data = await response.json()
-
-      // Transform the data to include name and email
-      const transformedAttendees = data.submissions.map((submission: any) => {
-        const formData = submission.formData || {}
-        const name =
-          formData.name ||
-          formData.fullName ||
-          (formData.firstName && formData.lastName ? `${formData.firstName} ${formData.lastName}` : null) ||
-          submission.userName ||
-          "Unknown"
-
-        const email = formData.email || formData.emailAddress || submission.userEmail || "No email"
-
-        return {
-          _id: submission._id,
-          name,
-          email,
-          isCheckedIn: submission.isCheckedIn || false,
-          checkInCount: submission.checkInCount || 0,
-          checkedInAt: submission.checkedInAt,
-          formData,
-        }
-      })
-
-      setAttendeesList(transformedAttendees || [])
-    } catch (err: any) {
-      console.error("Error fetching attendees:", err)
-      toast({
-        title: "Error",
-        description: err.message,
-        variant: "destructive",
-      })
-    } finally {
-      setLoadingAttendees(false)
-    }
-  }
 
   const handleScan = async (data: string) => {
     try {
@@ -276,30 +222,6 @@ export default function EventCheckInPage() {
     setIsScanning(true)
   }
 
-  const toggleDebugMode = () => {
-    setDebugMode(!debugMode)
-    if (!debugMode && attendeesList.length === 0) {
-      fetchAttendees()
-    }
-  }
-
-  const handleSelectAttendee = (attendee: any) => {
-    if (attendee._id) {
-      setManualTicketId(attendee._id)
-      setActiveTab("manual")
-      setDebugMode(false)
-    }
-  }
-
-  const filteredAttendees = searchTerm
-    ? attendeesList.filter(
-        (attendee) =>
-          attendee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          attendee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          attendee._id.toString().includes(searchTerm),
-      )
-    : attendeesList
-
   if (loading) {
     return (
       <div className="container mx-auto py-8">
@@ -340,111 +262,8 @@ export default function EventCheckInPage() {
               Allow duplicate check-ins
             </Label>
           </div>
-          <Button variant="outline" size="sm" onClick={toggleDebugMode}>
-            <Bug className="h-4 w-4 mr-2" />
-            {debugMode ? "Hide Debug" : "Debug Mode"}
-          </Button>
         </div>
       </div>
-
-      {debugMode && (
-        <Card className="mb-6 border-dashed border-amber-300 bg-amber-50">
-          <CardHeader>
-            <CardTitle className="text-amber-800">Debug Mode</CardTitle>
-            <CardDescription>Use this mode to troubleshoot check-in issues and view attendee data</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Accordion type="single" collapsible>
-              <AccordionItem value="attendees">
-                <AccordionTrigger>
-                  View Approved Attendees ({loadingAttendees ? "Loading..." : attendeesList.length})
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="mb-4">
-                    <Input
-                      placeholder="Search by name, email or ID"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="mb-2"
-                    />
-                  </div>
-
-                  {loadingAttendees ? (
-                    <div className="text-center py-4">Loading attendees...</div>
-                  ) : attendeesList.length === 0 ? (
-                    <div className="text-center py-4">No approved attendees found for this event</div>
-                  ) : filteredAttendees.length === 0 ? (
-                    <div className="text-center py-4">No attendees match your search</div>
-                  ) : (
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {filteredAttendees.map((attendee) => (
-                        <div
-                          key={attendee._id}
-                          className="p-3 border rounded-md hover:bg-gray-50 cursor-pointer flex justify-between items-center"
-                          onClick={() => handleSelectAttendee(attendee)}
-                        >
-                          <div>
-                            <div className="font-medium">{attendee.name}</div>
-                            <div className="text-sm text-gray-500">{attendee.email}</div>
-                            <div className="text-xs text-gray-400">ID: {attendee._id}</div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {attendee.isCheckedIn && (
-                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                Checked In {attendee.checkInCount > 1 ? `(${attendee.checkInCount}x)` : ""}
-                              </Badge>
-                            )}
-                            <Button size="sm" variant="outline">
-                              Select
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </AccordionContent>
-              </AccordionItem>
-
-              {scanResult && (
-                <AccordionItem value="result">
-                  <AccordionTrigger>Last Check-in Result Details</AccordionTrigger>
-                  <AccordionContent>
-                    <pre className="bg-gray-100 p-4 rounded-md overflow-x-auto text-xs">
-                      {JSON.stringify(scanResult, null, 2)}
-                    </pre>
-                  </AccordionContent>
-                </AccordionItem>
-              )}
-
-              <AccordionItem value="help">
-                <AccordionTrigger>Troubleshooting Tips</AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-2 text-sm">
-                    <p>
-                      <strong>Invalid Ticket Error:</strong> This usually means the system couldn't find a matching
-                      ticket or registration.
-                    </p>
-                    <p>
-                      <strong>Check the following:</strong>
-                    </p>
-                    <ul className="list-disc pl-5 space-y-1">
-                      <li>Verify you're checking in for the correct event</li>
-                      <li>Make sure the ticket ID is entered correctly</li>
-                      <li>Try using the attendee's email address instead of the ID</li>
-                      <li>Check if the registration has been approved</li>
-                      <li>Verify the attendee is registered for this specific event</li>
-                    </ul>
-                    <p className="mt-2">
-                      <strong>Still having issues?</strong> Use the "View Approved Attendees" option above to find and
-                      select the correct attendee.
-                    </p>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </CardContent>
-        </Card>
-      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
