@@ -2,6 +2,7 @@ import type React from "react"
 import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
+import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar"
 
 export default async function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -9,6 +10,7 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
     const session = await getServerSession(authOptions)
 
     if (!session) {
+      console.log("No session found in authenticated layout, redirecting to login")
       redirect("/login")
     }
 
@@ -16,9 +18,10 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
 
     return (
       <div className="flex min-h-screen flex-col">
-        <DashboardSidebar />
-        <div className="flex-1 md:ml-64">
-          <div className="container mx-auto p-6">{children}</div>
+        <DashboardHeader />
+        <div className="flex flex-1">
+          <DashboardSidebar />
+          <main className="flex-1 p-6 md:p-8 pt-6">{children}</main>
         </div>
       </div>
     )

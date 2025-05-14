@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
 
-// Define public paths that don't require authentication
+// Modify the publicPaths array to remove dashboard and user-dashboard
 const publicPaths = [
   "/",
   "/login",
@@ -22,21 +22,34 @@ const publicPaths = [
   "/cookies",
   "/gdpr",
   "/event-terms",
-  "/dashboard", // Temporarily add dashboard to public paths for debugging
-  "/user-dashboard", // Temporarily add user-dashboard to public paths for debugging
 ]
 
-// Define paths that require super-admin role
-const superAdminPaths = ["/super-admin"]
+// Update the eventPlannerPaths to include all event planner routes
+const eventPlannerPaths = [
+  "/dashboard",
+  "/dashboard/events/create",
+  "/create-event",
+  "/event-dashboard",
+  "/my-events",
+  "/past-events",
+  "/event-reviews",
+  "/settings",
+  "/profile",
+  "/explore",
+]
 
-// Define paths that require event-planner role
-const eventPlannerPaths = ["/dashboard/events/create", "/create-event", "/event-dashboard"]
+// Add userPaths for regular user routes
+const userPaths = ["/user-dashboard", "/my-tickets", "/my-reviews", "/profile", "/settings", "/explore"]
+
+// Define superAdminPaths
+const superAdminPaths = ["/super-admin", "/super-admin/users", "/super-admin/events", "/super-admin/settings"]
 
 // Function to check if a path starts with any of the given prefixes
 function pathStartsWith(path: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
 }
 
+// Update the middleware function to handle role-based access more effectively
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -73,9 +86,10 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.includes(".") ||
-    pathname.startsWith("/api/seed")
+    pathname.startsWith("/api/seed") ||
+    pathname.startsWith("/api/debug")
   ) {
-    console.log(`Allowing access to static file: ${pathname}`)
+    console.log(`Allowing access to static file or API: ${pathname}`)
     return response
   }
 
@@ -130,6 +144,19 @@ export async function middleware(request: NextRequest) {
   if (pathStartsWith(pathname, eventPlannerPaths) && token.role !== "event-planner" && token.role !== "super-admin") {
     console.log(`Non-event-planner accessing event-planner route: ${pathname}`)
     return NextResponse.redirect(new URL("/user-dashboard", request.url))
+  }
+
+  // Check for user routes - super-admin and event-planner can access user routes
+  if (pathStartsWith(pathname, userPaths)) {
+    console.log(`User accessing user route: ${pathname}`)
+    // Allow access for all authenticated users
+    return response
+  }
+
+  // For any other authenticated routes
+  if (pathname.startsWith("/(authenticated)") || pathname.includes("/api/")) {
+    console.log(`Authenticated user accessing protected route: ${pathname}`)
+    return response
   }
 
   // Rate limiting for API routes

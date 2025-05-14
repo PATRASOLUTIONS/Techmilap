@@ -1,211 +1,45 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
-import Image from "next/image"
-import { useSession, signOut } from "next-auth/react"
-import { usePathname, useRouter } from "next/navigation"
-import { Calendar, LogOut, Menu, Settings, User, X, Bell, History } from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { cn } from "@/lib/utils"
+import { useSession } from "next-auth/react"
+import { Bell, User } from "lucide-react"
+import { useEffect, useState } from "react"
 
 export function DashboardHeader() {
   const { data: session } = useSession()
-  const pathname = usePathname()
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const router = useRouter()
+  const [mounted, setMounted] = useState(false)
 
-  const userInitials = session?.user?.name
-    ? session.user.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-    : "U"
+  useEffect(() => {
+    setMounted(true)
+    console.log("Dashboard header mounted, session:", session?.user)
+  }, [session])
 
-  const handleSignOut = async () => {
-    await signOut({ redirect: false })
-    router.push("/")
+  if (!mounted) {
+    return null
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background">
-      <div className="container flex h-16 items-center justify-between py-4">
-        <div className="flex items-center gap-2">
-          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="md:hidden">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-[240px] sm:w-[300px]">
-              <div className="flex h-full flex-col">
-                <div className="flex items-center border-b py-4">
-                  <Link href="/" className="flex items-center gap-2 font-semibold">
-                    <Image src="/logo-circular.png" alt="Tech Milap" width={32} height={32} className="rounded-full" />
-                    <span className="font-bold text-xl">Tech Milap</span>
-                  </Link>
-                  <Button variant="ghost" size="icon" className="ml-auto" onClick={() => setIsMobileMenuOpen(false)}>
-                    <X className="h-5 w-5" />
-                    <span className="sr-only">Close</span>
-                  </Button>
-                </div>
-                <nav className="grid gap-2 p-4">
-                  <Link
-                    href="/my-events"
-                    className={cn(
-                      "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent",
-                      pathname === "/my-events" && "bg-accent",
-                    )}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <Calendar className="h-5 w-5" />
-                    My Events
-                  </Link>
-                  <Link
-                    href="/past-events"
-                    className={cn(
-                      "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent",
-                      pathname === "/past-events" && "bg-accent",
-                    )}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <History className="h-5 w-5" />
-                    Past Events
-                  </Link>
-                  <Link
-                    href="/explore"
-                    className={cn(
-                      "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent",
-                      pathname.startsWith("/explore") && "bg-accent",
-                    )}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <Calendar className="h-5 w-5" />
-                    Explore Events
-                  </Link>
-                  <Link
-                    href="/profile"
-                    className={cn(
-                      "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent",
-                      pathname.startsWith("/profile") && "bg-accent",
-                    )}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <User className="h-5 w-5" />
-                    Profile
-                  </Link>
-                  <Link
-                    href="/settings"
-                    className={cn(
-                      "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent",
-                      pathname.startsWith("/settings") && "bg-accent",
-                    )}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <Settings className="h-5 w-5" />
-                    Settings
-                  </Link>
-                </nav>
-                <div className="mt-auto p-4">
-                  <Button variant="outline" className="w-full justify-start gap-2" onClick={handleSignOut}>
-                    <LogOut className="h-4 w-4" />
-                    Log out
-                  </Button>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-          <Link href="/" className="flex items-center gap-2 font-semibold md:hidden">
-            <Image src="/logo-circular.png" alt="Tech Milap" width={32} height={32} className="rounded-full" />
-          </Link>
-          <Link href="/" className="hidden items-center gap-2 font-semibold md:flex">
-            <Image src="/logo-circular.png" alt="Tech Milap" width={32} height={32} className="rounded-full" />
-            <span className="font-bold text-xl">Tech Milap</span>
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6 md:px-8">
+      <div className="flex flex-1 items-center justify-between">
+        <div className="flex items-center gap-2 md:gap-4">
+          <Link href="/" className="hidden md:block">
+            <span className="text-xl font-bold">MyEvent</span>
           </Link>
         </div>
-        <nav className="hidden md:flex items-center gap-6">
-          <Link
-            href="/my-events"
-            className={cn(
-              "text-sm font-medium transition-colors hover:text-primary",
-              pathname === "/my-events" ? "text-primary" : "text-muted-foreground",
-            )}
-          >
-            My Events
-          </Link>
-          <Link
-            href="/past-events"
-            className={cn(
-              "text-sm font-medium transition-colors hover:text-primary",
-              pathname === "/past-events" ? "text-primary" : "text-muted-foreground",
-            )}
-          >
-            Past Events
-          </Link>
-          <Link
-            href="/explore"
-            className={cn(
-              "text-sm font-medium transition-colors hover:text-primary",
-              pathname.startsWith("/explore") ? "text-primary" : "text-muted-foreground",
-            )}
-          >
-            Explore
-          </Link>
-        </nav>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="relative">
+        <div className="flex items-center gap-4">
+          <button className="relative rounded-full bg-gray-100 p-2 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700">
             <Bell className="h-5 w-5" />
-            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-              3
-            </span>
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src="/avatars/01.png" alt={session?.user?.name || "User"} />
-                  <AvatarFallback>{userInitials}</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{session?.user?.name}</p>
-                  <p className="text-xs leading-none text-muted-foreground">{session?.user?.email}</p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/profile">
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/settings">
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut}>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            <span className="absolute right-1 top-1 flex h-2 w-2 rounded-full bg-red-500"></span>
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-800">
+              <User className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+            </div>
+            <div className="hidden md:block">
+              <div className="text-sm font-medium">{session?.user?.name || "User"}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{session?.user?.role || "user"}</div>
+            </div>
+          </div>
         </div>
       </div>
     </header>

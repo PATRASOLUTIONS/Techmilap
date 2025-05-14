@@ -1,4 +1,7 @@
+// Add console logging to help debug sidebar rendering
 "use client"
+
+import type React from "react"
 
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -25,11 +28,12 @@ import {
   Tag,
   History,
   QrCode,
+  X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -37,8 +41,8 @@ export function DashboardSidebar() {
   const pathname = usePathname()
   const { data: session } = useSession()
   const router = useRouter()
-  const userRole = session?.user?.role || "user"
-
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   // State to track expanded sections
   const [expandedSections, setExpandedSections] = useState({
     events: true, // Events section expanded by default
@@ -46,6 +50,44 @@ export function DashboardSidebar() {
 
   // State to track if sidebar is collapsed (desktop only)
   const [isCollapsed, setIsCollapsed] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    console.log("Dashboard sidebar mounted, session:", session?.user)
+  }, [session])
+
+  if (!mounted) {
+    return null
+  }
+
+  const userRole = session?.user?.role || "user"
+  console.log("Rendering sidebar for user role:", userRole)
+
+  const isActive = (path: string) => {
+    return pathname === path || pathname?.startsWith(`${path}/`)
+  }
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen)
+  }
+
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false)
+  }
+
+  const NavLink = ({ href, icon: Icon, children }: { href: string; icon: any; children: React.ReactNode }) => (
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50",
+        isActive(href) ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-50" : "",
+      )}
+      onClick={closeMobileMenu}
+    >
+      <Icon className="h-5 w-5" />
+      <span>{children}</span>
+    </Link>
+  )
 
   // Toggle section expansion
   const toggleSection = (section) => {
@@ -370,13 +412,129 @@ export function DashboardSidebar() {
 
   return (
     <>
-      {/* Mobile Navigation */}
-      <div className="block md:hidden absolute left-4 top-4 z-50">
-        <MobileNav />
+      {/* Mobile menu button */}
+      <button
+        className="fixed top-4 left-4 z-50 md:hidden bg-white dark:bg-gray-800 p-2 rounded-md shadow-md"
+        onClick={toggleMobileMenu}
+        aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+      >
+        {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+      </button>
+
+      {/* Sidebar for desktop and mobile */}
+      <div
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 w-64 transform bg-white shadow-lg transition-transform duration-200 ease-in-out dark:bg-gray-900 md:translate-x-0",
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="flex flex-col h-full">
+          <div className="p-6">
+            <h2 className="text-2xl font-bold">MyEvent</h2>
+          </div>
+          <nav className="flex-1 space-y-1 px-4">
+            {/* Common links for all users */}
+            <div className="py-2">
+              <h3 className="mb-2 text-sm font-semibold text-gray-500">General</h3>
+              {userRole === "event-planner" && (
+                <NavLink href="/dashboard" icon={LayoutDashboard}>
+                  Dashboard
+                </NavLink>
+              )}
+              {userRole === "user" && (
+                <NavLink href="/user-dashboard" icon={LayoutDashboard}>
+                  Dashboard
+                </NavLink>
+              )}
+              {userRole === "super-admin" && (
+                <NavLink href="/super-admin" icon={LayoutDashboard}>
+                  Admin Dashboard
+                </NavLink>
+              )}
+              <NavLink href="/explore" icon={Calendar}>
+                Explore Events
+              </NavLink>
+              <NavLink href="/profile" icon={User}>
+                Profile
+              </NavLink>
+            </div>
+
+            {/* Event planner specific links */}
+            {(userRole === "event-planner" || userRole === "super-admin") && (
+              <div className="py-2">
+                <h3 className="mb-2 text-sm font-semibold text-gray-500">Event Management</h3>
+                <NavLink href="/create-event" icon={PlusCircle}>
+                  Create Event
+                </NavLink>
+                <NavLink href="/my-events" icon={Calendar}>
+                  My Events
+                </NavLink>
+                <NavLink href="/past-events" icon={Clock}>
+                  Past Events
+                </NavLink>
+                <NavLink href="/event-reviews" icon={Star}>
+                  Event Reviews
+                </NavLink>
+              </div>
+            )}
+
+            {/* User specific links */}
+            {(userRole === "user" || userRole === "super-admin" || userRole === "event-planner") && (
+              <div className="py-2">
+                <h3 className="mb-2 text-sm font-semibold text-gray-500">My Activities</h3>
+                <NavLink href="/my-tickets" icon={Ticket}>
+                  My Tickets
+                </NavLink>
+                <NavLink href="/my-reviews" icon={Star}>
+                  My Reviews
+                </NavLink>
+              </div>
+            )}
+
+            {/* Admin specific links */}
+            {userRole === "super-admin" && (
+              <div className="py-2">
+                <h3 className="mb-2 text-sm font-semibold text-gray-500">Administration</h3>
+                <NavLink href="/super-admin/events/categories" icon={Calendar}>
+                  Event Categories
+                </NavLink>
+                <NavLink href="/super-admin/users" icon={Users}>
+                  User Management
+                </NavLink>
+              </div>
+            )}
+
+            {/* Settings for all users */}
+            <div className="py-2">
+              <h3 className="mb-2 text-sm font-semibold text-gray-500">Settings</h3>
+              <NavLink href="/settings" icon={Settings}>
+                Settings
+              </NavLink>
+              <Link
+                href="/api/auth/signout"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+                onClick={closeMobileMenu}
+              >
+                <LogOut className="h-5 w-5" />
+                <span>Sign Out</span>
+              </Link>
+            </div>
+          </nav>
+        </div>
       </div>
 
+      {/* Overlay for mobile */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-30 bg-black bg-opacity-50 md:hidden" onClick={closeMobileMenu} />
+      )}
+
+      {/* Mobile Navigation */}
+      {/* <div className="block md:hidden absolute left-4 top-4 z-50">
+        <MobileNav />
+      </div> */}
+
       {/* Desktop Sidebar */}
-      <div
+      {/* <div
         className={cn(
           "hidden border-r bg-white md:flex flex-col transition-all duration-300 shadow-sm",
           isCollapsed ? "w-[80px]" : "w-[280px]",
@@ -419,7 +577,7 @@ export function DashboardSidebar() {
         </div>
 
         {/* User info section - Moved to top */}
-        <div className="p-4 border-b bg-slate-50">
+      {/* <div className="p-4 border-b bg-slate-50">
           {!isCollapsed ? (
             <>
               <div className="flex items-center gap-3">
@@ -554,7 +712,7 @@ export function DashboardSidebar() {
             )}
           </div>
         </ScrollArea>
-      </div>
+      </div> */}
     </>
   )
 }
