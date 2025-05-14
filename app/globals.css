@@ -15,64 +15,64 @@ body {
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 0 0% 0%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 0 0% 0%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 0 0% 0%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 242 79% 29%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 334 64% 46%;
+    --secondary-foreground: 0 0% 100%;
+
+    --accent: 39 99% 55%;
+    --accent-foreground: 0 0% 0%;
 
     --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted-foreground: 0 0% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 334 64% 46%;
+    --destructive-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 242 79% 29%;
 
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 0%;
+    --card-foreground: 0 0% 100%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 0%;
+    --popover-foreground: 0 0% 100%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 242 79% 29%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 334 64% 46%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 39 99% 55%;
+    --accent-foreground: 0 0% 0%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 334 64% 46%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 242 79% 29%;
   }
 }
 
@@ -90,7 +90,7 @@ body {
 }
 
 h1 {
-  color: #6366f1;
+  color: #170f83; /* Dark blue */
 }
 
 /* Page transition animations */
@@ -115,11 +115,11 @@ h1 {
   }
 
   .gradient-text {
-    @apply bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-[#170f83] to-[#c12b6b] bg-clip-text text-transparent;
   }
 
   .gradient-border {
-    @apply relative before:absolute before:inset-0 before:rounded-lg before:p-[1px] before:bg-gradient-to-r before:from-primary/50 before:to-secondary/50 before:-z-10;
+    @apply relative before:absolute before:inset-0 before:rounded-lg before:p-[1px] before:bg-gradient-to-r before:from-[#170f83]/50 before:to-[#c12b6b]/50 before:-z-10;
   }
 
   .glass-effect {
@@ -134,7 +134,7 @@ h1 {
   }
 
   .text-gradient {
-    @apply bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-[#170f83] to-[#c12b6b] bg-clip-text text-transparent;
   }
 
   .hover-lift {
@@ -147,7 +147,7 @@ h1 {
 
   .card-highlight::before {
     content: "";
-    @apply absolute -inset-0.5 bg-gradient-to-r from-primary to-secondary rounded-lg blur opacity-0 transition-opacity duration-300;
+    @apply absolute -inset-0.5 bg-gradient-to-r from-[#170f83] to-[#c12b6b] rounded-lg blur opacity-0 transition-opacity duration-300;
     z-index: -1;
   }
 
@@ -169,6 +169,60 @@ h1 {
     100% {
       transform: translateY(0px);
     }
+  }
+
+  /* Custom color utility classes */
+  .bg-brand-orange {
+    background-color: #fea91b;
+  }
+  .bg-brand-blue {
+    background-color: #170f83;
+  }
+  .bg-brand-pink {
+    background-color: #c12b6b;
+  }
+  .bg-brand-light-blue {
+    background-color: #0aacf7;
+  }
+
+  .text-brand-orange {
+    color: #fea91b;
+  }
+  .text-brand-blue {
+    color: #170f83;
+  }
+  .text-brand-pink {
+    color: #c12b6b;
+  }
+  .text-brand-light-blue {
+    color: #0aacf7;
+  }
+
+  .border-brand-orange {
+    border-color: #fea91b;
+  }
+  .border-brand-blue {
+    border-color: #170f83;
+  }
+  .border-brand-pink {
+    border-color: #c12b6b;
+  }
+  .border-brand-light-blue {
+    border-color: #0aacf7;
+  }
+
+  /* Custom button styles with the new color scheme */
+  .btn-brand-blue {
+    @apply bg-[#170f83] text-white hover:bg-[#170f83]/90;
+  }
+  .btn-brand-pink {
+    @apply bg-[#c12b6b] text-white hover:bg-[#c12b6b]/90;
+  }
+  .btn-brand-orange {
+    @apply bg-[#fea91b] text-black hover:bg-[#fea91b]/90;
+  }
+  .btn-brand-light-blue {
+    @apply bg-[#0aacf7] text-white hover:bg-[#0aacf7]/90;
   }
 }
 
@@ -217,4 +271,52 @@ h1 {
 
 .animation-delay-1000 {
   animation-delay: 1000ms;
+}
+
+/* Event passed animation */
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+.animate-bounce-slow {
+  animation: bounce 2s ease-in-out infinite;
+}
+
+/* Waving animation for the character */
+@keyframes wave {
+  0% {
+    transform: rotate(0deg);
+  }
+  10% {
+    transform: rotate(14deg);
+  }
+  20% {
+    transform: rotate(-8deg);
+  }
+  30% {
+    transform: rotate(14deg);
+  }
+  40% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+  60% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.animate-wave {
+  animation: wave 2.5s ease-in-out infinite;
+  transform-origin: 70% 70%;
 }

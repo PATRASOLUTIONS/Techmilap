@@ -24,33 +24,42 @@ module.exports = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "#170f83", // Dark blue
+          foreground: "#ffffff",
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
-        },
-        destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
-        },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
+          DEFAULT: "#c12b6b", // Pink/magenta
+          foreground: "#ffffff",
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          DEFAULT: "#fea91b", // Orange/amber
+          foreground: "#000000",
+        },
+        highlight: {
+          DEFAULT: "#0aacf7", // Light blue
+          foreground: "#ffffff",
+        },
+        destructive: {
+          DEFAULT: "#c12b6b", // Using pink as destructive
+          foreground: "#ffffff",
+        },
+        muted: {
+          DEFAULT: "#f3f4f6", // Light gray
+          foreground: "#000000",
         },
         popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
+          DEFAULT: "#ffffff",
+          foreground: "#000000",
         },
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: "#ffffff",
+          foreground: "#000000",
         },
+        // Custom color classes for direct use
+        "brand-orange": "#fea91b",
+        "brand-blue": "#170f83",
+        "brand-pink": "#c12b6b",
+        "brand-light-blue": "#0aacf7",
       },
       borderRadius: {
         lg: "var(--radius)",
