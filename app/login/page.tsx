@@ -5,6 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import { signIn } from "next-auth/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -119,16 +120,16 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-background via-background to-muted/50">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-white via-white to-[#f8f8f8]">
       {/* Decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <DecorativeBlob
           className="absolute top-[-15%] right-[-10%] w-[50%] h-[50%] opacity-20 blur-3xl"
-          color="var(--primary)"
+          color="#fea91b"
         />
         <DecorativeBlob
           className="absolute bottom-[20%] left-[-10%] w-[40%] h-[40%] opacity-10 blur-3xl"
-          color="var(--secondary)"
+          color="#c12b6b"
         />
       </div>
 
@@ -139,9 +140,11 @@ export default function LoginPage() {
           transition={{ duration: 0.5 }}
           className="text-center mb-6"
         >
-          <Link href="/">
-            <h1 className="text-3xl font-bold gradient-text">Tech Milap</h1>
-            <p className="text-muted-foreground mt-2">Your complete event management solution</p>
+          <Link href="/" className="inline-block">
+            <div className="flex flex-col items-center">
+              <Image src="/techmilap-logo.png" alt="Tech Milap" width={150} height={150} className="mb-2" />
+              <p className="text-muted-foreground mt-2">Your complete event management solution</p>
+            </div>
           </Link>
         </motion.div>
 
@@ -152,7 +155,7 @@ export default function LoginPage() {
         >
           <Card className="border-none shadow-xl glass-effect">
             <CardHeader className="space-y-1 text-center">
-              <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
+              <CardTitle className="text-2xl font-bold text-[#170f83]">Welcome back</CardTitle>
               <CardDescription>Sign in to your account to continue</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -221,7 +224,7 @@ export default function LoginPage() {
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.2 }}
                       >
-                        <Alert className="bg-primary/10 border-primary/20 text-primary flex items-center space-x-2">
+                        <Alert className="bg-[#170f83]/10 border-[#170f83]/20 text-[#170f83] flex items-center space-x-2">
                           <Info className="h-4 w-4" />
                           <AlertDescription>Login successful! Redirecting...</AlertDescription>
                         </Alert>
@@ -247,7 +250,7 @@ export default function LoginPage() {
                           placeholder="your.email@example.com"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          className="pl-10 transition-all duration-200 focus:ring-2 focus:ring-primary/50"
+                          className="pl-10 transition-all duration-200 focus:ring-2 focus:ring-[#170f83]/50"
                           required
                         />
                       </div>
@@ -265,7 +268,7 @@ export default function LoginPage() {
                         </Label>
                         <Link
                           href="/forgot-password"
-                          className="text-xs text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary/50 rounded"
+                          className="text-xs text-[#170f83] hover:underline focus:outline-none focus:ring-2 focus:ring-[#170f83]/50 rounded"
                         >
                           Forgot password?
                         </Link>
@@ -277,7 +280,7 @@ export default function LoginPage() {
                           type={showPassword ? "text" : "password"}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="pl-10 pr-10 transition-all duration-200 focus:ring-2 focus:ring-primary/50"
+                          className="pl-10 pr-10 transition-all duration-200 focus:ring-2 focus:ring-[#170f83]/50"
                           required
                         />
                         <button
@@ -317,7 +320,7 @@ export default function LoginPage() {
                     >
                       <Button
                         type="submit"
-                        className="w-full button-hover bg-gradient-to-r from-primary to-secondary"
+                        className="w-full button-hover bg-gradient-to-r from-[#170f83] to-[#0aacf7]"
                         disabled={isLoading}
                       >
                         {isLoading ? (
@@ -374,7 +377,7 @@ export default function LoginPage() {
                 Don&apos;t have an account?{" "}
                 <Link
                   href="/signup"
-                  className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary/50 rounded"
+                  className="text-[#170f83] hover:underline focus:outline-none focus:ring-2 focus:ring-[#170f83]/50 rounded"
                 >
                   Sign up
                 </Link>

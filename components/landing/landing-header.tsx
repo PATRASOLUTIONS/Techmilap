@@ -32,24 +32,30 @@ export function LandingHeader() {
     >
       <div className="container flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <div className="relative h-10 w-10 rounded-full overflow-hidden">
-            <Image src="/logo-circular.png" alt="Tech Milap Logo" width={32} height={32} className="rounded-full" />
+          <div className="relative h-10 w-10 overflow-hidden">
+            <Image
+              src="/techmilap-logo-round.png"
+              alt="Tech Milap Logo"
+              width={40}
+              height={40}
+              className="object-contain"
+            />
           </div>
-          <span className="font-bold text-xl">TechMilap</span>
+          <span className="font-bold text-xl text-[#170f83]">TechMilap</span>
         </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
-          <Link href="/events" className="text-foreground/80 hover:text-foreground transition-colors">
+          <Link href="/events" className="text-black hover:text-[#0aacf7] transition-colors">
             Explore Events
           </Link>
-          <Link href="/features" className="text-foreground/80 hover:text-foreground transition-colors">
+          <Link href="/features" className="text-black hover:text-[#0aacf7] transition-colors">
             Features
           </Link>
-          <Link href="/pricing" className="text-foreground/80 hover:text-foreground transition-colors">
+          <Link href="/pricing" className="text-black hover:text-[#0aacf7] transition-colors">
             Pricing
           </Link>
-          <Link href="/about" className="text-foreground/80 hover:text-foreground transition-colors">
+          <Link href="/about" className="text-black hover:text-[#0aacf7] transition-colors">
             About
           </Link>
         </nav>
@@ -57,19 +63,19 @@ export function LandingHeader() {
         <div className="hidden md:flex items-center gap-2">
           {session ? (
             <>
-              <Button asChild variant="ghost">
+              <Button asChild variant="ghost" className="text-[#170f83] hover:text-[#0aacf7] hover:bg-[#170f83]/10">
                 <Link href="/my-events">My Events</Link>
               </Button>
-              <Button asChild>
+              <Button asChild className="bg-[#170f83] hover:bg-[#170f83]/90 text-white">
                 <Link href="/dashboard">Dashboard</Link>
               </Button>
             </>
           ) : (
             <>
-              <Button asChild variant="ghost">
+              <Button asChild variant="ghost" className="text-[#170f83] hover:text-[#0aacf7] hover:bg-[#170f83]/10">
                 <Link href="/login">Sign In</Link>
               </Button>
-              <Button asChild>
+              <Button asChild className="bg-[#170f83] hover:bg-[#170f83]/90 text-white">
                 <Link href="/signup">Sign Up</Link>
               </Button>
             </>
@@ -133,7 +139,7 @@ export function LandingHeader() {
                       My Events
                     </Link>
                   </Button>
-                  <Button asChild className="w-full">
+                  <Button asChild className="w-full bg-[#170f83] hover:bg-[#170f83]/90 text-white">
                     <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
                       Dashboard
                     </Link>
@@ -146,7 +152,7 @@ export function LandingHeader() {
                       Sign In
                     </Link>
                   </Button>
-                  <Button asChild className="w-full">
+                  <Button asChild className="w-full bg-[#170f83] hover:bg-[#170f83]/90 text-white">
                     <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)}>
                       Sign Up
                     </Link>
