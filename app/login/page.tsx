@@ -18,8 +18,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { DecorativeBlob } from "@/components/ui/decorative-blob"
 import { Eye, EyeOff, Lock, Mail, AlertCircle, Info, ArrowRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-// Import the DashboardDirectLink component
-import { DashboardDirectLink } from "@/components/dashboard-direct-link"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -34,21 +32,13 @@ export default function LoginPage() {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [registeredSuccess, setRegisteredSuccess] = useState(false)
   const [verifiedSuccess, setVerifiedSuccess] = useState(false)
-  const [redirectAttempts, setRedirectAttempts] = useState(0)
 
   const { toast } = useToast()
 
-  // Debug logging for session and status
+  // Redirect if already authenticated based on role
   useEffect(() => {
-    console.log("Login page - Session status:", status)
-    console.log("Login page - Session data:", session)
-  }, [session, status])
-
-  // Redirect if already authenticated based on role with retry limit
-  useEffect(() => {
-    if (status === "authenticated" && session?.user && redirectAttempts < 3) {
+    if (status === "authenticated" && session?.user) {
       console.log("User is authenticated, redirecting based on role:", session.user.role)
-      setRedirectAttempts((prev) => prev + 1)
 
       // Get the callback URL if it exists
       const callbackUrl = searchParams.get("callbackUrl")
@@ -59,25 +49,18 @@ export default function LoginPage() {
         return
       }
 
-      // Otherwise, redirect based on role - using my-events as the safe default
+      // Otherwise, redirect based on role
       const role = session.user.role
 
       if (role === "super-admin") {
         router.push("/super-admin")
       } else if (role === "event-planner") {
-        router.push("/my-events") // Safe default path
+        router.push("/dashboard")
       } else {
-        router.push("/my-events") // Safe default path
+        router.push("/user-dashboard")
       }
     }
-  }, [session, status, redirectAttempts, router, searchParams])
-
-  // Reset redirect attempts if not authenticated
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      setRedirectAttempts(0)
-    }
-  }, [status])
+  }, [session, status, router, searchParams])
 
   // Check if user just registered or verified email
   useEffect(() => {
@@ -143,38 +126,38 @@ export default function LoginPage() {
 
       setShowSuccessMessage(true)
 
-      // We'll use my-events as the safe default for all users since we know it exists
-      let redirectUrl = "/my-events"
+      // We need to fetch the user data to get the role
+      try {
+        const userResponse = await fetch("/api/auth/me")
+        if (userResponse.ok) {
+          const userData = await userResponse.json()
+          const userRole = userData.role || "user"
 
-      // If there's a callback URL, use that instead
-      if (callbackUrl) {
-        redirectUrl = decodeURIComponent(callbackUrl)
-      }
-      // Otherwise, try to get role from API - but use my-events as fallback if this fails
-      else {
-        try {
-          const userResponse = await fetch("/api/auth/me")
-          if (userResponse.ok) {
-            const userData = await userResponse.json()
-            const userRole = userData.user?.role || "user"
+          console.log("User role detected:", userRole)
 
-            console.log("User role detected:", userRole)
-
-            // Role-based redirection to known paths
-            if (userRole === "super-admin") {
-              redirectUrl = "/super-admin"
-            } else if (userRole === "event-planner") {
-              redirectUrl = "/my-events" // Safe default path
-            }
+          // If there's a callback URL, use that
+          if (callbackUrl) {
+            window.location.href = decodeURIComponent(callbackUrl)
+            return
           }
-        } catch (error) {
-          console.error("Error fetching user data:", error)
-          // Fallback to safe default
-        }
-      }
 
-      console.log("Redirecting to:", redirectUrl)
-      router.push(redirectUrl)
+          // Otherwise redirect based on role
+          if (userRole === "super-admin") {
+            window.location.href = "/super-admin"
+          } else if (userRole === "event-planner") {
+            window.location.href = "/dashboard"
+          } else {
+            window.location.href = "/user-dashboard"
+          }
+        } else {
+          // If we can't get the role, use a default redirect
+          window.location.href = "/my-events"
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error)
+        // Fallback to default redirect
+        window.location.href = "/my-events"
+      }
     } catch (err) {
       console.error("Login error:", err)
       setError("An error occurred during login")
@@ -191,10 +174,10 @@ export default function LoginPage() {
     setShowPassword(!showPassword)
   }
 
-  // If already authenticated and stuck in redirect loop, provide escape button
+  // If already authenticated, show loading state
   if (status === "loading" || (status === "authenticated" && session)) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Image
             src="/techmilap-logo-round.png"
@@ -203,24 +186,7 @@ export default function LoginPage() {
             height={80}
             className="mx-auto mb-4 animate-pulse"
           />
-          <p className="text-[#170f83] mb-4">Redirecting to dashboard...</p>
-
-          {redirectAttempts >= 2 && (
-            <div className="mt-6">
-              <p className="text-[#c12b6b] mb-4">Having trouble? Click one of these buttons to go directly to:</p>
-              <div className="flex flex-wrap gap-4 justify-center">
-                <Button onClick={() => router.push("/my-events")} className="bg-[#170f83]">
-                  My Events
-                </Button>
-                <Button onClick={() => router.push("/dashboard")} className="bg-[#0aacf7]">
-                  Dashboard
-                </Button>
-                <Button onClick={() => router.push("/")} className="bg-[#fea91b]">
-                  Home Page
-                </Button>
-              </div>
-            </div>
-          )}
+          <p className="text-[#170f83]">Redirecting to dashboard...</p>
         </div>
       </div>
     )
@@ -228,7 +194,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-white via-white to-[#f8f8f8]">
-      <DashboardDirectLink />
       {/* Decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <DecorativeBlob

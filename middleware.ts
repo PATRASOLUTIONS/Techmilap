@@ -22,8 +22,6 @@ const publicPaths = [
   "/cookies",
   "/gdpr",
   "/event-terms",
-  "/dashboard", // Add dashboard to public paths
-  "/debug", // Add debug to public paths
 ]
 
 // Define paths that require super-admin role
@@ -89,27 +87,32 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // If user is already authenticated and trying to access login/signup pages, redirect to my-events (known path)
+  // If user is already authenticated and trying to access login/signup pages, redirect based on role
   if (token && (pathname === "/login" || pathname === "/signup")) {
     const role = (token.role as string) || "user"
 
     if (role === "super-admin") {
       return NextResponse.redirect(new URL("/super-admin", request.url))
+    } else if (role === "event-planner") {
+      return NextResponse.redirect(new URL("/dashboard", request.url))
     } else {
-      // For all other roles, redirect to my-events which we know exists
-      return NextResponse.redirect(new URL("/my-events", request.url))
+      return NextResponse.redirect(new URL("/user-dashboard", request.url))
     }
   }
 
   // Check for super-admin routes
   if (pathStartsWith(pathname, superAdminPaths) && token.role !== "super-admin") {
-    // Redirect non-super-admins to my-events
-    return NextResponse.redirect(new URL("/my-events", request.url))
+    // Redirect non-super-admins based on their role
+    if (token.role === "event-planner") {
+      return NextResponse.redirect(new URL("/dashboard", request.url))
+    } else {
+      return NextResponse.redirect(new URL("/user-dashboard", request.url))
+    }
   }
 
   // Check for event-planner routes
   if (pathStartsWith(pathname, eventPlannerPaths) && token.role !== "event-planner" && token.role !== "super-admin") {
-    return NextResponse.redirect(new URL("/my-events", request.url))
+    return NextResponse.redirect(new URL("/user-dashboard", request.url))
   }
 
   // Rate limiting for API routes
