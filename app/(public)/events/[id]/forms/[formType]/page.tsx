@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { DynamicForm } from "@/components/forms/dynamic-form"
 import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, AlertCircle, Calendar, Clock, RefreshCcw, Bug, ExternalLink } from "lucide-react"
+import { ArrowLeft, AlertCircle, Calendar, Clock, RefreshCcw, Bug, ExternalLink, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { FormSuccessMessage } from "@/components/ui/form-success-message"
@@ -352,7 +352,7 @@ export default function PublicFormPage() {
     )
   }
 
-  if (error) {
+  if (error && !isEventPassed) {
     return (
       <div className="container max-w-3xl mx-auto py-8 px-4">
         <div className="flex items-center mb-6">
@@ -362,19 +362,15 @@ export default function PublicFormPage() {
             </Link>
           </Button>
           <h1 className="text-2xl font-bold">
-            {isEventPassed ? "Form Closed" : error.includes("parse") ? "Error Loading Form" : "Form Not Available"}
+            {error.includes("parse") ? "Error Loading Form" : "Form Not Available"}
           </h1>
         </div>
-        <Card className={isEventPassed ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"}>
+        <Card className="border-amber-200 bg-amber-50">
           <CardContent className="pt-6">
             <div className="flex items-center space-x-2 mb-4">
-              <AlertCircle className={`h-5 w-5 ${isEventPassed ? "text-red-500" : "text-amber-500"}`} />
-              <p className={`font-medium ${isEventPassed ? "text-red-700" : "text-amber-700"}`}>
-                {isEventPassed
-                  ? "Event Has Already Started"
-                  : error.includes("parse") || error.includes("HTML")
-                    ? "Technical Error"
-                    : "Form Not Available"}
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+              <p className="font-medium text-amber-700">
+                {error.includes("parse") || error.includes("HTML") ? "Technical Error" : "Form Not Available"}
               </p>
             </div>
             <p className="text-gray-700 mb-4">{error}</p>
@@ -386,25 +382,12 @@ export default function PublicFormPage() {
               </div>
             )}
 
-            {debugResponse && (
+            {debugResponse && !isEventPassed && (
               <div className="mb-4 p-3 bg-white rounded-md">
                 <p className="font-medium mb-1">Debug endpoint test:</p>
                 <pre className="text-xs whitespace-pre-wrap break-words overflow-auto max-h-32">
                   {JSON.stringify(debugResponse, null, 2)}
                 </pre>
-              </div>
-            )}
-
-            {isEventPassed && eventDate && (
-              <div className="flex flex-col gap-2 mb-4 p-3 bg-white rounded-md">
-                <div className="flex items-center text-gray-600">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  <span>Event Date: {eventDate.toLocaleDateString()}</span>
-                </div>
-                <div className="flex items-center text-gray-600">
-                  <Clock className="h-4 w-4 mr-2" />
-                  <span>Current Time: {new Date().toLocaleTimeString()}</span>
-                </div>
               </div>
             )}
 
@@ -500,6 +483,39 @@ export default function PublicFormPage() {
               <p className="font-medium text-red-700">Event Has Already Started</p>
             </div>
             <p className="text-gray-700 mb-4">This form is closed because the event has already started or passed.</p>
+
+            {/* Animated character */}
+            <div className="flex flex-col items-center justify-center py-6 mb-4">
+              <div className="relative w-32 h-32 mb-4">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-24 h-24 bg-blue-500 rounded-full flex items-center justify-center animate-pulse">
+                    <Calendar className="h-12 w-12 text-white" />
+                  </div>
+                </div>
+                <div className="absolute top-0 right-0">
+                  <div className="w-12 h-12 bg-amber-400 rounded-full flex items-center justify-center animate-bounce shadow-lg">
+                    <Clock className="h-6 w-6 text-white" />
+                  </div>
+                </div>
+                <div className="absolute bottom-0 left-0">
+                  <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center animate-bounce shadow-lg animation-delay-500">
+                    <Search className="h-5 w-5 text-white" />
+                  </div>
+                </div>
+              </div>
+              <div className="text-center">
+                <h3 className="text-lg font-semibold mb-2 text-blue-700">Looking for more events?</h3>
+                <p className="text-gray-600 mb-4">
+                  This event has already started, but there are more exciting events coming up!
+                </p>
+                <Button
+                  asChild
+                  className="bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800"
+                >
+                  <Link href="/events">Explore Upcoming Events</Link>
+                </Button>
+              </div>
+            </div>
 
             {eventDate && (
               <div className="flex flex-col gap-2 mb-4 p-3 bg-white rounded-md">
