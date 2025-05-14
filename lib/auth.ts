@@ -1,128 +1,129 @@
-import { getServerSession as getNextAuthServerSession } from "next-auth"
+import { getServerSession as getNextAuthServerSession } from "next-auth/next"
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { MongoDBAdapter } from "@auth/mongodb-adapter"
-import clientPromise from "@/lib/mongodb"
-import bcrypt from "bcryptjs"
-import { z } from "zod"
-
-// Define validation schema for credentials
-const CredentialsSchema = z.object({
-  email: z.string().email("Invalid email format"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-})
+import { connectToDatabase } from "@/lib/mongodb"
+import { compare } from "bcryptjs"
+import User from "@/models/User"
 
 export const authOptions: NextAuthOptions = {
-  adapter: MongoDBAdapter(clientPromise),
   providers: [
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "text" },
+        email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("Please enter your email and password")
+        }
+
         try {
-          // Validate credentials
-          const result = CredentialsSchema.safeParse(credentials)
-          if (!result.success) {
-            throw new Error("Invalid credentials format")
-          }
+          await connectToDatabase()
 
-          const { email, password } = result.data
-
-          // Connect to MongoDB directly without using the adapter for authentication
-          const mongoClient = await clientPromise
-          const db = mongoClient.db()
-
-          // Find the user
-          const user = await db.collection("users").findOne({
-            email: email.toLowerCase(),
-          })
+          const user = await User.findOne({ email: credentials.email.toLowerCase() }).select("+password")
 
           if (!user) {
-            console.log(`Login attempt failed: User not found for email ${email}`)
-            return null
+            throw new Error("No user found with this email")
           }
 
-          // Check if the user is verified
-          if (!user.isVerified) {
+          // Check if the user's email is verified
+          if (user.isVerified === false) {
             throw new Error("Please verify your email before logging in")
           }
 
-          // Check password
-          const passwordMatch = await bcrypt.compare(password, user.password)
+          const isPasswordValid = await compare(credentials.password, user.password)
 
-          if (!passwordMatch) {
-            console.log(`Login attempt failed: Invalid password for email ${email}`)
-            return null
+          if (!isPasswordValid) {
+            throw new Error("Invalid password")
           }
-
-          // Log successful login
-          console.log(`User logged in successfully: ${email}, Role: ${user.role || "user"}`)
 
           return {
             id: user._id.toString(),
-            name: `${user.firstName} ${user.lastName}`,
+            name: user.firstName ? `${user.firstName} ${user.lastName}` : user.name || user.email,
             email: user.email,
             role: user.role || "user",
             image: user.profileImage || null,
+            corporateEmail: user.corporateEmail,
+            designation: user.designation,
+            eventOrganizer: user.eventOrganizer,
+            isMicrosoftMVP: user.isMicrosoftMVP,
+            mvpId: user.mvpId,
+            mvpProfileLink: user.mvpProfileLink,
+            mvpCategory: user.mvpCategory,
+            isMeetupGroupRunning: user.isMeetupGroupRunning,
+            meetupEventName: user.meetupEventName,
+            eventDetails: user.eventDetails,
+            meetupPageDetails: user.meetupPageDetails,
+            linkedinId: user.linkedinId,
+            githubId: user.githubId,
+            otherSocialMediaId: user.otherSocialMediaId,
+            mobileNumber: user.mobileNumber,
           }
         } catch (error: any) {
-          console.error("Authentication error:", error)
-          throw new Error(error.message || "Authentication error")
+          throw new Error(error.message || "Authentication failed")
         }
       },
     }),
   ],
-  session: {
-    strategy: "jwt",
-    maxAge: 24 * 60 * 60, // 24 hours
-  },
-  jwt: {
-    maxAge: 24 * 60 * 60, // 24 hours
-  },
-  secret: process.env.NEXTAUTH_SECRET,
-  pages: {
-    signIn: "/login",
-    error: "/auth/error",
-  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id
         token.role = user.role
-        // Log the token to verify role is included
-        console.log("JWT callback - token with role:", token.role)
+        token.corporateEmail = user.corporateEmail
+        token.designation = user.designation
+        token.eventOrganizer = user.eventOrganizer
+        token.isMicrosoftMVP = user.isMicrosoftMVP
+        token.mvpId = user.mvpId
+        token.mvpProfileLink = user.mvpProfileLink
+        token.mvpCategory = user.mvpCategory
+        token.isMeetupGroupRunning = user.isMeetupGroupRunning
+        token.meetupEventName = user.meetupEventName
+        token.eventDetails = user.eventDetails
+        token.meetupPageDetails = user.meetupPageDetails
+        token.linkedinId = user.linkedinId
+        token.githubId = user.githubId
+        token.otherSocialMediaId = user.otherSocialMediaId
+        token.mobileNumber = user.mobileNumber
       }
       return token
     },
     async session({ session, token }) {
-      if (token && session.user) {
+      if (token) {
         session.user.id = token.id as string
         session.user.role = token.role as string
-        // Log the session to verify role is included
-        console.log("Session callback - user role:", session.user.role)
+        session.user.corporateEmail = token.corporateEmail as string
+        session.user.designation = token.designation as string
+        session.user.eventOrganizer = token.eventOrganizer as string
+        session.user.isMicrosoftMVP = token.isMicrosoftMVP as boolean
+        session.user.mvpId = token.mvpId as string
+        session.user.mvpProfileLink = token.mvpProfileLink as string
+        session.user.mvpCategory = token.mvpCategory as string
+        session.user.isMeetupGroupRunning = token.isMeetupGroupRunning as boolean
+        session.user.meetupEventName = token.meetupEventName as string
+        session.user.eventDetails = token.eventDetails as string
+        session.user.meetupPageDetails = token.meetupPageDetails as string
+        session.user.linkedinId = token.linkedinId as string
+        session.user.githubId = token.githubId as string
+        session.user.otherSocialMediaId = token.otherSocialMediaId as string
+        session.user.mobileNumber = token.mobileNumber as string
       }
       return session
     },
   },
-  // Add security headers
-  cookies: {
-    sessionToken: {
-      name: `next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-      },
-    },
+  pages: {
+    signIn: "/login",
+    error: "/auth/error",
   },
-  debug: process.env.NODE_ENV === "development",
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  secret: process.env.NEXTAUTH_SECRET,
 }
 
-// Export the getServerSession function with our authOptions
-export const getServerSession = () => getNextAuthServerSession(authOptions)
-
-export default authOptions
+// Add the missing export
+export const getServerSession = async () => {
+  return await getNextAuthServerSession(authOptions)
+}

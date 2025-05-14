@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
 
-// Modify the publicPaths array to remove dashboard and user-dashboard
+// Define public paths that don't require authentication
 const publicPaths = [
   "/",
   "/login",
@@ -22,13 +22,12 @@ const publicPaths = [
   "/cookies",
   "/gdpr",
   "/event-terms",
-  // Temporarily add these for debugging
-  "/dashboard",
-  "/user-dashboard",
-  "/super-admin",
 ]
 
-// Update the eventPlannerPaths to include all event planner routes
+// Define paths that require super-admin role
+const superAdminPaths = ["/super-admin", "/super-admin/users", "/super-admin/events", "/super-admin/settings"]
+
+// Define paths that require event-planner role
 const eventPlannerPaths = [
   "/dashboard",
   "/dashboard/events/create",
@@ -42,27 +41,19 @@ const eventPlannerPaths = [
   "/explore",
 ]
 
-// Add userPaths for regular user routes
+// Define paths for regular users
 const userPaths = ["/user-dashboard", "/my-tickets", "/my-reviews", "/profile", "/settings", "/explore"]
-
-// Define superAdminPaths
-const superAdminPaths = ["/super-admin", "/super-admin/users", "/super-admin/events", "/super-admin/settings"]
 
 // Function to check if a path starts with any of the given prefixes
 function pathStartsWith(path: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
 }
 
-// Update the middleware function to handle role-based access more effectively
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  console.log(`Middleware processing path: ${pathname}`)
-
   // Add security headers to all responses
   const response = NextResponse.next()
-
-  // Add security headers
   response.headers.set("X-Content-Type-Options", "nosniff")
   response.headers.set("X-Frame-Options", "DENY")
   response.headers.set("X-XSS-Protection", "1; mode=block")
@@ -77,15 +68,7 @@ export async function middleware(request: NextRequest) {
     )
   }
 
-  // Check if the path is public or starts with a public path
-  const isPublicPath =
-    pathStartsWith(pathname, publicPaths) ||
-    pathname.startsWith("/api/public/") ||
-    (pathname.startsWith("/api/events/") && (pathname.includes("/public") || pathname.includes("/register")))
-
-  console.log(`Path ${pathname} is public: ${isPublicPath}`)
-
-  // Allow access to static files and favicon
+  // Allow access to static files and API routes
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
@@ -93,27 +76,25 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/seed") ||
     pathname.startsWith("/api/debug")
   ) {
-    console.log(`Allowing access to static file or API: ${pathname}`)
     return response
   }
 
+  // Check if the path is public
+  const isPublicPath =
+    pathStartsWith(pathname, publicPaths) ||
+    pathname.startsWith("/api/public/") ||
+    (pathname.startsWith("/api/events/") && (pathname.includes("/public") || pathname.includes("/register")))
+
   // If it's a public path, allow access
   if (isPublicPath) {
-    console.log(`Allowing access to public path: ${pathname}`)
     return response
   }
 
   // For protected paths, check for authentication
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
 
-  console.log(`Token for path ${pathname}: ${token ? "Present" : "Not present"}`)
-  if (token) {
-    console.log(`User role: ${token.role}, accessing: ${pathname}`)
-  }
-
   // If no token and trying to access a protected route, redirect to login
   if (!token) {
-    console.log(`No token, redirecting to login from: ${pathname}`)
     const url = new URL("/login", request.url)
     url.searchParams.set("callbackUrl", encodeURIComponent(request.url))
     return NextResponse.redirect(url)
@@ -122,7 +103,6 @@ export async function middleware(request: NextRequest) {
   // If user is already authenticated and trying to access login/signup pages, redirect based on role
   if (token && (pathname === "/login" || pathname === "/signup")) {
     const role = (token.role as string) || "user"
-    console.log(`Authenticated user accessing login/signup, redirecting based on role: ${role}`)
 
     if (role === "super-admin") {
       return NextResponse.redirect(new URL("/super-admin", request.url))
@@ -133,13 +113,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // TEMPORARILY DISABLE ROLE CHECKS FOR DEBUGGING
-  console.log(`Access granted to: ${pathname}`)
-  return response
-
   // Check for super-admin routes
   if (pathStartsWith(pathname, superAdminPaths) && token.role !== "super-admin") {
-    console.log(`Non-super-admin accessing super-admin route: ${pathname}`)
     // Redirect non-super-admins based on their role
     if (token.role === "event-planner") {
       return NextResponse.redirect(new URL("/dashboard", request.url))
@@ -150,41 +125,10 @@ export async function middleware(request: NextRequest) {
 
   // Check for event-planner routes
   if (pathStartsWith(pathname, eventPlannerPaths) && token.role !== "event-planner" && token.role !== "super-admin") {
-    console.log(`Non-event-planner accessing event-planner route: ${pathname}`)
     return NextResponse.redirect(new URL("/user-dashboard", request.url))
   }
 
-  // Check for user routes - super-admin and event-planner can access user routes
-  if (pathStartsWith(pathname, userPaths)) {
-    console.log(`User accessing user route: ${pathname}`)
-    // Allow access for all authenticated users
-    return response
-  }
-
-  // For any other authenticated routes
-  if (pathname.startsWith("/(authenticated)") || pathname.includes("/api/")) {
-    console.log(`Authenticated user accessing protected route: ${pathname}`)
-    return response
-  }
-
-  // Rate limiting for API routes
-  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
-    const ip = request.headers.get("x-forwarded-for") || "unknown"
-    const userAgent = request.headers.get("user-agent") || "unknown"
-
-    // Simple in-memory rate limiting (in a real app, use Redis or similar)
-    const key = `${ip}:${userAgent}:${pathname}`
-
-    // Check rate limit (implementation would depend on your storage solution)
-    // This is a placeholder for actual rate limiting logic
-    const isRateLimited = false // Replace with actual check
-
-    if (isRateLimited) {
-      return NextResponse.json({ error: "Too many requests, please try again later" }, { status: 429 })
-    }
-  }
-
-  console.log(`Access granted to: ${pathname}`)
+  // For any other authenticated routes, allow access
   return response
 }
 

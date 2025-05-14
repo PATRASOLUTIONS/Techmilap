@@ -6,31 +6,23 @@ import { ObjectId } from "mongodb"
 
 export async function GET() {
   try {
-    console.log("API: /api/auth/me called")
     const session = await getServerSession(authOptions)
 
     if (!session) {
-      console.log("API: No session found")
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    console.log("API: Session found for user:", session.user.email)
-
-    // Get additional user data from database if needed
+    // Get additional user data from database
     try {
-      await connectToDatabase()
       const client = await connectToDatabase()
       const db = client.db()
 
       const userId = session.user.id
-      console.log("API: Looking up user with ID:", userId)
-
       const user = await db.collection("users").findOne({
         _id: new ObjectId(userId),
       })
 
       if (!user) {
-        console.log("API: User not found in database")
         // Return basic session data if user not found in DB
         return NextResponse.json({
           id: session.user.id,
@@ -40,8 +32,6 @@ export async function GET() {
           image: session.user.image,
         })
       }
-
-      console.log("API: User found in database with role:", user.role)
 
       // Return enhanced user data
       return NextResponse.json({
@@ -53,7 +43,6 @@ export async function GET() {
         isVerified: user.isVerified,
       })
     } catch (dbError) {
-      console.error("API: Database error:", dbError)
       // Fallback to session data if DB lookup fails
       return NextResponse.json({
         id: session.user.id,
@@ -64,7 +53,6 @@ export async function GET() {
       })
     }
   } catch (error) {
-    console.error("API: Error in /api/auth/me route:", error)
     return NextResponse.json({ error: "An error occurred while fetching user data" }, { status: 500 })
   }
 }
