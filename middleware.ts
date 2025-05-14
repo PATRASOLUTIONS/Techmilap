@@ -87,14 +87,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // If user is already authenticated and trying to access login/signup pages, redirect to dashboard
+  // If user is already authenticated and trying to access login/signup pages, redirect based on role
   if (token && (pathname === "/login" || pathname === "/signup")) {
-    return NextResponse.redirect(new URL("/my-events", request.url))
+    const role = (token.role as string) || "user"
+
+    if (role === "super-admin") {
+      return NextResponse.redirect(new URL("/super-admin", request.url))
+    } else if (role === "event-planner") {
+      return NextResponse.redirect(new URL("/dashboard", request.url))
+    } else {
+      return NextResponse.redirect(new URL("/user-dashboard", request.url))
+    }
   }
 
   // Check for super-admin routes
   if (pathStartsWith(pathname, superAdminPaths) && token.role !== "super-admin") {
-    return NextResponse.redirect(new URL("/", request.url))
+    // Redirect non-super-admins based on their role
+    if (token.role === "event-planner") {
+      return NextResponse.redirect(new URL("/dashboard", request.url))
+    } else {
+      return NextResponse.redirect(new URL("/user-dashboard", request.url))
+    }
   }
 
   // Check for event-planner routes

@@ -59,7 +59,7 @@ export const authOptions: NextAuthOptions = {
           }
 
           // Log successful login
-          console.log(`User logged in successfully: ${email}`)
+          console.log(`User logged in successfully: ${email}, Role: ${user.role || "user"}`)
 
           return {
             id: user._id.toString(),
@@ -92,6 +92,8 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.role = user.role
+        // Log the token to verify role is included
+        console.log("JWT callback - token with role:", token.role)
       }
       return token
     },
@@ -99,6 +101,8 @@ export const authOptions: NextAuthOptions = {
       if (token && session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as string
+        // Log the session to verify role is included
+        console.log("Session callback - user role:", session.user.role)
       }
       return session
     },

@@ -35,13 +35,30 @@ export default function LoginPage() {
 
   const { toast } = useToast()
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated based on role
   useEffect(() => {
-    if (status === "authenticated" && session) {
-      console.log("User is authenticated, redirecting to dashboard")
+    if (status === "authenticated" && session?.user) {
+      console.log("User is authenticated, redirecting based on role:", session.user.role)
+
+      // Get the callback URL if it exists
       const callbackUrl = searchParams.get("callbackUrl")
-      const redirectUrl = callbackUrl ? decodeURIComponent(callbackUrl) : "/my-events"
-      router.push(redirectUrl)
+
+      // If there's a specific callback URL, use that instead of role-based redirection
+      if (callbackUrl) {
+        router.push(decodeURIComponent(callbackUrl))
+        return
+      }
+
+      // Otherwise, redirect based on role
+      const role = session.user.role
+
+      if (role === "super-admin") {
+        router.push("/super-admin")
+      } else if (role === "event-planner") {
+        router.push("/dashboard")
+      } else {
+        router.push("/user-dashboard")
+      }
     }
   }, [session, status, router, searchParams])
 
@@ -60,7 +77,7 @@ export default function LoginPage() {
     if (error) setError("")
   }, [email, password])
 
-  // Update the handleLogin function to redirect to my-events by default
+  // Handle login with role-based redirection
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -80,13 +97,13 @@ export default function LoginPage() {
     }
 
     try {
-      const callbackUrl = searchParams.get("callbackUrl") || "/my-events"
+      // Get callback URL if it exists
+      const callbackUrl = searchParams.get("callbackUrl")
 
       const result = await signIn("credentials", {
         redirect: false,
         email,
         password,
-        callbackUrl: decodeURIComponent(callbackUrl),
       })
 
       if (result?.error) {
@@ -109,8 +126,38 @@ export default function LoginPage() {
 
       setShowSuccessMessage(true)
 
-      // Force a hard refresh to ensure the session is properly updated
-      window.location.href = result?.url || "/my-events"
+      // We need to fetch the user data to get the role
+      try {
+        const userResponse = await fetch("/api/auth/me")
+        if (userResponse.ok) {
+          const userData = await userResponse.json()
+          const userRole = userData.role || "user"
+
+          console.log("User role detected:", userRole)
+
+          // If there's a callback URL, use that
+          if (callbackUrl) {
+            window.location.href = decodeURIComponent(callbackUrl)
+            return
+          }
+
+          // Otherwise redirect based on role
+          if (userRole === "super-admin") {
+            window.location.href = "/super-admin"
+          } else if (userRole === "event-planner") {
+            window.location.href = "/dashboard"
+          } else {
+            window.location.href = "/user-dashboard"
+          }
+        } else {
+          // If we can't get the role, use a default redirect
+          window.location.href = "/my-events"
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error)
+        // Fallback to default redirect
+        window.location.href = "/my-events"
+      }
     } catch (err) {
       console.error("Login error:", err)
       setError("An error occurred during login")
