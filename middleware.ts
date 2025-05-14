@@ -22,6 +22,8 @@ const publicPaths = [
   "/cookies",
   "/gdpr",
   "/event-terms",
+  "/dashboard", // Add dashboard to public paths
+  "/debug", // Add debug to public paths
 ]
 
 // Define paths that require super-admin role

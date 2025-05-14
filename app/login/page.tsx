@@ -18,6 +18,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { DecorativeBlob } from "@/components/ui/decorative-blob"
 import { Eye, EyeOff, Lock, Mail, AlertCircle, Info, ArrowRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+// Import the DashboardDirectLink component
+import { DashboardDirectLink } from "@/components/dashboard-direct-link"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -226,6 +228,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-white via-white to-[#f8f8f8]">
+      <DashboardDirectLink />
       {/* Decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <DecorativeBlob

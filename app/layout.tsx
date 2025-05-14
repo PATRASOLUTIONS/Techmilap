@@ -4,6 +4,8 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { SessionProvider } from "@/components/providers/session-provider"
 import { Toaster } from "@/components/ui/toaster"
+// Import the DashboardNavigation component
+import { DashboardNavigation } from "@/components/dashboard-navigation"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -38,6 +40,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <SessionProvider>{children}</SessionProvider>
         <Toaster />
+        {process.env.NODE_ENV !== "production" && <DashboardNavigation />}
       </body>
     </html>
   )
