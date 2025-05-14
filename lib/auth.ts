@@ -22,17 +22,20 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // Validate credentials
-        const result = CredentialsSchema.safeParse(credentials)
-        if (!result.success) {
-          throw new Error("Invalid credentials format")
-        }
-
-        const { email, password } = result.data
-
         try {
-          const client = await clientPromise
-          const db = client.db()
+          // Validate credentials
+          const result = CredentialsSchema.safeParse(credentials)
+          if (!result.success) {
+            throw new Error("Invalid credentials format")
+          }
+
+          const { email, password } = result.data
+
+          // Connect to MongoDB directly without using the adapter for authentication
+          const mongoClient = await clientPromise
+          const db = mongoClient.db()
+
+          // Find the user
           const user = await db.collection("users").findOne({
             email: email.toLowerCase(),
           })
@@ -47,6 +50,7 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Please verify your email before logging in")
           }
 
+          // Check password
           const passwordMatch = await bcrypt.compare(password, user.password)
 
           if (!passwordMatch) {
@@ -102,7 +106,7 @@ export const authOptions: NextAuthOptions = {
   // Add security headers
   cookies: {
     sessionToken: {
-      name: `__Secure-next-auth.session-token`,
+      name: `next-auth.session-token`,
       options: {
         httpOnly: true,
         sameSite: "lax",

@@ -1,3 +1,4 @@
+import { MongoClient } from "mongodb"
 import mongoose from "mongoose"
 
 const MONGODB_URI = process.env.MONGODB_URI
@@ -6,11 +7,39 @@ if (!MONGODB_URI) {
   throw new Error("Please define the MONGODB_URI environment variable")
 }
 
-/**
- * Global is used here to maintain a cached connection across hot reloads
- * in development. This prevents connections growing exponentially
- * during API Route usage.
- */
+// MongoDB Client setup for direct MongoDB operations
+let client: MongoClient
+let clientPromise: Promise<MongoClient>
+
+if (process.env.NODE_ENV === "development") {
+  // In development mode, use a global variable so that the value
+  // is preserved across module reloads caused by HMR (Hot Module Replacement).
+  const globalWithMongo = global as typeof global & {
+    _mongoClientPromise?: Promise<MongoClient>
+  }
+
+  if (!globalWithMongo._mongoClientPromise) {
+    client = new MongoClient(MONGODB_URI)
+    globalWithMongo._mongoClientPromise = client.connect()
+  }
+  clientPromise = globalWithMongo._mongoClientPromise
+} else {
+  // In production mode, it's best to not use a global variable.
+  client = new MongoClient(MONGODB_URI)
+  clientPromise = client.connect()
+}
+
+// Export a module-scoped MongoClient promise. By doing this in a
+// separate module, the client can be shared across functions.
+export default clientPromise
+
+// Helper function to get the database - REQUIRED BY OTHER MODULES
+export async function getDatabase() {
+  const connectedClient = await clientPromise
+  return connectedClient.db()
+}
+
+// Mongoose setup for Mongoose models
 let cached = global.mongoose
 
 if (!cached) {
@@ -69,12 +98,3 @@ export async function disconnectFromDatabase() {
     console.error("Error disconnecting from MongoDB:", error)
   }
 }
-
-export async function getDatabase() {
-  const connection = await connectToDatabase()
-  return connection.db
-}
-
-const clientPromise = connectToDatabase()
-
-export default clientPromise
