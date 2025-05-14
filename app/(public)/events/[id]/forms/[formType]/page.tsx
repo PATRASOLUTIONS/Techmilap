@@ -69,6 +69,7 @@ export default function PublicFormPage() {
   const [showDebug, setShowDebug] = useState(false)
   const [fetchError, setFetchError] = useState(null)
   const [debugResponse, setDebugResponse] = useState(null)
+  const [dateDebugInfo, setDateDebugInfo] = useState(null)
 
   // Function to safely parse JSON with error handling
   const safeJsonParse = async (response) => {
@@ -143,6 +144,57 @@ export default function PublicFormPage() {
     }
   }, [eventId])
 
+  // Function to check if an event has passed
+  const checkEventPassed = (eventDateStr, startTimeStr) => {
+    try {
+      const now = new Date()
+      const eventDateTime = new Date(eventDateStr)
+
+      // Debug information for date comparison
+      const debugData = {
+        currentTime: now.toISOString(),
+        currentTimeLocal: now.toString(),
+        eventDateOriginal: eventDateStr,
+        eventDateParsed: eventDateTime.toISOString(),
+        eventDateLocal: eventDateTime.toString(),
+        startTime: startTimeStr || "Not specified",
+      }
+
+      console.log("Date comparison debug:", debugData)
+      setDateDebugInfo(debugData)
+
+      // If the event date is invalid, assume it hasn't passed
+      if (isNaN(eventDateTime.getTime())) {
+        console.warn("Invalid event date:", eventDateStr)
+        return false
+      }
+
+      // Set the time component if start time is provided
+      if (startTimeStr) {
+        const [hours, minutes] = startTimeStr.split(":").map(Number)
+        if (!isNaN(hours) && !isNaN(minutes)) {
+          eventDateTime.setHours(hours, minutes, 0, 0)
+        }
+      } else {
+        // If no start time, set to end of day to allow registration until the event day ends
+        eventDateTime.setHours(23, 59, 59, 999)
+      }
+
+      // Add the comparison result to debug data
+      debugData.eventDateTimeWithTime = eventDateTime.toISOString()
+      debugData.eventDateTimeLocal = eventDateTime.toString()
+      debugData.comparisonResult = now >= eventDateTime
+
+      console.log("Final comparison result:", debugData.comparisonResult)
+
+      // Return true if current time is after or equal to event time
+      return now >= eventDateTime
+    } catch (error) {
+      console.error("Error checking if event has passed:", error)
+      return false // Default to not passed if there's an error
+    }
+  }
+
   useEffect(() => {
     const fetchFormData = async () => {
       try {
@@ -215,17 +267,11 @@ export default function PublicFormPage() {
             const eventDateTime = new Date(data.eventDate)
             setEventDate(eventDateTime)
 
-            // Check if event has already started or passed
-            const now = new Date()
+            // Check if event has already started or passed using our improved function
+            const hasEventPassed = checkEventPassed(data.eventDate, data.startTime)
+            setIsEventPassed(hasEventPassed)
 
-            // If event has a start time, use it for comparison
-            if (data.startTime) {
-              const [hours, minutes] = data.startTime.split(":").map(Number)
-              eventDateTime.setHours(hours, minutes, 0, 0)
-            }
-
-            if (now >= eventDateTime) {
-              setIsEventPassed(true)
+            if (hasEventPassed) {
               setError("This form is closed because the event has already started or passed.")
             }
           }
@@ -530,12 +576,26 @@ export default function PublicFormPage() {
               </div>
             )}
 
+            {/* Date debug information */}
+            {dateDebugInfo && (
+              <div className="mt-4 p-3 bg-gray-100 rounded-md overflow-auto max-h-48 text-xs">
+                <details>
+                  <summary className="font-medium cursor-pointer">Date Comparison Details</summary>
+                  <pre className="mt-2 whitespace-pre-wrap break-words">{JSON.stringify(dateDebugInfo, null, 2)}</pre>
+                </details>
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <Button asChild>
                 <Link href={`/events/${eventId}`}>
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back to Event
                 </Link>
+              </Button>
+              <Button variant="outline" onClick={handleRetry}>
+                <RefreshCcw className="mr-2 h-4 w-4" />
+                Refresh Form Status
               </Button>
             </div>
           </CardContent>
