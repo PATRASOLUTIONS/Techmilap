@@ -126,37 +126,33 @@ export default function LoginPage() {
 
       setShowSuccessMessage(true)
 
-      // We need to fetch the user data to get the role
-      try {
-        const userResponse = await fetch("/api/auth/me")
-        if (userResponse.ok) {
-          const userData = await userResponse.json()
-          const userRole = userData.role || "user"
+      // Use a direct window.location approach for more reliable redirection
+      // If there's a callback URL, use that
+      if (callbackUrl) {
+        window.location.href = decodeURIComponent(callbackUrl)
+        return
+      }
 
-          console.log("User role detected:", userRole)
+      // Fetch user data to determine role-based redirect
+      const userResponse = await fetch("/api/auth/me")
+      if (userResponse.ok) {
+        const userData = await userResponse.json()
+        const userRole = userData.role || "user"
 
-          // If there's a callback URL, use that
-          if (callbackUrl) {
-            window.location.href = decodeURIComponent(callbackUrl)
-            return
-          }
+        console.log("User role detected for redirect:", userRole)
 
-          // Otherwise redirect based on role
-          if (userRole === "super-admin") {
-            window.location.href = "/super-admin"
-          } else if (userRole === "event-planner") {
-            window.location.href = "/dashboard"
-          } else {
-            window.location.href = "/user-dashboard"
-          }
+        // Force a hard redirect based on role
+        if (userRole === "super-admin") {
+          window.location.href = "/super-admin"
+        } else if (userRole === "event-planner") {
+          window.location.href = "/dashboard"
         } else {
-          // If we can't get the role, use a default redirect
-          window.location.href = "/my-events"
+          window.location.href = "/user-dashboard"
         }
-      } catch (error) {
-        console.error("Error fetching user data:", error)
-        // Fallback to default redirect
-        window.location.href = "/my-events"
+      } else {
+        // Fallback redirect if we can't determine the role
+        console.error("Could not fetch user data for redirection, using fallback")
+        window.location.href = "/dashboard"
       }
     } catch (err) {
       console.error("Login error:", err)
