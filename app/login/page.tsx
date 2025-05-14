@@ -38,8 +38,8 @@ export default function LoginPage() {
 
   // Debug logging for session and status
   useEffect(() => {
-    console.log("Session status:", status)
-    console.log("Session data:", session)
+    console.log("Login page - Session status:", status)
+    console.log("Login page - Session data:", session)
   }, [session, status])
 
   // Redirect if already authenticated based on role with retry limit
@@ -53,7 +53,7 @@ export default function LoginPage() {
 
       // If there's a specific callback URL, use that instead of role-based redirection
       if (callbackUrl) {
-        window.location.href = decodeURIComponent(callbackUrl)
+        router.push(decodeURIComponent(callbackUrl))
         return
       }
 
@@ -61,11 +61,11 @@ export default function LoginPage() {
       const role = session.user.role
 
       if (role === "super-admin") {
-        window.location.href = "/super-admin"
+        router.push("/super-admin")
       } else if (role === "event-planner") {
-        window.location.href = "/my-events" // Change from /dashboard to /my-events which definitely exists
+        router.push("/my-events") // Safe default path
       } else {
-        window.location.href = "/my-events" // Change from /user-dashboard to /my-events
+        router.push("/my-events") // Safe default path
       }
     }
   }, [session, status, redirectAttempts, router, searchParams])
@@ -161,8 +161,9 @@ export default function LoginPage() {
             // Role-based redirection to known paths
             if (userRole === "super-admin") {
               redirectUrl = "/super-admin"
+            } else if (userRole === "event-planner") {
+              redirectUrl = "/my-events" // Safe default path
             }
-            // We're keeping /my-events for event planners to ensure it exists
           }
         } catch (error) {
           console.error("Error fetching user data:", error)
@@ -171,7 +172,7 @@ export default function LoginPage() {
       }
 
       console.log("Redirecting to:", redirectUrl)
-      window.location.href = redirectUrl
+      router.push(redirectUrl)
     } catch (err) {
       console.error("Login error:", err)
       setError("An error occurred during login")
@@ -205,14 +206,14 @@ export default function LoginPage() {
           {redirectAttempts >= 2 && (
             <div className="mt-6">
               <p className="text-[#c12b6b] mb-4">Having trouble? Click one of these buttons to go directly to:</p>
-              <div className="flex space-x-4 justify-center">
-                <Button onClick={() => (window.location.href = "/my-events")} className="bg-[#170f83]">
+              <div className="flex flex-wrap gap-4 justify-center">
+                <Button onClick={() => router.push("/my-events")} className="bg-[#170f83]">
                   My Events
                 </Button>
-                <Button onClick={() => (window.location.href = "/user-dashboard")} className="bg-[#0aacf7]">
-                  User Dashboard
+                <Button onClick={() => router.push("/dashboard")} className="bg-[#0aacf7]">
+                  Dashboard
                 </Button>
-                <Button onClick={() => (window.location.href = "/")} className="bg-[#fea91b]">
+                <Button onClick={() => router.push("/")} className="bg-[#fea91b]">
                   Home Page
                 </Button>
               </div>

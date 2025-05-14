@@ -1,407 +1,205 @@
-import { getServerSession } from "next-auth/next"
-import { redirect } from "next/navigation"
-import { authOptions } from "@/lib/auth"
-import { EventStats } from "@/components/dashboard/event-stats"
+"use client"
+
+import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import Image from "next/image"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
-import { CalendarPlus, ChevronRight, LineChart, Search, Settings, Users, Star, Clock } from "lucide-react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { connectToDatabase } from "@/lib/mongodb"
-import Event from "@/models/Event"
-import mongoose from "mongoose"
+import { CalendarDays, Users, BarChart3, Settings, PlusCircle } from "lucide-react"
 
-async function getUserEvents(userId: string) {
-  try {
-    await connectToDatabase()
+export default function Dashboard() {
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-    // Convert string ID to MongoDB ObjectId
-    const userObjectId = new mongoose.Types.ObjectId(userId)
+  useEffect(() => {
+    // Log session status for debugging
+    console.log("Dashboard - Session status:", status)
+    console.log("Dashboard - Session data:", session)
 
-    // Find all events where the current user is the organizer
-    const events = await Event.find({ organizer: userObjectId }).sort({ createdAt: -1 }).lean().exec()
-
-    return events
-  } catch (error) {
-    console.error("Error fetching user events:", error)
-    return []
-  }
-}
-
-async function getEventStats(userId: string) {
-  try {
-    await connectToDatabase()
-
-    const userObjectId = new mongoose.Types.ObjectId(userId)
-
-    // Get total events count
-    const totalEvents = await Event.countDocuments({ organizer: userObjectId })
-
-    // Get active events count (events with status "published" and date in the future)
-    const activeEvents = await Event.countDocuments({
-      organizer: userObjectId,
-      status: "published",
-      date: { $gte: new Date() },
-    })
-
-    // Get total attendees count (sum of all attendees arrays length)
-    const eventsWithAttendees = await Event.find({ organizer: userObjectId }, { attendees: 1 })
-    const totalAttendees = eventsWithAttendees.reduce((sum, event) => {
-      return sum + (Array.isArray(event.attendees) ? event.attendees.length : 0)
-    }, 0)
-
-    // Get tickets sold count from registrations collection
-    const db = mongoose.connection.db
-    const registrations = await db.collection("formSubmissions").countDocuments({
-      eventOrganizer: userObjectId,
-      formType: "attendee",
-    })
-
-    return {
-      totalEvents,
-      activeEvents,
-      totalAttendees,
-      ticketsSold: registrations,
+    // If not authenticated, redirect to login
+    if (status === "unauthenticated") {
+      router.push("/login")
+      return
     }
-  } catch (error) {
-    console.error("Error calculating event stats:", error)
-    return {
-      totalEvents: 0,
-      activeEvents: 0,
-      totalAttendees: 0,
-      ticketsSold: 0,
+
+    // Set loading to false once we have session data
+    if (status !== "loading") {
+      setIsLoading(false)
     }
-  }
-}
+  }, [session, status, router])
 
-export default async function Dashboard() {
-  const session = await getServerSession(authOptions)
-
-  if (!session) {
-    redirect("/login")
-  }
-
-  // Redirect based on user role
-  if (session.user.role === "user") {
-    redirect("/user-dashboard")
-  } else if (session.user.role === "super-admin") {
-    // Super admins can access this dashboard, but we'll show them different content
-  } else if (session.user.role !== "event-planner") {
-    // If not event-planner or super-admin, redirect to user dashboard
-    redirect("/user-dashboard")
-  }
-
-  const isSuperAdmin = session.user.role === "super-admin"
-
-  // Fetch real data for the logged-in user
-  let stats = {
-    totalEvents: 0,
-    activeEvents: 0,
-    totalAttendees: 0,
-    ticketsSold: 0,
-  }
-
-  let userEvents = []
-
-  if (!isSuperAdmin) {
-    // For event planners, fetch their actual data
-    stats = await getEventStats(session.user.id)
-    userEvents = await getUserEvents(session.user.id)
-  } else {
-    // For super admins, we could fetch platform-wide stats
-    // This is placeholder data - in a real app, you'd fetch actual platform stats
-    stats = {
-      totalEvents: 45,
-      activeEvents: 28,
-      totalAttendees: 5800,
-      ticketsSold: 4200,
+  // Handle any errors that might occur
+  useEffect(() => {
+    const handleError = (error: ErrorEvent) => {
+      console.error("Dashboard error:", error)
+      setError("An error occurred while loading the dashboard. Please try refreshing the page.")
     }
+
+    window.addEventListener("error", handleError)
+    return () => window.removeEventListener("error", handleError)
+  }, [])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Image
+            src="/techmilap-logo-round.png"
+            alt="Tech Milap"
+            width={80}
+            height={80}
+            className="mx-auto mb-4 animate-pulse"
+          />
+          <p className="text-[#170f83]">Loading dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
-  // Sort events by date
-  const sortedEvents = [...userEvents].sort((a, b) => {
-    return new Date(b.date).getTime() - new Date(a.date).getTime()
-  })
-
-  // Get recent events (most recently created)
-  const recentEvents = sortedEvents.slice(0, 3)
-
-  // Get upcoming events (events with future dates)
-  const upcomingEvents = sortedEvents
-    .filter((event) => new Date(event.date) > new Date())
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .slice(0, 3)
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-[#c12b6b]">Dashboard Error</CardTitle>
+            <CardDescription>We encountered an issue loading your dashboard</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p>{error}</p>
+            <div className="flex space-x-4">
+              <Button onClick={() => window.location.reload()} className="bg-[#170f83]">
+                Refresh Page
+              </Button>
+              <Button onClick={() => router.push("/my-events")} className="bg-[#0aacf7]">
+                Go to My Events
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          {isSuperAdmin ? "Admin Dashboard" : "Event Planner Dashboard"}
-        </h1>
-        <p className="text-muted-foreground">
-          Welcome back, {session.user.name}!{" "}
-          {isSuperAdmin ? "Here's an overview of all events." : "Here's an overview of your events."}
-        </p>
+    <div className="container mx-auto p-4 md:p-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-[#170f83]">Dashboard</h1>
+          <p className="text-muted-foreground">Welcome back, {session?.user?.name || "Event Planner"}!</p>
+        </div>
+        <Button className="mt-4 md:mt-0 bg-[#170f83]" asChild>
+          <Link href="/create-event">
+            <PlusCircle className="mr-2 h-4 w-4" /> Create New Event
+          </Link>
+        </Button>
       </div>
 
-      <EventStats
-        totalEvents={stats.totalEvents}
-        activeEvents={stats.activeEvents}
-        totalAttendees={stats.totalAttendees}
-        ticketsSold={stats.ticketsSold}
-      />
-
-      {isSuperAdmin ? (
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="overview">Platform Overview</TabsTrigger>
-            <TabsTrigger value="actions">Admin Actions</TabsTrigger>
-          </TabsList>
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle>Platform Statistics</CardTitle>
-                  <CardDescription>Overall platform performance</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">Total Users</p>
-                      <p className="text-2xl font-bold">1,245</p>
-                    </div>
-                    <Users className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">Event Planners</p>
-                      <p className="text-2xl font-bold">87</p>
-                    </div>
-                    <Star className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">Average Rating</p>
-                      <p className="text-2xl font-bold">4.8/5</p>
-                    </div>
-                    <Star className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle>Recent Events</CardTitle>
-                  <CardDescription>Recently created events</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex justify-between items-center">
-                      <div>
-                        <p className="font-medium">Tech Summit {2023 + i}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(2023, i + 5, 10).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/dashboard/events/${i}`}>View</Link>
-                      </Button>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle>System Status</CardTitle>
-                  <CardDescription>Current system performance</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">Server Status</p>
-                      <p className="text-sm text-green-500">Operational</p>
-                    </div>
-                    <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">Database Status</p>
-                      <p className="text-sm text-green-500">Operational</p>
-                    </div>
-                    <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">API Status</p>
-                      <p className="text-sm text-green-500">Operational</p>
-                    </div>
-                    <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">Last Backup</p>
-                      <p className="text-sm text-muted-foreground">Today, 04:30 AM</p>
-                    </div>
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Events</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <CalendarDays className="h-8 w-8 text-[#fea91b] mr-3" />
+              <div className="text-2xl font-bold">12</div>
             </div>
-          </TabsContent>
-          <TabsContent value="actions">
-            <Card>
-              <CardHeader>
-                <CardTitle>Admin Actions</CardTitle>
-                <CardDescription>Manage the platform and users</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-2">
-                <Button asChild variant="outline" className="justify-between">
-                  <Link href="/super-admin/users">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      <span>Manage Users</span>
-                    </div>
-                    <ChevronRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" className="justify-between">
-                  <Link href="/super-admin/events">
-                    <div className="flex items-center gap-2">
-                      <CalendarPlus className="h-4 w-4" />
-                      <span>Manage All Events</span>
-                    </div>
-                    <ChevronRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" className="justify-between">
-                  <Link href="/super-admin/events/categories">
-                    <div className="flex items-center gap-2">
-                      <Settings className="h-4 w-4" />
-                      <span>Manage Categories</span>
-                    </div>
-                    <ChevronRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" className="justify-between">
-                  <Link href="/super-admin/settings">
-                    <div className="flex items-center gap-2">
-                      <Settings className="h-4 w-4" />
-                      <span>Platform Settings</span>
-                    </div>
-                    <ChevronRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Common tasks you can perform</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-2">
-              <Button asChild variant="outline" className="justify-between">
-                <Link href="/dashboard/events/create">
-                  <div className="flex items-center gap-2">
-                    <CalendarPlus className="h-4 w-4" />
-                    <span>Create New Event</span>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Attendees</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <Users className="h-8 w-8 text-[#0aacf7] mr-3" />
+              <div className="text-2xl font-bold">248</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Upcoming Events</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <CalendarDays className="h-8 w-8 text-[#c12b6b] mr-3" />
+              <div className="text-2xl font-bold">5</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Conversion Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <BarChart3 className="h-8 w-8 text-[#170f83] mr-3" />
+              <div className="text-2xl font-bold">68%</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Recent Events</CardTitle>
+            <CardDescription>Your most recent events and their performance</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center justify-between border-b pb-4">
+                  <div>
+                    <h3 className="font-medium">Tech Conference {i}</h3>
+                    <p className="text-sm text-muted-foreground">May {10 + i}, 2023</p>
                   </div>
-                  <ChevronRight className="h-4 w-4" />
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="justify-between">
+                  <div className="text-right">
+                    <p className="font-medium">{30 + i * 20} Attendees</p>
+                    <p className="text-sm text-muted-foreground">{70 + i}% Capacity</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+            <CardDescription>Common tasks and settings</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Button className="w-full justify-start bg-[#fea91b]" asChild>
                 <Link href="/my-events">
-                  <div className="flex items-center gap-2">
-                    <Settings className="h-4 w-4" />
-                    <span>Manage Events</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4" />
+                  <CalendarDays className="mr-2 h-4 w-4" /> View All Events
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="justify-between">
-                <Link href="/explore">
-                  <div className="flex items-center gap-2">
-                    <Search className="h-4 w-4" />
-                    <span>Explore Events</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4" />
+              <Button className="w-full justify-start bg-[#0aacf7]" asChild>
+                <Link href="/dashboard/attendees">
+                  <Users className="mr-2 h-4 w-4" /> Manage Attendees
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="justify-between">
+              <Button className="w-full justify-start bg-[#c12b6b]" asChild>
                 <Link href="/dashboard/analytics">
-                  <div className="flex items-center gap-2">
-                    <LineChart className="h-4 w-4" />
-                    <span>View Analytics</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4" />
+                  <BarChart3 className="mr-2 h-4 w-4" /> View Analytics
                 </Link>
               </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Recent Events</CardTitle>
-              <CardDescription>Your most recent events</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {recentEvents.length > 0 ? (
-                recentEvents.map((event) => (
-                  <div key={event._id.toString()} className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">{event.title}</p>
-                      <p className="text-sm text-muted-foreground">{new Date(event.date).toLocaleDateString()}</p>
-                    </div>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/event-dashboard/${event._id}`}>View</Link>
-                    </Button>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-4 text-muted-foreground">
-                  <p>No recent events found</p>
-                  <Button variant="link" asChild className="mt-2">
-                    <Link href="/dashboard/events/create">Create your first event</Link>
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Upcoming Events</CardTitle>
-              <CardDescription>Events scheduled in the near future</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {upcomingEvents.length > 0 ? (
-                upcomingEvents.map((event) => (
-                  <div key={event._id.toString()} className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">{event.title}</p>
-                      <p className="text-sm text-muted-foreground">{new Date(event.date).toLocaleDateString()}</p>
-                    </div>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/event-dashboard/${event._id}`}>View</Link>
-                    </Button>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-4 text-muted-foreground">
-                  <p>No upcoming events found</p>
-                  <Button variant="link" asChild className="mt-2">
-                    <Link href="/dashboard/events/create">Schedule an event</Link>
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+              <Button className="w-full justify-start bg-[#170f83]" asChild>
+                <Link href="/settings">
+                  <Settings className="mr-2 h-4 w-4" /> Account Settings
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
