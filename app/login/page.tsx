@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { signIn } from "next-auth/react"
+import { signIn, useSession } from "next-auth/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast"
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { data: session, status } = useSession()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -33,6 +34,16 @@ export default function LoginPage() {
   const [verifiedSuccess, setVerifiedSuccess] = useState(false)
 
   const { toast } = useToast()
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (status === "authenticated" && session) {
+      console.log("User is authenticated, redirecting to dashboard")
+      const callbackUrl = searchParams.get("callbackUrl")
+      const redirectUrl = callbackUrl ? decodeURIComponent(callbackUrl) : "/my-events"
+      router.push(redirectUrl)
+    }
+  }, [session, status, router, searchParams])
 
   // Check if user just registered or verified email
   useEffect(() => {
@@ -69,10 +80,13 @@ export default function LoginPage() {
     }
 
     try {
+      const callbackUrl = searchParams.get("callbackUrl") || "/my-events"
+
       const result = await signIn("credentials", {
         redirect: false,
         email,
         password,
+        callbackUrl: decodeURIComponent(callbackUrl),
       })
 
       if (result?.error) {
@@ -95,14 +109,8 @@ export default function LoginPage() {
 
       setShowSuccessMessage(true)
 
-      // For demo purposes, redirect based on email
-      if (email === "superadmin@gmail.com") {
-        setTimeout(() => router.push("/super-admin"), 1000)
-      } else if (email === "eventplanner@gmail.com") {
-        setTimeout(() => router.push("/my-events"), 1000)
-      } else {
-        setTimeout(() => router.push("/my-events"), 1000)
-      }
+      // Force a hard refresh to ensure the session is properly updated
+      window.location.href = result?.url || "/my-events"
     } catch (err) {
       console.error("Login error:", err)
       setError("An error occurred during login")
@@ -117,6 +125,24 @@ export default function LoginPage() {
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword)
+  }
+
+  // If already authenticated, show loading state
+  if (status === "loading" || (status === "authenticated" && session)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Image
+            src="/techmilap-logo-round.png"
+            alt="Tech Milap"
+            width={80}
+            height={80}
+            className="mx-auto mb-4 animate-pulse"
+          />
+          <p className="text-[#170f83]">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

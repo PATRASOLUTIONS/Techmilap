@@ -83,8 +83,13 @@ export async function middleware(request: NextRequest) {
   // If no token and trying to access a protected route, redirect to login
   if (!token) {
     const url = new URL("/login", request.url)
-    url.searchParams.set("callbackUrl", encodeURI(request.url))
+    url.searchParams.set("callbackUrl", encodeURIComponent(request.url))
     return NextResponse.redirect(url)
+  }
+
+  // If user is already authenticated and trying to access login/signup pages, redirect to dashboard
+  if (token && (pathname === "/login" || pathname === "/signup")) {
+    return NextResponse.redirect(new URL("/my-events", request.url))
   }
 
   // Check for super-admin routes
