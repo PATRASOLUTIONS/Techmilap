@@ -25,6 +25,9 @@ export async function connectToDatabase() {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
+      serverSelectionTimeoutMS: 10000, // Timeout after 10 seconds
+      socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+      family: 4, // Use IPv4, skip trying IPv6
     }
 
     console.log("Connecting to MongoDB...")
@@ -47,6 +50,23 @@ export async function connectToDatabase() {
     console.error("Error resolving MongoDB connection promise:", error)
     cached.promise = null
     throw error
+  }
+}
+
+// Helper function to check if MongoDB is connected
+export function isConnected() {
+  return mongoose.connection.readyState === 1
+}
+
+// Helper function to safely disconnect
+export async function disconnectFromDatabase() {
+  try {
+    await mongoose.disconnect()
+    cached.conn = null
+    cached.promise = null
+    console.log("Disconnected from MongoDB")
+  } catch (error) {
+    console.error("Error disconnecting from MongoDB:", error)
   }
 }
 

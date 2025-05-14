@@ -1,42 +1,56 @@
-// Debug endpoint to test JSON response
-export async function GET(request: Request, { params }: { params: { id: string } }) {
-  console.log(`Debug form request received for event: ${params.id}`)
+import { NextResponse } from "next/server"
+import mongoose from "mongoose"
+import { connectToDatabase, isConnected } from "@/lib/mongodb"
 
-  // Set headers for all responses to ensure proper content type
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   const headers = {
     "Content-Type": "application/json",
     "Cache-Control": "no-cache, no-store, must-revalidate",
   }
 
   try {
-    // Return a simple test response
-    const responseData = {
-      success: true,
-      message: "Debug endpoint working correctly",
-      timestamp: new Date().toISOString(),
-      eventId: params.id,
+    // Check MongoDB connection status
+    const connectionStatus = {
+      readyState: mongoose.connection.readyState,
+      status: isConnected() ? "connected" : "disconnected",
     }
 
-    console.log("Sending debug response")
+    // Test database connection
+    const connectionTest = { success: false, error: null }
+    try {
+      await connectToDatabase()
+      connectionTest.success = true
+    } catch (error) {
+      connectionTest.error = error instanceof Error ? error.message : "Unknown error"
+    }
 
-    // Return the debug response
-    return new Response(JSON.stringify(responseData), {
-      status: 200,
-      headers,
-    })
-  } catch (error) {
-    console.error(`Error in debug endpoint:`, error)
+    // Get environment info (without exposing sensitive data)
+    const envInfo = {
+      nodeEnv: process.env.NODE_ENV,
+      hasMongoUri: !!process.env.MONGODB_URI,
+      mongoUriLength: process.env.MONGODB_URI ? process.env.MONGODB_URI.length : 0,
+      mongoUriPrefix: process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 10) + "..." : null,
+    }
 
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: "An error occurred in the debug endpoint",
-        details: error instanceof Error ? error.message : "Unknown error",
-      }),
+    return NextResponse.json(
       {
-        status: 500,
-        headers,
+        timestamp: new Date().toISOString(),
+        eventId: params.id,
+        mongoConnection: connectionStatus,
+        connectionTest,
+        environment: envInfo,
+        serverTime: new Date().toString(),
       },
+      { status: 200, headers },
+    )
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: "Debug endpoint error",
+        message: error instanceof Error ? error.message : "Unknown error",
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      },
+      { status: 500, headers },
     )
   }
 }

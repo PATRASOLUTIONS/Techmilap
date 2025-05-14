@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import mongoose from "mongoose"
+import { connectToDatabase, isConnected } from "@/lib/mongodb"
 import Event from "@/models/Event"
 
 // Get form questions for a specific form type
@@ -32,33 +33,43 @@ export async function GET(request: Request, { params }: { params: { id: string; 
     const normalizedFormType = formType === "register" ? "attendee" : formType
     console.log(`Normalized form type: ${normalizedFormType}`)
 
-    // Connect to database directly using mongoose
-    try {
-      console.log("Connecting to MongoDB...")
+    // Connect to database with retry logic
+    let connectionAttempts = 0
+    const maxAttempts = 3
 
-      // Check if already connected
-      if (mongoose.connection.readyState !== 1) {
-        if (!process.env.MONGODB_URI) {
-          throw new Error("MONGODB_URI environment variable is not defined")
+    while (connectionAttempts < maxAttempts) {
+      try {
+        connectionAttempts++
+        console.log(`MongoDB connection attempt ${connectionAttempts}/${maxAttempts}...`)
+
+        if (!isConnected()) {
+          await connectToDatabase()
         }
 
-        await mongoose.connect(process.env.MONGODB_URI)
+        // If we reach here, connection was successful
         console.log("MongoDB connection established")
-      } else {
-        console.log("MongoDB already connected")
+        break
+      } catch (dbError) {
+        console.error(`Database connection error (attempt ${connectionAttempts}/${maxAttempts}):`, dbError)
+
+        if (connectionAttempts >= maxAttempts) {
+          return NextResponse.json(
+            {
+              error: "Failed to connect to database. Please try again later.",
+              details: dbError instanceof Error ? dbError.message : "Unknown database error",
+            },
+            {
+              status: 503, // Service Unavailable
+              headers,
+            },
+          )
+        }
+
+        // Wait before retrying (exponential backoff)
+        const delay = Math.min(1000 * Math.pow(2, connectionAttempts - 1), 5000)
+        console.log(`Waiting ${delay}ms before retry...`)
+        await new Promise((resolve) => setTimeout(resolve, delay))
       }
-    } catch (dbError) {
-      console.error("Database connection error:", dbError)
-      return NextResponse.json(
-        {
-          error: "Failed to connect to database. Please try again later.",
-          details: dbError instanceof Error ? dbError.message : "Unknown database error",
-        },
-        {
-          status: 500,
-          headers,
-        },
-      )
     }
 
     // Get the event - simplified approach
@@ -94,6 +105,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
         {
           error: "Failed to fetch event. Please try again later.",
           details: eventError instanceof Error ? eventError.message : "Unknown error fetching event",
+          stack: process.env.NODE_ENV === "development" ? eventError.stack : undefined,
         },
         {
           status: 500,
@@ -230,6 +242,7 @@ export async function GET(request: Request, { params }: { params: { id: string; 
       JSON.stringify({
         error: "An unexpected error occurred. Please try again later.",
         details: error instanceof Error ? error.message : "Unknown error",
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
       }),
       {
         status: 500,

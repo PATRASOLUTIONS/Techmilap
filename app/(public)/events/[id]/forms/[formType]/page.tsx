@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { DynamicForm } from "@/components/forms/dynamic-form"
 import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, AlertCircle, Calendar, Clock, RefreshCcw, Bug, ExternalLink, Search } from "lucide-react"
+import { ArrowLeft, AlertCircle, Calendar, Clock, RefreshCcw, Bug, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { FormSuccessMessage } from "@/components/ui/form-success-message"
@@ -398,7 +398,7 @@ export default function PublicFormPage() {
     )
   }
 
-  if (error && !isEventPassed) {
+  if (error) {
     return (
       <div className="container max-w-3xl mx-auto py-8 px-4">
         <div className="flex items-center mb-6">
@@ -408,7 +408,11 @@ export default function PublicFormPage() {
             </Link>
           </Button>
           <h1 className="text-2xl font-bold">
-            {error.includes("parse") ? "Error Loading Form" : "Form Not Available"}
+            {error.includes("database")
+              ? "Database Connection Error"
+              : error.includes("parse")
+                ? "Error Loading Form"
+                : "Form Not Available"}
           </h1>
         </div>
         <Card className="border-amber-200 bg-amber-50">
@@ -416,10 +420,26 @@ export default function PublicFormPage() {
             <div className="flex items-center space-x-2 mb-4">
               <AlertCircle className="h-5 w-5 text-amber-500" />
               <p className="font-medium text-amber-700">
-                {error.includes("parse") || error.includes("HTML") ? "Technical Error" : "Form Not Available"}
+                {error.includes("database")
+                  ? "Database Connection Error"
+                  : error.includes("parse") || error.includes("HTML")
+                    ? "Technical Error"
+                    : "Form Not Available"}
               </p>
             </div>
             <p className="text-gray-700 mb-4">{error}</p>
+
+            {error.includes("database") && (
+              <div className="p-4 bg-white rounded-md mb-4">
+                <h3 className="font-medium mb-2">Troubleshooting Tips:</h3>
+                <ul className="list-disc pl-5 space-y-1 text-sm">
+                  <li>The system is having trouble connecting to the database</li>
+                  <li>This is usually a temporary issue</li>
+                  <li>Please try again in a few moments</li>
+                  <li>If the problem persists, contact the event organizer</li>
+                </ul>
+              </div>
+            )}
 
             {fetchError && fetchError.stack && (
               <div className="mb-4 p-3 bg-white rounded-md text-xs overflow-auto max-h-32">
@@ -428,7 +448,7 @@ export default function PublicFormPage() {
               </div>
             )}
 
-            {debugResponse && !isEventPassed && (
+            {debugResponse && (
               <div className="mb-4 p-3 bg-white rounded-md">
                 <p className="font-medium mb-1">Debug endpoint test:</p>
                 <pre className="text-xs whitespace-pre-wrap break-words overflow-auto max-h-32">
@@ -438,30 +458,21 @@ export default function PublicFormPage() {
             )}
 
             <div className="flex flex-col sm:flex-row gap-3 mt-6">
-              {(error.includes("parse") || error.includes("HTML") || error.includes("timed out")) && (
-                <Button onClick={handleRetry} className="mb-2 sm:mb-0">
-                  <RefreshCcw className="mr-2 h-4 w-4" />
-                  Try Again
-                </Button>
-              )}
+              <Button onClick={handleRetry} className="mb-2 sm:mb-0">
+                <RefreshCcw className="mr-2 h-4 w-4" />
+                Try Again
+              </Button>
               <Button asChild>
                 <Link href={`/events/${eventId}`}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Event
+                  <ArrowLeft className="h-4 w-4" />
                 </Link>
               </Button>
-              {(error.includes("parse") || error.includes("HTML")) && (
+              {(error.includes("parse") || error.includes("HTML") || error.includes("database")) && (
                 <Button variant="outline" onClick={toggleDebug} className="ml-auto">
                   <Bug className="mr-2 h-4 w-4" />
                   {showDebug ? "Hide Debug Info" : "Show Debug Info"}
                 </Button>
               )}
-              <Button variant="outline" asChild>
-                <Link href={`/events/${eventId}`} target="_blank">
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Open Event Page
-                </Link>
-              </Button>
             </div>
 
             {showDebug && debugInfo && (
