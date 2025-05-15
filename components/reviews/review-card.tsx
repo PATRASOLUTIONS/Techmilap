@@ -39,7 +39,16 @@ export function ReviewCard({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showReplyActions, setShowReplyActions] = useState(false)
 
-  const isOwner = session?.user?.id === review.userId?._id
+  // Handle case where review is undefined or null
+  if (!review) {
+    return null
+  }
+
+  // Safely extract userId from review
+  const reviewUserId = review.userId?._id || review.userId
+  const sessionUserId = session?.user?.id
+
+  const isOwner = reviewUserId && sessionUserId && reviewUserId.toString() === sessionUserId.toString()
   const isEventPlanner = session?.user?.role === "event-planner"
   const isAdmin = session?.user?.role === "super-admin"
   const canModerate = isEventPlanner || isAdmin
@@ -153,7 +162,9 @@ export function ReviewCard({
           </Avatar>
           <div>
             <h3 className="text-sm font-medium">
-              {review.userId?.name || `${review.userId?.firstName || ""} ${review.userId?.lastName || ""}`}
+              {review.userId?.name ||
+                `${review.userId?.firstName || ""} ${review.userId?.lastName || ""}`.trim() ||
+                "Anonymous User"}
             </h3>
             <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
               <div className="flex items-center">
@@ -171,7 +182,7 @@ export function ReviewCard({
                 <>
                   <span className="mx-1">•</span>
                   <Badge variant="outline" className="text-xs font-normal">
-                    {review.event.name || review.event.title}
+                    {review.event.name || review.event.title || "Unknown Event"}
                   </Badge>
                 </>
               )}
@@ -277,7 +288,7 @@ export function ReviewCard({
           </div>
         )}
 
-        {review.status !== "approved" && canModerate && (
+        {review.status !== "approved" && review.status && canModerate && (
           <div className="w-full flex justify-between items-center">
             <Badge
               variant={review.status === "pending" ? "outline" : "secondary"}

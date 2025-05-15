@@ -20,10 +20,10 @@ interface ReviewListProps {
 }
 
 export function ReviewList({
-  reviews,
+  reviews = [],
   loading = false,
-  page,
-  totalPages,
+  page = 1,
+  totalPages = 1,
   onPageChange,
   onReply,
   onDelete,
@@ -58,7 +58,7 @@ export function ReviewList({
       <div className="space-y-4">
         {reviews.map((review) => (
           <ReviewCard
-            key={review._id}
+            key={review._id || `review-${Math.random()}`}
             review={review}
             onReply={onReply}
             onDelete={onDelete}
@@ -75,8 +75,8 @@ export function ReviewList({
           <Button
             variant="outline"
             size="icon"
-            onClick={() => onPageChange(Math.max(1, page - 1))}
-            disabled={page === 1}
+            onClick={() => onPageChange?.(Math.max(1, page - 1))}
+            disabled={page === 1 || !onPageChange}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -86,8 +86,8 @@ export function ReviewList({
           <Button
             variant="outline"
             size="icon"
-            onClick={() => onPageChange(Math.min(totalPages, page + 1))}
-            disabled={page === totalPages}
+            onClick={() => onPageChange?.(Math.min(totalPages, page + 1))}
+            disabled={page === totalPages || !onPageChange}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>

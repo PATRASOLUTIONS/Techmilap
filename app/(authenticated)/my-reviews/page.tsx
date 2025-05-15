@@ -60,21 +60,35 @@ export default function MyReviewsPage() {
       }
 
       const response = await fetch(`/api/reviews/my-reviews?${params.toString()}`)
-      const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch reviews")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to fetch reviews")
       }
 
-      setReviews(data.reviews)
-      setPagination(data.pagination)
-      setEvents(data.events)
-    } catch (error: any) {
+      const data = await response.json()
+
+      // Add null checks
+      setReviews(data.reviews || [])
+      setPagination(
+        data.pagination || {
+          total: 0,
+          page: currentPage,
+          limit: 10,
+          pages: 0,
+        },
+      )
+      setEvents(data.events || [])
+    } catch (error) {
+      console.error("Error fetching reviews:", error)
       toast({
         title: "Error",
-        description: error.message || "Failed to fetch reviews",
+        description: error instanceof Error ? error.message : "Failed to fetch reviews",
         variant: "destructive",
       })
+      // Set empty data on error
+      setReviews([])
+      setEvents([])
     } finally {
       setLoading(false)
     }
@@ -160,10 +174,16 @@ export default function MyReviewsPage() {
     }
   }, [searchParams, session])
 
-  // Calculate review statistics
-  const myReviews = reviews.filter((review) => review.userId.toString() === session?.user?.id)
-  const pendingReviews = reviews.filter((review) => review.status === "pending")
-  const approvedReviews = reviews.filter((review) => review.status === "approved")
+  // Calculate review statistics with null checks
+  const myReviews =
+    reviews?.filter((review) => {
+      const reviewUserId = review.userId?._id || review.userId
+      const sessionUserId = session?.user?.id
+      return reviewUserId && sessionUserId && reviewUserId.toString() === sessionUserId.toString()
+    }) || []
+
+  const pendingReviews = reviews?.filter((review) => review.status === "pending") || []
+  const approvedReviews = reviews?.filter((review) => review.status === "approved") || []
 
   return (
     <div className="container mx-auto py-6 space-y-6">

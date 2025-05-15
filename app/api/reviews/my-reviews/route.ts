@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     const totalCount = await db.collection("reviews").countDocuments(query)
 
     // Get reviews with pagination
-    const reviews = await db
+    let reviews = await db
       .collection("reviews")
       .aggregate([
         { $match: query },
@@ -101,6 +101,45 @@ export async function GET(req: NextRequest) {
         { $limit: limit },
       ])
       .toArray()
+
+    if (!reviews) {
+      reviews = []
+    }
+
+    const populatedReviews = await Promise.all(
+      reviews.map(async (review) => {
+        try {
+          // Get event details
+          const event = await db
+            .collection("events")
+            .findOne({ _id: review.eventId }, { projection: { title: 1, date: 1, image: 1 } })
+
+          // Get user details
+          const user = await db
+            .collection("users")
+            .findOne({ _id: review.userId }, { projection: { firstName: 1, lastName: 1, email: 1, profileImage: 1 } })
+
+          return {
+            ...review,
+            event: event || { title: "Unknown Event" },
+            user: user
+              ? {
+                  name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Unknown User",
+                  email: user.email,
+                  image: user.profileImage,
+                }
+              : { name: "Unknown User" },
+          }
+        } catch (err) {
+          console.error("Error populating review:", err)
+          return {
+            ...review,
+            event: { title: "Unknown Event" },
+            user: { name: "Unknown User" },
+          }
+        }
+      }),
+    )
 
     // Get statistics
     const stats = {
@@ -177,12 +216,45 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      reviews,
-      totalPages: Math.ceil(totalCount / limit),
-      stats,
+      reviews: populatedReviews || [],
+      pagination: {
+        total: totalCount,
+        page,
+        limit,
+        pages: Math.ceil(totalCount / limit),
+      },
+      events: [],
+      stats: stats,
     })
   } catch (error) {
-    console.error("Error fetching user reviews:", error)
-    return NextResponse.json({ error: "Failed to fetch reviews" }, { status: 500 })
+    console.error("Error fetching my reviews:", error)
+    return NextResponse.json(
+      {
+        error: "Failed to fetch reviews",
+        reviews: [],
+        pagination: {
+          total: 0,
+          page: 1,
+          limit: 10,
+          pages: 0,
+        },
+        events: [],
+        stats: {
+          total: 0,
+          average: 0,
+          pending: 0,
+          approved: 0,
+          rejected: 0,
+          ratings: {
+            1: 0,
+            2: 0,
+            3: 0,
+            4: 0,
+            5: 0,
+          },
+        },
+      },
+      { status: 500 },
+    )
   }
 }
