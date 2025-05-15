@@ -1,33 +1,27 @@
 "use client"
 
 import { useState } from "react"
-import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { useToast } from "@/hooks/use-toast"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
-import { format } from "date-fns"
-import { CalendarIcon, Loader2, AlertCircle } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { validateField, getValidationType } from "@/lib/form-validation"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface DynamicFormProps {
   formFields: any[]
-  formTitle: string
-  formDescription: string
-  onSubmit: (data: any) => Promise<void>
-  defaultValues?: Record<string, any>
+  formTitle?: string
+  formDescription?: string
+  onSubmit: (data: any) => void
   submitButtonText?: string
   isSubmitting?: boolean
+  className?: string
 }
 
 export function DynamicForm({
@@ -35,476 +29,249 @@ export function DynamicForm({
   formTitle,
   formDescription,
   onSubmit,
-  defaultValues = {},
   submitButtonText = "Submit",
   isSubmitting = false,
+  className,
 }: DynamicFormProps) {
-  const [localSubmitting, setLocalSubmitting] = useState(false)
-  const { toast } = useToast()
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
-  const [termsAccepted, setTermsAccepted] = useState(false)
-  const [formError, setFormError] = useState("")
+  const [formError, setFormError] = useState<string | null>(null)
 
-  // Ensure formFields is always an array
-  const safeFormFields = Array.isArray(formFields) ? formFields : []
+  // Create a dynamic schema based on the form fields
+  const createFormSchema = () => {
+    const schemaFields: Record<string, any> = {}
 
-  // Dynamically build the form schema based on form fields
-  const buildFormSchema = () => {
-    const schema: Record<string, any> = {}
+    formFields.forEach((field) => {
+      let validator
 
-    safeFormFields.forEach((field) => {
-      if (!field || !field.id || !field.type) {
-        console.warn("Invalid field configuration:", field)
-        return
-      }
-
-      let fieldSchema = z.string()
-
-      if (field.type === "email") {
-        fieldSchema = z.string().email(`${field.label} must be a valid email`)
-      } else if (field.type === "checkbox") {
-        // For checkbox fields, we accept boolean, string, or array
-        fieldSchema = z.union([z.boolean(), z.string(), z.array(z.string())]).optional()
-      } else if (field.type === "date") {
-        fieldSchema = z.date().optional()
-      } else if (
-        field.type === "phone" ||
-        field.label?.toLowerCase().includes("phone") ||
-        field.label?.toLowerCase().includes("mobile")
-      ) {
-        fieldSchema = z
-          .string()
-          .regex(
-            /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/,
-            `${field.label} must be a valid phone number`,
-          )
-      } else if (field.label?.toLowerCase().includes("linkedin")) {
-        fieldSchema = z
-          .string()
-          .regex(
-            /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+\/?$/,
-            `${field.label} must be a valid LinkedIn profile URL`,
-          )
-      } else if (field.label?.toLowerCase().includes("github")) {
-        fieldSchema = z
-          .string()
-          .regex(
-            /^(https?:\/\/)?(www\.)?github\.com\/[a-zA-Z0-9_-]+\/?$/,
-            `${field.label} must be a valid GitHub profile URL`,
-          )
-      } else if (field.validation?.pattern) {
-        // Use custom validation pattern if provided
-        fieldSchema = z
-          .string()
-          .regex(field.validation.pattern, field.validation.message || `${field.label} is invalid`)
-      }
-
-      if (field.required && field.type !== "checkbox" && field.type !== "date") {
-        fieldSchema = fieldSchema.min(1, `${field.label} is required`)
-      } else if (field.required && field.type === "checkbox") {
-        // For required checkboxes, we need special handling
-        if (field.options && field.options.length > 0) {
-          // For multi-checkboxes, at least one must be selected
-          fieldSchema = z.union([z.literal(true), z.string().min(1), z.array(z.string()).min(1)], {
-            errorMap: () => ({ message: `${field.label} is required` }),
+      switch (field.type) {
+        case "email":
+          validator = z.string().email({ message: "Please enter a valid email address" })
+          break
+        case "number":
+          validator = z.string().refine((val) => !isNaN(Number(val)), {
+            message: "Please enter a valid number",
           })
-        } else {
-          // For single checkboxes, it must be true
-          fieldSchema = z.literal(true, {
-            errorMap: () => ({ message: `${field.label} is required` }),
-          })
-        }
-      } else if (field.required && field.type === "date") {
-        fieldSchema = z.date({
-          required_error: `${field.label} is required`,
-        })
-      } else {
-        fieldSchema = fieldSchema.optional()
+          break
+        case "tel":
+        case "phone":
+          validator = z
+            .string()
+            .min(5, { message: "Phone number is too short" })
+            .max(20, { message: "Phone number is too long" })
+            .refine(
+              (val) => {
+                // Basic phone validation - allows various formats
+                return /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/.test(val)
+              },
+              { message: "Please enter a valid phone number" },
+            )
+          break
+        case "checkbox":
+          validator = z.boolean().optional()
+          break
+        case "select":
+        case "radio":
+          validator = z.string().min(1, { message: "Please select an option" })
+          break
+        case "textarea":
+          validator = z
+            .string()
+            .min(field.minLength || 1, {
+              message: `Please enter at least ${field.minLength || 1} characters`,
+            })
+            .max(field.maxLength || 1000, {
+              message: `Text cannot exceed ${field.maxLength || 1000} characters`,
+            })
+          break
+        case "text":
+        default:
+          validator = z
+            .string()
+            .min(field.minLength || 1, {
+              message: `Please enter at least ${field.minLength || 1} characters`,
+            })
+            .max(field.maxLength || 100, {
+              message: `Text cannot exceed ${field.maxLength || 100} characters`,
+            })
+          break
       }
 
-      schema[field.id] = fieldSchema
+      // Make the field optional if not required
+      if (!field.required) {
+        validator = validator.optional()
+      }
+
+      schemaFields[field.id] = validator
     })
 
-    return z.object(schema)
+    return z.object(schemaFields)
   }
+
+  const formSchema = createFormSchema()
 
   // Create the form
-  const form = useForm({
-    resolver: zodResolver(buildFormSchema()),
-    defaultValues: {
-      ...defaultValues,
-    },
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: formFields.reduce((acc, field) => {
+      if (field.type === "checkbox") {
+        acc[field.id] = field.defaultValue || false
+      } else {
+        acc[field.id] = field.defaultValue || ""
+      }
+      return acc
+    }, {}),
   })
 
-  const validateForm = () => {
-    const errors: Record<string, string> = {}
-
-    safeFormFields.forEach((question) => {
-      const value = form.getValues(question.id)
-      const validationType = getValidationType(question)
-
-      // Only call validateField with string values or convert to string
-      let valueToValidate = value
-      if (typeof value !== "string" && value !== null && value !== undefined) {
-        valueToValidate = String(value)
-      }
-
-      const error = validateField(validationType, valueToValidate, question.required)
-
-      if (error) {
-        errors[question.id] = error
-      }
-    })
-
-    setValidationErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  const handleSubmit = async (values: any) => {
+  // Handle form submission
+  const handleSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
-      setLocalSubmitting(true)
-      setFormError("") // Clear any previous form errors
-      console.log("Form submitted with values:", values)
-
-      // Validate the form
-      const isValid = validateForm()
-      if (!isValid) {
-        setLocalSubmitting(false)
-        setFormError("Please correct the errors in the form before submitting.")
-        return
-      }
-
-      // Check if terms are accepted
-      if (!termsAccepted) {
-        setFormError("You must accept the terms and conditions to proceed.")
-        setLocalSubmitting(false)
-        return
-      }
-
-      // Clean the data to ensure no undefined values
-      const cleanData = {}
-      Object.keys(values).forEach((key) => {
-        // Handle different types of values appropriately
-        if (values[key] === undefined || values[key] === null) {
-          cleanData[key] = ""
-        } else if (values[key] instanceof Date) {
-          cleanData[key] = values[key].toISOString()
-        } else {
-          cleanData[key] = values[key]
-        }
-      })
-
-      // Add terms acceptance
-      cleanData["termsAccepted"] = termsAccepted
-
-      // Add firstName and lastName if they don't exist but name does
-      if (!cleanData["firstName"] && !cleanData["lastName"] && cleanData["name"]) {
-        const nameParts = cleanData["name"].split(" ")
-        if (nameParts.length > 0) {
-          cleanData["firstName"] = nameParts[0]
-          if (nameParts.length > 1) {
-            cleanData["lastName"] = nameParts.slice(1).join(" ")
-          }
-        }
-      }
-
-      // Add name if it doesn't exist but firstName does
-      if (!cleanData["name"] && cleanData["firstName"]) {
-        cleanData["name"] = `${cleanData["firstName"]} ${cleanData["lastName"] || ""}`.trim()
-      }
-
-      console.log("Sending data to parent component:", cleanData)
-      await onSubmit(cleanData)
+      setFormError(null)
+      await onSubmit(data)
     } catch (error) {
       console.error("Form submission error:", error)
-
-      // Set a user-friendly error message
-      setFormError(error instanceof Error ? error.message : "Failed to submit form. Please try again.")
-
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to submit form. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setLocalSubmitting(false)
-    }
-  }
-
-  const handleBlur = (questionId: string) => {
-    const question = safeFormFields.find((q) => q.id === questionId)
-    if (!question) return
-
-    const value = form.getValues(questionId)
-    const validationType = getValidationType(question)
-
-    // Only call validateField with string values or convert to string
-    let valueToValidate = value
-    if (typeof value !== "string" && value !== null && value !== undefined) {
-      valueToValidate = String(value)
-    }
-
-    const error = validateField(validationType, valueToValidate, question.required)
-
-    setValidationErrors((prev) => ({
-      ...prev,
-      [questionId]: error || "",
-    }))
-  }
-
-  const renderFormControl = (field: any, formField: any) => {
-    const error = validationErrors[field.id]
-
-    switch (field.type) {
-      case "text":
-      case "email":
-      case "password":
-      case "phone":
-        return (
-          <Input
-            type={field.type}
-            placeholder={field.placeholder}
-            {...formField}
-            onBlur={() => handleBlur(field.id)}
-            className={error ? "border-red-500" : ""}
-          />
-        )
-      case "textarea":
-        return (
-          <Textarea
-            placeholder={field.placeholder}
-            {...formField}
-            onBlur={() => handleBlur(field.id)}
-            className={error ? "border-red-500" : ""}
-          />
-        )
-      case "select":
-        return (
-          <Select
-            onValueChange={(value) => {
-              formField.onChange(value)
-              handleBlur(field.id)
-            }}
-            defaultValue={formField.value}
-          >
-            <FormControl>
-              <SelectTrigger className={error ? "border-red-500" : ""}>
-                <SelectValue placeholder={field.placeholder} />
-              </SelectTrigger>
-            </FormControl>
-            <SelectContent>
-              {field.options.map((option: any) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )
-      case "checkbox":
-        // Handle single checkbox (no options array)
-        if (!field.options || !Array.isArray(field.options) || field.options.length === 0) {
-          return (
-            <div className="flex items-center space-x-2">
-              <FormControl>
-                <Checkbox
-                  checked={!!formField.value}
-                  onCheckedChange={formField.onChange}
-                  className={error ? "border-red-500" : ""}
-                />
-              </FormControl>
-              <div className="space-y-1 leading-none">
-                <FormLabel>
-                  {field.label}
-                  {field.required && <span className="text-destructive ml-1">*</span>}
-                </FormLabel>
-              </div>
-            </div>
-          )
-        }
-
-        // Handle multiple checkboxes (options array)
-        return (
-          <div className="flex flex-col space-y-2">
-            {field.options.map((option: any) => {
-              const optionValue = option.value || option.id || ""
-              const optionLabel = option.label || option.value || ""
-
-              return (
-                <div key={optionValue} className="flex items-center space-x-2">
-                  <FormControl>
-                    <Checkbox
-                      checked={
-                        Array.isArray(formField.value)
-                          ? formField.value.includes(optionValue)
-                          : typeof formField.value === "string"
-                            ? formField.value.split(",").includes(optionValue)
-                            : false
-                      }
-                      onCheckedChange={(checked) => {
-                        let newValue
-
-                        // Handle array values
-                        if (Array.isArray(formField.value)) {
-                          newValue = [...formField.value]
-                          if (checked) {
-                            if (!newValue.includes(optionValue)) {
-                              newValue.push(optionValue)
-                            }
-                          } else {
-                            newValue = newValue.filter((v) => v !== optionValue)
-                          }
-                        }
-                        // Handle string values (comma-separated)
-                        else if (typeof formField.value === "string") {
-                          const values = formField.value ? formField.value.split(",") : []
-                          if (checked) {
-                            if (!values.includes(optionValue)) {
-                              values.push(optionValue)
-                            }
-                          } else {
-                            const index = values.indexOf(optionValue)
-                            if (index !== -1) {
-                              values.splice(index, 1)
-                            }
-                          }
-                          newValue = values.join(",")
-                        }
-                        // Handle empty/undefined values
-                        else {
-                          newValue = checked ? optionValue : ""
-                        }
-
-                        formField.onChange(newValue)
-                      }}
-                      className={error ? "border-red-500" : ""}
-                    />
-                  </FormControl>
-                  <FormLabel className="text-sm font-normal">{optionLabel}</FormLabel>
-                </div>
-              )
-            })}
-          </div>
-        )
-      case "radio":
-        return (
-          <RadioGroup onValueChange={formField.onChange} defaultValue={formField.value}>
-            <div className="flex flex-col space-y-1">
-              {field.options.map((option: any) => (
-                <FormItem key={option.value} className="flex items-center space-x-2">
-                  <FormControl>
-                    <RadioGroupItem value={option.value} id={option.value} />
-                  </FormControl>
-                  <FormLabel htmlFor={option.value}>{option.label}</FormLabel>
-                </FormItem>
-              ))}
-            </div>
-          </RadioGroup>
-        )
-      case "date":
-        return (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-[240px] justify-start text-left font-normal",
-                  !formField.value && "text-muted-foreground",
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {formField.value ? format(formField.value, "PPP") : <span>Pick a date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={formField.value}
-                onSelect={formField.onChange}
-                disabled={(date) => date > new Date()}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
-        )
-      default:
-        return null
+      setFormError(error instanceof Error ? error.message : "An error occurred while submitting the form")
     }
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">{formTitle}</h2>
-        <p className="text-muted-foreground">{formDescription}</p>
-      </div>
+    <div className={cn("space-y-6", className)}>
+      {formTitle && <h3 className="text-lg font-medium">{formTitle}</h3>}
+      {formDescription && <p className="text-sm text-gray-500">{formDescription}</p>}
 
-      {/* Display form-level error if any */}
       {formError && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{formError}</AlertDescription>
-        </Alert>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+          <p className="text-sm">{formError}</p>
+        </div>
       )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-          {safeFormFields.map((field) => {
-            // Skip rendering if field is invalid
-            if (!field || !field.id || !field.type) {
-              return null
-            }
+          {formFields.map((field) => (
+            <FormField
+              key={field.id}
+              control={form.control}
+              name={field.id}
+              render={({ field: formField }) => (
+                <FormItem>
+                  <FormLabel>
+                    {field.label}
+                    {field.required && <span className="text-red-500 ml-1">*</span>}
+                  </FormLabel>
+                  <FormControl>
+                    {(() => {
+                      switch (field.type) {
+                        case "textarea":
+                          return (
+                            <Textarea
+                              placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                              {...formField}
+                              value={formField.value || ""}
+                            />
+                          )
+                        case "select":
+                          return (
+                            <Select
+                              onValueChange={formField.onChange}
+                              defaultValue={formField.value || ""}
+                              value={formField.value || ""}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder={field.placeholder || `Select ${field.label.toLowerCase()}`} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {field.options?.map((option) => (
+                                  <SelectItem key={option.id || option.value} value={option.id || option.value}>
+                                    {option.label || option.value}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )
+                        case "radio":
+                          return (
+                            <RadioGroup
+                              onValueChange={formField.onChange}
+                              defaultValue={formField.value || ""}
+                              value={formField.value || ""}
+                              className="flex flex-col space-y-1"
+                            >
+                              {field.options?.map((option) => (
+                                <div key={option.id || option.value} className="flex items-center space-x-2">
+                                  <RadioGroupItem value={option.id || option.value} id={option.id || option.value} />
+                                  <label
+                                    htmlFor={option.id || option.value}
+                                    className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                  >
+                                    {option.label || option.value}
+                                  </label>
+                                </div>
+                              ))}
+                            </RadioGroup>
+                          )
+                        case "checkbox":
+                          return (
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                checked={formField.value || false}
+                                onCheckedChange={formField.onChange}
+                                id={field.id}
+                              />
+                              <label
+                                htmlFor={field.id}
+                                className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                {field.checkboxLabel || field.label}
+                              </label>
+                            </div>
+                          )
+                        case "email":
+                          return (
+                            <Input
+                              type="email"
+                              placeholder={field.placeholder || `Enter your email`}
+                              {...formField}
+                              value={formField.value || ""}
+                            />
+                          )
+                        case "tel":
+                        case "phone":
+                          return (
+                            <Input
+                              type="tel"
+                              placeholder={field.placeholder || `Enter your phone number`}
+                              {...formField}
+                              value={formField.value || ""}
+                            />
+                          )
+                        case "number":
+                          return (
+                            <Input
+                              type="number"
+                              placeholder={field.placeholder || `Enter a number`}
+                              {...formField}
+                              value={formField.value || ""}
+                            />
+                          )
+                        case "text":
+                        default:
+                          return (
+                            <Input
+                              placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                              {...formField}
+                              value={formField.value || ""}
+                            />
+                          )
+                      }
+                    })()}
+                  </FormControl>
+                  {field.description && <FormDescription>{field.description}</FormDescription>}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ))}
 
-            return (
-              <FormField
-                key={field.id}
-                control={form.control}
-                name={field.id}
-                render={({ field: formField }) => (
-                  <FormItem>
-                    {field.type !== "checkbox" && (
-                      <FormLabel>
-                        {field.label}
-                        {field.required && <span className="text-destructive ml-1">*</span>}
-                      </FormLabel>
-                    )}
-                    <FormControl>{renderFormControl(field, formField)}</FormControl>
-                    {validationErrors[field.id] && <p className="text-sm text-red-500">{validationErrors[field.id]}</p>}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )
-          })}
-
-          <div className="mb-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="terms"
-                name="terms"
-                required
-                checked={termsAccepted}
-                onCheckedChange={(checked) => {
-                  setTermsAccepted(checked === true)
-                }}
-              />
-              <label htmlFor="terms" className="text-sm">
-                I agree to the{" "}
-                <a
-                  href="/event-terms"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  Terms and Conditions
-                </a>
-              </label>
-            </div>
-          </div>
-
-          <Button type="submit" className="w-full" disabled={isSubmitting || localSubmitting}>
-            {isSubmitting || localSubmitting ? (
+          <Button type="submit" className="w-full bg-brand-blue hover:bg-brand-blue/90" disabled={isSubmitting}>
+            {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Submitting...

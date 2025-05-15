@@ -170,16 +170,7 @@ export default function FormPage({ params }: { params: { id: string; formType: s
       }
 
       // Determine the endpoint based on form type
-      let endpoint = ""
-      if (formType === "register" || formType === "attendee") {
-        endpoint = `/api/events/${id}/submissions/attendee`
-      } else if (formType === "volunteer") {
-        endpoint = `/api/events/${id}/submissions/volunteer`
-      } else if (formType === "speaker") {
-        endpoint = `/api/events/${id}/submissions/speaker`
-      } else {
-        throw new Error("Unknown form type")
-      }
+      const endpoint = `/api/events/${id}/submissions/${formType}`
 
       console.log(`Submitting to endpoint: ${endpoint}`)
 
@@ -192,17 +183,14 @@ export default function FormPage({ params }: { params: { id: string; formType: s
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Failed to parse error response" }))
-        console.error("Error response:", errorData)
-
-        // Check if this is a validation error with details
-        if (errorData.error === "Validation error" && errorData.details) {
-          console.error("Validation error details:", errorData.details)
-          const errorMessage = errorData.message || "Please check your form inputs and try again."
-          throw new Error(`Validation error: ${errorMessage}`)
+        let errorMessage = "Failed to submit form"
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorData.message || errorMessage
+        } catch (e) {
+          console.error("Failed to parse error response:", e)
         }
-
-        throw new Error(errorData.error || errorData.message || `Failed to submit ${formType} application`)
+        throw new Error(errorMessage)
       }
 
       const result = await response.json()
