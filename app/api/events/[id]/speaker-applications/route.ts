@@ -6,25 +6,6 @@ import { authOptions } from "@/lib/auth"
 import Event from "@/models/Event"
 import FormSubmission from "@/models/FormSubmission"
 
-// Import models
-// const Event = mongoose.models.Event || mongoose.model("Event", require("@/models/Event").default.schema)
-// const FormSubmission =
-//   mongoose.models.FormSubmission ||
-//   mongoose.model(
-//     "FormSubmission",
-//     new mongoose.Schema({
-//       eventId: { type: mongoose.Schema.Types.ObjectId, ref: "Event", required: true },
-//       userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-//       userName: { type: String },
-//       userEmail: { type: String },
-//       formType: { type: String, required: true, enum: ["attendee", "volunteer", "speaker"] },
-//       status: { type: String, default: "pending", enum: ["pending", "approved", "rejected"] },
-//       data: { type: mongoose.Schema.Types.Mixed, required: true },
-//       createdAt: { type: Date, default: Date.now },
-//       updatedAt: { type: Date, default: Date.now },
-//     }),
-//   )
-
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
@@ -129,12 +110,31 @@ export async function POST(request, { params }) {
 
     await connectToDatabase()
 
-    // Find the event
-    const event = await Event.findById(id)
+    // FIXED: Properly handle both ObjectId and slug lookups
+    let event = null
+    const isValidObjectId = mongoose.isValidObjectId(id)
+
+    console.log(`Looking up event with ${isValidObjectId ? "ObjectId" : "slug"}: ${id}`)
+
+    if (isValidObjectId) {
+      // If it's a valid ObjectId, try to find by ID first
+      event = await Event.findById(id)
+      console.log(`Lookup by ObjectId result:`, event ? `Found event: ${event.title}` : "Not found")
+    }
+
+    // If not found by ID or not a valid ObjectId, try to find by slug
     if (!event) {
-      console.error(`Event not found: ${id}`)
+      event = await Event.findOne({ slug: id })
+      console.log(`Lookup by slug result:`, event ? `Found event: ${event.title}` : "Not found")
+    }
+
+    if (!event) {
+      console.error(`Event not found with ID/slug: ${id}`)
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
+
+    console.log(`Found event: ${event.title} (${event._id})`)
+    console.log(`Speaker form status:`, event.speakerForm ? event.speakerForm.status : "not set")
 
     // FIXED: Skip form status check for now to debug the issue
     // Check if the speaker form is published
@@ -145,7 +145,7 @@ export async function POST(request, { params }) {
 
     // Create a new form submission
     const submission = new FormSubmission({
-      eventId: new mongoose.Types.ObjectId(id),
+      eventId: event._id, // FIXED: Use the actual event._id instead of creating a new ObjectId
       formType: "speaker",
       formData,
       status: "pending",
