@@ -102,7 +102,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     for (const field of emailFields) {
       if (validatedData[field] && typeof validatedData[field] === "string" && validatedData[field].includes("@")) {
         finalEmail = validatedData[field]
+        console.log(`Found email in field ${field}: ${finalEmail}`)
         break
+      }
+    }
+
+    // If no standard email field, look for any field that might contain an email
+    if (!finalEmail) {
+      for (const key in validatedData) {
+        if (
+          validatedData[key] &&
+          typeof validatedData[key] === "string" &&
+          validatedData[key].includes("@") &&
+          validatedData[key].includes(".")
+        ) {
+          finalEmail = validatedData[key]
+          console.log(`Found email in non-standard field ${key}: ${finalEmail}`)
+          break
+        }
       }
     }
 
@@ -131,16 +148,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // If we still don't have a name or email, use a default
     if (!finalName) finalName = "Attendee"
 
-    // Email is required - if we can't find one, return an error
+    // Accept any email, even if it's a placeholder
+    if (!finalEmail && validatedData.email) {
+      finalEmail = validatedData.email
+      console.log(`Using provided email field: ${finalEmail}`)
+    }
+
+    // If still no email, create a placeholder
     if (!finalEmail) {
-      console.error("Could not find a valid email in the form data")
-      return NextResponse.json(
-        {
-          error: "Email is required",
-          message: "Please provide a valid email address to register for this event.",
-        },
-        { status: 400 },
-      )
+      // Create a placeholder email using the name if available
+      if (finalName && finalName !== "Attendee") {
+        finalEmail = `${finalName.replace(/\s+/g, ".").toLowerCase()}@example.com`
+      } else {
+        finalEmail = `attendee.${Date.now()}@example.com`
+      }
+      console.log(`Created placeholder email: ${finalEmail}`)
     }
 
     // Verify that the event exists before proceeding
