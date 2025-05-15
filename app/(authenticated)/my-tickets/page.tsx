@@ -27,6 +27,7 @@ export default function MyTicketsPage() {
   const [error, setError] = useState<string | null>(null)
   const [debugInfo, setDebugInfo] = useState<any>(null)
   const { toast } = useToast()
+  const [sentEmailIds, setSentEmailIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const fetchTickets = async () => {
@@ -87,11 +88,6 @@ export default function MyTicketsPage() {
     fetchTickets()
   }, [toast])
 
-  // Add a function to send ticket email if it hasn't been sent yet
-  // Add this after the useEffect hook
-
-  const [sentEmailIds, setSentEmailIds] = useState<Set<string>>(new Set())
-
   // Function to send ticket email if not already sent
   const sendTicketEmailIfNeeded = async (ticket: any) => {
     // Skip if already sent during this session
@@ -135,7 +131,7 @@ export default function MyTicketsPage() {
         }
       })
     }
-  }, [tickets, loading])
+  }, [tickets, loading, sentEmailIds])
 
   // Filter tickets by type
   const attendeeTickets =
@@ -387,22 +383,30 @@ function TicketQRCode({ data, size = 120 }: { data: string; size?: number }) {
 // Component to display form submission as a ticket
 function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number }) {
   const [showAllDetails, setShowAllDetails] = useState(false)
-  const [isSendingEmail, setIsSendingEmail] = useState(isSendingEmail)
+  const [isSendingEmail, setIsSendingEmail] = useState(false) // Fixed circular reference
   const [isDownloading, setIsDownloading] = useState(false)
   const [isSharing, setIsSharing] = useState(false)
   const [isAddingToCalendar, setIsAddingToCalendar] = useState(false)
   const { toast } = useToast()
 
+  // Safely access event data with fallbacks
   const event = ticket.event || {}
-  const formattedDate = event.date
-    ? new Date(event.date).toLocaleDateString("en-US", {
+
+  // Safely format date with error handling
+  const formattedDate = (() => {
+    try {
+      if (!event.date) return "Date not available"
+      return new Date(event.date).toLocaleDateString("en-US", {
         weekday: "long",
         year: "numeric",
         month: "long",
         day: "numeric",
-        timeZone: "Asia/Tokyo", // Use Tokyo timezone to prevent date shift
       })
-    : "Date not available"
+    } catch (error) {
+      console.error("Error formatting date:", error)
+      return "Date format error"
+    }
+  })()
 
   const formattedTime =
     event.startTime && event.endTime ? `${event.startTime} - ${event.endTime}` : "Time not specified"
@@ -708,14 +712,18 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
       // If we have start and end times, use them
       if (event.startTime) {
         const [startHour, startMinute] = event.startTime.split(":").map(Number)
-        startDate.setHours(startHour, startMinute, 0)
+        if (!isNaN(startHour) && !isNaN(startMinute)) {
+          startDate.setHours(startHour, startMinute, 0)
+        }
       } else {
         endDate.setHours(startDate.getHours() + 2) // Default 2 hours if no end time
       }
 
       if (event.endTime) {
         const [endHour, endMinute] = event.endTime.split(":").map(Number)
-        endDate.setHours(endHour, endMinute, 0)
+        if (!isNaN(endHour) && !isNaN(endMinute)) {
+          endDate.setHours(endHour, endMinute, 0)
+        }
       }
 
       const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title || "Event")}&dates=${startDate
@@ -971,7 +979,7 @@ Please present this ticket at the event entrance.
             {/* Ticket footer */}
             <div className="bg-gray-50 p-4 border-t border-gray-200 flex justify-between items-center">
               <div className="text-xs text-gray-500">
-                Approved on {new Date(ticket.purchasedAt || ticket.createdAt).toLocaleDateString()}
+                Approved on {new Date(ticket.purchasedAt || ticket.createdAt || new Date()).toLocaleDateString()}
               </div>
               {event.slug && (
                 <Button variant="ghost" size="sm" asChild>
