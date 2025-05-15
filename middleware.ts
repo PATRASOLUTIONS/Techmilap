@@ -42,7 +42,17 @@ const eventPlannerPaths = [
 ]
 
 // Define paths for regular users
-const userPaths = ["/user-dashboard", "/my-tickets", "/my-reviews", "/profile", "/settings", "/explore"]
+const userPaths = [
+  "/user-dashboard",
+  "/my-tickets",
+  "/my-reviews",
+  "/profile",
+  "/settings",
+  "/explore",
+  "/my-events", // Add this
+  "/past-events", // Add this
+  "/explore", // Already included
+]
 
 // Function to check if a path starts with any of the given prefixes
 function pathStartsWith(path: string, prefixes: string[]): boolean {
