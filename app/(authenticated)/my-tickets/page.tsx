@@ -930,12 +930,12 @@ function ErrorState({ message }: { message: string }) {
 
 function EmptyState({ type }: { type: "upcoming" | "past" | "attendee" | "volunteer" | "speaker" | "ticket" }) {
   const messages = {
-    upcoming: "You don&#x27;t have any upcoming event tickets.",
-    past: "You don&#x27;t have any past event tickets.",
-    attendee: "You don&#x27;t have any attendee tickets.",
-    volunteer: "You don&#x27;t have any volunteer tickets.",
-    speaker: "You don&#x27;t have any speaker tickets.",
-    ticket: "You don&#x27;t have any tickets yet.",
+    upcoming: "You don't have any upcoming event tickets.",
+    past: "You don't have any past event tickets.",
+    attendee: "You don't have any attendee tickets.",
+    volunteer: "You don't have any volunteer tickets.",
+    speaker: "You don't have any speaker tickets.",
+    ticket: "You don't have any tickets yet.",
   }
 
   return (
