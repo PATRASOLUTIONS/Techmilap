@@ -98,6 +98,11 @@ export default function MyTicketsPage() {
     }
   }
 
+  // Fetch tickets when component mounts
+  useEffect(() => {
+    fetchTickets()
+  }, [])
+
   // Function to send ticket email if not already sent
   const sendTicketEmailIfNeeded = async (ticket: any) => {
     // Skip if already sent during this session
@@ -155,6 +160,14 @@ export default function MyTicketsPage() {
 
   return (
     <div className="space-y-6 container py-8">
+      {loading && (
+        <div className="fixed inset-0 bg-black/5 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-lg shadow-lg flex items-center gap-3">
+            <div className="h-5 w-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <span>Loading your tickets...</span>
+          </div>
+        </div>
+      )}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">My Tickets</h1>
@@ -428,7 +441,7 @@ function TicketQRCode({ data, size = 120 }: { data: string; size?: number }) {
 function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number }) {
   const [showAllDetails, setShowAllDetails] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false) // Fixed circular reference
-  const [isDownloading, setIsDownloading] = useState(isDownloading)
+  const [isDownloading, setIsDownloading] = useState(false)
   const [isSharing, setIsSharing] = useState(false)
   const [isAddingToCalendar, setIsAddingToCalendar] = useState(false)
   const { toast } = useToast()
