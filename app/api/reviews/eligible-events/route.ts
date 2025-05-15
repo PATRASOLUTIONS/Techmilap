@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     // This includes:
     // 1. Events with the user in the registrations array
     // 2. Events with approved form submissions from the user
+    // 3. Events that have already occurred (past events)
 
     // First, get events where the user is directly registered
     const registeredEvents = await db
@@ -38,7 +39,13 @@ export async function GET(req: NextRequest) {
       .toArray()
 
     // Get the event IDs from the submissions
-    const submissionEventIds = approvedSubmissions.map((sub) => sub.eventId)
+    const submissionEventIds = approvedSubmissions.map((sub) => {
+      try {
+        return new ObjectId(sub.eventId)
+      } catch (e) {
+        return sub.eventId // If it's already an ObjectId
+      }
+    })
 
     // Fetch those events
     const submissionEvents =
@@ -51,11 +58,44 @@ export async function GET(req: NextRequest) {
             .toArray()
         : []
 
+    // Also get events where the user has tickets
+    const userTickets = await db
+      .collection("tickets")
+      .find({
+        userId: userId,
+      })
+      .toArray()
+
+    const ticketEventIds = userTickets.map((ticket) => {
+      try {
+        return new ObjectId(ticket.eventId)
+      } catch (e) {
+        return ticket.eventId
+      }
+    })
+
+    const ticketEvents =
+      ticketEventIds.length > 0
+        ? await db
+            .collection("events")
+            .find({
+              _id: { $in: ticketEventIds },
+            })
+            .toArray()
+        : []
+
     // Combine the events and remove duplicates
     const allEvents = [...registeredEvents]
 
     // Add events from submissions if they're not already in the list
     for (const event of submissionEvents) {
+      if (!allEvents.some((e) => e._id.toString() === event._id.toString())) {
+        allEvents.push(event)
+      }
+    }
+
+    // Add events from tickets if they're not already in the list
+    for (const event of ticketEvents) {
       if (!allEvents.some((e) => e._id.toString() === event._id.toString())) {
         allEvents.push(event)
       }

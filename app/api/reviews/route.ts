@@ -29,10 +29,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if the user has already reviewed this event
-    const existingReview = await Review.findOne({
-      eventId: new mongoose.Types.ObjectId(eventId),
-      userId: new mongoose.Types.ObjectId(session.user.id),
-    })
+    let existingReview
+    try {
+      existingReview = await Review.findOne({
+        eventId: new mongoose.Types.ObjectId(eventId),
+        userId: new mongoose.Types.ObjectId(session.user.id),
+      })
+    } catch (error) {
+      console.error("Error checking for existing review:", error)
+      // Continue with the review creation even if there was an error checking for existing reviews
+    }
 
     if (existingReview) {
       return NextResponse.json({ error: "You have already reviewed this event" }, { status: 400 })
@@ -46,6 +52,14 @@ export async function POST(req: NextRequest) {
       title,
       comment,
       status: "pending", // Reviews are pending by default
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    // Update the event with the new review
+    await Event.findByIdAndUpdate(eventId, {
+      $push: { reviews: review._id },
+      $inc: { reviewCount: 1, totalRating: rating },
     })
 
     return NextResponse.json({ success: true, review }, { status: 201 })
