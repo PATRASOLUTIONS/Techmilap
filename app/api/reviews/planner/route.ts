@@ -40,41 +40,51 @@ export async function GET(req: NextRequest) {
 
     // If not super admin, only show reviews for events created by this user
     if (session.user.role !== "super-admin") {
-      // First, get all events created by this user
-      const events = await db
-        .collection("events")
-        .find({
-          organizerId: new ObjectId(session.user.id),
-        })
-        .project({ _id: 1 })
-        .toArray()
+      try {
+        // First, get all events created by this user
+        const events = await db
+          .collection("events")
+          .find({
+            $or: [
+              { organizerId: new ObjectId(session.user.id) },
+              { "organizer.id": new ObjectId(session.user.id) },
+              { "organizer._id": new ObjectId(session.user.id) },
+              { userId: new ObjectId(session.user.id) },
+            ],
+          })
+          .project({ _id: 1 })
+          .toArray()
 
-      console.log("Found events for organizer:", events.length)
+        console.log("Found events for organizer:", events.length)
 
-      const eventIds = events.map((event) => event._id)
-      if (eventIds.length === 0) {
-        // No events found, return empty response
-        return NextResponse.json({
-          reviews: [],
-          totalPages: 0,
-          stats: {
-            total: 0,
-            average: 0,
-            pending: 0,
-            approved: 0,
-            rejected: 0,
-            ratings: {
-              1: 0,
-              2: 0,
-              3: 0,
-              4: 0,
-              5: 0,
+        if (events.length === 0) {
+          // No events found, return empty response
+          return NextResponse.json({
+            reviews: [],
+            totalPages: 0,
+            stats: {
+              total: 0,
+              average: 0,
+              pending: 0,
+              approved: 0,
+              rejected: 0,
+              ratings: {
+                1: 0,
+                2: 0,
+                3: 0,
+                4: 0,
+                5: 0,
+              },
             },
-          },
-        })
-      }
+          })
+        }
 
-      query.eventId = { $in: eventIds }
+        const eventIds = events.map((event) => event._id)
+        query.eventId = { $in: eventIds }
+      } catch (error) {
+        console.error("Error finding organizer events:", error)
+        // Continue without filtering by event if there's an error
+      }
     }
 
     // Apply filters

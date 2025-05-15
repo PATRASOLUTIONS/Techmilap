@@ -144,6 +144,16 @@ export function ReviewCard({
       if (review.user.name) return review.user.name
       if (review.user.firstName || review.user.lastName)
         return `${review.user.firstName || ""} ${review.user.lastName || ""}`.trim()
+      if (review.user.email) return review.user.email
+    }
+
+    // Check for userDetails array (from MongoDB aggregation)
+    if (review.userDetails && review.userDetails.length > 0) {
+      const userDetail = review.userDetails[0]
+      if (userDetail.name) return userDetail.name
+      if (userDetail.firstName || userDetail.lastName)
+        return `${userDetail.firstName || ""} ${userDetail.lastName || ""}`.trim()
+      if (userDetail.email) return userDetail.email
     }
 
     // Check for userId object
@@ -151,7 +161,12 @@ export function ReviewCard({
       if (review.userId.name) return review.userId.name
       if (review.userId.firstName || review.userId.lastName)
         return `${review.userId.firstName || ""} ${review.userId.lastName || ""}`.trim()
+      if (review.userId.email) return review.userId.email
     }
+
+    // Check for userName or userEmail directly on review
+    if (review.userName) return review.userName
+    if (review.userEmail) return review.userEmail
 
     // Default fallback
     return "Anonymous User"

@@ -148,6 +148,21 @@ export default function EventReviewsPage() {
       const data = await response.json()
       console.log("Fetched reviews:", data.reviews?.length || 0, "reviews")
 
+      console.log("API Response:", {
+        totalReviews: data.reviews?.length || 0,
+        totalPages: data.totalPages || 0,
+        stats: data.stats || {},
+        firstReview: data.reviews?.[0]
+          ? {
+              id: data.reviews[0]._id,
+              eventId: data.reviews[0].eventId,
+              eventTitle: data.reviews[0].event?.title || "Unknown",
+              rating: data.reviews[0].rating,
+              status: data.reviews[0].status,
+            }
+          : "No reviews",
+      })
+
       if (data.reviews?.length > 0) {
         console.log("Sample review:", JSON.stringify(data.reviews[0], null, 2).substring(0, 200) + "...")
       }
