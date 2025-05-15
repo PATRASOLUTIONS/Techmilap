@@ -44,6 +44,7 @@ export function DynamicForm({
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [formError, setFormError] = useState("")
+  const [debugInfo, setDebugInfo] = useState<string | null>(null)
 
   // Ensure formFields is always an array
   const safeFormFields = Array.isArray(formFields) ? formFields : []
@@ -164,6 +165,7 @@ export function DynamicForm({
     try {
       setLocalSubmitting(true)
       setFormError("") // Clear any previous form errors
+      setDebugInfo(null) // Clear any previous debug info
       console.log("Form submitted with values:", values)
 
       // Validate the form
@@ -215,11 +217,16 @@ export function DynamicForm({
 
       console.log("Sending data to parent component:", cleanData)
       await onSubmit(cleanData)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Form submission error:", error)
 
       // Set a user-friendly error message
       setFormError(error instanceof Error ? error.message : "Failed to submit form. Please try again.")
+
+      // Set debug info if available
+      if (error.cause || error.details) {
+        setDebugInfo(JSON.stringify(error.cause || error.details, null, 2))
+      }
 
       toast({
         title: "Error",
@@ -445,6 +452,15 @@ export function DynamicForm({
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>{formError}</AlertDescription>
+
+          {debugInfo && (
+            <div className="mt-2">
+              <details>
+                <summary className="cursor-pointer text-sm font-medium">Technical Details</summary>
+                <pre className="whitespace-pre-wrap text-xs mt-2 p-2 bg-gray-100 rounded">{debugInfo}</pre>
+              </details>
+            </div>
+          )}
         </Alert>
       )}
 

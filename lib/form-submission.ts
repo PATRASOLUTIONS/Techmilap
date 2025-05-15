@@ -116,105 +116,123 @@ export async function handleFormSubmission(
 ) {
   try {
     console.log(`Handling form submission for event: ${eventIdOrSlug}, form type: ${formType}`)
-    console.log("Form data:", formData)
+    console.log("Form data:", JSON.stringify(formData).substring(0, 500) + "...")
 
-    // Validate form data
-    const validationResult = FormSubmissionSchema.safeParse(formData)
-    if (!validationResult.success) {
-      console.error("Validation error:", validationResult.error.format())
+    // Check if formData is null or undefined
+    if (!formData) {
+      console.error("Form data is null or undefined")
       return {
         success: false,
-        message: "Invalid form data",
-        errors: validationResult.error.format(),
+        message: "No form data provided",
       }
     }
 
-    // Sanitize form data
-    const sanitizedFormData = sanitizeFormData(validationResult.data)
-    console.log("Sanitized form data:", sanitizedFormData)
-
-    const { db } = await connectToDatabase()
-
-    // Find the event by ID or slug
-    let event
+    // Validate form data
     try {
-      if (mongoose.isValidObjectId(eventIdOrSlug)) {
-        const objectId = new ObjectId(eventIdOrSlug)
-        event = await db.collection("events").findOne({ _id: objectId })
-      } else {
-        // If not a valid ObjectId, try to find by slug
+      const validationResult = FormSubmissionSchema.safeParse(formData)
+      if (!validationResult.success) {
+        console.error("Validation error:", validationResult.error.format())
+        return {
+          success: false,
+          message: "Invalid form data",
+          errors: validationResult.error.format(),
+        }
+      }
+
+      // Sanitize form data
+      const sanitizedFormData = sanitizeFormData(validationResult.data)
+      console.log("Sanitized form data:", JSON.stringify(sanitizedFormData).substring(0, 500) + "...")
+
+      const { db } = await connectToDatabase()
+
+      // Find the event by ID or slug
+      let event
+      try {
+        if (mongoose.isValidObjectId(eventIdOrSlug)) {
+          const objectId = new ObjectId(eventIdOrSlug)
+          event = await db.collection("events").findOne({ _id: objectId })
+        } else {
+          // If not a valid ObjectId, try to find by slug
+          event = await db.collection("events").findOne({ slug: eventIdOrSlug })
+        }
+      } catch (error) {
+        console.error("Error finding event:", error)
+        // If error occurs, try to find by slug
         event = await db.collection("events").findOne({ slug: eventIdOrSlug })
       }
-    } catch (error) {
-      console.error("Error finding event:", error)
-      // If error occurs, try to find by slug
-      event = await db.collection("events").findOne({ slug: eventIdOrSlug })
-    }
 
-    if (!event) {
-      console.error(`Event not found for ID/slug: ${eventIdOrSlug}`)
-      return { success: false, message: "Event not found" }
-    }
+      if (!event) {
+        console.error(`Event not found for ID/slug: ${eventIdOrSlug}`)
+        return { success: false, message: "Event not found" }
+      }
 
-    console.log(`Found event: ${event.title || event.name} (${event._id})`)
+      console.log(`Found event: ${event.title || event.name} (${event._id})`)
 
-    // Always set status to pending for all form types
-    const status = "pending"
+      // Always set status to pending for all form types
+      const status = "pending"
 
-    // Ensure email consistency - check all possible email fields
-    const email =
-      sanitizedFormData.email ||
-      sanitizedFormData.corporateEmail ||
-      sanitizedFormData.userEmail ||
-      sanitizedFormData.emailAddress ||
-      ""
+      // Ensure email consistency - check all possible email fields
+      const email =
+        sanitizedFormData.email ||
+        sanitizedFormData.corporateEmail ||
+        sanitizedFormData.userEmail ||
+        sanitizedFormData.emailAddress ||
+        ""
 
-    // Ensure name consistency - check all possible name fields
-    const firstName = sanitizedFormData.firstName || sanitizedFormData.first_name || ""
-    const lastName = sanitizedFormData.lastName || sanitizedFormData.last_name || ""
-    const fullName = sanitizedFormData.name || sanitizedFormData.fullName || ""
+      // Ensure name consistency - check all possible name fields
+      const firstName = sanitizedFormData.firstName || sanitizedFormData.first_name || ""
+      const lastName = sanitizedFormData.lastName || sanitizedFormData.last_name || ""
+      const fullName = sanitizedFormData.name || sanitizedFormData.fullName || ""
 
-    // Construct name from available fields
-    const name = fullName || (firstName && lastName ? `${firstName} ${lastName}` : firstName || "Attendee")
+      // Construct name from available fields
+      const name = fullName || (firstName && lastName ? `${firstName} ${lastName}` : firstName || "Attendee")
 
-    // Create the submission document with consistent email and name
-    const submission = {
-      eventId: event._id,
-      userId: userId ? new ObjectId(userId) : null, // Make userId optional
-      userName: name, // Store name from form
-      userEmail: email, // Store email from form
-      formType,
-      status,
-      data: {
-        ...sanitizedFormData,
-        email: email, // Ensure email is consistent in data object
-        name: name,
-      },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
+      // Create the submission document with consistent email and name
+      const submission = {
+        eventId: event._id,
+        userId: userId ? new ObjectId(userId) : null, // Make userId optional
+        userName: name, // Store name from form
+        userEmail: email, // Store email from form
+        formType,
+        status,
+        data: {
+          ...sanitizedFormData,
+          email: email, // Ensure email is consistent in data object
+          name: name,
+        },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
 
-    console.log("Creating form submission:", submission)
+      console.log("Creating form submission:", JSON.stringify(submission).substring(0, 500) + "...")
 
-    // Insert the submission - use the correct collection name with lowercase 's'
-    const result = await db.collection("formsubmissions").insertOne(submission)
-    console.log(`Form submission created with ID: ${result.insertedId}`)
+      // Insert the submission - use the correct collection name with lowercase 's'
+      const result = await db.collection("formsubmissions").insertOne(submission)
+      console.log(`Form submission created with ID: ${result.insertedId}`)
 
-    // Send confirmation email to the user
-    if (email) {
-      await sendConfirmationEmailToUser(event, formType, name, email, emailSubject)
-    } else {
-      console.warn("No email address found in form data, skipping confirmation email")
-    }
+      // Send confirmation email to the user
+      if (email) {
+        await sendConfirmationEmailToUser(event, formType, name, email, emailSubject)
+      } else {
+        console.warn("No email address found in form data, skipping confirmation email")
+      }
 
-    // Send notification email to the organizer
-    await sendNotificationEmailToOrganizer(event, formType, submission, result.insertedId.toString(), emailSubject)
+      // Send notification email to the organizer
+      await sendNotificationEmailToOrganizer(event, formType, submission, result.insertedId.toString(), emailSubject)
 
-    // Return success response
-    return {
-      success: true,
-      message: `${formType} submission received and pending approval`,
-      submissionId: result.insertedId.toString(),
+      // Return success response
+      return {
+        success: true,
+        message: `${formType} submission received and pending approval`,
+        submissionId: result.insertedId.toString(),
+      }
+    } catch (validationError) {
+      console.error("Validation or processing error:", validationError)
+      return {
+        success: false,
+        message: validationError instanceof Error ? validationError.message : "Validation error occurred",
+        errors: validationError,
+      }
     }
   } catch (error) {
     console.error("Error handling form submission:", error)

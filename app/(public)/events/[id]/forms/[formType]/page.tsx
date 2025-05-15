@@ -21,6 +21,7 @@ import { GradientCard } from "@/components/ui/gradient-card"
 import { DynamicForm } from "@/components/forms/dynamic-form"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function FormPage({ params }: { params: { id: string; formType: string } }) {
   const { id, formType } = params
@@ -28,6 +29,7 @@ export default function FormPage({ params }: { params: { id: string; formType: s
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [detailedError, setDetailedError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
@@ -38,6 +40,7 @@ export default function FormPage({ params }: { params: { id: string; formType: s
       try {
         setLoading(true)
         setError(null)
+        setDetailedError(null)
 
         console.log(`Fetching form data for event: ${id}, form type: ${formType}`)
         const res = await fetch(`/api/events/${id}/forms/${formType}`, {
@@ -76,6 +79,8 @@ export default function FormPage({ params }: { params: { id: string; formType: s
   const handleSubmit = async (data: any) => {
     try {
       setSubmitting(true)
+      setError(null)
+      setDetailedError(null)
       console.log("Submitting form data:", data)
 
       // Add a debug email field if none exists
@@ -176,33 +181,51 @@ export default function FormPage({ params }: { params: { id: string; formType: s
       } else if (formType === "volunteer") {
         endpoint = `/api/events/${id}/submissions/volunteer`
       } else if (formType === "speaker") {
-        endpoint = `/api/events/${id}/submissions/speaker`
+        endpoint = `/api/events/${id}/speaker-applications`
       } else {
         throw new Error("Unknown form type")
       }
 
       console.log(`Submitting to endpoint: ${endpoint}`)
 
+      // Prepare the request body based on the endpoint
+      const requestBody = formType === "speaker" ? { formData: data } : { formData: data }
+
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ formData: data }),
+        body: JSON.stringify(requestBody),
       })
 
+      // Handle non-OK responses
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Failed to parse error response" }))
-        console.error("Error response:", errorData)
+        let errorMessage = `Failed to submit ${formType} application. Status: ${response.status}`
+        let detailedErrorInfo = null
 
-        // Check if this is a validation error with details
-        if (errorData.error === "Validation error" && errorData.details) {
-          console.error("Validation error details:", errorData.details)
-          const errorMessage = errorData.message || "Please check your form inputs and try again."
-          throw new Error(`Validation error: ${errorMessage}`)
+        try {
+          const errorData = await response.json()
+          console.error("Error response:", errorData)
+
+          if (errorData.error) {
+            errorMessage = errorData.error
+          }
+
+          if (errorData.details) {
+            detailedErrorInfo =
+              typeof errorData.details === "object" ? JSON.stringify(errorData.details, null, 2) : errorData.details
+          }
+        } catch (parseError) {
+          console.error("Failed to parse error response:", parseError)
         }
 
-        throw new Error(errorData.error || errorData.message || `Failed to submit ${formType} application`)
+        setError(errorMessage)
+        if (detailedErrorInfo) {
+          setDetailedError(detailedErrorInfo)
+        }
+
+        throw new Error(errorMessage)
       }
 
       const result = await response.json()
@@ -320,6 +343,17 @@ export default function FormPage({ params }: { params: { id: string; formType: s
               </div>
               <h3 className="text-xl font-semibold mb-2 text-brand-blue">Failed to load form</h3>
               <p className="text-gray-600 max-w-md mb-6">{error}</p>
+
+              {detailedError && (
+                <Alert variant="destructive" className="mb-6 text-left">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Technical Details</AlertTitle>
+                  <AlertDescription>
+                    <pre className="whitespace-pre-wrap text-xs mt-2 p-2 bg-gray-100 rounded">{detailedError}</pre>
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="space-y-4 w-full max-w-md">
                 <Button
                   className="w-full bg-brand-blue hover:bg-brand-blue/90"
@@ -566,6 +600,24 @@ export default function FormPage({ params }: { params: { id: string; formType: s
               </div>
             </div>
           </div>
+
+          {/* Display form-level error if any */}
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+
+              {detailedError && (
+                <div className="mt-2">
+                  <details>
+                    <summary className="cursor-pointer text-sm font-medium">Technical Details</summary>
+                    <pre className="whitespace-pre-wrap text-xs mt-2 p-2 bg-gray-100 rounded">{detailedError}</pre>
+                  </details>
+                </div>
+              )}
+            </Alert>
+          )}
 
           {/* Render the dynamic form */}
           <DynamicForm
