@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log("My Tickets API - User:", session.user.id)
+    console.log("My Tickets API - User:", session.user.id, "Role:", session.user.role)
 
     // Connect to database first
     await connectToDatabase()
@@ -170,8 +170,8 @@ export async function GET(req: NextRequest) {
     // Filter tickets based on exclude parameter
     let filteredTickets = [...processedTickets]
 
-    // Only apply organizer filtering for organizers and admins, and only when explicitly requested
-    if (exclude === "organizer" && (session.user.role === "organizer" || session.user.role === "admin")) {
+    // Only apply organizer filtering when explicitly requested
+    if (exclude === "organizer") {
       // Remove tickets for events where user is organizer
       const originalCount = filteredTickets.length
       filteredTickets = processedTickets.filter((ticket) => {

@@ -128,6 +128,11 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Check for shared paths that both event planners and regular users can access
+  if (pathStartsWith(pathname, sharedPaths)) {
+    return response
+  }
+
   // Check for super-admin routes
   if (pathStartsWith(pathname, superAdminPaths) && token.role !== "super-admin") {
     // Redirect non-super-admins based on their role
@@ -136,11 +141,6 @@ export async function middleware(request: NextRequest) {
     } else {
       return NextResponse.redirect(new URL("/user-dashboard", request.url))
     }
-  }
-
-  // Check for shared paths that both event planners and regular users can access
-  if (pathStartsWith(pathname, sharedPaths)) {
-    return response
   }
 
   // Check for event-planner routes

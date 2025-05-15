@@ -39,7 +39,13 @@ export default function MyTicketsPage() {
       const url = "/api/tickets/my-tickets"
       console.log("Fetching from URL:", url)
 
-      const response = await fetch(url)
+      const response = await fetch(url, {
+        // Add cache control to prevent stale data
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      })
       console.log("Response status:", response.status)
 
       if (!response.ok) {
@@ -65,16 +71,6 @@ export default function MyTicketsPage() {
           data.tickets.all.map((t) => t.ticketType || t.formType),
         )
         console.log("Form submission tickets:", data.tickets.all.filter((t) => t.isFormSubmission).length)
-
-        // Log the first ticket for debugging
-        if (data.tickets.all.length > 0) {
-          console.log("First ticket sample:", {
-            id: data.tickets.all[0]._id,
-            type: data.tickets.all[0].ticketType || data.tickets.all[0].formType,
-            event: data.tickets.all[0].event?.title,
-            isFormSubmission: data.tickets.all[0].isFormSubmission,
-          })
-        }
       }
 
       setDebugInfo(data)
