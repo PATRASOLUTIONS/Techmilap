@@ -12,8 +12,9 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { StarRating } from "@/components/reviews/star-rating"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, Info } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import Link from "next/link"
 
 export default function CreateReviewPage() {
   const router = useRouter()
@@ -23,7 +24,9 @@ export default function CreateReviewPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [eligibleEvents, setEligibleEvents] = useState<any[]>([])
+  const [allEvents, setAllEvents] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     eventId: "",
     rating: 5,
@@ -36,25 +39,59 @@ export default function CreateReviewPage() {
     const fetchEligibleEvents = async () => {
       try {
         setError(null)
+        setMessage(null)
+
+        console.log("Fetching eligible events...")
         const response = await fetch("/api/reviews/eligible-events")
+        const data = await response.json()
 
         if (!response.ok) {
-          const data = await response.json()
           throw new Error(data.error || "Failed to fetch eligible events")
         }
 
-        const data = await response.json()
-        console.log("Eligible events:", data.events)
+        console.log("Eligible events response:", data)
 
+        // Check if we have a message from the API
+        if (data.message) {
+          setMessage(data.message)
+        }
+
+        // Set eligible events
         setEligibleEvents(data.events || [])
 
         if (data.events && data.events.length > 0) {
           // Auto-select the first event if available
           setFormData((prev) => ({ ...prev, eventId: data.events[0]._id }))
         }
+
+        // If we have no eligible events, fetch all events as fallback
+        if (!data.events || data.events.length === 0) {
+          console.log("No eligible events found, fetching all events...")
+          const allEventsResponse = await fetch("/api/events")
+          const allEventsData = await allEventsResponse.json()
+
+          if (allEventsResponse.ok && allEventsData.events) {
+            setAllEvents(allEventsData.events)
+            console.log("All events:", allEventsData.events)
+          }
+        }
       } catch (error: any) {
         console.error("Error fetching eligible events:", error)
         setError(error.message || "Failed to fetch eligible events")
+
+        // Try to fetch all events as fallback
+        try {
+          const allEventsResponse = await fetch("/api/events")
+          const allEventsData = await allEventsResponse.json()
+
+          if (allEventsResponse.ok && allEventsData.events) {
+            setAllEvents(allEventsData.events)
+            console.log("All events (fallback):", allEventsData.events)
+          }
+        } catch (fallbackError) {
+          console.error("Error fetching fallback events:", fallbackError)
+        }
+
         toast({
           title: "Error",
           description: error.message || "Failed to fetch eligible events",
@@ -134,6 +171,7 @@ export default function CreateReviewPage() {
       })
 
       const data = await response.json()
+      console.log("Review submission response:", data)
 
       if (!response.ok) {
         throw new Error(data.error || "Failed to create review")
@@ -159,6 +197,9 @@ export default function CreateReviewPage() {
     }
   }
 
+  // Determine which events to show
+  const eventsToShow = eligibleEvents.length > 0 ? eligibleEvents : allEvents
+
   return (
     <div className="container mx-auto py-6">
       <div className="max-w-2xl mx-auto">
@@ -169,6 +210,39 @@ export default function CreateReviewPage() {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {message && (
+          <Alert className="mb-6">
+            <Info className="h-4 w-4" />
+            <AlertTitle>Note</AlertTitle>
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
+        )}
+
+        {eligibleEvents.length === 0 && allEvents.length === 0 && !loading && (
+          <Alert className="mb-6">
+            <Info className="h-4 w-4" />
+            <AlertTitle>No Events Found</AlertTitle>
+            <AlertDescription>
+              You don't have any eligible events to review. Please{" "}
+              <Link href="/events" className="font-medium underline">
+                register for events
+              </Link>{" "}
+              first.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {eligibleEvents.length === 0 && allEvents.length > 0 && !loading && (
+          <Alert className="mb-6">
+            <Info className="h-4 w-4" />
+            <AlertTitle>Using All Events</AlertTitle>
+            <AlertDescription>
+              No eligible events found. Showing all events as a fallback. You can still submit a review, but please only
+              review events you've actually attended.
+            </AlertDescription>
           </Alert>
         )}
 
@@ -185,22 +259,26 @@ export default function CreateReviewPage() {
                 <Select
                   value={formData.eventId}
                   onValueChange={handleEventChange}
-                  disabled={loading || eligibleEvents.length === 0}
+                  disabled={loading || eventsToShow.length === 0}
                 >
                   <SelectTrigger id="event">
                     <SelectValue placeholder="Select an event" />
                   </SelectTrigger>
                   <SelectContent>
-                    {eligibleEvents.map((event) => (
+                    {eventsToShow.map((event) => (
                       <SelectItem key={event._id} value={event._id}>
                         {event.title}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {eligibleEvents.length === 0 && !loading && (
+                {eventsToShow.length === 0 && !loading && (
                   <p className="text-sm text-muted-foreground">
-                    You don't have any eligible events to review. Please register for and attend events first.
+                    No events found. Please{" "}
+                    <Link href="/events" className="font-medium underline">
+                      register for events
+                    </Link>{" "}
+                    first.
                   </p>
                 )}
               </div>
@@ -242,7 +320,7 @@ export default function CreateReviewPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={submitting || loading || eligibleEvents.length === 0}
+                disabled={submitting || loading || eventsToShow.length === 0}
                 className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
               >
                 {submitting ? "Submitting..." : "Submit Review"}

@@ -1,32 +1,36 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import Event from "@/models/Event"
-import User from "@/models/User"
 
 export async function GET(req: NextRequest) {
   try {
+    // Connect to database
     await connectToDatabase()
 
+    // Import models after database connection is established
+    const Event = (await import("@/models/Event")).default
+
+    // Get query parameters
     const url = new URL(req.url)
-    const filterPast = url.searchParams.get("past") === "true"
+    const limit = Number.parseInt(url.searchParams.get("limit") || "50")
+    const page = Number.parseInt(url.searchParams.get("page") || "1")
+    const skip = (page - 1) * limit
+    const sort = url.searchParams.get("sort") || "date"
+    const order = url.searchParams.get("order") || "desc"
     const search = url.searchParams.get("search") || ""
     const category = url.searchParams.get("category") || ""
-    const page = Number.parseInt(url.searchParams.get("page") || "1", 10)
-    const limit = Number.parseInt(url.searchParams.get("limit") || "12", 10)
-    const skip = (page - 1) * limit
+    const status = url.searchParams.get("status") || "published"
+    const past = url.searchParams.get("past") === "true"
 
-    const currentDate = new Date()
-
-    // Build the query
+    // Build query
     const query: any = {}
 
-    // If filtering for past events
-    if (filterPast) {
-      query.date = { $lt: currentDate }
+    // Add status filter if provided
+    if (status) {
+      query.status = status
     }
 
     // Add category filter if provided
-    if (category && category !== "all") {
+    if (category) {
       query.category = category
     }
 
@@ -39,63 +43,36 @@ export async function GET(req: NextRequest) {
       ]
     }
 
-    // Count total documents for pagination
-    const totalEvents = await Event.countDocuments(query)
+    // Add date filter for past/upcoming events
+    const now = new Date()
+    if (past) {
+      query.date = { $lt: now }
+    } else {
+      query.date = { $gte: now }
+    }
 
-    // Fetch events with pagination
+    // Get events
     const events = await Event.find(query)
-      .sort({ date: filterPast ? -1 : 1 })
+      .sort({ [sort]: order === "asc" ? 1 : -1 })
       .skip(skip)
       .limit(limit)
+      .select("_id title date location image capacity attendees status slug")
       .lean()
 
-    // Get unique organizer IDs
-    const organizerIds = [...new Set(events.map((event) => event.organizer).filter(Boolean))]
-
-    // Fetch organizers in a single query
-    const organizers = organizerIds.length
-      ? await User.find({ _id: { $in: organizerIds } }, { name: 1, email: 1 }).lean()
-      : []
-
-    // Create a map for quick lookup
-    const organizerMap = organizers.reduce(
-      (map, user) => {
-        map[user._id.toString()] = user
-        return map
-      },
-      {} as Record<string, any>,
-    )
-
-    // Add organizer info to events
-    const eventsWithOrganizerInfo = events.map((event) => {
-      if (event.organizer) {
-        const organizerId = event.organizer.toString()
-        return {
-          ...event,
-          organizerInfo: organizerMap[organizerId] || null,
-        }
-      }
-      return event
-    })
+    // Get total count
+    const total = await Event.countDocuments(query)
 
     return NextResponse.json({
-      success: true,
-      events: eventsWithOrganizerInfo,
+      events,
       pagination: {
-        total: totalEvents,
+        total,
         page,
         limit,
-        pages: Math.ceil(totalEvents / limit),
+        pages: Math.ceil(total / limit),
       },
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error fetching events:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "An error occurred while fetching events",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Failed to fetch events" }, { status: 500 })
   }
 }

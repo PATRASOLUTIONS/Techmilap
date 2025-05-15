@@ -1,12 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import Review from "@/models/Review"
-import Event from "@/models/Event"
 import mongoose from "mongoose"
 
-// Create a new review
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -14,114 +11,160 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { eventId, rating, title, comment } = await req.json()
+    const userId = session.user.id
+    const userEmail = session.user.email
+    const userName = session.user.name
+
+    console.log("Creating review - User:", userId, "Email:", userEmail)
+
+    const body = await req.json()
+    const { eventId, rating, title, comment } = body
 
     if (!eventId || !rating || !title || !comment) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
+    // Connect to database
     await connectToDatabase()
 
+    // Import models after database connection is established
+    const Review = (await import("@/models/Review")).default
+    const Event = (await import("@/models/Event")).default
+
+    // Convert eventId to ObjectId if needed
+    let eventObjectId
+    try {
+      if (mongoose.Types.ObjectId.isValid(eventId)) {
+        eventObjectId = new mongoose.Types.ObjectId(eventId)
+      } else {
+        eventObjectId = eventId
+      }
+    } catch (error) {
+      console.error("Error converting eventId to ObjectId:", error)
+      eventObjectId = eventId
+    }
+
+    // Convert userId to ObjectId if needed
+    let userObjectId
+    try {
+      if (mongoose.Types.ObjectId.isValid(userId)) {
+        userObjectId = new mongoose.Types.ObjectId(userId)
+      } else {
+        userObjectId = userId
+      }
+    } catch (error) {
+      console.error("Error converting userId to ObjectId:", error)
+      userObjectId = userId
+    }
+
     // Check if the event exists
-    const event = await Event.findById(eventId)
+    const event = await Event.findById(eventObjectId)
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
+    console.log("Found event:", event.title)
+
     // Check if the user has already reviewed this event
-    let existingReview
-    try {
-      existingReview = await Review.findOne({
-        eventId: new mongoose.Types.ObjectId(eventId),
-        userId: new mongoose.Types.ObjectId(session.user.id),
-      })
-    } catch (error) {
-      console.error("Error checking for existing review:", error)
-      // Continue with the review creation even if there was an error checking for existing reviews
-    }
+    const existingReview = await Review.findOne({
+      eventId: eventObjectId,
+      userId: userObjectId,
+    })
 
     if (existingReview) {
       return NextResponse.json({ error: "You have already reviewed this event" }, { status: 400 })
     }
 
     // Create the review
-    const review = await Review.create({
-      eventId: new mongoose.Types.ObjectId(eventId),
-      userId: new mongoose.Types.ObjectId(session.user.id),
+    const review = new Review({
+      eventId: eventObjectId,
+      userId: userObjectId,
+      userEmail: userEmail,
+      userName: userName,
       rating,
       title,
       comment,
-      status: "pending", // Reviews are pending by default
+      status: "pending", // Reviews are pending until approved
       createdAt: new Date(),
       updatedAt: new Date(),
     })
 
-    // Update the event with the new review
-    await Event.findByIdAndUpdate(eventId, {
-      $push: { reviews: review._id },
-      $inc: { reviewCount: 1, totalRating: rating },
-    })
+    await review.save()
+    console.log("Review created:", review._id)
 
-    return NextResponse.json({ success: true, review }, { status: 201 })
+    return NextResponse.json({
+      message: "Review submitted successfully",
+      review: {
+        _id: review._id,
+        eventId: review.eventId,
+        rating: review.rating,
+        title: review.title,
+        status: review.status,
+      },
+    })
   } catch (error) {
     console.error("Error creating review:", error)
     return NextResponse.json({ error: "Failed to create review" }, { status: 500 })
   }
 }
 
-// Get all reviews (with filtering options)
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
+    // Get query parameters
     const url = new URL(req.url)
     const eventId = url.searchParams.get("eventId")
-    const status = url.searchParams.get("status")
-    const page = Number.parseInt(url.searchParams.get("page") || "1")
+    const status = url.searchParams.get("status") || "approved"
     const limit = Number.parseInt(url.searchParams.get("limit") || "10")
+    const page = Number.parseInt(url.searchParams.get("page") || "1")
     const skip = (page - 1) * limit
 
+    // Connect to database
     await connectToDatabase()
 
-    const query: any = {}
+    // Import models after database connection is established
+    const Review = (await import("@/models/Review")).default
+    const Event = (await import("@/models/Event")).default
 
-    // If eventId is provided, filter by eventId
+    // Build query
+    const query: any = { status }
     if (eventId) {
-      query.eventId = new mongoose.Types.ObjectId(eventId)
+      try {
+        if (mongoose.Types.ObjectId.isValid(eventId)) {
+          query.eventId = new mongoose.Types.ObjectId(eventId)
+        } else {
+          query.eventId = eventId
+        }
+      } catch (error) {
+        console.error("Error converting eventId to ObjectId:", error)
+        query.eventId = eventId
+      }
     }
 
-    // If status is provided, filter by status
-    if (status) {
-      query.status = status
-    }
+    // Get reviews
+    const reviews = await Review.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean()
 
-    // For regular users, only show their own reviews
-    if (session.user.role === "user") {
-      query.userId = new mongoose.Types.ObjectId(session.user.id)
-    }
-    // For event planners, only show reviews for their events
-    else if (session.user.role === "event-planner") {
-      const userEvents = await Event.find({ organizer: session.user.id }).select("_id")
-      const eventIds = userEvents.map((event) => event._id)
-      query.eventId = { $in: eventIds }
-    }
-    // Super admins can see all reviews
-
-    const reviews = await Review.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate("eventId", "title date location image")
-      .populate("userId", "firstName lastName email profileImage")
-
+    // Get total count
     const total = await Review.countDocuments(query)
 
+    // Populate event details
+    const populatedReviews = await Promise.all(
+      reviews.map(async (review) => {
+        let event = null
+        try {
+          event = await Event.findById(review.eventId).select("title image").lean()
+        } catch (error) {
+          console.error("Error fetching event for review:", error)
+        }
+
+        return {
+          ...review,
+          event,
+        }
+      }),
+    )
+
     return NextResponse.json({
-      success: true,
-      reviews,
+      reviews: populatedReviews,
       pagination: {
         total,
         page,
