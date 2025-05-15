@@ -138,12 +138,16 @@ export async function GET(req: NextRequest) {
     let filteredTickets = [...processedTickets]
 
     if (exclude === "organizer") {
-      // Remove tickets for events where user is organizer
-      filteredTickets = processedTickets.filter((ticket) => {
-        if (!ticket.event) return false // Skip tickets with no event
-        // Check if this event's organizer is the current user
-        return ticket.event.organizer?.toString() !== userId
-      })
+      // Only exclude organizer tickets if the user has the role of "organizer" or "admin"
+      if (session.user.role === "organizer" || session.user.role === "admin") {
+        // Remove tickets for events where user is organizer
+        filteredTickets = processedTickets.filter((ticket) => {
+          if (!ticket.event) return false // Skip tickets with no event
+          // Check if this event's organizer is the current user
+          return ticket.event.organizer?.toString() !== userId
+        })
+      }
+      // For regular users, don't exclude any tickets
     }
 
     // Separate tickets into upcoming and past
@@ -151,6 +155,7 @@ export async function GET(req: NextRequest) {
     const upcoming = filteredTickets.filter((ticket) => ticket.event && new Date(ticket.event.date) >= now)
     const past = filteredTickets.filter((ticket) => ticket.event && new Date(ticket.event.date) < now)
 
+    console.log(`User role: ${session.user.role}, applying exclude=${exclude} filter`)
     console.log(
       `Found ${allTickets.length} tickets (${tickets.length} regular, ${submissionTickets.length} from submissions), filtered to ${filteredTickets.length}`,
     )
