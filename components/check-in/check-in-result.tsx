@@ -126,6 +126,8 @@ export function CheckInResult({ result, onReset }: CheckInResultProps) {
                   <>
                     {result.debug.submissionId && <div>Submission ID: {result.debug.submissionId}</div>}
                     {result.debug.ticketId && <div>Ticket ID: {result.debug.ticketId}</div>}
+                    {result.ticket?._id && <div>Ticket ID: {result.ticket._id}</div>}
+                    {result.attendee?._id && <div>Attendee ID: {result.attendee._id}</div>}
                     {result.debug.lookupMethod && <div>Lookup Method: {result.debug.lookupMethod}</div>}
                     {result.debug.isWebCheckIn && <div>Web Check-in: Yes</div>}
                     {result.debug.eventInfo && (
@@ -135,6 +137,8 @@ export function CheckInResult({ result, onReset }: CheckInResultProps) {
                     )}
                   </>
                 )}
+                {!result.debug && result.ticket?._id && <div>Ticket ID: {result.ticket._id}</div>}
+                {!result.debug && result.attendee?._id && <div>Attendee ID: {result.attendee._id}</div>}
                 {result.attendee?.formData && (
                   <div>
                     <div className="font-medium mt-1">Form Data Fields:</div>

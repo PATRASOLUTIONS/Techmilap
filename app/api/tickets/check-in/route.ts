@@ -143,9 +143,19 @@ export async function POST(req: NextRequest) {
     }
 
     // Prepare the response data
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     const responseData: any = {
       success: true,
       message: "Check-in successful",
+      debug: {
+        ticketId: ticketId,
+        searchTerm: ticketId,
+        lookupMethod: isObjectId ? "id" : emailRegex.test(ticketId) ? "email" : "name",
+        eventInfo: {
+          id: eventId,
+          title: event.title || "Event",
+        },
+      },
     }
 
     const now = new Date()
@@ -153,7 +163,7 @@ export async function POST(req: NextRequest) {
     // Handle ticket check-in
     if (ticket) {
       responseData.ticket = {
-        _id: ticket._id,
+        _id: ticket._id.toString(),
         name: ticket.attendeeName,
         email: ticket.attendeeEmail,
       }
@@ -226,9 +236,10 @@ export async function POST(req: NextRequest) {
       const email = formData.email || formData.emailAddress || attendee.userEmail || "No email"
 
       responseData.attendee = {
-        _id: attendee._id,
+        _id: attendee._id.toString(),
         name,
         email,
+        formData,
       }
 
       // Check if already checked in
