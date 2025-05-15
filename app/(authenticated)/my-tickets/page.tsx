@@ -5,7 +5,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TicketCard } from "@/components/tickets/ticket-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
-import { Calendar, AlertCircle, Ticket, Clock, Mail, MapPin, Download, Share2, ExternalLink } from "lucide-react"
+import {
+  Calendar,
+  AlertCircle,
+  Ticket,
+  Clock,
+  Mail,
+  MapPin,
+  Download,
+  Share2,
+  ExternalLink,
+  RefreshCw,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -28,22 +39,27 @@ export default function MyTicketsPage() {
   const [debugInfo, setDebugInfo] = useState<any>(null)
   const { toast } = useToast()
   const [sentEmailIds, setSentEmailIds] = useState<Set<string>>(new Set())
+  const [retryCount, setRetryCount] = useState(0)
 
-  const fetchTickets = async () => {
+  const fetchTickets = async (forceRefresh = false) => {
     try {
       setLoading(true)
       setError(null)
 
-      console.log("Fetching tickets...")
-      // Make a simple request without any filters by default
-      const url = "/api/tickets/my-tickets"
+      console.log("Fetching tickets...", forceRefresh ? "(forced refresh)" : "")
+
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime()
+      const url = `/api/tickets/my-tickets?t=${timestamp}${forceRefresh ? "&refresh=true" : ""}`
       console.log("Fetching from URL:", url)
 
       const response = await fetch(url, {
         // Add cache control to prevent stale data
         cache: "no-store",
         headers: {
-          "Cache-Control": "no-cache",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
         },
       })
       console.log("Response status:", response.status)
@@ -81,6 +97,20 @@ export default function MyTicketsPage() {
       }
 
       setTickets(data.tickets)
+
+      // Show success toast on forced refresh
+      if (forceRefresh && data.tickets.all.length > 0) {
+        toast({
+          title: "Tickets Refreshed",
+          description: `Found ${data.tickets.all.length} tickets.`,
+        })
+      } else if (forceRefresh && data.tickets.all.length === 0) {
+        toast({
+          title: "No Tickets Found",
+          description: "We couldn't find any tickets associated with your account.",
+          variant: "destructive",
+        })
+      }
     } catch (error) {
       console.error("Error fetching tickets:", error)
       setError(error instanceof Error ? error.message : "Failed to load tickets")
@@ -94,10 +124,15 @@ export default function MyTicketsPage() {
     }
   }
 
-  // Fetch tickets when component mounts
+  // Fetch tickets when component mounts or retry count changes
   useEffect(() => {
-    fetchTickets()
-  }, [])
+    fetchTickets(retryCount > 0)
+  }, [retryCount])
+
+  // Function to retry fetching tickets
+  const retryFetch = () => {
+    setRetryCount((prev) => prev + 1)
+  }
 
   // Function to send ticket email if not already sent
   const sendTicketEmailIfNeeded = async (ticket: any) => {
@@ -172,14 +207,17 @@ export default function MyTicketsPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={() => fetchTickets()} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => retryFetch()} disabled={loading}>
             {loading ? (
               <>
                 <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
                 Refreshing...
               </>
             ) : (
-              <>Refresh Tickets</>
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh Tickets
+              </>
             )}
           </Button>
           <div className="flex items-center gap-2">
@@ -204,7 +242,7 @@ export default function MyTicketsPage() {
           {loading ? (
             <TicketsLoadingSkeleton />
           ) : error ? (
-            <ErrorState message={error} />
+            <ErrorState message={error} onRetry={retryFetch} />
           ) : tickets.all?.length > 0 ? (
             <div className="grid gap-8 md:grid-cols-1">
               {tickets.all.map((ticket, index) => (
@@ -216,7 +254,7 @@ export default function MyTicketsPage() {
               ))}
             </div>
           ) : (
-            <EmptyState type="ticket" />
+            <EmptyState type="ticket" onRetry={retryFetch} />
           )}
         </TabsContent>
 
@@ -224,7 +262,7 @@ export default function MyTicketsPage() {
           {loading ? (
             <TicketsLoadingSkeleton />
           ) : error ? (
-            <ErrorState message={error} />
+            <ErrorState message={error} onRetry={retryFetch} />
           ) : tickets.upcoming?.length > 0 ? (
             <div className="grid gap-8 md:grid-cols-1">
               {tickets.upcoming.map((ticket, index) => (
@@ -236,7 +274,7 @@ export default function MyTicketsPage() {
               ))}
             </div>
           ) : (
-            <EmptyState type="upcoming" />
+            <EmptyState type="upcoming" onRetry={retryFetch} />
           )}
         </TabsContent>
 
@@ -244,7 +282,7 @@ export default function MyTicketsPage() {
           {loading ? (
             <TicketsLoadingSkeleton />
           ) : error ? (
-            <ErrorState message={error} />
+            <ErrorState message={error} onRetry={retryFetch} />
           ) : tickets.past?.length > 0 ? (
             <div className="grid gap-8 md:grid-cols-1">
               {tickets.past.map((ticket, index) => (
@@ -256,7 +294,7 @@ export default function MyTicketsPage() {
               ))}
             </div>
           ) : (
-            <EmptyState type="past" />
+            <EmptyState type="past" onRetry={retryFetch} />
           )}
         </TabsContent>
 
@@ -264,7 +302,7 @@ export default function MyTicketsPage() {
           {loading ? (
             <TicketsLoadingSkeleton />
           ) : error ? (
-            <ErrorState message={error} />
+            <ErrorState message={error} onRetry={retryFetch} />
           ) : attendeeTickets.length > 0 ? (
             <div className="grid gap-8 md:grid-cols-1">
               {attendeeTickets.map((ticket, index) => (
@@ -276,7 +314,7 @@ export default function MyTicketsPage() {
               ))}
             </div>
           ) : (
-            <EmptyState type="attendee" />
+            <EmptyState type="attendee" onRetry={retryFetch} />
           )}
         </TabsContent>
 
@@ -284,7 +322,7 @@ export default function MyTicketsPage() {
           {loading ? (
             <TicketsLoadingSkeleton />
           ) : error ? (
-            <ErrorState message={error} />
+            <ErrorState message={error} onRetry={retryFetch} />
           ) : volunteerTickets.length > 0 ? (
             <div className="grid gap-8 md:grid-cols-1">
               {volunteerTickets.map((ticket, index) => (
@@ -296,7 +334,7 @@ export default function MyTicketsPage() {
               ))}
             </div>
           ) : (
-            <EmptyState type="volunteer" />
+            <EmptyState type="volunteer" onRetry={retryFetch} />
           )}
         </TabsContent>
 
@@ -304,7 +342,7 @@ export default function MyTicketsPage() {
           {loading ? (
             <TicketsLoadingSkeleton />
           ) : error ? (
-            <ErrorState message={error} />
+            <ErrorState message={error} onRetry={retryFetch} />
           ) : speakerTickets.length > 0 ? (
             <div className="grid gap-8 md:grid-cols-1">
               {speakerTickets.map((ticket, index) => (
@@ -316,7 +354,7 @@ export default function MyTicketsPage() {
               ))}
             </div>
           ) : (
-            <EmptyState type="speaker" />
+            <EmptyState type="speaker" onRetry={retryFetch} />
           )}
         </TabsContent>
 
@@ -334,6 +372,7 @@ export default function MyTicketsPage() {
                   <li>Volunteer: {volunteerTickets.length}</li>
                   <li>Speaker: {speakerTickets.length}</li>
                   <li>Form Submissions: {tickets.all?.filter((t) => t.isFormSubmission)?.length || 0}</li>
+                  <li>Retry Count: {retryCount}</li>
                 </ul>
               </div>
               <div className="bg-white p-3 rounded border">
@@ -436,7 +475,7 @@ function TicketQRCode({ data, size = 120 }: { data: string; size?: number }) {
 // Component to display form submission as a ticket
 function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number }) {
   const [showAllDetails, setShowAllDetails] = useState(false)
-  const [isSendingEmail, setIsSendingEmail] = useState(false) // Fixed circular reference
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [isSharing, setIsSharing] = useState(false)
   const [isAddingToCalendar, setIsAddingToCalendar] = useState(false)
@@ -1060,18 +1099,26 @@ function TicketsLoadingSkeleton() {
   )
 }
 
-function ErrorState({ message }: { message: string }) {
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center space-y-4 py-12">
       <AlertCircle className="h-12 w-12 text-red-500" />
       <h2 className="text-xl font-semibold">Error Loading Tickets</h2>
       <p className="text-muted-foreground text-center max-w-md">{message}</p>
-      <Button onClick={() => window.location.reload()}>Try Again</Button>
+      <div className="flex gap-4">
+        <Button onClick={onRetry}>Try Again</Button>
+        <Button variant="outline" asChild>
+          <Link href="/events">Browse Events</Link>
+        </Button>
+      </div>
     </div>
   )
 }
 
-function EmptyState({ type }: { type: "upcoming" | "past" | "attendee" | "volunteer" | "speaker" | "ticket" }) {
+function EmptyState({
+  type,
+  onRetry,
+}: { type: "upcoming" | "past" | "attendee" | "volunteer" | "speaker" | "ticket"; onRetry: () => void }) {
   const messages = {
     upcoming: "You don't have any upcoming event tickets.",
     past: "You don't have any past event tickets.",
@@ -1090,7 +1137,8 @@ function EmptyState({ type }: { type: "upcoming" | "past" | "attendee" | "volunt
         <Button asChild>
           <Link href="/events">Browse Events</Link>
         </Button>
-        <Button variant="outline" onClick={() => window.location.reload()}>
+        <Button variant="outline" onClick={onRetry}>
+          <RefreshCw className="mr-2 h-4 w-4" />
           Refresh
         </Button>
       </div>
