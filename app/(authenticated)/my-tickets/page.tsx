@@ -29,66 +29,74 @@ export default function MyTicketsPage() {
   const { toast } = useToast()
   const [sentEmailIds, setSentEmailIds] = useState<Set<string>>(new Set())
 
-  useEffect(() => {
-    const fetchTickets = async () => {
-      try {
-        setLoading(true)
-        setError(null)
+  const fetchTickets = async () => {
+    try {
+      setLoading(true)
+      setError(null)
 
-        console.log("Fetching tickets...")
-        // Only apply the exclude=organizer filter for organizers and admins
-        const url = "/api/tickets/my-tickets"
-        const response = await fetch(url)
-        console.log("Response status:", response.status)
+      console.log("Fetching tickets...")
+      // Make a simple request without any filters by default
+      const url = "/api/tickets/my-tickets"
+      console.log("Fetching from URL:", url)
 
-        if (!response.ok) {
-          let errorMessage = `Failed to fetch tickets: ${response.status} ${response.statusText}`
-          try {
-            const errorData = await response.json()
-            errorMessage = `${errorMessage} - ${errorData.error || "Unknown error"}`
-            setDebugInfo(errorData)
-          } catch (e) {
-            console.error("Error parsing error response:", e)
-          }
-          throw new Error(errorMessage)
+      const response = await fetch(url)
+      console.log("Response status:", response.status)
+
+      if (!response.ok) {
+        let errorMessage = `Failed to fetch tickets: ${response.status} ${response.statusText}`
+        try {
+          const errorData = await response.json()
+          errorMessage = `${errorMessage} - ${errorData.error || "Unknown error"}`
+          setDebugInfo(errorData)
+        } catch (e) {
+          console.error("Error parsing error response:", e)
         }
-
-        const data = await response.json()
-        console.log("Tickets data:", data)
-
-        // Add more detailed logging
-        if (data.tickets && data.tickets.all) {
-          console.log("All tickets count:", data.tickets.all.length)
-          console.log(
-            "Ticket types:",
-            data.tickets.all.map((t) => t.ticketType || t.formType),
-          )
-          console.log("Form submission tickets:", data.tickets.all.filter((t) => t.isFormSubmission).length)
-        }
-
-        setDebugInfo(data)
-
-        // Check if data has the expected structure
-        if (!data.tickets) {
-          throw new Error("Invalid response format: missing tickets property")
-        }
-
-        setTickets(data.tickets)
-      } catch (error) {
-        console.error("Error fetching tickets:", error)
-        setError(error instanceof Error ? error.message : "Failed to load tickets")
-        toast({
-          title: "Error",
-          description: "Failed to load your tickets. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
+        throw new Error(errorMessage)
       }
-    }
 
-    fetchTickets()
-  }, [toast])
+      const data = await response.json()
+      console.log("Tickets data received, total tickets:", data.tickets?.all?.length || 0)
+
+      // Add more detailed logging
+      if (data.tickets && data.tickets.all) {
+        console.log("All tickets count:", data.tickets.all.length)
+        console.log(
+          "Ticket types:",
+          data.tickets.all.map((t) => t.ticketType || t.formType),
+        )
+        console.log("Form submission tickets:", data.tickets.all.filter((t) => t.isFormSubmission).length)
+
+        // Log the first ticket for debugging
+        if (data.tickets.all.length > 0) {
+          console.log("First ticket sample:", {
+            id: data.tickets.all[0]._id,
+            type: data.tickets.all[0].ticketType || data.tickets.all[0].formType,
+            event: data.tickets.all[0].event?.title,
+            isFormSubmission: data.tickets.all[0].isFormSubmission,
+          })
+        }
+      }
+
+      setDebugInfo(data)
+
+      // Check if data has the expected structure
+      if (!data.tickets) {
+        throw new Error("Invalid response format: missing tickets property")
+      }
+
+      setTickets(data.tickets)
+    } catch (error) {
+      console.error("Error fetching tickets:", error)
+      setError(error instanceof Error ? error.message : "Failed to load tickets")
+      toast({
+        title: "Error",
+        description: "Failed to load your tickets. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Function to send ticket email if not already sent
   const sendTicketEmailIfNeeded = async (ticket: any) => {
@@ -154,9 +162,21 @@ export default function MyTicketsPage() {
             View tickets for events you're attending, volunteering at, or speaking at
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Ticket className="h-5 w-5 text-indigo-600" />
-          <span className="font-medium">{loading ? "..." : tickets.all?.length || 0} Tickets</span>
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={() => fetchTickets()} disabled={loading}>
+            {loading ? (
+              <>
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                Refreshing...
+              </>
+            ) : (
+              <>Refresh Tickets</>
+            )}
+          </Button>
+          <div className="flex items-center gap-2">
+            <Ticket className="h-5 w-5 text-indigo-600" />
+            <span className="font-medium">{loading ? "..." : tickets.all?.length || 0} Tickets</span>
+          </div>
         </div>
       </div>
 
@@ -294,6 +314,28 @@ export default function MyTicketsPage() {
         <TabsContent value="debug" className="mt-6">
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="text-lg font-medium mb-2">Debug Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="bg-white p-3 rounded border">
+                <h4 className="font-medium mb-2">Ticket Counts</h4>
+                <ul className="space-y-1 text-sm">
+                  <li>All Tickets: {tickets.all?.length || 0}</li>
+                  <li>Upcoming: {tickets.upcoming?.length || 0}</li>
+                  <li>Past: {tickets.past?.length || 0}</li>
+                  <li>Attendee: {attendeeTickets.length}</li>
+                  <li>Volunteer: {volunteerTickets.length}</li>
+                  <li>Speaker: {speakerTickets.length}</li>
+                  <li>Form Submissions: {tickets.all?.filter((t) => t.isFormSubmission)?.length || 0}</li>
+                </ul>
+              </div>
+              <div className="bg-white p-3 rounded border">
+                <h4 className="font-medium mb-2">API Response</h4>
+                <div className="text-sm">
+                  <p>Status: {error ? "Error" : "Success"}</p>
+                  <p>Loading: {loading ? "Yes" : "No"}</p>
+                  <p>Error: {error || "None"}</p>
+                </div>
+              </div>
+            </div>
             <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-96 text-xs">
               {JSON.stringify(debugInfo, null, 2)}
             </pre>
@@ -386,7 +428,7 @@ function TicketQRCode({ data, size = 120 }: { data: string; size?: number }) {
 function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number }) {
   const [showAllDetails, setShowAllDetails] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false) // Fixed circular reference
-  const [isDownloading, setIsDownloading] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(isDownloading)
   const [isSharing, setIsSharing] = useState(false)
   const [isAddingToCalendar, setIsAddingToCalendar] = useState(false)
   const { toast } = useToast()

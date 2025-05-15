@@ -33,7 +33,14 @@ export async function GET(req: NextRequest) {
     // 1. Get tickets directly
     let tickets = []
     try {
-      tickets = await Ticket.find({ userId: new mongoose.Types.ObjectId(userId) })
+      // Convert userId to ObjectId if it's a string
+      const userIdObj = typeof userId === "string" ? new mongoose.Types.ObjectId(userId) : userId
+
+      console.log(`Fetching tickets for user ID: ${userId} (${typeof userId})`)
+
+      tickets = await Ticket.find({
+        userId: userIdObj,
+      })
         .sort({ purchasedAt: -1 })
         .populate({
           path: "event",
@@ -43,6 +50,11 @@ export async function GET(req: NextRequest) {
         .lean()
 
       console.log(`Found ${tickets.length} regular tickets`)
+
+      // Debug the first few tickets if any
+      if (tickets.length > 0) {
+        console.log("Sample ticket data:", JSON.stringify(tickets[0], null, 2).substring(0, 500) + "...")
+      }
     } catch (error) {
       console.error("Error fetching tickets:", error)
       tickets = []
@@ -51,8 +63,11 @@ export async function GET(req: NextRequest) {
     // 2. Get approved form submissions
     let approvedSubmissions = []
     try {
+      // Convert userId to ObjectId if it's a string
+      const userIdObj = typeof userId === "string" ? new mongoose.Types.ObjectId(userId) : userId
+
       approvedSubmissions = await FormSubmission.find({
-        userId: new mongoose.Types.ObjectId(userId),
+        userId: userIdObj,
         status: "approved",
       })
         .populate({
@@ -63,6 +78,14 @@ export async function GET(req: NextRequest) {
         .lean()
 
       console.log(`Found ${approvedSubmissions.length} approved form submissions`)
+
+      // Debug the first submission if any
+      if (approvedSubmissions.length > 0) {
+        console.log(
+          "Sample submission data:",
+          JSON.stringify(approvedSubmissions[0], null, 2).substring(0, 500) + "...",
+        )
+      }
     } catch (error) {
       console.error("Error fetching form submissions:", error)
       approvedSubmissions = []
@@ -81,13 +104,20 @@ export async function GET(req: NextRequest) {
 
     // Convert form submissions to ticket format
     const submissionTickets = approvedSubmissions
-      .filter((submission) => submission.eventId) // Filter out submissions with no event
+      .filter((submission) => {
+        // Filter out submissions with no event and log the reason
+        if (!submission.eventId) {
+          console.log(`Skipping submission ${submission._id} - missing eventId`)
+          return false
+        }
+        return true
+      })
       .map((submission) => {
         // Get the event data
         const event = submission.eventId
 
         // Create a ticket from the submission
-        return {
+        const ticket = {
           _id: submission._id,
           userId: submission.userId,
           event: event, // This is the populated event data
@@ -104,6 +134,9 @@ export async function GET(req: NextRequest) {
             submission.userName || (submission.data ? submission.data.name || submission.data.fullName : "Attendee"),
           attendeeEmail: submission.userEmail || (submission.data ? submission.data.email : ""),
         }
+
+        console.log(`Created ticket from submission ${submission._id} for event ${event.title || "Unknown"}`)
+        return ticket
       })
 
     // Add more detailed logging
@@ -137,17 +170,23 @@ export async function GET(req: NextRequest) {
     // Filter tickets based on exclude parameter
     let filteredTickets = [...processedTickets]
 
-    if (exclude === "organizer") {
-      // Only exclude organizer tickets if the user has the role of "organizer" or "admin"
-      if (session.user.role === "organizer" || session.user.role === "admin") {
-        // Remove tickets for events where user is organizer
-        filteredTickets = processedTickets.filter((ticket) => {
-          if (!ticket.event) return false // Skip tickets with no event
-          // Check if this event's organizer is the current user
-          return ticket.event.organizer?.toString() !== userId
-        })
-      }
-      // For regular users, don't exclude any tickets
+    // Only apply organizer filtering for organizers and admins, and only when explicitly requested
+    if (exclude === "organizer" && (session.user.role === "organizer" || session.user.role === "admin")) {
+      // Remove tickets for events where user is organizer
+      const originalCount = filteredTickets.length
+      filteredTickets = processedTickets.filter((ticket) => {
+        if (!ticket.event) return false // Skip tickets with no event
+        // Check if this event's organizer is the current user
+        const isOrganizer = ticket.event.organizer?.toString() === userId.toString()
+        return !isOrganizer
+      })
+      console.log(`Filtered out ${originalCount - filteredTickets.length} organizer tickets`)
+    }
+
+    // Final check to ensure we have tickets
+    if (filteredTickets.length === 0 && (tickets.length > 0 || approvedSubmissions.length > 0)) {
+      console.log("WARNING: Found source tickets/submissions but filtered list is empty. Returning unfiltered tickets.")
+      filteredTickets = [...processedTickets]
     }
 
     // Separate tickets into upcoming and past
@@ -155,7 +194,7 @@ export async function GET(req: NextRequest) {
     const upcoming = filteredTickets.filter((ticket) => ticket.event && new Date(ticket.event.date) >= now)
     const past = filteredTickets.filter((ticket) => ticket.event && new Date(ticket.event.date) < now)
 
-    console.log(`User role: ${session.user.role}, applying exclude=${exclude} filter`)
+    console.log(`User role: ${session.user.role}, final ticket count: ${filteredTickets.length}`)
     console.log(
       `Found ${allTickets.length} tickets (${tickets.length} regular, ${submissionTickets.length} from submissions), filtered to ${filteredTickets.length}`,
     )
