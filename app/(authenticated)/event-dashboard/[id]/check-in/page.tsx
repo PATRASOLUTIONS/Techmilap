@@ -156,9 +156,6 @@ export default function EventCheckInPage() {
     try {
       setIsProcessing(true)
 
-      // Store the original input for reference
-      const originalInput = manualTicketId.trim()
-
       // Call the check-in API
       const response = await fetch("/api/tickets/check-in", {
         method: "POST",
@@ -166,19 +163,13 @@ export default function EventCheckInPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ticketId: originalInput,
+          ticketId: manualTicketId.trim(),
           eventId,
           allowDuplicateCheckIn,
         }),
       })
 
       const result = await response.json()
-
-      // Add the original search term to the result for reference
-      if (!result.debug) {
-        result.debug = {}
-      }
-      result.debug.searchTerm = originalInput
 
       // Set the scan result
       setScanResult(result)

@@ -201,39 +201,3 @@ export function formatEventDate(dateString: string | Date): string {
     return "Date format error"
   }
 }
-
-/**
- * Generates a short ticket ID (6 characters)
- * This can be used for user-friendly ticket references
- */
-export function generateShortTicketId(): string {
-  // Generate a random 6-character alphanumeric string
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
-  let result = ""
-
-  // Get current timestamp and use it as part of the ID to reduce collision chance
-  const timestamp = Date.now().toString(36).slice(-4)
-
-  // Add 2 random characters
-  for (let i = 0; i < 2; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-
-  // Combine for a 6-character ID
-  return (timestamp + result).slice(0, 6)
-}
-
-/**
- * Formats a ticket ID with proper formatting (adding # prefix)
- * @param ticketId The raw ticket ID to format
- * @returns Formatted ticket ID
- */
-export function formatTicketId(ticketId: string): string {
-  // If the ticket ID already starts with #, return it as is
-  if (ticketId.startsWith("#")) {
-    return ticketId
-  }
-
-  // Otherwise, add the # prefix
-  return `#${ticketId}`
-}
