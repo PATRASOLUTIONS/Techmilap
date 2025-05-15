@@ -2,8 +2,9 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
+import mongoose from "mongoose"
 
-export async function GET() {
+export async function POST(req: Request) {
   try {
     // Get user session
     const session = await getServerSession(authOptions)
@@ -11,84 +12,72 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Only allow admins to generate test tickets
+    if (session.user.role !== "admin" && session.user.role !== "super-admin") {
+      return NextResponse.json({ error: "Unauthorized. Admin access required." }, { status: 403 })
+    }
+
     // Connect to database
     await connectToDatabase()
 
-    // Import models
+    // Import models after database connection is established
     const Ticket = (await import("@/models/Ticket")).default
     const Event = (await import("@/models/Event")).default
-    const FormSubmission = (await import("@/models/FormSubmission")).default
+    const User = (await import("@/models/User")).default
 
-    const userId = session.user.id
+    // Get request body
+    const body = await req.json()
+    const { userId, eventId, count = 1, ticketType = "attendee" } = body
 
-    // Find or create a test event
-    let event = await Event.findOne({ title: "Test Event" })
-
-    if (!event) {
-      event = new Event({
-        title: "Test Event",
-        description: "This is a test event for ticket testing",
-        date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-        startTime: "10:00",
-        endTime: "18:00",
-        location: "Test Location",
-        organizer: userId,
-        status: "published",
-        capacity: 100,
-        slug: "test-event",
-      })
-      await event.save()
+    // Validate inputs
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return NextResponse.json({ error: "Invalid user ID" }, { status: 400 })
     }
 
-    // Create a test ticket
-    const ticket = new Ticket({
-      name: "Test Ticket",
-      type: "General Admission",
-      description: "Test ticket for testing",
-      pricingModel: "Free",
-      price: 0,
-      quantity: 10,
-      saleStartDate: new Date(),
-      saleEndDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days from now
-      event: event._id,
-      createdBy: userId,
-      userId: userId,
-      ticketNumber:
-        "TEST" +
-        Math.floor(Math.random() * 10000)
-          .toString()
-          .padStart(4, "0"),
-      status: "confirmed",
-      purchasedAt: new Date(),
-    })
-    await ticket.save()
+    if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
+      return NextResponse.json({ error: "Invalid event ID" }, { status: 400 })
+    }
 
-    // Create a test form submission
-    const formSubmission = new FormSubmission({
-      eventId: event._id,
-      userId: userId,
-      formType: "attendee",
-      status: "approved",
-      data: {
-        name: "Test Attendee",
-        email: "test@example.com",
-        question_mobile: "+1234567890",
-        comments: "This is a test submission",
-      },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
-    await formSubmission.save()
+    // Check if user exists
+    const user = await User.findById(userId)
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // Check if event exists
+    const event = await Event.findById(eventId)
+    if (!event) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+    }
+
+    // Generate test tickets
+    const tickets = []
+    for (let i = 0; i < count; i++) {
+      const ticketNumber = `TEST-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
+
+      const ticket = new Ticket({
+        userId: new mongoose.Types.ObjectId(userId),
+        event: new mongoose.Types.ObjectId(eventId),
+        ticketType,
+        ticketNumber,
+        price: 0,
+        status: "confirmed",
+        purchasedAt: new Date(),
+        name: user.name || "Test User",
+        email: user.email || "test@example.com",
+      })
+
+      await ticket.save()
+      tickets.push(ticket)
+    }
 
     return NextResponse.json({
       success: true,
-      message: "Test tickets created successfully",
-      ticket: ticket,
-      formSubmission: formSubmission,
-      event: event,
+      message: `Generated ${count} test tickets for user ${userId} and event ${eventId}`,
+      tickets,
     })
   } catch (error: any) {
-    console.error("Error creating test tickets:", error)
-    return NextResponse.json({ error: `Failed to create test tickets: ${error.message}` }, { status: 500 })
+    console.error("Error generating test tickets:", error)
+    return NextResponse.json({ error: `Failed to generate test tickets: ${error.message}` }, { status: 500 })
   }
 }

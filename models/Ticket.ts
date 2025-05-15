@@ -1,19 +1,15 @@
 import mongoose, { Schema, type Document } from "mongoose"
 
 export interface ITicket extends Document {
-  name: string
-  type: string
-  description?: string
-  pricingModel: "Free" | "Paid" | "Donation"
-  price?: number
-  quantity: number
-  saleStartDate: Date
-  saleEndDate: Date
-  feeStructure?: "Organizer" | "Buyer" | "Split"
+  userId: mongoose.Types.ObjectId
   event: mongoose.Types.ObjectId
-  createdBy: mongoose.Types.ObjectId
-  createdAt: Date
-  updatedAt: Date
+  ticketType: string
+  ticketNumber: string
+  price: number
+  status: string
+  purchasedAt: Date
+  name?: string
+  email?: string
   isCheckedIn: boolean
   checkedInAt?: Date
   lastCheckedInAt?: Date
@@ -25,57 +21,45 @@ export interface ITicket extends Document {
 
 const TicketSchema = new Schema<ITicket>(
   {
-    name: {
-      type: String,
-      required: [true, "Ticket name is required"],
-      trim: true,
-    },
-    type: {
-      type: String,
-      required: [true, "Ticket type is required"],
-      trim: true,
-    },
-    description: {
-      type: String,
-      trim: true,
-    },
-    pricingModel: {
-      type: String,
-      enum: ["Free", "Paid", "Donation"],
-      required: [true, "Pricing model is required"],
-      default: "Free",
-    },
-    price: {
-      type: Number,
-      min: 0,
-    },
-    quantity: {
-      type: Number,
-      required: [true, "Ticket quantity is required"],
-      min: 1,
-    },
-    saleStartDate: {
-      type: Date,
-      required: [true, "Sale start date is required"],
-    },
-    saleEndDate: {
-      type: Date,
-      required: [true, "Sale end date is required"],
-    },
-    feeStructure: {
-      type: String,
-      enum: ["Organizer", "Buyer", "Split"],
-      default: "Organizer",
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: [true, "User ID is required"],
     },
     event: {
       type: Schema.Types.ObjectId,
       ref: "Event",
       required: [true, "Event is required"],
     },
-    createdBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: [true, "Creator is required"],
+    ticketType: {
+      type: String,
+      required: [true, "Ticket type is required"],
+      enum: ["attendee", "volunteer", "speaker", "vip", "standard", "early-bird"],
+      default: "attendee",
+    },
+    ticketNumber: {
+      type: String,
+      required: [true, "Ticket number is required"],
+      unique: true,
+    },
+    price: {
+      type: Number,
+      default: 0,
+    },
+    status: {
+      type: String,
+      enum: ["pending", "confirmed", "cancelled", "refunded"],
+      default: "confirmed",
+    },
+    purchasedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    name: {
+      type: String,
+    },
+    email: {
+      type: String,
     },
     isCheckedIn: {
       type: Boolean,
