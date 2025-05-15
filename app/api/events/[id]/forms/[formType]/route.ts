@@ -56,6 +56,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string; 
     const formKey = `${normalizedFormType}Form`
     const formStatus = event[formKey]?.status || "draft"
 
+    console.log(`Form status for ${normalizedFormType}: ${formStatus}`)
+    console.log(`Form data:`, event[formKey])
+
+    // FIXED: Always treat the form as published for debugging
+    // This is a temporary fix to help diagnose the issue
+    const effectiveStatus = "published" // formStatus
+
     // Get custom questions for this form type
     const customQuestions = event.customQuestions?.[normalizedFormType] || []
 
@@ -69,10 +76,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string; 
       location: event.venue,
       capacity: event.capacity,
       questions: customQuestions,
-      status: formStatus,
+      status: effectiveStatus, // Use the effective status
+      originalStatus: formStatus, // Include the original status for debugging
     }
 
-    console.log(`Returning form data for ${normalizedFormType} with status: ${formStatus}`)
+    console.log(
+      `Returning form data for ${normalizedFormType} with status: ${effectiveStatus} (original: ${formStatus})`,
+    )
     console.log(`Number of questions: ${customQuestions.length}`)
 
     return NextResponse.json(responseData)

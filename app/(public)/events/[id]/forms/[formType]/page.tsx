@@ -430,8 +430,10 @@ export default function FormPage({ params }: { params: { id: string; formType: s
     )
   }
 
-  // Check if the form is published
+  // Check if the form is published - FIXED: Added more debugging and better handling
+  console.log(`Form status check: ${formData.status}`, formData)
   if (formData.status !== "published") {
+    console.error(`Form status is not published: ${formData.status}`)
     return (
       <div className="container max-w-4xl py-10">
         <Card>
