@@ -3,28 +3,16 @@
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Search, Plus, Filter, ArrowUpDown, BarChart } from "lucide-react"
+import { Search, Filter, ArrowUpDown, BarChart } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
 import { ReviewList } from "@/components/reviews/review-list"
 import { ReviewStats } from "@/components/reviews/review-stats"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { StarRating } from "@/components/reviews/star-rating"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function EventReviewsPage() {
   const { data: session, status } = useSession()
@@ -57,16 +45,6 @@ export default function EventReviewsPage() {
   const [currentTab, setCurrentTab] = useState("all")
   const [sortBy, setSortBy] = useState("date") // "date", "rating-high", "rating-low"
 
-  // Review form
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
-  const [reviewFormData, setReviewFormData] = useState({
-    eventId: "",
-    rating: 5,
-    title: "",
-    comment: "",
-  })
-  const [submitting, setSubmitting] = useState(false)
-
   // Pagination
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -74,6 +52,7 @@ export default function EventReviewsPage() {
 
   // Debug state
   const [error, setError] = useState<string | null>(null)
+  const [debug, setDebug] = useState<any>(null)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -81,20 +60,22 @@ export default function EventReviewsPage() {
       return
     }
 
-    fetchEvents()
-    fetchReviews()
+    // Only proceed if the user is an event planner
+    if (session?.user?.role === "event-planner" || session?.user?.role === "super-admin") {
+      fetchEvents()
+      fetchReviews()
+    } else {
+      // If not an event planner, show an error
+      setError("You must be an event organizer to view event reviews.")
+      setLoading(false)
+    }
   }, [session, status, router, page, selectedEvent, selectedRating, selectedStatus, searchQuery, currentTab, sortBy])
 
   const fetchEvents = async () => {
-    console.log("Fetching events for user role:", session?.user?.role)
+    console.log("Fetching events for organizer:", session?.user?.id)
     try {
       // For event planners, fetch their events
-      // For users, fetch events they've attended
-      const endpoint =
-        session?.user?.role === "event-planner" ? "/api/events/my-events/all" : "/api/reviews/eligible-events"
-
-      console.log("Fetching events from:", endpoint)
-      const response = await fetch(endpoint)
+      const response = await fetch("/api/events/my-events/all")
 
       if (!response.ok) {
         console.error("Error fetching events:", response.status, await response.text())
@@ -104,6 +85,11 @@ export default function EventReviewsPage() {
       const data = await response.json()
       console.log("Fetched events:", data.events?.length || 0, "events")
       setEvents(data.events || [])
+
+      // If there are events but no selected event, set the first one
+      if (data.events?.length > 0 && selectedEvent === "all") {
+        // Keep "all" as default
+      }
     } catch (error) {
       console.error("Error fetching events:", error)
       setError("Failed to load events. Please try again.")
@@ -141,23 +127,30 @@ export default function EventReviewsPage() {
         sort: sortBy,
       })
 
-      // Different endpoints for different user roles
-      const endpoint =
-        session?.user?.role === "event-planner"
-          ? `/api/reviews/planner?${queryParams.toString()}`
-          : `/api/reviews/my-reviews?${queryParams.toString()}`
+      // Use the planner endpoint to get reviews for events organized by the user
+      const endpoint = `/api/reviews/planner?${queryParams.toString()}`
 
       console.log("Fetching reviews from:", endpoint)
       const response = await fetch(endpoint)
 
       if (!response.ok) {
         console.error("Error fetching reviews:", response.status, await response.text())
+        const errorText = await response.text()
+        try {
+          const errorJson = JSON.parse(errorText)
+          setDebug(errorJson)
+        } catch (e) {
+          setDebug({ errorText })
+        }
         throw new Error("Failed to fetch reviews")
       }
 
       const data = await response.json()
       console.log("Fetched reviews:", data.reviews?.length || 0, "reviews")
-      console.log("Sample review data:", data.reviews?.[0])
+
+      if (data.reviews?.length > 0) {
+        console.log("Sample review:", JSON.stringify(data.reviews[0], null, 2).substring(0, 200) + "...")
+      }
 
       setReviews(data.reviews || [])
       setTotalPages(data.totalPages || 1)
@@ -192,13 +185,18 @@ export default function EventReviewsPage() {
 
   const handleReply = async (id, text) => {
     try {
+      console.log("Submitting reply for review:", id, "Text:", text)
       const response = await fetch(`/api/reviews/${id}/reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       })
 
-      if (!response.ok) throw new Error("Failed to reply to review")
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("Error reply response:", errorData)
+        throw new Error(errorData.error || "Failed to reply to review")
+      }
 
       toast({
         title: "Success",
@@ -215,7 +213,7 @@ export default function EventReviewsPage() {
       console.error("Error replying to review:", error)
       toast({
         title: "Error",
-        description: "Failed to post reply. Please try again.",
+        description: error.message || "Failed to post reply. Please try again.",
         variant: "destructive",
       })
       throw error
@@ -224,13 +222,18 @@ export default function EventReviewsPage() {
 
   const handleApprove = async (id) => {
     try {
+      console.log("Approving review:", id)
       const response = await fetch(`/api/reviews/${id}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "approved" }),
       })
 
-      if (!response.ok) throw new Error("Failed to approve review")
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("Error approval response:", errorData)
+        throw new Error(errorData.error || "Failed to approve review")
+      }
 
       toast({
         title: "Success",
@@ -250,7 +253,7 @@ export default function EventReviewsPage() {
       console.error("Error approving review:", error)
       toast({
         title: "Error",
-        description: "Failed to approve review. Please try again.",
+        description: error.message || "Failed to approve review. Please try again.",
         variant: "destructive",
       })
       throw error
@@ -259,13 +262,18 @@ export default function EventReviewsPage() {
 
   const handleReject = async (id) => {
     try {
+      console.log("Rejecting review:", id)
       const response = await fetch(`/api/reviews/${id}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "rejected" }),
       })
 
-      if (!response.ok) throw new Error("Failed to reject review")
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("Error rejection response:", errorData)
+        throw new Error(errorData.error || "Failed to reject review")
+      }
 
       toast({
         title: "Success",
@@ -285,7 +293,7 @@ export default function EventReviewsPage() {
       console.error("Error rejecting review:", error)
       toast({
         title: "Error",
-        description: "Failed to reject review. Please try again.",
+        description: error.message || "Failed to reject review. Please try again.",
         variant: "destructive",
       })
       throw error
@@ -294,11 +302,16 @@ export default function EventReviewsPage() {
 
   const handleDelete = async (id) => {
     try {
+      console.log("Deleting review:", id)
       const response = await fetch(`/api/reviews/${id}`, {
         method: "DELETE",
       })
 
-      if (!response.ok) throw new Error("Failed to delete review")
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("Error deletion response:", errorData)
+        throw new Error(errorData.error || "Failed to delete review")
+      }
 
       toast({
         title: "Success",
@@ -317,98 +330,11 @@ export default function EventReviewsPage() {
       console.error("Error deleting review:", error)
       toast({
         title: "Error",
-        description: "Failed to delete review. Please try again.",
+        description: error.message || "Failed to delete review. Please try again.",
         variant: "destructive",
       })
       throw error
     }
-  }
-
-  const handleSubmitReview = async (e) => {
-    e.preventDefault()
-
-    if (!reviewFormData.eventId) {
-      toast({
-        title: "Error",
-        description: "Please select an event to review",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!reviewFormData.title.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a review title",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!reviewFormData.comment.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter your review",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setSubmitting(true)
-
-    try {
-      const response = await fetch("/api/reviews", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(reviewFormData),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || "Failed to submit review")
-      }
-
-      toast({
-        title: "Success",
-        description: "Your review has been submitted successfully",
-      })
-
-      // Reset form and close dialog
-      setReviewFormData({
-        eventId: "",
-        rating: 5,
-        title: "",
-        comment: "",
-      })
-      setReviewDialogOpen(false)
-
-      // Refresh reviews
-      fetchReviews()
-    } catch (error) {
-      console.error("Error submitting review:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to submit review. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const handleReviewFormChange = (e) => {
-    const { name, value } = e.target
-    setReviewFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-  }
-
-  const handleRatingChange = (rating) => {
-    setReviewFormData((prev) => ({
-      ...prev,
-      rating,
-    }))
   }
 
   const getSortButtonText = () => {
@@ -441,115 +367,35 @@ export default function EventReviewsPage() {
     )
   }
 
+  // Check if the user is an event planner
+  if (session?.user?.role !== "event-planner" && session?.user?.role !== "super-admin") {
+    return (
+      <div className="container mx-auto py-10">
+        <Alert variant="destructive" className="mb-6">
+          <AlertTitle>Access Denied</AlertTitle>
+          <AlertDescription>
+            You must be an event organizer to view event reviews. Please contact your administrator if you believe this
+            is an error.
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto py-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {session?.user?.role === "event-planner" ? "Event Reviews" : "My Reviews"}
-          </h1>
-          <p className="text-muted-foreground">
-            {session?.user?.role === "event-planner"
-              ? "Manage and respond to reviews for all your events"
-              : "View and manage your reviews for events you've attended"}
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">Event Reviews</h1>
+          <p className="text-muted-foreground">Manage and respond to reviews for all your events</p>
         </div>
-
-        {session?.user?.role !== "event-planner" && (
-          <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
-                <Plus className="mr-2 h-4 w-4" /> Write a Review
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Write a Review</DialogTitle>
-                <DialogDescription>Share your experience about an event you attended</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmitReview}>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="eventId">Select Event</Label>
-                    <Select
-                      name="eventId"
-                      value={reviewFormData.eventId}
-                      onValueChange={(value) => setReviewFormData((prev) => ({ ...prev, eventId: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an event" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {events.length === 0 ? (
-                          <SelectItem value="no-events" disabled>
-                            No eligible events found
-                          </SelectItem>
-                        ) : (
-                          events.map((event) => (
-                            <SelectItem key={event._id} value={event._id}>
-                              {event.title}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label>Rating</Label>
-                    <StarRating rating={reviewFormData.rating} onRatingChange={handleRatingChange} size={24} />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="title">Review Title</Label>
-                    <Input
-                      id="title"
-                      name="title"
-                      value={reviewFormData.title}
-                      onChange={handleReviewFormChange}
-                      placeholder="Summarize your experience"
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="comment">Your Review</Label>
-                    <Textarea
-                      id="comment"
-                      name="comment"
-                      value={reviewFormData.comment}
-                      onChange={handleReviewFormChange}
-                      placeholder="Share details of your experience at this event"
-                      rows={4}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setReviewDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={submitting || events.length === 0}
-                    className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-                  >
-                    {submitting ? "Submitting..." : "Submit Review"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
       </div>
 
       <div className="grid gap-6">
         <Card>
           <CardHeader>
             <CardTitle>Review Statistics</CardTitle>
-            <CardDescription>
-              {session?.user?.role === "event-planner"
-                ? "Overview of all reviews for your events"
-                : "Overview of your reviews for events you've attended"}
-            </CardDescription>
+            <CardDescription>Overview of all reviews for your events</CardDescription>
           </CardHeader>
           <CardContent>
             <ReviewStats stats={stats} />
@@ -642,9 +488,15 @@ export default function EventReviewsPage() {
         </Card>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
-            <strong className="font-bold">Error:</strong>
-            <span className="block sm:inline"> {error}</span>
+          <Alert variant="destructive">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {debug && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded relative mb-6">
+            <pre className="text-xs overflow-auto">{JSON.stringify(debug, null, 2)}</pre>
           </div>
         )}
 
@@ -656,22 +508,18 @@ export default function EventReviewsPage() {
                   All Reviews
                   <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs">{stats.total}</span>
                 </TabsTrigger>
-                {session?.user?.role === "event-planner" && (
-                  <TabsTrigger value="pending">
-                    Pending
-                    <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs">{stats.pending}</span>
-                  </TabsTrigger>
-                )}
+                <TabsTrigger value="pending">
+                  Pending
+                  <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs">{stats.pending}</span>
+                </TabsTrigger>
                 <TabsTrigger value="approved">
                   Approved
                   <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs">{stats.approved}</span>
                 </TabsTrigger>
-                {session?.user?.role === "event-planner" && (
-                  <TabsTrigger value="rejected">
-                    Rejected
-                    <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs">{stats.rejected}</span>
-                  </TabsTrigger>
-                )}
+                <TabsTrigger value="rejected">
+                  Rejected
+                  <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs">{stats.rejected}</span>
+                </TabsTrigger>
               </TabsList>
             </Tabs>
           </CardHeader>
@@ -688,19 +536,7 @@ export default function EventReviewsPage() {
               <div className="text-center py-8">
                 <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-2 text-lg font-semibold">No Reviews Found</h3>
-                <p className="text-muted-foreground">
-                  {session?.user?.role === "event-planner"
-                    ? "There are no reviews for your events yet."
-                    : "You haven't reviewed any events yet."}
-                </p>
-                {session?.user?.role !== "event-planner" && (
-                  <Button
-                    className="mt-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-                    onClick={() => setReviewDialogOpen(true)}
-                  >
-                    <Plus className="mr-2 h-4 w-4" /> Write a Review
-                  </Button>
-                )}
+                <p className="text-muted-foreground">There are no reviews for your events yet.</p>
               </div>
             ) : (
               <ReviewList
@@ -709,13 +545,10 @@ export default function EventReviewsPage() {
                 page={page}
                 totalPages={totalPages}
                 onPageChange={setPage}
-                onReply={session?.user?.role === "event-planner" ? handleReply : undefined}
-                onApprove={session?.user?.role === "event-planner" ? handleApprove : undefined}
-                onReject={session?.user?.role === "event-planner" ? handleReject : undefined}
+                onReply={handleReply}
+                onApprove={handleApprove}
+                onReject={handleReject}
                 onDelete={handleDelete}
-                onEdit={
-                  session?.user?.role !== "event-planner" ? (id) => router.push(`/my-reviews/edit/${id}`) : undefined
-                }
                 showEventDetails={true}
               />
             )}
