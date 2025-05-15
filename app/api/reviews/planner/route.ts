@@ -16,6 +16,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
+    console.log("Planner API called by user:", session.user.id, "role:", session.user.role)
+
     const { db } = await connectToDatabase()
 
     // Get query parameters
@@ -27,8 +29,11 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status")
     const search = searchParams.get("search")
     const tab = searchParams.get("tab")
+    const sort = searchParams.get("sort") || "date" // "date" (default), "rating-high", "rating-low"
 
     const skip = (page - 1) * limit
+
+    console.log("Planner API query params:", { page, limit, eventId, rating, status, search, tab, sort })
 
     // Build the query
     const query: any = {}
@@ -44,13 +49,41 @@ export async function GET(req: NextRequest) {
         .project({ _id: 1 })
         .toArray()
 
+      console.log("Found events for organizer:", events.length)
+
       const eventIds = events.map((event) => event._id)
+      if (eventIds.length === 0) {
+        // No events found, return empty response
+        return NextResponse.json({
+          reviews: [],
+          totalPages: 0,
+          stats: {
+            total: 0,
+            average: 0,
+            pending: 0,
+            approved: 0,
+            rejected: 0,
+            ratings: {
+              1: 0,
+              2: 0,
+              3: 0,
+              4: 0,
+              5: 0,
+            },
+          },
+        })
+      }
+
       query.eventId = { $in: eventIds }
     }
 
     // Apply filters
     if (eventId && eventId !== "all") {
-      query.eventId = new ObjectId(eventId)
+      try {
+        query.eventId = new ObjectId(eventId)
+      } catch (err) {
+        console.error("Invalid eventId format:", eventId)
+      }
     }
 
     if (rating && rating !== "all") {
@@ -69,63 +102,92 @@ export async function GET(req: NextRequest) {
       query.$or = [{ title: { $regex: search, $options: "i" } }, { comment: { $regex: search, $options: "i" } }]
     }
 
+    console.log("Final MongoDB query:", JSON.stringify(query))
+
     // Get total count for pagination
     const totalCount = await db.collection("reviews").countDocuments(query)
+    console.log("Total reviews count:", totalCount)
+
+    // Determine sort options
+    let sortOptions = {}
+
+    switch (sort) {
+      case "rating-high":
+        sortOptions = { rating: -1, createdAt: -1 }
+        break
+      case "rating-low":
+        sortOptions = { rating: 1, createdAt: -1 }
+        break
+      case "date":
+      default:
+        sortOptions = { createdAt: -1 }
+    }
 
     // Get reviews with pagination
-    const reviews = await db
-      .collection("reviews")
-      .aggregate([
-        { $match: query },
-        {
-          $lookup: {
-            from: "users",
-            localField: "userId",
-            foreignField: "_id",
-            as: "userDetails",
-          },
+    const aggregationPipeline = [
+      { $match: query },
+      {
+        $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "userDetails",
         },
-        {
-          $lookup: {
-            from: "events",
-            localField: "eventId",
-            foreignField: "_id",
-            as: "eventDetails",
-          },
+      },
+      {
+        $lookup: {
+          from: "events",
+          localField: "eventId",
+          foreignField: "_id",
+          as: "eventDetails",
         },
-        {
-          $addFields: {
-            userId: { $arrayElemAt: ["$userDetails", 0] },
-            event: { $arrayElemAt: ["$eventDetails", 0] },
-          },
+      },
+      {
+        $addFields: {
+          user: { $arrayElemAt: ["$userDetails", 0] },
+          event: { $arrayElemAt: ["$eventDetails", 0] },
         },
-        {
-          $project: {
-            _id: 1,
-            title: 1,
-            comment: 1,
-            rating: 1,
-            status: 1,
-            reply: 1,
-            createdAt: 1,
-            updatedAt: 1,
-            "userId._id": 1,
-            "userId.firstName": 1,
-            "userId.lastName": 1,
-            "userId.email": 1,
-            "userId.profileImage": 1,
-            "event._id": 1,
-            "event.title": 1,
-            "event.date": 1,
-            "event.location": 1,
-            "event.image": 1,
-          },
+      },
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          comment: 1,
+          rating: 1,
+          status: 1,
+          reply: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          userId: 1,
+          eventId: 1,
+          userDetails: 1, // Keep for backward compatibility
+          eventDetails: 1, // Keep for backward compatibility
+          "user._id": 1,
+          "user.firstName": 1,
+          "user.lastName": 1,
+          "user.name": 1,
+          "user.email": 1,
+          "user.image": 1,
+          "user.profileImage": 1,
+          "event._id": 1,
+          "event.title": 1,
+          "event.name": 1,
+          "event.date": 1,
+          "event.location": 1,
+          "event.image": 1,
         },
-        { $sort: { createdAt: -1 } },
-        { $skip: skip },
-        { $limit: limit },
-      ])
-      .toArray()
+      },
+      { $sort: sortOptions },
+      { $skip: skip },
+      { $limit: limit },
+    ]
+
+    const reviews = await db.collection("reviews").aggregate(aggregationPipeline).toArray()
+    console.log("Retrieved reviews:", reviews.length)
+
+    if (reviews.length > 0) {
+      console.log("Sample review:", JSON.stringify(reviews[0], null, 2).substring(0, 200) + "...")
+    }
 
     // Get statistics
     const stats = {

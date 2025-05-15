@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Search, Plus, Filter } from "lucide-react"
+import { Search, Plus, Filter, ArrowUpDown, BarChart } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -55,6 +55,7 @@ export default function EventReviewsPage() {
   const [selectedStatus, setSelectedStatus] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [currentTab, setCurrentTab] = useState("all")
+  const [sortBy, setSortBy] = useState("date") // "date", "rating-high", "rating-low"
 
   // Review form
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
@@ -71,6 +72,9 @@ export default function EventReviewsPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [limit] = useState(10)
 
+  // Debug state
+  const [error, setError] = useState<string | null>(null)
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login")
@@ -79,21 +83,30 @@ export default function EventReviewsPage() {
 
     fetchEvents()
     fetchReviews()
-  }, [session, status, router, page, selectedEvent, selectedRating, selectedStatus, searchQuery, currentTab])
+  }, [session, status, router, page, selectedEvent, selectedRating, selectedStatus, searchQuery, currentTab, sortBy])
 
   const fetchEvents = async () => {
+    console.log("Fetching events for user role:", session?.user?.role)
     try {
       // For event planners, fetch their events
       // For users, fetch events they've attended
       const endpoint =
         session?.user?.role === "event-planner" ? "/api/events/my-events/all" : "/api/reviews/eligible-events"
+
+      console.log("Fetching events from:", endpoint)
       const response = await fetch(endpoint)
-      if (!response.ok) throw new Error("Failed to fetch events")
+
+      if (!response.ok) {
+        console.error("Error fetching events:", response.status, await response.text())
+        throw new Error("Failed to fetch events")
+      }
 
       const data = await response.json()
+      console.log("Fetched events:", data.events?.length || 0, "events")
       setEvents(data.events || [])
     } catch (error) {
       console.error("Error fetching events:", error)
+      setError("Failed to load events. Please try again.")
       toast({
         title: "Error",
         description: "Failed to load events. Please try again.",
@@ -104,6 +117,18 @@ export default function EventReviewsPage() {
 
   const fetchReviews = async () => {
     setLoading(true)
+    setError(null)
+    console.log("Fetching reviews with filters:", {
+      page,
+      limit,
+      event: selectedEvent,
+      rating: selectedRating,
+      status: selectedStatus,
+      search: searchQuery,
+      tab: currentTab,
+      sort: sortBy,
+    })
+
     try {
       const queryParams = new URLSearchParams({
         page: page.toString(),
@@ -113,6 +138,7 @@ export default function EventReviewsPage() {
         ...(selectedStatus !== "all" && { status: selectedStatus }),
         ...(searchQuery && { search: searchQuery }),
         ...(currentTab !== "all" && { tab: currentTab }),
+        sort: sortBy,
       })
 
       // Different endpoints for different user roles
@@ -121,10 +147,18 @@ export default function EventReviewsPage() {
           ? `/api/reviews/planner?${queryParams.toString()}`
           : `/api/reviews/my-reviews?${queryParams.toString()}`
 
+      console.log("Fetching reviews from:", endpoint)
       const response = await fetch(endpoint)
-      if (!response.ok) throw new Error("Failed to fetch reviews")
+
+      if (!response.ok) {
+        console.error("Error fetching reviews:", response.status, await response.text())
+        throw new Error("Failed to fetch reviews")
+      }
 
       const data = await response.json()
+      console.log("Fetched reviews:", data.reviews?.length || 0, "reviews")
+      console.log("Sample review data:", data.reviews?.[0])
+
       setReviews(data.reviews || [])
       setTotalPages(data.totalPages || 1)
       setStats(
@@ -145,6 +179,7 @@ export default function EventReviewsPage() {
       )
     } catch (error) {
       console.error("Error fetching reviews:", error)
+      setError("Failed to load reviews. Please try again.")
       toast({
         title: "Error",
         description: "Failed to load reviews. Please try again.",
@@ -376,6 +411,18 @@ export default function EventReviewsPage() {
     }))
   }
 
+  const getSortButtonText = () => {
+    switch (sortBy) {
+      case "rating-high":
+        return "Highest Rating"
+      case "rating-low":
+        return "Lowest Rating"
+      case "date":
+      default:
+        return "Most Recent"
+    }
+  }
+
   if (status === "loading") {
     return (
       <div className="container mx-auto py-10">
@@ -434,7 +481,7 @@ export default function EventReviewsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {events.length === 0 ? (
-                          <SelectItem value="" disabled>
+                          <SelectItem value="no-events" disabled>
                             No eligible events found
                           </SelectItem>
                         ) : (
@@ -572,8 +619,34 @@ export default function EventReviewsPage() {
                 />
               </div>
             </div>
+
+            {/* Sort button */}
+            <div className="mt-4 flex justify-end">
+              <div className="relative">
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-[180px]">
+                    <div className="flex items-center">
+                      <ArrowUpDown className="mr-2 h-4 w-4" />
+                      <SelectValue placeholder="Sort by" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date">Most Recent</SelectItem>
+                    <SelectItem value="rating-high">Highest Rating</SelectItem>
+                    <SelectItem value="rating-low">Lowest Rating</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardContent>
         </Card>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+            <strong className="font-bold">Error:</strong>
+            <span className="block sm:inline"> {error}</span>
+          </div>
+        )}
 
         <Card>
           <CardHeader className="pb-3">
@@ -603,21 +676,49 @@ export default function EventReviewsPage() {
             </Tabs>
           </CardHeader>
           <CardContent>
-            <ReviewList
-              reviews={reviews}
-              loading={loading}
-              page={page}
-              totalPages={totalPages}
-              onPageChange={setPage}
-              onReply={session?.user?.role === "event-planner" ? handleReply : undefined}
-              onApprove={session?.user?.role === "event-planner" ? handleApprove : undefined}
-              onReject={session?.user?.role === "event-planner" ? handleReject : undefined}
-              onDelete={handleDelete}
-              onEdit={
-                session?.user?.role !== "event-planner" ? (id) => router.push(`/my-reviews/edit/${id}`) : undefined
-              }
-              showEventDetails={true}
-            />
+            {loading ? (
+              <div className="space-y-4">
+                {Array(3)
+                  .fill(0)
+                  .map((_, i) => (
+                    <Skeleton key={i} className="h-[200px] w-full" />
+                  ))}
+              </div>
+            ) : reviews.length === 0 ? (
+              <div className="text-center py-8">
+                <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h3 className="mt-2 text-lg font-semibold">No Reviews Found</h3>
+                <p className="text-muted-foreground">
+                  {session?.user?.role === "event-planner"
+                    ? "There are no reviews for your events yet."
+                    : "You haven't reviewed any events yet."}
+                </p>
+                {session?.user?.role !== "event-planner" && (
+                  <Button
+                    className="mt-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                    onClick={() => setReviewDialogOpen(true)}
+                  >
+                    <Plus className="mr-2 h-4 w-4" /> Write a Review
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <ReviewList
+                reviews={reviews}
+                loading={loading}
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                onReply={session?.user?.role === "event-planner" ? handleReply : undefined}
+                onApprove={session?.user?.role === "event-planner" ? handleApprove : undefined}
+                onReject={session?.user?.role === "event-planner" ? handleReject : undefined}
+                onDelete={handleDelete}
+                onEdit={
+                  session?.user?.role !== "event-planner" ? (id) => router.push(`/my-reviews/edit/${id}`) : undefined
+                }
+                showEventDetails={true}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
