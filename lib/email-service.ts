@@ -2,10 +2,7 @@
 import { format, addMinutes } from "date-fns"
 import { rateLimit } from "@/lib/rate-limit"
 import { sendTemplatedEmail } from "@/lib/email-template-service"
-
-// Azure Logic Apps URL for sending emails
-const AZURE_LOGIC_APP_URL =
-  "https://prod-22.southindia.logic.azure.com:443/workflows/6df0b999ee0c4e67b8c86d428bbc0eb6/triggers/When_a_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_a_HTTP_request_is_received%2Frun&sv=1.0&sig=mUyOOITrrkN_fiKdv12Yp11TJmNA_eZNzJ_-gQYpuDU"
+import nodemailer from "nodemailer"
 
 // Create a rate limiter for email sending
 const emailRateLimiter = rateLimit({
@@ -68,7 +65,26 @@ function sanitizeHtml(html) {
     .replace(/javascript:/g, "")
 }
 
-// Generic function to send emails using Azure Logic Apps - exported as required
+// Create a reusable transporter object using SMTP transport
+const createTransporter = () => {
+  const secure = process.env.EMAIL_SECURE === "true"
+
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: Number.parseInt(process.env.EMAIL_PORT || "587"),
+    secure: secure, // true for 465, false for other ports
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+    tls: {
+      // Do not fail on invalid certs
+      rejectUnauthorized: false,
+    },
+  })
+}
+
+// Generic function to send emails using SMTP - exported as required
 export async function sendEmail({ to, subject, text, html, retries = 3 }) {
   // Validate email address format
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
@@ -94,39 +110,23 @@ export async function sendEmail({ to, subject, text, html, retries = 3 }) {
       attempt++
       console.log(`Email attempt ${attempt} to ${to} with subject: ${subject}`)
 
-      // Prepare the request payload for Azure Logic Apps
-      const payload = {
-        emailTo: to,
-        emailSubject: subject,
-        emailBody: sanitizedHtml || text,
-        isHtml: !!sanitizedHtml,
-        from: `Tech Milap <${process.env.EMAIL_USER || "noreply@techmilap.com"}>`,
+      // Create a transporter for each attempt to avoid connection issues
+      const transporter = createTransporter()
+
+      // Prepare the email options
+      const mailOptions = {
+        from: `Tech Milap <${process.env.EMAIL_USER}>`,
+        to: to,
+        subject: subject,
+        text: text,
+        html: sanitizedHtml || undefined,
       }
 
-      console.log(`Sending request to Azure Logic Apps with payload:`, {
-        to: payload.emailTo,
-        subject: payload.emailSubject,
-        isHtml: payload.isHtml,
-        bodyLength: payload.emailBody ? payload.emailBody.length : 0,
-      })
+      console.log(`Sending email to ${to} with subject: ${subject}`)
 
-      // Send the request to Azure Logic Apps
-      const response = await fetch(AZURE_LOGIC_APP_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Azure Logic Apps error response: ${response.status} - ${errorText}`)
-        throw new Error(`Azure Logic Apps returned error: ${response.status} - ${errorText}`)
-      }
-
-      const result = await response.json()
-      console.log(`Email sent to ${to} with subject ${subject}. Response:`, result)
+      // Send the email
+      const info = await transporter.sendMail(mailOptions)
+      console.log(`Email sent to ${to}: ${info.messageId}`)
       return true
     } catch (error) {
       console.error(`Error sending email to ${to} (attempt ${attempt}/${retries}):`, error)
@@ -146,6 +146,7 @@ export async function sendEmail({ to, subject, text, html, retries = 3 }) {
   return false
 }
 
+// The rest of the file remains unchanged
 // Function to send verification email
 export async function sendVerificationEmail(email: string, firstName: string, verificationCode: string) {
   const subject = "Tech Milap - Verify Your Email"
