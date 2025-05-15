@@ -14,9 +14,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DecorativeBlob } from "@/components/ui/decorative-blob"
-import { AlertCircle, Info, ArrowRight } from "lucide-react"
+import { AlertCircle, Info, ArrowRight, User, Users, Mic, Calendar } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Textarea } from "@/components/ui/textarea"
+import { UserType } from "@/models/User"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -56,7 +57,7 @@ export default function SignupPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "user",
+    userType: UserType.ATTENDEE,
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,7 +85,24 @@ export default function SignupPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          corporateEmail: formData.userType === UserType.EVENT_PLANNER ? corporateEmail : undefined,
+          designation: formData.userType === UserType.EVENT_PLANNER ? designation : undefined,
+          eventOrganizer: formData.userType === UserType.EVENT_PLANNER ? eventOrganizer : undefined,
+          isMicrosoftMVP: formData.userType === UserType.EVENT_PLANNER ? isMicrosoftMVP : undefined,
+          mvpId: formData.userType === UserType.EVENT_PLANNER ? mvpId : undefined,
+          mvpProfileLink: formData.userType === UserType.EVENT_PLANNER ? mvpProfileLink : undefined,
+          mvpCategory: formData.userType === UserType.EVENT_PLANNER ? mvpCategory : undefined,
+          isMeetupGroupRunning: formData.userType === UserType.EVENT_PLANNER ? isMeetupGroupRunning : undefined,
+          meetupEventName: formData.userType === UserType.EVENT_PLANNER ? meetupEventName : undefined,
+          eventDetails: formData.userType === UserType.EVENT_PLANNER ? eventDetails : undefined,
+          meetupPageDetails: formData.userType === UserType.EVENT_PLANNER ? meetupPageDetails : undefined,
+          linkedinId: formData.userType === UserType.EVENT_PLANNER ? linkedinId : undefined,
+          githubId: formData.userType === UserType.EVENT_PLANNER ? githubId : undefined,
+          otherSocialMediaId: formData.userType === UserType.EVENT_PLANNER ? otherSocialMediaId : undefined,
+          mobileNumber: formData.userType === UserType.EVENT_PLANNER ? mobileNumber : undefined,
+        }),
       })
 
       const data = await response.json()
@@ -356,47 +374,109 @@ export default function SignupPage() {
 
                     <div className="space-y-2">
                       <Label>Account Type</Label>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-4 mb-4">
                         <div
                           className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                            formData.role === "user"
+                            formData.userType === UserType.ATTENDEE
                               ? "border-primary bg-primary/5"
                               : "border-border hover:border-primary/50"
                           }`}
+                          onClick={() => setFormData({ ...formData, userType: UserType.ATTENDEE })}
                         >
                           <div className="flex items-center gap-2">
                             <input
                               type="radio"
-                              id="user-role"
-                              name="role"
-                              checked={formData.role === "user"}
+                              id="attendee-role"
+                              name="userType"
+                              checked={formData.userType === UserType.ATTENDEE}
                               className="h-4 w-4 text-primary"
-                              onChange={() => setFormData({ ...formData, role: "user" })}
+                              onChange={() => setFormData({ ...formData, userType: UserType.ATTENDEE })}
                             />
-                            <Label htmlFor="user-role" className="font-medium cursor-pointer">
-                              Attendee
+                            <Label htmlFor="attendee-role" className="font-medium cursor-pointer">
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4" />
+                                <span>Attendee</span>
+                              </div>
                             </Label>
                           </div>
                           <p className="text-sm text-muted-foreground mt-2">I want to discover and attend events</p>
                         </div>
                         <div
                           className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                            formData.role === "event-planner"
+                            formData.userType === UserType.VOLUNTEER
                               ? "border-primary bg-primary/5"
                               : "border-border hover:border-primary/50"
                           }`}
+                          onClick={() => setFormData({ ...formData, userType: UserType.VOLUNTEER })}
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              id="volunteer-role"
+                              name="userType"
+                              checked={formData.userType === UserType.VOLUNTEER}
+                              className="h-4 w-4 text-primary"
+                              onChange={() => setFormData({ ...formData, userType: UserType.VOLUNTEER })}
+                            />
+                            <Label htmlFor="volunteer-role" className="font-medium cursor-pointer">
+                              <div className="flex items-center gap-2">
+                                <Users className="h-4 w-4" />
+                                <span>Volunteer</span>
+                              </div>
+                            </Label>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-2">I want to help organize events</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div
+                          className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                            formData.userType === UserType.SPEAKER
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                          onClick={() => setFormData({ ...formData, userType: UserType.SPEAKER })}
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              id="speaker-role"
+                              name="userType"
+                              checked={formData.userType === UserType.SPEAKER}
+                              className="h-4 w-4 text-primary"
+                              onChange={() => setFormData({ ...formData, userType: UserType.SPEAKER })}
+                            />
+                            <Label htmlFor="speaker-role" className="font-medium cursor-pointer">
+                              <div className="flex items-center gap-2">
+                                <Mic className="h-4 w-4" />
+                                <span>Speaker</span>
+                              </div>
+                            </Label>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-2">I want to speak at events</p>
+                        </div>
+                        <div
+                          className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                            formData.userType === UserType.EVENT_PLANNER
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                          onClick={() => setFormData({ ...formData, userType: UserType.EVENT_PLANNER })}
                         >
                           <div className="flex items-center gap-2">
                             <input
                               type="radio"
                               id="planner-role"
-                              name="role"
-                              checked={formData.role === "event-planner"}
+                              name="userType"
+                              checked={formData.userType === UserType.EVENT_PLANNER}
                               className="h-4 w-4 text-primary"
-                              onChange={() => setFormData({ ...formData, role: "event-planner" })}
+                              onChange={() => setFormData({ ...formData, userType: UserType.EVENT_PLANNER })}
                             />
                             <Label htmlFor="planner-role" className="font-medium cursor-pointer">
-                              Event Planner
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4" />
+                                <span>Event Planner</span>
+                              </div>
                             </Label>
                           </div>
                           <p className="text-sm text-muted-foreground mt-2">I want to create and manage events</p>
@@ -404,7 +484,7 @@ export default function SignupPage() {
                       </div>
                     </div>
 
-                    {formData.role === "event-planner" && (
+                    {formData.userType === UserType.EVENT_PLANNER && (
                       <>
                         <div className="space-y-2">
                           <Label htmlFor="corporateEmail">Corporate Email ID</Label>

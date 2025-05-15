@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import User, { UserRole } from "@/models/User"
+import User, { UserRole, UserType } from "@/models/User"
 import { sendVerificationEmail } from "@/lib/email-service"
 import { initializeEmailDefaults } from "@/lib/email-defaults"
 
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       lastName,
       email,
       password,
-      role = UserRole.USER,
+      userType = UserType.ATTENDEE, // Default to ATTENDEE
       corporateEmail,
       designation,
       eventOrganizer,
@@ -33,7 +33,6 @@ export async function POST(req: NextRequest) {
       otherSocialMediaId,
       mobileNumber,
     } = await req.json()
-    console.log("Received role:", role)
 
     // Validate input
     if (!firstName || !lastName || !email || !password) {
@@ -53,6 +52,9 @@ export async function POST(req: NextRequest) {
     const verificationCode = generateOTP()
     const verificationCodeExpires = new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
 
+    // Determine role based on userType
+    const role = userType === UserType.EVENT_PLANNER ? UserRole.EVENT_PLANNER : UserRole.USER
+
     // Create new user
     const newUser = await User.create({
       firstName,
@@ -60,6 +62,7 @@ export async function POST(req: NextRequest) {
       email,
       password,
       role,
+      userType,
       verificationCode,
       verificationCodeExpires,
       isVerified: false,

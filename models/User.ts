@@ -8,12 +8,20 @@ export enum UserRole {
   SUPER_ADMIN = "super-admin",
 }
 
+export enum UserType {
+  ATTENDEE = "attendee",
+  VOLUNTEER = "volunteer",
+  SPEAKER = "speaker",
+  EVENT_PLANNER = "event-planner",
+}
+
 export interface IUser extends Document {
   firstName: string
   lastName: string
   email: string
   password: string
   role: UserRole
+  userType: UserType // Added userType field
   isVerified: boolean
   verificationCode: string
   verificationCodeExpires: Date
@@ -93,6 +101,11 @@ const UserSchema = new Schema<IUser>(
       enum: Object.values(UserRole),
       default: UserRole.USER,
       index: true,
+    },
+    userType: {
+      type: String,
+      enum: Object.values(UserType),
+      default: UserType.ATTENDEE,
     },
     isVerified: {
       type: Boolean,
