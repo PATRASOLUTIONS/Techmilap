@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 import { ReviewList } from "@/components/reviews/review-list"
 import { useToast } from "@/hooks/use-toast"
-import { PlusCircle, Search } from "lucide-react"
+import { PlusCircle, Search, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function MyReviewsPage() {
   const { data: session } = useSession()
@@ -30,6 +31,7 @@ export default function MyReviewsPage() {
   const [loading, setLoading] = useState(true)
   const [reviews, setReviews] = useState<any[]>([])
   const [events, setEvents] = useState<any[]>([])
+  const [error, setError] = useState<string | null>(null)
   const [pagination, setPagination] = useState({
     total: 0,
     page: currentPage,
@@ -41,6 +43,7 @@ export default function MyReviewsPage() {
   // Fetch reviews
   const fetchReviews = async () => {
     setLoading(true)
+    setError(null)
     try {
       // Build query parameters
       const params = new URLSearchParams()
@@ -59,6 +62,7 @@ export default function MyReviewsPage() {
         params.append("search", searchTerm)
       }
 
+      console.log("Fetching reviews with params:", params.toString())
       const response = await fetch(`/api/reviews/my-reviews?${params.toString()}`)
 
       if (!response.ok) {
@@ -67,6 +71,7 @@ export default function MyReviewsPage() {
       }
 
       const data = await response.json()
+      console.log("Received reviews data:", data)
 
       // Add null checks
       setReviews(data.reviews || [])
@@ -81,6 +86,7 @@ export default function MyReviewsPage() {
       setEvents(data.events || [])
     } catch (error) {
       console.error("Error fetching reviews:", error)
+      setError(error instanceof Error ? error.message : "Failed to fetch reviews")
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to fetch reviews",
@@ -192,11 +198,22 @@ export default function MyReviewsPage() {
           <h1 className="text-3xl font-bold tracking-tight">My Reviews</h1>
           <p className="text-muted-foreground">View and manage reviews for events you've attended</p>
         </div>
-        <Button onClick={() => router.push("/my-reviews/create")}>
+        <Button
+          onClick={() => router.push("/my-reviews/create")}
+          className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+        >
           <PlusCircle className="mr-2 h-4 w-4" />
           Write a Review
         </Button>
       </div>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>

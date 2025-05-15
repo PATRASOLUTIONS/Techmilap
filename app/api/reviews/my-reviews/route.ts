@@ -84,6 +84,8 @@ export async function GET(req: NextRequest) {
             reply: 1,
             createdAt: 1,
             updatedAt: 1,
+            eventId: 1,
+            userId: 1,
             "event._id": 1,
             "event.title": 1,
             "event.date": 1,
@@ -106,40 +108,27 @@ export async function GET(req: NextRequest) {
       reviews = []
     }
 
-    const populatedReviews = await Promise.all(
-      reviews.map(async (review) => {
-        try {
-          // Get event details
-          const event = await db
-            .collection("events")
-            .findOne({ _id: review.eventId }, { projection: { title: 1, date: 1, image: 1 } })
-
-          // Get user details
-          const user = await db
-            .collection("users")
-            .findOne({ _id: review.userId }, { projection: { firstName: 1, lastName: 1, email: 1, profileImage: 1 } })
-
-          return {
-            ...review,
-            event: event || { title: "Unknown Event" },
-            user: user
-              ? {
-                  name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Unknown User",
-                  email: user.email,
-                  image: user.profileImage,
+    // Get all events for the dropdown filter
+    const events = await db
+      .collection("events")
+      .find(
+        {
+          _id: {
+            $in: reviews
+              .map((review) => {
+                try {
+                  return new mongoose.Types.ObjectId(review.eventId)
+                } catch (e) {
+                  console.error("Invalid ObjectId:", review.eventId)
+                  return null
                 }
-              : { name: "Unknown User" },
-          }
-        } catch (err) {
-          console.error("Error populating review:", err)
-          return {
-            ...review,
-            event: { title: "Unknown Event" },
-            user: { name: "Unknown User" },
-          }
-        }
-      }),
-    )
+              })
+              .filter((id) => id !== null),
+          },
+        },
+        { projection: { _id: 1, title: 1 } },
+      )
+      .toArray()
 
     // Get statistics
     const stats = {
@@ -215,15 +204,17 @@ export async function GET(req: NextRequest) {
       stats.average = Number.parseFloat(ratingResult[0].average.toFixed(1))
     }
 
+    console.log("Returning reviews:", JSON.stringify(reviews.slice(0, 2), null, 2))
+
     return NextResponse.json({
-      reviews: populatedReviews || [],
+      reviews: reviews || [],
       pagination: {
         total: totalCount,
         page,
         limit,
         pages: Math.ceil(totalCount / limit),
       },
-      events: [],
+      events: events || [],
       stats: stats,
     })
   } catch (error) {

@@ -41,8 +41,11 @@ export function ReviewCard({
 
   // Handle case where review is undefined or null
   if (!review) {
+    console.error("Review is undefined or null")
     return null
   }
+
+  console.log("Review data in card:", review)
 
   // Safely extract userId from review
   const reviewUserId = review.userId?._id || review.userId
@@ -134,6 +137,58 @@ export function ReviewCard({
     }
   }
 
+  // Get user name with fallbacks
+  const getUserName = () => {
+    // Check for user object
+    if (review.user) {
+      if (review.user.name) return review.user.name
+      if (review.user.firstName || review.user.lastName)
+        return `${review.user.firstName || ""} ${review.user.lastName || ""}`.trim()
+    }
+
+    // Check for userId object
+    if (typeof review.userId === "object" && review.userId !== null) {
+      if (review.userId.name) return review.userId.name
+      if (review.userId.firstName || review.userId.lastName)
+        return `${review.userId.firstName || ""} ${review.userId.lastName || ""}`.trim()
+    }
+
+    // Default fallback
+    return "Anonymous User"
+  }
+
+  // Get event name with fallbacks
+  const getEventName = () => {
+    if (review.event) {
+      return review.event.title || review.event.name || "Unknown Event"
+    }
+
+    if (review.eventDetails && review.eventDetails.length > 0) {
+      return review.eventDetails[0].title || review.eventDetails[0].name || "Unknown Event"
+    }
+
+    return "Unknown Event"
+  }
+
+  // Get user avatar with fallbacks
+  const getUserAvatar = () => {
+    if (review.user && review.user.image) return review.user.image
+    if (review.user && review.user.profileImage) return review.user.profileImage
+
+    if (typeof review.userId === "object" && review.userId !== null) {
+      if (review.userId.image) return review.userId.image
+      if (review.userId.profileImage) return review.userId.profileImage
+    }
+
+    return "/abstract-geometric-shapes.png"
+  }
+
+  // Get avatar fallback (first letter of name)
+  const getAvatarFallback = () => {
+    const name = getUserName()
+    return name.charAt(0).toUpperCase() || "U"
+  }
+
   // Format the date
   const formattedDate = review.createdAt
     ? formatDistanceToNow(new Date(review.createdAt), { addSuffix: true })
@@ -155,17 +210,11 @@ export function ReviewCard({
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
         <div className="flex items-start space-x-4">
           <Avatar className="h-10 w-10 border">
-            <AvatarImage src={review.userId?.image || "/placeholder.svg?height=40&width=40&query=user"} />
-            <AvatarFallback>
-              {review.userId?.name?.charAt(0) || review.userId?.firstName?.charAt(0) || "U"}
-            </AvatarFallback>
+            <AvatarImage src={getUserAvatar() || "/placeholder.svg"} />
+            <AvatarFallback>{getAvatarFallback()}</AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="text-sm font-medium">
-              {review.userId?.name ||
-                `${review.userId?.firstName || ""} ${review.userId?.lastName || ""}`.trim() ||
-                "Anonymous User"}
-            </h3>
+            <h3 className="text-sm font-medium">{getUserName()}</h3>
             <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
               <div className="flex items-center">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -178,11 +227,11 @@ export function ReviewCard({
               <span className="mx-1">•</span>
               <span>{formattedDate}</span>
 
-              {showEventDetails && review.event && (
+              {showEventDetails && (
                 <>
                   <span className="mx-1">•</span>
                   <Badge variant="outline" className="text-xs font-normal">
-                    {review.event.name || review.event.title || "Unknown Event"}
+                    {getEventName()}
                   </Badge>
                 </>
               )}
@@ -225,8 +274,8 @@ export function ReviewCard({
         </DropdownMenu>
       </CardHeader>
       <CardContent className="pt-4">
-        <h4 className="font-medium mb-2">{review.title}</h4>
-        <p className="text-sm text-muted-foreground mb-4">{review.comment}</p>
+        <h4 className="font-medium mb-2">{review.title || "Untitled Review"}</h4>
+        <p className="text-sm text-muted-foreground mb-4">{review.comment || "No comment provided."}</p>
 
         {review.reply && (
           <div className="mt-4 pl-4 border-l-2 border-blue-200">
