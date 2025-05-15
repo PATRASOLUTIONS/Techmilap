@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { Search, Filter, ArrowUpDown, BarChart } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Search, Filter, ArrowUpDown, BarChart, Bug } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
 import { ReviewList } from "@/components/reviews/review-list"
 import { ReviewStats } from "@/components/reviews/review-stats"
 import { useToast } from "@/hooks/use-toast"
@@ -17,6 +18,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 export default function EventReviewsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
 
   const [reviews, setReviews] = useState([])
@@ -53,6 +55,7 @@ export default function EventReviewsPage() {
   // Debug state
   const [error, setError] = useState<string | null>(null)
   const [debug, setDebug] = useState<any>(null)
+  const [debugMode, setDebugMode] = useState(searchParams.get("debug") === "true")
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -69,7 +72,19 @@ export default function EventReviewsPage() {
       setError("You must be an event organizer to view event reviews.")
       setLoading(false)
     }
-  }, [session, status, router, page, selectedEvent, selectedRating, selectedStatus, searchQuery, currentTab, sortBy])
+  }, [
+    session,
+    status,
+    router,
+    page,
+    selectedEvent,
+    selectedRating,
+    selectedStatus,
+    searchQuery,
+    currentTab,
+    sortBy,
+    debugMode,
+  ])
 
   const fetchEvents = async () => {
     console.log("Fetching events for organizer:", session?.user?.id)
@@ -84,6 +99,11 @@ export default function EventReviewsPage() {
 
       const data = await response.json()
       console.log("Fetched events:", data.events?.length || 0, "events")
+
+      if (debugMode && data.events?.length > 0) {
+        console.log("Sample event:", JSON.stringify(data.events[0], null, 2).substring(0, 200) + "...")
+      }
+
       setEvents(data.events || [])
 
       // If there are events but no selected event, set the first one
@@ -113,6 +133,7 @@ export default function EventReviewsPage() {
       search: searchQuery,
       tab: currentTab,
       sort: sortBy,
+      debug: debugMode,
     })
 
     try {
@@ -125,6 +146,7 @@ export default function EventReviewsPage() {
         ...(searchQuery && { search: searchQuery }),
         ...(currentTab !== "all" && { tab: currentTab }),
         sort: sortBy,
+        ...(debugMode && { debug: "true" }),
       })
 
       // Use the planner endpoint to get reviews for events organized by the user
@@ -337,16 +359,20 @@ export default function EventReviewsPage() {
     }
   }
 
-  const getSortButtonText = () => {
-    switch (sortBy) {
-      case "rating-high":
-        return "Highest Rating"
-      case "rating-low":
-        return "Lowest Rating"
-      case "date":
-      default:
-        return "Most Recent"
+  const toggleDebugMode = () => {
+    const newDebugMode = !debugMode
+    setDebugMode(newDebugMode)
+
+    // Update URL with debug parameter
+    const params = new URLSearchParams(window.location.search)
+    if (newDebugMode) {
+      params.set("debug", "true")
+    } else {
+      params.delete("debug")
     }
+
+    const newUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`
+    window.history.pushState({}, "", newUrl)
   }
 
   if (status === "loading") {
@@ -389,6 +415,16 @@ export default function EventReviewsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Event Reviews</h1>
           <p className="text-muted-foreground">Manage and respond to reviews for all your events</p>
         </div>
+
+        <Button
+          variant={debugMode ? "default" : "outline"}
+          size="sm"
+          onClick={toggleDebugMode}
+          className={debugMode ? "bg-amber-600 hover:bg-amber-700" : ""}
+        >
+          <Bug className="mr-2 h-4 w-4" />
+          {debugMode ? "Debug Mode: ON" : "Debug Mode"}
+        </Button>
       </div>
 
       <div className="grid gap-6">
@@ -494,9 +530,29 @@ export default function EventReviewsPage() {
           </Alert>
         )}
 
+        {debugMode && events.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded relative mb-6">
+            <h3 className="font-bold mb-2">Debug Information</h3>
+            <p className="mb-2">User ID: {session?.user?.id}</p>
+            <p className="mb-2">Role: {session?.user?.role}</p>
+            <p className="mb-2">Events found: {events.length}</p>
+            <details>
+              <summary className="cursor-pointer font-medium">Event IDs (click to expand)</summary>
+              <pre className="text-xs mt-2 overflow-auto max-h-40 bg-amber-100 p-2 rounded">
+                {JSON.stringify(
+                  events.map((e) => ({ id: e._id, title: e.title })),
+                  null,
+                  2,
+                )}
+              </pre>
+            </details>
+          </div>
+        )}
+
         {debug && (
           <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded relative mb-6">
-            <pre className="text-xs overflow-auto">{JSON.stringify(debug, null, 2)}</pre>
+            <h3 className="font-bold mb-2">API Response Debug</h3>
+            <pre className="text-xs overflow-auto max-h-40">{JSON.stringify(debug, null, 2)}</pre>
           </div>
         )}
 
@@ -537,6 +593,17 @@ export default function EventReviewsPage() {
                 <BarChart className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-2 text-lg font-semibold">No Reviews Found</h3>
                 <p className="text-muted-foreground">There are no reviews for your events yet.</p>
+                {debugMode && (
+                  <div className="mt-4 text-left p-4 bg-amber-50 border border-amber-200 rounded">
+                    <h4 className="font-medium mb-2">Troubleshooting Tips:</h4>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      <li>Check if users have submitted reviews for your events</li>
+                      <li>Verify that the reviews are properly associated with your events</li>
+                      <li>Ensure the event IDs match between events and reviews</li>
+                      <li>Try creating a test review for one of your events</li>
+                    </ul>
+                  </div>
+                )}
               </div>
             ) : (
               <ReviewList
