@@ -104,57 +104,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     console.log(`Extracted attendee info - Name: ${finalName}, Email: ${finalEmail}`)
 
     let emailSent = false
-    let ticketGenerated = false
-
-    // If status is approved, generate a ticket
-    if (status === "approved") {
-      try {
-        // Check if a ticket already exists for this registration
-        const existingTicket = await db.collection("tickets").findOne({
-          registrationId: new ObjectId(params.registrationId),
-        })
-
-        if (!existingTicket) {
-          // Generate a unique ticket number
-          const ticketNumber = `TKT-${Math.floor(Math.random() * 10000)
-            .toString()
-            .padStart(4, "0")}-${params.registrationId.substring(0, 6)}`
-
-          // Create a new ticket
-          const newTicket = {
-            userId: registration.userId,
-            event: new ObjectId(params.id),
-            eventId: new ObjectId(params.id),
-            registrationId: new ObjectId(params.registrationId),
-            ticketType: registration.formType || "attendee",
-            ticketNumber,
-            price: 0, // Free ticket for now
-            status: "confirmed",
-            purchasedAt: new Date(),
-            name: finalName,
-            email: finalEmail,
-            isCheckedIn: false,
-            checkInCount: 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            formData: registration.data || {},
-          }
-
-          // Insert the ticket into the database
-          const result = await db.collection("tickets").insertOne(newTicket)
-
-          if (result.insertedId) {
-            console.log(`Generated ticket ${ticketNumber} for registration ${params.registrationId}`)
-            ticketGenerated = true
-          }
-        } else {
-          console.log(`Ticket already exists for registration ${params.registrationId}`)
-          ticketGenerated = true
-        }
-      } catch (ticketError) {
-        console.error("Error generating ticket:", ticketError)
-      }
-    }
 
     // Send email notification based on status
     if (finalEmail) {
@@ -177,7 +126,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
             eventDetails: enhancedEventDetails,
             eventId: params.id,
             organizerEmail: organizerEmail, // Pass the organizer email
-            ticketGenerated: ticketGenerated,
           })
         } else if (status === "rejected") {
           console.log(`Sending rejection email to ${finalEmail}`)
@@ -211,7 +159,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       success: true,
       message: `Registration status updated to ${status}`,
       emailSent,
-      ticketGenerated,
       organizerEmailSent: organizerEmail ? emailSent : false,
     })
   } catch (error) {

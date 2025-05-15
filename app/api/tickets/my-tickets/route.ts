@@ -1,152 +1,176 @@
-import { NextResponse, type NextRequest } from "next/server"
-import { getServerSession } from "next-auth"
+import { type NextRequest, NextResponse } from "next/server"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
-import { extractNameFromFormData, extractEmailFromFormData } from "@/lib/ticket-utils"
+import mongoose from "mongoose"
 
 export async function GET(req: NextRequest) {
   try {
-    // Check authentication
+    // Get user session
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userId = session.user.id
-    console.log(`Fetching tickets for user: ${userId}`)
+    console.log("My Tickets API - User:", session.user.id)
 
-    // Get query parameters
+    // Connect to database first
+    await connectToDatabase()
+
+    // Import models after database connection is established
+    // This ensures models are registered properly
+    const Ticket = (await import("@/models/Ticket")).default
+    const FormSubmission = (await import("@/models/FormSubmission")).default
+    const Event = (await import("@/models/Event")).default
+
+    // Parse query parameters
     const url = new URL(req.url)
-    const excludeOrganizer = url.searchParams.get("exclude") === "organizer"
-    const eventId = url.searchParams.get("eventId")
+    const exclude = url.searchParams.get("exclude") || undefined
+    const userId = session.user.id
 
-    // Connect to database
-    const { db } = await connectToDatabase()
+    console.log("My Tickets API - Fetching tickets for user:", userId)
 
-    // Build query for tickets
-    const ticketQuery: any = { userId: new ObjectId(userId) }
-    if (eventId) {
-      ticketQuery.event = new ObjectId(eventId)
+    // 1. Get tickets directly
+    let tickets = []
+    try {
+      tickets = await Ticket.find({ userId: new mongoose.Types.ObjectId(userId) })
+        .sort({ purchasedAt: -1 })
+        .populate({
+          path: "event",
+          model: Event,
+          select: "title date location status image capacity attendees _id slug organizer startTime endTime",
+        })
+        .lean()
+
+      console.log(`Found ${tickets.length} regular tickets`)
+    } catch (error) {
+      console.error("Error fetching tickets:", error)
+      tickets = []
     }
 
-    // Fetch tickets
-    console.log("Fetching tickets with query:", JSON.stringify(ticketQuery))
-    const tickets = await db.collection("tickets").find(ticketQuery).toArray()
-    console.log(`Found ${tickets.length} tickets`)
+    // 2. Get approved form submissions
+    let approvedSubmissions = []
+    try {
+      approvedSubmissions = await FormSubmission.find({
+        userId: new mongoose.Types.ObjectId(userId),
+        status: "approved",
+      })
+        .populate({
+          path: "eventId",
+          model: Event,
+          select: "title date location status image capacity attendees _id slug organizer startTime endTime",
+        })
+        .lean()
 
-    // Build query for form submissions (registrations, volunteer applications, speaker applications)
-    const submissionQuery: any = {
-      userId: userId,
-      status: "approved", // Only include approved submissions
+      console.log(`Found ${approvedSubmissions.length} approved form submissions`)
+    } catch (error) {
+      console.error("Error fetching form submissions:", error)
+      approvedSubmissions = []
     }
 
-    if (eventId) {
-      submissionQuery.eventId = new ObjectId(eventId)
-    }
+    // Add more detailed logging to help debug
+    console.log(
+      "Approved submissions details:",
+      approvedSubmissions.map((sub) => ({
+        id: sub._id,
+        eventId: sub.eventId?._id || sub.eventId,
+        formType: sub.formType,
+        status: sub.status,
+      })),
+    )
 
-    // Fetch form submissions
-    console.log("Fetching form submissions with query:", JSON.stringify(submissionQuery))
-    const formSubmissions = await db.collection("formsubmissions").find(submissionQuery).toArray()
-    console.log(`Found ${formSubmissions.length} form submissions`)
+    // Convert form submissions to ticket format
+    const submissionTickets = approvedSubmissions
+      .filter((submission) => submission.eventId) // Filter out submissions with no event
+      .map((submission) => {
+        // Get the event data
+        const event = submission.eventId
 
-    // Get event IDs from tickets and submissions
-    const eventIds = [
-      ...new Set([
-        ...tickets.map((ticket) => ticket.event.toString()),
-        ...formSubmissions.map((submission) => submission.eventId.toString()),
-      ]),
-    ].map((id) => new ObjectId(id))
+        // Create a ticket from the submission
+        return {
+          _id: submission._id,
+          userId: submission.userId,
+          event: event, // This is the populated event data
+          ticketType: submission.formType || "attendee", // 'attendee', 'volunteer', or 'speaker'
+          ticketNumber: submission._id.toString().substring(0, 8).toUpperCase(),
+          price: 0,
+          status: "confirmed",
+          purchasedAt: submission.createdAt,
+          isFormSubmission: true, // Flag to identify this as a form submission
+          formData: submission.data || {}, // Include the form data with fallback
+          formType: submission.formType,
+          // Add these fields to match regular tickets
+          attendeeName:
+            submission.userName || (submission.data ? submission.data.name || submission.data.fullName : "Attendee"),
+          attendeeEmail: submission.userEmail || (submission.data ? submission.data.email : ""),
+        }
+      })
 
-    // Fetch events
-    const events =
-      eventIds.length > 0
-        ? await db
-            .collection("events")
-            .find({ _id: { $in: eventIds } })
-            .toArray()
-        : []
-    console.log(`Found ${events.length} events`)
+    // Add more detailed logging
+    console.log(
+      "Converted submission tickets:",
+      submissionTickets.map((ticket) => ({
+        id: ticket._id,
+        eventId: ticket.event?._id || ticket.event,
+        ticketType: ticket.ticketType,
+        formType: ticket.formType,
+      })),
+    )
 
-    // Create a map of events for easy lookup
-    const eventMap = events.reduce((map, event) => {
-      map[event._id.toString()] = event
-      return map
-    }, {})
+    // Combine regular tickets and submission tickets
+    const allTickets = [...tickets, ...submissionTickets].filter((ticket) => ticket.event) // Filter out tickets with no event
 
-    // Process tickets
-    const processedTickets = tickets.map((ticket) => {
-      const eventId = ticket.event.toString()
-      const event = eventMap[eventId] || {}
-
-      return {
-        ...ticket,
-        event,
-        isFormSubmission: false,
+    // Add additional fields for display
+    const processedTickets = allTickets.map((ticket) => {
+      // For regular tickets
+      if (!ticket.isFormSubmission) {
+        return {
+          ...ticket,
+          // Add any missing fields
+          ticketNumber: ticket.ticketNumber || ticket._id.toString().substring(0, 8).toUpperCase(),
+        }
       }
+      // For form submissions
+      return ticket
     })
 
-    // Process form submissions as tickets
-    const submissionTickets = formSubmissions.map((submission) => {
-      const eventId = submission.eventId.toString()
-      const event = eventMap[eventId] || {}
-      const formData = submission.data || {}
+    // Filter tickets based on exclude parameter
+    let filteredTickets = [...processedTickets]
 
-      return {
-        _id: submission._id,
-        userId: submission.userId,
-        event,
-        eventId: submission.eventId,
-        ticketType: submission.formType || "attendee",
-        formType: submission.formType || "attendee",
-        status: submission.status,
-        purchasedAt: submission.createdAt,
-        createdAt: submission.createdAt,
-        updatedAt: submission.updatedAt,
-        isCheckedIn: submission.isCheckedIn || false,
-        checkedInAt: submission.checkedInAt,
-        formData,
-        isFormSubmission: true,
-        name: extractNameFromFormData(formData, submission),
-        email: extractEmailFromFormData(formData, submission),
-      }
-    })
-
-    // Combine tickets and submissions
-    const allTickets = [...processedTickets, ...submissionTickets]
-
-    // Sort by date (newest first)
-    allTickets.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-
-    // Filter out tickets for events where the user is the organizer (if requested)
-    const filteredTickets = excludeOrganizer
-      ? allTickets.filter((ticket) => ticket.event?.organizerId?.toString() !== userId)
-      : allTickets
+    if (exclude === "organizer") {
+      // Remove tickets for events where user is organizer
+      filteredTickets = processedTickets.filter((ticket) => {
+        if (!ticket.event) return false // Skip tickets with no event
+        // Check if this event's organizer is the current user
+        return ticket.event.organizer?.toString() !== userId
+      })
+    }
 
     // Separate tickets into upcoming and past
     const now = new Date()
-    const upcoming = []
-    const past = []
+    const upcoming = filteredTickets.filter((ticket) => ticket.event && new Date(ticket.event.date) >= now)
+    const past = filteredTickets.filter((ticket) => ticket.event && new Date(ticket.event.date) < now)
 
-    filteredTickets.forEach((ticket) => {
-      const eventDate = ticket.event?.date ? new Date(ticket.event.date) : null
-      if (eventDate && eventDate > now) {
-        upcoming.push(ticket)
-      } else {
-        past.push(ticket)
-      }
-    })
+    console.log(
+      `Found ${allTickets.length} tickets (${tickets.length} regular, ${submissionTickets.length} from submissions), filtered to ${filteredTickets.length}`,
+    )
 
+    // Return the filtered tickets
     return NextResponse.json({
-      success: true,
       tickets: {
         all: filteredTickets,
         upcoming,
         past,
       },
+      pagination: {
+        total: filteredTickets.length,
+        page: 1,
+        limit: filteredTickets.length,
+        pages: 1,
+      },
     })
-  } catch (error) {
-    console.error("Error fetching tickets:", error)
-    return NextResponse.json({ error: "Failed to fetch tickets" }, { status: 500 })
+  } catch (error: any) {
+    console.error("Error fetching tickets:", error.stack || error.message || error)
+    return NextResponse.json({ error: `Failed to fetch tickets: ${error.message}` }, { status: 500 })
   }
 }

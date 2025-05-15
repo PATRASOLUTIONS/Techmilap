@@ -52,6 +52,17 @@ export default function MyTicketsPage() {
 
         const data = await response.json()
         console.log("Tickets data:", data)
+
+        // Add more detailed logging
+        if (data.tickets && data.tickets.all) {
+          console.log("All tickets count:", data.tickets.all.length)
+          console.log(
+            "Ticket types:",
+            data.tickets.all.map((t) => t.ticketType || t.formType),
+          )
+          console.log("Form submission tickets:", data.tickets.all.filter((t) => t.isFormSubmission).length)
+        }
+
         setDebugInfo(data)
 
         // Check if data has the expected structure
@@ -75,6 +86,56 @@ export default function MyTicketsPage() {
 
     fetchTickets()
   }, [toast])
+
+  // Add a function to send ticket email if it hasn't been sent yet
+  // Add this after the useEffect hook
+
+  const [sentEmailIds, setSentEmailIds] = useState<Set<string>>(new Set())
+
+  // Function to send ticket email if not already sent
+  const sendTicketEmailIfNeeded = async (ticket: any) => {
+    // Skip if already sent during this session
+    if (sentEmailIds.has(ticket._id)) return
+
+    // Only send for approved tickets that are from form submissions
+    if (ticket.isFormSubmission && ticket.status === "confirmed") {
+      try {
+        console.log("Sending email for newly approved ticket:", ticket._id)
+
+        const response = await fetch("/api/tickets/send-email", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ticketId: ticket._id,
+            ticketType: "submission",
+            formType: ticket.formType || ticket.ticketType,
+          }),
+        })
+
+        if (response.ok) {
+          console.log("Email sent successfully for ticket:", ticket._id)
+          // Mark as sent
+          setSentEmailIds((prev) => new Set([...prev, ticket._id]))
+        }
+      } catch (error) {
+        console.error("Error sending automatic ticket email:", error)
+      }
+    }
+  }
+
+  // Update the useEffect to call this function when tickets are loaded
+  useEffect(() => {
+    if (!loading && tickets.all && tickets.all.length > 0) {
+      // Send emails for newly approved tickets
+      tickets.all.forEach((ticket) => {
+        if (ticket.isFormSubmission && !sentEmailIds.has(ticket._id)) {
+          sendTicketEmailIfNeeded(ticket)
+        }
+      })
+    }
+  }, [tickets, loading])
 
   // Filter tickets by type
   const attendeeTickets =
@@ -253,8 +314,15 @@ function TicketItem({ ticket, index }: { ticket: any; index: number }) {
     return <div className="p-4 bg-red-50 text-red-500 rounded-lg">Invalid ticket data</div>
   }
 
-  console.log("Rendering ticket:", { index, ticket })
+  console.log("Rendering ticket:", {
+    index,
+    id: ticket._id,
+    type: ticket.ticketType || ticket.formType,
+    isFormSubmission: ticket.isFormSubmission,
+    event: ticket.event?.title,
+  })
 
+  // For form submissions, use the FormSubmissionTicket component
   if (ticket.isFormSubmission) {
     return <FormSubmissionTicket ticket={ticket} index={index} />
   } else {
@@ -319,7 +387,7 @@ function TicketQRCode({ data, size = 120 }: { data: string; size?: number }) {
 // Component to display form submission as a ticket
 function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number }) {
   const [showAllDetails, setShowAllDetails] = useState(false)
-  const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(isSendingEmail)
   const [isDownloading, setIsDownloading] = useState(false)
   const [isSharing, setIsSharing] = useState(false)
   const [isAddingToCalendar, setIsAddingToCalendar] = useState(false)
@@ -360,11 +428,16 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
 
   // Extract name and email from form data
   const getName = () => {
-    if (!ticket.formData) return "N/A"
+    if (!ticket.formData) return ticket.attendeeName || "N/A"
 
     // Try different possible field names for name
     let nameField =
-      ticket.formData.name || ticket.formData.fullName || ticket.formData.firstName || ticket.formData["question_name"]
+      ticket.attendeeName ||
+      ticket.formData.name ||
+      ticket.formData.fullName ||
+      ticket.formData.firstName ||
+      ticket.formData["question_name"] ||
+      ticket.userName
 
     // If name is still not found, look for custom question fields containing "name"
     if (!nameField || nameField === "N/A") {
@@ -380,14 +453,23 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
       }
     }
 
+    // If we have firstName and lastName, combine them
+    if (!nameField && ticket.formData.firstName && ticket.formData.lastName) {
+      nameField = `${ticket.formData.firstName} ${ticket.formData.lastName}`
+    }
+
     return nameField || "N/A"
   }
 
   const getEmail = () => {
-    if (!ticket.formData) return "N/A"
+    if (!ticket.formData) return ticket.attendeeEmail || ticket.userEmail || "N/A"
 
     // Try different possible field names for email
     // Also look for dynamic field names containing "email"
+    const emailValue = ticket.attendeeEmail || ticket.userEmail || ticket.formData.email || ticket.formData.emailAddress
+
+    if (emailValue) return emailValue
+
     const emailKeys = Object.keys(ticket.formData).filter(
       (key) => key === "email" || key === "emailAddress" || key.includes("email") || key.includes("Email"),
     )

@@ -146,6 +146,7 @@ export async function sendEmail({ to, subject, text, html, retries = 3 }) {
   return false
 }
 
+// The rest of the file remains unchanged
 // Function to send verification email
 export async function sendVerificationEmail(email: string, firstName: string, verificationCode: string) {
   const subject = "Tech Milap - Verify Your Email"
@@ -192,94 +193,6 @@ Tech Milap Team`
   `
 
   return sendEmail({ to: email, subject, text, html })
-}
-
-// Function to send ticket email
-export async function sendTicketEmail({
-  eventName,
-  attendeeEmail,
-  attendeeName,
-  ticketNumber,
-  eventDetails,
-  ticketUrl,
-  emailSubject = null,
-}: {
-  eventName: string
-  attendeeEmail: string
-  attendeeName: string
-  ticketNumber: string
-  eventDetails: any
-  ticketUrl: string
-  emailSubject?: string
-}) {
-  try {
-    if (!attendeeEmail) {
-      console.error("No attendee email provided for ticket email")
-      return false
-    }
-
-    console.log(`Preparing ticket email for ${attendeeEmail}`)
-
-    // Format the event date in IST
-    let formattedDate = "Date TBA"
-    if (eventDetails && eventDetails.date) {
-      const eventDate = new Date(eventDetails.date)
-      formattedDate = formatEventDate(eventDate)
-    }
-
-    const eventLocation = eventDetails.location || eventDetails.venue || "TBD"
-    const subject = emailSubject || `Your Ticket for ${eventName}`
-
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
-        <h2 style="color: #4f46e5;">Your Ticket is Ready!</h2>
-        <p>Hello ${attendeeName},</p>
-        <p>Your ticket for <strong>"${eventName}"</strong> is ready. Here are the details:</p>
-        
-        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <h3 style="margin-top: 0;">Event Details</h3>
-          <p><strong>Event:</strong> ${eventName}</p>
-          <p><strong>Date:</strong> ${formattedDate}</p>
-          <p><strong>Location:</strong> ${eventLocation}</p>
-          <p><strong>Ticket Number:</strong> ${ticketNumber}</p>
-        </div>
-        
-        <p>
-          <a href="${ticketUrl}" style="background-color: #4f46e5; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block;">
-            View Your Ticket
-          </a>
-        </p>
-        
-        <p>You can also find your ticket in the "My Tickets" section of your account.</p>
-        
-        <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
-          Thank you for using Tech Milap!
-        </p>
-      </div>
-    `
-
-    const text = `
-      Hello ${attendeeName},
-      
-      Your ticket for "${eventName}" is ready. Here are the details:
-      
-      Event: ${eventName}
-      Date: ${formattedDate}
-      Location: ${eventLocation}
-      Ticket Number: ${ticketNumber}
-      
-      You can view your ticket at: ${ticketUrl}
-      
-      You can also find your ticket in the "My Tickets" section of your account.
-      
-      Thank you for using Tech Milap!
-    `
-
-    return sendEmail({ to: attendeeEmail, subject, text, html })
-  } catch (error) {
-    console.error("Error sending ticket email:", error)
-    return false
-  }
 }
 
 // Function to send form submission notification

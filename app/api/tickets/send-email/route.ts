@@ -1,157 +1,169 @@
-import { NextResponse, type NextRequest } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
-import { sendTicketEmail } from "@/lib/email-service"
-import { generateTicketUrl, extractNameFromFormData, extractEmailFromFormData } from "@/lib/ticket-utils"
+import Ticket from "@/models/Ticket"
+import Event from "@/models/Event"
+import User from "@/models/User"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
+import { sendTemplatedEmail } from "@/lib/email-template-service"
+import FormSubmission from "@/models/FormSubmission"
+import { extractNameFromFormData, extractEmailFromFormData } from "@/lib/ticket-utils"
 
 export async function POST(req: NextRequest) {
   try {
-    // Check authentication
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userId = session.user.id
+    await connectToDatabase()
     const { ticketId, ticketType, formType } = await req.json()
 
     if (!ticketId) {
       return NextResponse.json({ error: "Ticket ID is required" }, { status: 400 })
     }
 
-    console.log(
-      `Sending email for ticket ${ticketId}, type: ${ticketType || "regular"}, formType: ${formType || "N/A"}`,
-    )
+    console.log(`Processing email request for ticket: ${ticketId}, type: ${ticketType || formType || "unknown"}`)
 
-    // Connect to database
-    const { db } = await connectToDatabase()
+    // Check if this is a form submission ticket or a regular ticket
+    let ticket, event, attendeeName, attendeeEmail, formData
 
-    let ticketData
-    let eventData
-
-    // Handle form submission tickets
-    if (ticketType === "submission") {
-      // Get form submission data
-      const submission = await db.collection("formsubmissions").findOne({
-        _id: new ObjectId(ticketId),
-        userId: userId,
-      })
+    if (ticketType === "submission" || formType) {
+      // This is a form submission ticket
+      console.log(`Looking for form submission with ID: ${ticketId}`)
+      const submission = await FormSubmission.findById(ticketId).populate("event")
 
       if (!submission) {
-        return NextResponse.json({ error: "Submission not found" }, { status: 404 })
-      }
-
-      // Get event data
-      eventData = await db.collection("events").findOne({
-        _id: new ObjectId(submission.eventId),
-      })
-
-      if (!eventData) {
-        return NextResponse.json({ error: "Event not found" }, { status: 404 })
-      }
-
-      // Get organizer data
-      let organizerData = null
-      if (eventData.organizerId) {
-        organizerData = await db.collection("users").findOne({
-          _id: new ObjectId(eventData.organizerId),
-        })
-      }
-
-      // Extract attendee information
-      const formData = submission.data || {}
-      const attendeeName = extractNameFromFormData(formData, submission)
-      const attendeeEmail = extractEmailFromFormData(formData, submission)
-
-      if (!attendeeEmail) {
-        return NextResponse.json({ error: "No email address found for this ticket" }, { status: 400 })
-      }
-
-      // Generate ticket URL
-      const ticketUrl = generateTicketUrl(ticketId)
-
-      // Prepare event details for email
-      const enhancedEventDetails = {
-        ...eventData,
-        organizer: eventData.organizerId,
-        organizerName: organizerData?.name || "Event Organizer",
-      }
-
-      // Send ticket email
-      const emailSent = await sendTicketEmail({
-        eventName: eventData.title,
-        attendeeEmail,
-        attendeeName,
-        ticketId,
-        ticketUrl,
-        eventDetails: enhancedEventDetails,
-        eventId: eventData._id.toString(),
-      })
-
-      return NextResponse.json({
-        success: true,
-        emailSent,
-        message: emailSent ? "Ticket email sent successfully" : "Failed to send ticket email",
-      })
-    } else {
-      // Handle regular tickets
-      const ticket = await db.collection("tickets").findOne({
-        _id: new ObjectId(ticketId),
-        userId: userId,
-      })
-
-      if (!ticket) {
+        console.error(`Form submission not found for ID: ${ticketId}`)
         return NextResponse.json({ error: "Ticket not found" }, { status: 404 })
       }
 
-      // Get event data
-      eventData = await db.collection("events").findOne({
-        _id: new ObjectId(ticket.event),
-      })
+      console.log(`Found form submission: ${submission._id}`)
+      ticket = submission
+      event = submission.event
+      formData = submission.formData || {}
 
-      if (!eventData) {
-        return NextResponse.json({ error: "Event not found" }, { status: 404 })
+      // Extract name and email from form data
+      attendeeName = extractNameFromFormData(formData, submission)
+      attendeeEmail = extractEmailFromFormData(formData, submission)
+
+      console.log(`Extracted name: ${attendeeName}, email: ${attendeeEmail}`)
+    } else {
+      // This is a regular ticket
+      console.log(`Looking for ticket with ID: ${ticketId}`)
+      ticket = await Ticket.findById(ticketId)
+
+      if (!ticket) {
+        console.error(`Ticket not found for ID: ${ticketId}`)
+        return NextResponse.json({ error: "Ticket not found" }, { status: 404 })
       }
 
-      // Get organizer data
-      let organizerData = null
-      if (eventData.organizerId) {
-        organizerData = await db.collection("users").findOne({
-          _id: new ObjectId(eventData.organizerId),
-        })
-      }
+      console.log(`Found ticket: ${ticket._id}`)
 
-      // Generate ticket URL
-      const ticketUrl = generateTicketUrl(ticketId)
+      // Find the event
+      event = await Event.findById(ticket.event)
 
-      // Prepare event details for email
-      const enhancedEventDetails = {
-        ...eventData,
-        organizer: eventData.organizerId,
-        organizerName: organizerData?.name || "Event Organizer",
-      }
+      // Get attendee information from the ticket
+      attendeeName = ticket.attendeeName || "Attendee"
+      attendeeEmail = ticket.attendeeEmail || ""
+      formData = ticket.formData || {}
 
-      // Send ticket email
-      const emailSent = await sendTicketEmail({
-        eventName: eventData.title,
-        attendeeEmail: ticket.email || session.user.email,
-        attendeeName: ticket.name || session.user.name || "Attendee",
-        ticketId,
-        ticketUrl,
-        eventDetails: enhancedEventDetails,
-        eventId: eventData._id.toString(),
+      console.log(`Ticket attendee name: ${attendeeName}, email: ${attendeeEmail}`)
+    }
+
+    if (!event) {
+      console.error(`Event not found for ticket: ${ticketId}`)
+      return NextResponse.json({ error: "Event not found" }, { status: 404 })
+    }
+
+    console.log(`Found event: ${event.title} (${event._id})`)
+
+    // Check if user has permission to send email for this ticket
+    // For form submissions, check if the user is the event organizer or the ticket owner
+    const isOrganizer = event.organizer && event.organizer.toString() === session.user.id
+    const isTicketOwner = ticket.userId && ticket.userId.toString() === session.user.id
+
+    if (session.user.role !== "super-admin" && !isOrganizer && !isTicketOwner) {
+      console.error(`User ${session.user.id} doesn't have permission to send email for ticket ${ticketId}`)
+      return NextResponse.json({ error: "You don't have permission to send emails for this event" }, { status: 403 })
+    }
+
+    if (!attendeeEmail) {
+      console.error(`Could not find attendee email in ticket data for ticket ${ticketId}`)
+      return NextResponse.json({ error: "Could not find attendee email in ticket data" }, { status: 400 })
+    }
+
+    // Get the event organizer
+    const organizer = await User.findById(event.organizer)
+    if (!organizer) {
+      console.error(`Event organizer not found for event ${event._id}`)
+      return NextResponse.json({ error: "Event organizer not found" }, { status: 404 })
+    }
+
+    console.log(`Found organizer: ${organizer.name} (${organizer._id})`)
+
+    // Generate ticket URL
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const ticketUrl = `${appUrl}/tickets/${ticket._id}`
+
+    // Prepare variables for the email template
+    const variables = {
+      attendeeName,
+      eventName: event.title,
+      eventDate: new Date(event.date).toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: "Asia/Tokyo", // Use Tokyo timezone to prevent date shift
+      }),
+      eventTime: `${event.startTime || "00:00"} - ${event.endTime || "00:00"}`,
+      eventLocation: event.location || "TBD",
+      ticketId: ticket.ticketNumber || ticket._id.toString().substring(0, 8).toUpperCase(),
+      ticketUrl,
+      organizerName: organizer.name || "Event Organizer",
+    }
+
+    console.log(`Sending ticket email to ${attendeeEmail} for event ${event.title}`)
+    console.log(`Email variables:`, variables)
+
+    try {
+      // Send the email using the template
+      const result = await sendTemplatedEmail({
+        userId: event.organizer.toString(),
+        templateType: "ticket",
+        recipientEmail: attendeeEmail,
+        recipientName: attendeeName,
+        eventId: event._id.toString(),
+        variables,
+        customSubject: `Your Ticket for ${event.title}`,
       })
 
-      return NextResponse.json({
-        success: true,
-        emailSent,
-        message: emailSent ? "Ticket email sent successfully" : "Failed to send ticket email",
-      })
+      if (result) {
+        console.log(`Successfully sent ticket email to ${attendeeEmail}`)
+        return NextResponse.json({ success: true, message: "Ticket email sent successfully" })
+      } else {
+        console.error(`Failed to send ticket email to ${attendeeEmail}`)
+        return NextResponse.json({ error: "Failed to send ticket email" }, { status: 500 })
+      }
+    } catch (emailError) {
+      console.error("Error in sendTemplatedEmail:", emailError)
+      return NextResponse.json(
+        {
+          error: "Failed to send email",
+          details: emailError.message || "Unknown error in email sending process",
+        },
+        { status: 500 },
+      )
     }
   } catch (error) {
     console.error("Error sending ticket email:", error)
-    return NextResponse.json({ error: "Failed to send ticket email" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "An error occurred while sending the ticket email",
+        details: error.message || "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
