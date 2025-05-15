@@ -189,7 +189,9 @@ export default function FormPage({ params }: { params: { id: string; formType: s
       console.log(`Submitting to endpoint: ${endpoint}`)
 
       // Prepare the request body based on the endpoint
-      const requestBody = formType === "speaker" ? { formData: data } : { formData: data }
+      const requestBody = { formData: data }
+
+      console.log("Request body:", JSON.stringify(requestBody).substring(0, 500) + "...")
 
       const response = await fetch(endpoint, {
         method: "POST",

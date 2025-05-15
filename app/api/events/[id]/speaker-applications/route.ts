@@ -100,13 +100,19 @@ export async function POST(request, { params }) {
     const { id } = params
     const session = await getServerSession(authOptions)
     const body = await request.json()
-    const { formData } = body
 
-    console.log(`Received speaker application for event ${id}:`, formData)
+    // FIXED: Log the entire request body to debug
+    console.log("Full request body:", JSON.stringify(body).substring(0, 500) + "...")
+
+    // FIXED: Extract formData correctly and handle different formats
+    const formData = body.formData || body
 
     if (!formData) {
+      console.error("Form data is missing in the request body")
       return NextResponse.json({ error: "Form data is required" }, { status: 400 })
     }
+
+    console.log(`Received speaker application for event ${id}:`, JSON.stringify(formData).substring(0, 500) + "...")
 
     await connectToDatabase()
 
@@ -143,13 +149,31 @@ export async function POST(request, { params }) {
     //   return NextResponse.json({ error: "Speaker form not available" }, { status: 400 })
     // }
 
+    // FIXED: Extract user information for better tracking
+    let userEmail = null
+    let userName = null
+
+    // Try to extract email from form data
+    if (formData.email) userEmail = formData.email
+    else if (formData.userEmail) userEmail = formData.userEmail
+    else if (formData.corporateEmail) userEmail = formData.corporateEmail
+
+    // Try to extract name from form data
+    if (formData.name) userName = formData.name
+    else if (formData.fullName) userName = formData.fullName
+    else if (formData.firstName && formData.lastName) userName = `${formData.firstName} ${formData.lastName}`
+    else if (formData.firstName) userName = formData.firstName
+
     // Create a new form submission
+    // FIXED: Use 'data' field instead of 'formData'
     const submission = new FormSubmission({
-      eventId: event._id, // FIXED: Use the actual event._id instead of creating a new ObjectId
+      eventId: event._id,
       formType: "speaker",
-      formData,
+      data: formData, // FIXED: Use 'data' instead of 'formData'
       status: "pending",
       userId: session?.user?.id || null,
+      userEmail: userEmail, // FIXED: Add extracted email
+      userName: userName, // FIXED: Add extracted name
       submittedAt: new Date(),
     })
 

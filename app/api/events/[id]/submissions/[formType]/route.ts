@@ -15,6 +15,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string;
     // Get the request body
     const body = await req.json()
 
+    // FIXED: Log the entire request body to debug
+    console.log("Full request body:", JSON.stringify(body).substring(0, 500) + "...")
+
+    // FIXED: Extract formData correctly and handle different formats
+    const formData = body.formData || body
+
     // Validate form type
     const formType = params.formType
     if (!["attendee", "volunteer", "speaker"].includes(formType)) {
@@ -56,10 +62,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string;
     //   return NextResponse.json({ error: "Form is not available for submissions" }, { status: 403 })
     // }
 
-    // Get the form data from the request body
-    const formData = body.formData
-
     if (!formData) {
+      console.error("Form data is missing in the request body")
       return NextResponse.json({ error: "Form data is required" }, { status: 400 })
     }
 
@@ -67,13 +71,31 @@ export async function POST(req: NextRequest, { params }: { params: { id: string;
     const session = await getServerSession(authOptions)
     const userId = session?.user?.id || null
 
+    // FIXED: Extract user information for better tracking
+    let userEmail = null
+    let userName = null
+
+    // Try to extract email from form data
+    if (formData.email) userEmail = formData.email
+    else if (formData.userEmail) userEmail = formData.userEmail
+    else if (formData.corporateEmail) userEmail = formData.corporateEmail
+
+    // Try to extract name from form data
+    if (formData.name) userName = formData.name
+    else if (formData.fullName) userName = formData.fullName
+    else if (formData.firstName && formData.lastName) userName = `${formData.firstName} ${formData.lastName}`
+    else if (formData.firstName) userName = formData.firstName
+
     // Create a new form submission
+    // FIXED: Use 'data' field instead of 'formData'
     const submission = new FormSubmission({
-      eventId: event._id, // FIXED: Use the actual event._id
+      eventId: event._id,
       formType,
-      formData,
+      data: formData, // FIXED: Use 'data' instead of 'formData'
       status: "pending", // Default status is pending
       userId, // Link to user if authenticated
+      userEmail: userEmail, // FIXED: Add extracted email
+      userName: userName, // FIXED: Add extracted name
       submittedAt: new Date(),
     })
 
@@ -98,6 +120,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string;
     })
   } catch (error) {
     console.error("Error processing form submission:", error)
-    return NextResponse.json({ error: "An error occurred while processing your submission" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "An error occurred while processing your submission",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }
