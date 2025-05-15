@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import User, { UserRole, UserType } from "@/models/User"
+import User from "@/models/User"
 import { sendVerificationEmail } from "@/lib/email-service"
 import { initializeEmailDefaults } from "@/lib/email-defaults"
 
@@ -11,12 +11,15 @@ function generateOTP(): string {
 
 export async function POST(req: NextRequest) {
   try {
+    const body = await req.json()
+
     const {
       firstName,
       lastName,
       email,
       password,
-      userType = UserType.ATTENDEE, // Default to ATTENDEE
+      role = "user",
+      userType = "attendee",
       corporateEmail,
       designation,
       eventOrganizer,
@@ -32,7 +35,7 @@ export async function POST(req: NextRequest) {
       githubId,
       otherSocialMediaId,
       mobileNumber,
-    } = await req.json()
+    } = body
 
     // Validate input
     if (!firstName || !lastName || !email || !password) {
@@ -51,9 +54,6 @@ export async function POST(req: NextRequest) {
     // Generate OTP for email verification
     const verificationCode = generateOTP()
     const verificationCodeExpires = new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
-
-    // Determine role based on userType
-    const role = userType === UserType.EVENT_PLANNER ? UserRole.EVENT_PLANNER : UserRole.USER
 
     // Create new user
     const newUser = await User.create({

@@ -1,11 +1,9 @@
 "use client"
 
-import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { signIn } from "next-auth/react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,24 +15,18 @@ import { DecorativeBlob } from "@/components/ui/decorative-blob"
 import { AlertCircle, Info, ArrowRight, User, Users, Mic, Calendar } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Textarea } from "@/components/ui/textarea"
-import { UserType } from "@/models/User"
 
 export default function SignupPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [rememberMe, setRememberMe] = useState(false)
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [registeredSuccess, setRegisteredSuccess] = useState(false)
   const [verifiedSuccess, setVerifiedSuccess] = useState(false)
   const { toast } = useToast()
   const [signupSuccess, setSignupSuccess] = useState(false)
 
-  // New state variables for event planner fields
+  // Event planner fields
   const [corporateEmail, setCorporateEmail] = useState("")
   const [designation, setDesignation] = useState("")
   const [eventOrganizer, setEventOrganizer] = useState("")
@@ -51,24 +43,32 @@ export default function SignupPage() {
   const [otherSocialMediaId, setOtherSocialMediaId] = useState("")
   const [mobileNumber, setMobileNumber] = useState("")
 
+  // Form data
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
     password: "",
     confirmPassword: "",
-    userType: UserType.ATTENDEE,
+    userType: "attendee", // Default to attendee
   })
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+  // Check if user just registered or verified email
+  useEffect(() => {
+    if (searchParams.get("registered") === "true") {
+      setRegisteredSuccess(true)
+    }
+    if (searchParams.get("verified") === "true") {
+      setVerifiedSuccess(true)
+    }
+  }, [searchParams])
 
-    // Clear error when user types
+  // Clear error when inputs change
+  useEffect(() => {
     if (error) setError("")
-  }
+  }, [formData])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
@@ -80,29 +80,45 @@ export default function SignupPage() {
     }
 
     try {
+      // Determine role based on userType
+      const role = formData.userType === "event-planner" ? "event-planner" : "user"
+
+      const payload = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+        role: role,
+        userType: formData.userType,
+      }
+
+      // Add event planner fields if applicable
+      if (formData.userType === "event-planner") {
+        Object.assign(payload, {
+          corporateEmail,
+          designation,
+          eventOrganizer,
+          isMicrosoftMVP,
+          mvpId,
+          mvpProfileLink,
+          mvpCategory,
+          isMeetupGroupRunning,
+          meetupEventName,
+          eventDetails,
+          meetupPageDetails,
+          linkedinId,
+          githubId,
+          otherSocialMediaId,
+          mobileNumber,
+        })
+      }
+
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...formData,
-          corporateEmail: formData.userType === UserType.EVENT_PLANNER ? corporateEmail : undefined,
-          designation: formData.userType === UserType.EVENT_PLANNER ? designation : undefined,
-          eventOrganizer: formData.userType === UserType.EVENT_PLANNER ? eventOrganizer : undefined,
-          isMicrosoftMVP: formData.userType === UserType.EVENT_PLANNER ? isMicrosoftMVP : undefined,
-          mvpId: formData.userType === UserType.EVENT_PLANNER ? mvpId : undefined,
-          mvpProfileLink: formData.userType === UserType.EVENT_PLANNER ? mvpProfileLink : undefined,
-          mvpCategory: formData.userType === UserType.EVENT_PLANNER ? mvpCategory : undefined,
-          isMeetupGroupRunning: formData.userType === UserType.EVENT_PLANNER ? isMeetupGroupRunning : undefined,
-          meetupEventName: formData.userType === UserType.EVENT_PLANNER ? meetupEventName : undefined,
-          eventDetails: formData.userType === UserType.EVENT_PLANNER ? eventDetails : undefined,
-          meetupPageDetails: formData.userType === UserType.EVENT_PLANNER ? meetupPageDetails : undefined,
-          linkedinId: formData.userType === UserType.EVENT_PLANNER ? linkedinId : undefined,
-          githubId: formData.userType === UserType.EVENT_PLANNER ? githubId : undefined,
-          otherSocialMediaId: formData.userType === UserType.EVENT_PLANNER ? otherSocialMediaId : undefined,
-          mobileNumber: formData.userType === UserType.EVENT_PLANNER ? mobileNumber : undefined,
-        }),
+        body: JSON.stringify(payload),
       })
 
       const data = await response.json()
@@ -127,91 +143,6 @@ export default function SignupPage() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  // Check if user just registered or verified email
-  useEffect(() => {
-    if (searchParams.get("registered") === "true") {
-      setRegisteredSuccess(true)
-    }
-    if (searchParams.get("verified") === "true") {
-      setVerifiedSuccess(true)
-    }
-  }, [searchParams])
-
-  // Clear error when inputs change
-  useEffect(() => {
-    if (error) setError("")
-  }, [email, password])
-
-  // Update the handleLogin function to redirect to my-events by default
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError("")
-
-    // Simple validation
-    if (!email) {
-      setError("Please enter your email address")
-      setIsLoading(false)
-      return
-    }
-
-    if (!password) {
-      setError("Please enter your password")
-      setIsLoading(false)
-      return
-    }
-
-    try {
-      const result = await signIn("credentials", {
-        redirect: false,
-        email,
-        password,
-      })
-
-      if (result?.error) {
-        setError(result.error)
-        toast({
-          variant: "destructive",
-          title: "Authentication Error",
-          description: result.error,
-        })
-        setIsLoading(false)
-        return
-      }
-
-      // Show success toast
-      toast({
-        variant: "success",
-        title: "Login Successful",
-        description: "Redirecting to your dashboard...",
-      })
-
-      setShowSuccessMessage(true)
-
-      // For demo purposes, redirect based on email
-      if (email === "superadmin@gmail.com") {
-        setTimeout(() => router.push("/super-admin"), 1000)
-      } else if (email === "eventplanner@gmail.com") {
-        setTimeout(() => router.push("/my-events"), 1000)
-      } else {
-        setTimeout(() => router.push("/my-events"), 1000)
-      }
-    } catch (err) {
-      console.error("Login error:", err)
-      setError("An error occurred during login")
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "An error occurred during login",
-      })
-      setIsLoading(false)
-    }
-  }
-
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword)
   }
 
   return (
@@ -252,60 +183,36 @@ export default function SignupPage() {
               <CardDescription>Start planning your events today</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Tabs defaultValue="login" className="w-full">
+              <Tabs defaultValue="signup" className="w-full">
                 <TabsList className="w-full mb-4">
-                  <TabsTrigger value="login" className="w-full">
+                  <TabsTrigger value="signup" className="w-full">
                     Sign Up
                   </TabsTrigger>
                 </TabsList>
-                <TabsContent value="login" className="space-y-4">
-                  <AnimatePresence mode="wait">
-                    {error && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <Alert variant="destructive" className="flex items-center space-x-2">
-                          <AlertCircle className="h-4 w-4" />
-                          <AlertDescription>{error}</AlertDescription>
-                        </Alert>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                <TabsContent value="signup" className="space-y-4">
+                  {error && (
+                    <Alert variant="destructive" className="flex items-center space-x-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
 
-                  <AnimatePresence mode="wait">
-                    {registeredSuccess && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <Alert className="bg-green-50 border-green-200 text-green-800 flex items-center space-x-2">
-                          <Info className="h-4 w-4" />
-                          <AlertDescription>
-                            Registration successful! Please check your email for verification.
-                          </AlertDescription>
-                        </Alert>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {registeredSuccess && (
+                    <Alert className="bg-green-50 border-green-200 text-green-800 flex items-center space-x-2">
+                      <Info className="h-4 w-4" />
+                      <AlertDescription>
+                        Registration successful! Please check your email for verification.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   {signupSuccess && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <Alert className="bg-green-50 border-green-200 text-green-800 flex items-center space-x-2">
-                        <Info className="h-4 w-4" />
-                        <AlertDescription>
-                          Registration successful! Please check your email for verification.
-                        </AlertDescription>
-                      </Alert>
-                    </motion.div>
+                    <Alert className="bg-green-50 border-green-200 text-green-800 flex items-center space-x-2">
+                      <Info className="h-4 w-4" />
+                      <AlertDescription>
+                        Registration successful! Please check your email for verification.
+                      </AlertDescription>
+                    </Alert>
                   )}
 
                   <form onSubmit={handleSubmit} className="space-y-4">
@@ -377,20 +284,20 @@ export default function SignupPage() {
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         <div
                           className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                            formData.userType === UserType.ATTENDEE
+                            formData.userType === "attendee"
                               ? "border-primary bg-primary/5"
                               : "border-border hover:border-primary/50"
                           }`}
-                          onClick={() => setFormData({ ...formData, userType: UserType.ATTENDEE })}
+                          onClick={() => setFormData({ ...formData, userType: "attendee" })}
                         >
                           <div className="flex items-center gap-2">
                             <input
                               type="radio"
                               id="attendee-role"
                               name="userType"
-                              checked={formData.userType === UserType.ATTENDEE}
+                              checked={formData.userType === "attendee"}
                               className="h-4 w-4 text-primary"
-                              onChange={() => setFormData({ ...formData, userType: UserType.ATTENDEE })}
+                              onChange={() => setFormData({ ...formData, userType: "attendee" })}
                             />
                             <Label htmlFor="attendee-role" className="font-medium cursor-pointer">
                               <div className="flex items-center gap-2">
@@ -403,20 +310,20 @@ export default function SignupPage() {
                         </div>
                         <div
                           className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                            formData.userType === UserType.VOLUNTEER
+                            formData.userType === "volunteer"
                               ? "border-primary bg-primary/5"
                               : "border-border hover:border-primary/50"
                           }`}
-                          onClick={() => setFormData({ ...formData, userType: UserType.VOLUNTEER })}
+                          onClick={() => setFormData({ ...formData, userType: "volunteer" })}
                         >
                           <div className="flex items-center gap-2">
                             <input
                               type="radio"
                               id="volunteer-role"
                               name="userType"
-                              checked={formData.userType === UserType.VOLUNTEER}
+                              checked={formData.userType === "volunteer"}
                               className="h-4 w-4 text-primary"
-                              onChange={() => setFormData({ ...formData, userType: UserType.VOLUNTEER })}
+                              onChange={() => setFormData({ ...formData, userType: "volunteer" })}
                             />
                             <Label htmlFor="volunteer-role" className="font-medium cursor-pointer">
                               <div className="flex items-center gap-2">
@@ -431,20 +338,20 @@ export default function SignupPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div
                           className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                            formData.userType === UserType.SPEAKER
+                            formData.userType === "speaker"
                               ? "border-primary bg-primary/5"
                               : "border-border hover:border-primary/50"
                           }`}
-                          onClick={() => setFormData({ ...formData, userType: UserType.SPEAKER })}
+                          onClick={() => setFormData({ ...formData, userType: "speaker" })}
                         >
                           <div className="flex items-center gap-2">
                             <input
                               type="radio"
                               id="speaker-role"
                               name="userType"
-                              checked={formData.userType === UserType.SPEAKER}
+                              checked={formData.userType === "speaker"}
                               className="h-4 w-4 text-primary"
-                              onChange={() => setFormData({ ...formData, userType: UserType.SPEAKER })}
+                              onChange={() => setFormData({ ...formData, userType: "speaker" })}
                             />
                             <Label htmlFor="speaker-role" className="font-medium cursor-pointer">
                               <div className="flex items-center gap-2">
@@ -457,20 +364,20 @@ export default function SignupPage() {
                         </div>
                         <div
                           className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                            formData.userType === UserType.EVENT_PLANNER
+                            formData.userType === "event-planner"
                               ? "border-primary bg-primary/5"
                               : "border-border hover:border-primary/50"
                           }`}
-                          onClick={() => setFormData({ ...formData, userType: UserType.EVENT_PLANNER })}
+                          onClick={() => setFormData({ ...formData, userType: "event-planner" })}
                         >
                           <div className="flex items-center gap-2">
                             <input
                               type="radio"
                               id="planner-role"
                               name="userType"
-                              checked={formData.userType === UserType.EVENT_PLANNER}
+                              checked={formData.userType === "event-planner"}
                               className="h-4 w-4 text-primary"
-                              onChange={() => setFormData({ ...formData, userType: UserType.EVENT_PLANNER })}
+                              onChange={() => setFormData({ ...formData, userType: "event-planner" })}
                             />
                             <Label htmlFor="planner-role" className="font-medium cursor-pointer">
                               <div className="flex items-center gap-2">
@@ -484,7 +391,7 @@ export default function SignupPage() {
                       </div>
                     </div>
 
-                    {formData.userType === UserType.EVENT_PLANNER && (
+                    {formData.userType === "event-planner" && (
                       <>
                         <div className="space-y-2">
                           <Label htmlFor="corporateEmail">Corporate Email ID</Label>
@@ -526,7 +433,7 @@ export default function SignupPage() {
                           <Checkbox
                             id="isMicrosoftMVP"
                             checked={isMicrosoftMVP}
-                            onCheckedChange={(checked) => setIsMicrosoftMVP(checked as boolean)}
+                            onCheckedChange={(checked) => setIsMicrosoftMVP(checked === true)}
                           />
                           <Label htmlFor="isMicrosoftMVP">Are you a Microsoft MVP?</Label>
                         </div>
@@ -571,7 +478,7 @@ export default function SignupPage() {
                           <Checkbox
                             id="isMeetupGroupRunning"
                             checked={isMeetupGroupRunning}
-                            onCheckedChange={(checked) => setIsMeetupGroupRunning(checked as boolean)}
+                            onCheckedChange={(checked) => setIsMeetupGroupRunning(checked === true)}
                           />
                           <Label htmlFor="isMeetupGroupRunning">Are you running any meetup group?</Label>
                         </div>
