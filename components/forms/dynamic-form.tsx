@@ -197,6 +197,22 @@ export function DynamicForm({
       // Add terms acceptance
       cleanData["termsAccepted"] = termsAccepted
 
+      // Add firstName and lastName if they don't exist but name does
+      if (!cleanData["firstName"] && !cleanData["lastName"] && cleanData["name"]) {
+        const nameParts = cleanData["name"].split(" ")
+        if (nameParts.length > 0) {
+          cleanData["firstName"] = nameParts[0]
+          if (nameParts.length > 1) {
+            cleanData["lastName"] = nameParts.slice(1).join(" ")
+          }
+        }
+      }
+
+      // Add name if it doesn't exist but firstName does
+      if (!cleanData["name"] && cleanData["firstName"]) {
+        cleanData["name"] = `${cleanData["firstName"]} ${cleanData["lastName"] || ""}`.trim()
+      }
+
       console.log("Sending data to parent component:", cleanData)
       await onSubmit(cleanData)
     } catch (error) {

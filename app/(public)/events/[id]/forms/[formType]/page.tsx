@@ -96,6 +96,23 @@ export default function FormPage({ params }: { params: { id: string; formType: s
 
       if (!response.ok) {
         const errorData = await response.json()
+
+        // Check if this is a validation error with details
+        if (errorData.error === "Validation error" && errorData.details) {
+          console.error("Validation error details:", errorData.details)
+          const errorMessage = Object.values(errorData.details)
+            .map((field) => {
+              if (typeof field === "object" && field._errors) {
+                return field._errors.join(", ")
+              }
+              return String(field)
+            })
+            .filter(Boolean)
+            .join("; ")
+
+          throw new Error(`Validation error: ${errorMessage || "Please check your form inputs"}`)
+        }
+
         throw new Error(errorData.error || "Failed to submit form")
       }
 

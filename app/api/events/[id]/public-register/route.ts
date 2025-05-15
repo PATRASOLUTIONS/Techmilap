@@ -31,6 +31,34 @@ const RegistrationSchema = z
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   console.log(`Received public registration for event ${params.id}`)
 
+  // Get the request body with careful error handling
+  let body
+  try {
+    // Read the request body once and store it
+    const rawText = await req.text()
+
+    // Try to parse as JSON
+    try {
+      body = JSON.parse(rawText)
+      console.log("Parsed request body:", body)
+    } catch (jsonError: any) {
+      console.error("JSON parse error:", jsonError)
+      return NextResponse.json(
+        {
+          error: "Invalid JSON in request body",
+          details: jsonError.message,
+        },
+        { status: 400 },
+      )
+    }
+  } catch (parseError: any) {
+    console.error("Error reading request body:", parseError)
+    return NextResponse.json({ error: "Could not read request body" }, { status: 400 })
+  }
+
+  // Add this near the top of the POST function
+  console.log("Received registration data:", body)
+
   try {
     // Apply rate limiting based on IP
     const ip = req.headers.get("x-forwarded-for") || "unknown"
@@ -63,38 +91,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       )
     }
 
-    // Get the request body with careful error handling
-    let body
-    try {
-      // Read the request body once and store it
-      const rawText = await req.text()
-
-      // Try to parse as JSON
-      try {
-        body = JSON.parse(rawText)
-        console.log("Parsed request body:", body)
-      } catch (jsonError: any) {
-        console.error("JSON parse error:", jsonError)
-        return NextResponse.json(
-          {
-            error: "Invalid JSON in request body",
-            details: jsonError.message,
-          },
-          { status: 400 },
-        )
-      }
-    } catch (parseError: any) {
-      console.error("Error reading request body:", parseError)
-      return NextResponse.json({ error: "Could not read request body" }, { status: 400 })
-    }
-
     // Validate registration data
     const validationResult = RegistrationSchema.safeParse(body)
     if (!validationResult.success) {
+      console.error("Validation error:", validationResult.error.format())
       return NextResponse.json(
         {
           error: "Validation error",
           details: validationResult.error.format(),
+          message: "Please check your form inputs and try again.",
         },
         { status: 400 },
       )
