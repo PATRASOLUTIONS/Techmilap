@@ -19,6 +19,8 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
   const [selectedCamera, setSelectedCamera] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [fallbackMode, setFallbackMode] = useState(false)
+  const [lastScannedCode, setLastScannedCode] = useState<string | null>(null)
+  const [lastScanTime, setLastScanTime] = useState<number>(0)
 
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const scannerContainerId = "qr-reader"
@@ -227,10 +229,19 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
             formatsToSupport: [Html5Qrcode.FORMATS.QR_CODE],
           },
           (data) => {
-            // Clean the ticket ID by removing any "#" prefix
-            const cleanedData = data.startsWith("#") ? data.substring(1) : data
-            console.log("QR code scanned:", cleanedData)
-            onScan(cleanedData)
+            // Implement debouncing to prevent multiple scans of the same code
+            const now = Date.now()
+            if (lastScannedCode === data && now - lastScanTime < 3000) {
+              // Skip if the same code was scanned within the last 3 seconds
+              console.log("Skipping duplicate scan:", data)
+              return
+            }
+
+            setLastScannedCode(data)
+            setLastScanTime(now)
+
+            // Process the scanned data
+            processScannedData(data)
           },
           (errorMessage) => {
             // QR code scan error (not used, but required by the library)
@@ -307,6 +318,63 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
       }
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Process the scanned data with improved handling of ticket IDs
+  const processScannedData = (data: string) => {
+    // Check if the data is a URL
+    try {
+      const url = new URL(data)
+
+      // If it's a URL, try to extract the ticket ID from it
+      // Common patterns:
+      // 1. /tickets/ID
+      // 2. ?ticket=ID
+      // 3. ?id=ID
+
+      const pathParts = url.pathname.split("/")
+      if (pathParts.includes("tickets") && pathParts.length > pathParts.indexOf("tickets") + 1) {
+        // Extract ID from path like /tickets/123
+        const ticketId = pathParts[pathParts.indexOf("tickets") + 1]
+        console.log("Extracted ticket ID from URL path:", ticketId)
+        onScan(ticketId)
+        return
+      }
+
+      // Check for ticket ID in query parameters
+      const ticketParam =
+        url.searchParams.get("ticket") ||
+        url.searchParams.get("id") ||
+        url.searchParams.get("ticketId") ||
+        url.searchParams.get("ticket_id")
+
+      if (ticketParam) {
+        console.log("Extracted ticket ID from URL query parameter:", ticketParam)
+        onScan(ticketParam)
+        return
+      }
+
+      // If we couldn't extract a ticket ID from the URL, use the whole URL
+      console.log("Could not extract ticket ID from URL, using full URL")
+      onScan(data)
+    } catch (e) {
+      // Not a URL, process as a regular ticket ID
+
+      // Clean the ticket ID by removing any common prefixes
+      let cleanedData = data.trim()
+      const knownPrefixes = ["#", "ID:", "TICKET:", "TKT:", "T-", "E-"]
+
+      for (const prefix of knownPrefixes) {
+        if (cleanedData.toUpperCase().startsWith(prefix)) {
+          cleanedData = cleanedData.substring(prefix.length)
+          console.log(`Removed prefix "${prefix}" from scanned data`)
+          break
+        }
+      }
+
+      console.log("QR code scanned, processed data:", cleanedData)
+      onScan(cleanedData)
     }
   }
 

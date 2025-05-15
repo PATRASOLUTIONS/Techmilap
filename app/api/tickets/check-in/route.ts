@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { validateTicketId, createSearchVariations } from "@/lib/ticket-validation"
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,21 +14,42 @@ export async function POST(req: NextRequest) {
 
     const { ticketId: rawTicketId, eventId, allowDuplicateCheckIn = false } = await req.json()
 
-    // Clean the ticket ID by removing any "#" prefix
-    const ticketId = rawTicketId.startsWith("#") ? rawTicketId.substring(1) : rawTicketId
+    // Validate the ticket ID
+    const validationResult = validateTicketId(rawTicketId)
 
-    console.log(`Processing ticket check-in: Original ID "${rawTicketId}", Cleaned ID "${ticketId}"`)
+    if (!validationResult.isValid) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: validationResult.error || "Invalid ticket ID format",
+          searchTerm: validationResult.originalId,
+        },
+        { status: 400 },
+      )
+    }
 
-    if (!ticketId || !eventId) {
-      return NextResponse.json({ success: false, message: "Ticket ID and Event ID are required" }, { status: 400 })
+    const ticketId = validationResult.cleanedId
+
+    console.log(
+      `Processing ticket check-in: Original ID "${validationResult.originalId}", Cleaned ID "${ticketId}"${validationResult.knownPrefix ? `, Removed prefix: "${validationResult.knownPrefix}"` : ""}`,
+    )
+
+    if (!eventId) {
+      return NextResponse.json({ success: false, message: "Event ID is required" }, { status: 400 })
     }
 
     const { db } = await connectToDatabase()
 
     // First, try to find the event
-    const event = await db.collection("events").findOne({
-      _id: new ObjectId(eventId),
-    })
+    let event
+    try {
+      event = await db.collection("events").findOne({
+        _id: new ObjectId(eventId),
+      })
+    } catch (error) {
+      console.error("Error finding event:", error)
+      return NextResponse.json({ success: false, message: "Invalid event ID format" }, { status: 400 })
+    }
 
     if (!event) {
       return NextResponse.json({ success: false, message: "Event not found" }, { status: 404 })
@@ -40,11 +62,18 @@ export async function POST(req: NextRequest) {
     let ticket = null
     let attendee = null
     let isObjectId = false
+    let searchMethod = ""
 
+    // Create search variations for more robust searching
+    const searchVariations = createSearchVariations(ticketId)
+    console.log(`Generated search variations: ${JSON.stringify(searchVariations)}`)
+
+    // Try to find by ObjectId first (if valid)
     try {
       // Check if the ticketId is a valid ObjectId
       if (ObjectId.isValid(ticketId)) {
         isObjectId = true
+        searchMethod = "ObjectId"
 
         // Try to find a ticket with this ID
         ticket = await db.collection("tickets").findOne({
@@ -71,6 +100,7 @@ export async function POST(req: NextRequest) {
       // Try to find by email
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (emailRegex.test(ticketId)) {
+        searchMethod = "Email"
         console.log(`Searching by email: ${ticketId}`)
 
         // Try to find a ticket with this email
@@ -94,6 +124,7 @@ export async function POST(req: NextRequest) {
 
     // If still no ticket or attendee found, try to find by name
     if (!ticket && !attendee && !isObjectId) {
+      searchMethod = "Name"
       console.log(`Searching by name: ${ticketId}`)
 
       // Try to find a ticket with this name
@@ -120,6 +151,7 @@ export async function POST(req: NextRequest) {
 
     // If still no exact match, try a more flexible search for name
     if (!ticket && !attendee && !isObjectId && ticketId.length > 3) {
+      searchMethod = "Flexible name"
       console.log(`Performing flexible name search for: ${ticketId}`)
 
       // Try to find a form submission with a similar name
@@ -135,39 +167,97 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // If still no ticket or attendee found, try removing any special characters
+    // If still no ticket or attendee found, try the search variations
     if (!ticket && !attendee) {
-      // Clean the ID by removing special characters
-      const cleanedId = ticketId.replace(/[^a-zA-Z0-9]/g, "")
-      console.log(`Searching with cleaned ID (no special chars): ${cleanedId}`)
+      searchMethod = "Variations"
+      console.log(`Trying search variations`)
 
-      if (cleanedId !== ticketId) {
-        // Try to find by the cleaned ID
-        if (ObjectId.isValid(cleanedId)) {
+      for (const variation of searchVariations) {
+        if (variation === ticketId) continue // Skip the original ID as we already searched it
+
+        console.log(`Trying variation: ${variation}`)
+
+        // Try to find by ObjectId if valid
+        if (ObjectId.isValid(variation)) {
           ticket = await db.collection("tickets").findOne({
-            _id: new ObjectId(cleanedId),
+            _id: new ObjectId(variation),
             eventId: new ObjectId(eventId),
           })
 
-          if (!ticket) {
-            attendee = await db.collection("formSubmissions").findOne({
-              _id: new ObjectId(cleanedId),
-              eventId: new ObjectId(eventId),
-              formType: "attendee",
-              status: "approved",
-            })
+          if (ticket) {
+            console.log(`Found ticket using ObjectId variation: ${variation}`)
+            break
           }
+
+          attendee = await db.collection("formSubmissions").findOne({
+            _id: new ObjectId(variation),
+            eventId: new ObjectId(eventId),
+            formType: "attendee",
+            status: "approved",
+          })
+
+          if (attendee) {
+            console.log(`Found attendee using ObjectId variation: ${variation}`)
+            break
+          }
+        }
+
+        // Try by ticket code
+        ticket = await db.collection("tickets").findOne({
+          ticketCode: variation,
+          eventId: new ObjectId(eventId),
+        })
+
+        if (ticket) {
+          console.log(`Found ticket using ticketCode variation: ${variation}`)
+          break
         }
       }
     }
 
-    // If no ticket or attendee found, return error
+    // If no ticket or attendee found, return error with helpful message
     if (!ticket && !attendee) {
+      console.log(`No ticket or attendee found for ID: ${ticketId}`)
+
+      // Check if there are any tickets for this event at all
+      const ticketCount = await db.collection("tickets").countDocuments({
+        eventId: new ObjectId(eventId),
+      })
+
+      const attendeeCount = await db.collection("formSubmissions").countDocuments({
+        eventId: new ObjectId(eventId),
+        formType: "attendee",
+        status: "approved",
+      })
+
+      let errorMessage = "No valid ticket found with the provided ID. Please check the ID and try again."
+      let errorDetails = null
+
+      if (ticketCount === 0 && attendeeCount === 0) {
+        errorMessage = "No tickets or approved attendees found for this event."
+        errorDetails = "The event exists but has no registered attendees or tickets."
+      } else if (isObjectId) {
+        errorMessage = "No ticket found with this ID for this event."
+        errorDetails = "The ID format is valid, but no matching ticket was found for this event."
+      } else if (searchMethod === "Email") {
+        errorMessage = "No ticket found with this email address for this event."
+        errorDetails = "The email format is valid, but no matching ticket was found for this event."
+      } else if (searchMethod === "Name" || searchMethod === "Flexible name") {
+        errorMessage = "No ticket found with this name for this event."
+        errorDetails = "The name format is valid, but no matching ticket was found for this event."
+      }
+
       return NextResponse.json(
         {
           success: false,
-          message: "No valid ticket found with the provided ID. Please check the ID and try again.",
-          searchTerm: ticketId,
+          message: errorMessage,
+          details: errorDetails,
+          searchTerm: validationResult.originalId,
+          cleanedTerm: ticketId,
+          searchMethod,
+          eventHasTickets: ticketCount + attendeeCount > 0,
+          ticketCount,
+          attendeeCount,
         },
         { status: 404 },
       )
@@ -187,6 +277,7 @@ export async function POST(req: NextRequest) {
         _id: ticket._id,
         name: ticket.attendeeName,
         email: ticket.attendeeEmail,
+        ticketCode: ticket.ticketCode || null,
       }
 
       // Check if already checked in
@@ -199,6 +290,7 @@ export async function POST(req: NextRequest) {
             ticket: responseData.ticket,
             checkInCount: ticket.checkInCount || 1,
             checkedInAt: ticket.checkedInAt,
+            lastCheckedInAt: ticket.lastCheckedInAt || ticket.checkedInAt,
           },
           { status: 200 },
         )
@@ -230,6 +322,9 @@ export async function POST(req: NextRequest) {
         checkedInByName: session.user.name,
         method: "web",
         isDuplicate: ticket.isCheckedIn ? true : false,
+        searchMethod,
+        originalId: validationResult.originalId,
+        cleanedId: ticketId,
       })
 
       if (ticket.isCheckedIn) {
@@ -272,6 +367,7 @@ export async function POST(req: NextRequest) {
             attendee: responseData.attendee,
             checkInCount: attendee.checkInCount || 1,
             checkedInAt: attendee.checkedInAt,
+            lastCheckedInAt: attendee.lastCheckedInAt || attendee.checkedInAt,
           },
           { status: 200 },
         )
@@ -303,6 +399,9 @@ export async function POST(req: NextRequest) {
         checkedInByName: session.user.name,
         method: "web",
         isDuplicate: attendee.isCheckedIn ? true : false,
+        searchMethod,
+        originalId: validationResult.originalId,
+        cleanedId: ticketId,
       })
 
       if (attendee.isCheckedIn) {
