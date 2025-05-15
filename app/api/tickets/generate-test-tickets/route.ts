@@ -1,77 +1,83 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
-import { getServerSession } from "next-auth"
+import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+import { connectToDatabase } from "@/lib/mongodb"
+import mongoose from "mongoose"
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
+    // Get user session
     const session = await getServerSession(authOptions)
-    if (!session || !session.user.isAdmin) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { eventId, count = 5 } = await req.json()
-
-    if (!eventId) {
-      return NextResponse.json({ success: false, message: "Event ID is required" }, { status: 400 })
+    // Only allow admins to generate test tickets
+    if (session.user.role !== "admin" && session.user.role !== "super-admin") {
+      return NextResponse.json({ error: "Unauthorized. Admin access required." }, { status: 403 })
     }
 
-    const { db } = await connectToDatabase()
+    // Connect to database
+    await connectToDatabase()
 
-    // Check if the event exists
-    const event = await db.collection("events").findOne({
-      _id: new ObjectId(eventId),
-    })
+    // Import models after database connection is established
+    const Ticket = (await import("@/models/Ticket")).default
+    const Event = (await import("@/models/Event")).default
+    const User = (await import("@/models/User")).default
 
+    // Get request body
+    const body = await req.json()
+    const { userId, eventId, count = 1, ticketType = "attendee" } = body
+
+    // Validate inputs
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return NextResponse.json({ error: "Invalid user ID" }, { status: 400 })
+    }
+
+    if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
+      return NextResponse.json({ error: "Invalid event ID" }, { status: 400 })
+    }
+
+    // Check if user exists
+    const user = await User.findById(userId)
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // Check if event exists
+    const event = await Event.findById(eventId)
     if (!event) {
-      return NextResponse.json({ success: false, message: "Event not found" }, { status: 404 })
+      return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
     // Generate test tickets
     const tickets = []
-    const now = new Date()
-
     for (let i = 0; i < count; i++) {
-      // Generate a unique ticket code with a prefix
-      const ticketCode = `TKT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+      const ticketNumber = `TEST-${Math.random().toString(36).substring(2, 10).toUpperCase()}`
 
-      const ticket = {
-        _id: new ObjectId(),
-        eventId: new ObjectId(eventId),
-        ticketCode,
-        attendeeName: `Test Attendee ${i + 1}`,
-        attendeeEmail: `test${i + 1}@example.com`,
-        ticketType: "Regular",
+      const ticket = new Ticket({
+        userId: new mongoose.Types.ObjectId(userId),
+        event: new mongoose.Types.ObjectId(eventId),
+        ticketType,
+        ticketNumber,
         price: 0,
-        currency: "USD",
-        isCheckedIn: false,
-        createdAt: now,
-        updatedAt: now,
-        isTestTicket: true,
-      }
+        status: "confirmed",
+        purchasedAt: new Date(),
+        name: user.name || "Test User",
+        email: user.email || "test@example.com",
+      })
 
+      await ticket.save()
       tickets.push(ticket)
     }
 
-    // Insert the tickets
-    const result = await db.collection("tickets").insertMany(tickets)
-
     return NextResponse.json({
       success: true,
-      message: `Successfully generated ${tickets.length} test tickets`,
-      tickets: tickets.map((ticket) => ({
-        _id: ticket._id,
-        ticketCode: ticket.ticketCode,
-        attendeeName: ticket.attendeeName,
-        attendeeEmail: ticket.attendeeEmail,
-      })),
+      message: `Generated ${count} test tickets for user ${userId} and event ${eventId}`,
+      tickets,
     })
   } catch (error: any) {
     console.error("Error generating test tickets:", error)
-    return NextResponse.json(
-      { success: false, message: `Error generating test tickets: ${error.message}` },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: `Failed to generate test tickets: ${error.message}` }, { status: 500 })
   }
 }
