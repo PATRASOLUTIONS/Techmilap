@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, AlertCircle, User, Clock, Mail, Info, Globe } from "lucide-react"
+import { CheckCircle, XCircle, AlertCircle, User, Clock, Mail, Info, Globe, Ticket } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
@@ -24,7 +24,8 @@ export function CheckInResult({ result, onReset }: CheckInResultProps) {
 
   if (!result) return null
 
-  const isSuccess = result.status === "checked_in" || result.status === "duplicate_check_in"
+  const isSuccess =
+    result.status === "checked_in" || result.status === "duplicate_check_in" || result.status === "first_check_in"
   const isAlreadyCheckedIn = result.status === "already_checked_in"
   const isDuplicateCheckIn = result.status === "duplicate_check_in"
   const isInvalid = result.status === "invalid" || result.status === "error"
@@ -57,8 +58,14 @@ export function CheckInResult({ result, onReset }: CheckInResultProps) {
     return <Badge variant="destructive">Invalid</Badge>
   }
 
-  const attendeeName = result.attendee?.name || result.ticket?.name || "Unknown"
-  const attendeeEmail = result.attendee?.email || result.ticket?.email || "No email"
+  const attendeeName = result.attendee?.name || result.ticket?.name || result.ticket?.attendeeName || "Unknown"
+  const attendeeEmail = result.attendee?.email || result.ticket?.email || result.ticket?.attendeeEmail || "No email"
+  const ticketNumber =
+    result.ticket?.ticketNumber ||
+    result.ticket?.customId ||
+    result.ticket?.displayId ||
+    result.debug?.ticketId ||
+    "Unknown"
   const isWebCheckIn =
     result.debug?.isWebCheckIn || result.attendee?.isWebCheckIn || result.ticket?.isWebCheckIn || false
 
@@ -81,6 +88,12 @@ export function CheckInResult({ result, onReset }: CheckInResultProps) {
                   <Mail className="h-3 w-3" />
                   {attendeeEmail}
                 </div>
+                {ticketNumber && (
+                  <div className="text-sm text-gray-500 flex items-center gap-1 mt-1">
+                    <Ticket className="h-3 w-3" />
+                    Ticket: {ticketNumber}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -122,26 +135,37 @@ export function CheckInResult({ result, onReset }: CheckInResultProps) {
             </AccordionTrigger>
             <AccordionContent>
               <div className="text-xs text-gray-600 space-y-1">
-                {result.debug && (
+                <div className="font-medium">Search Information:</div>
+                <div>Search Term: {result.debug?.searchTerm || result.searchTerm || "Unknown"}</div>
+                {result.debug?.cleanedTicketId && <div>Cleaned ID: {result.debug.cleanedTicketId}</div>}
+                {result.debug?.lookupMethod && <div>Lookup Method: {result.debug.lookupMethod}</div>}
+
+                <div className="font-medium mt-2">Ticket Information:</div>
+                {result.ticket?._id && <div>Ticket ID: {result.ticket._id}</div>}
+                {result.ticket?.ticketNumber && <div>Ticket Number: {result.ticket.ticketNumber}</div>}
+                {result.ticket?.customId && <div>Custom ID: {result.ticket.customId}</div>}
+                {result.ticket?.displayId && <div>Display ID: {result.ticket.displayId}</div>}
+                {result.ticket?.referenceId && <div>Reference ID: {result.ticket.referenceId}</div>}
+
+                {result.attendee?._id && (
                   <>
-                    {result.debug.submissionId && <div>Submission ID: {result.debug.submissionId}</div>}
-                    {result.debug.ticketId && <div>Ticket ID: {result.debug.ticketId}</div>}
-                    {result.ticket?._id && <div>Ticket ID: {result.ticket._id}</div>}
-                    {result.attendee?._id && <div>Attendee ID: {result.attendee._id}</div>}
-                    {result.debug.lookupMethod && <div>Lookup Method: {result.debug.lookupMethod}</div>}
-                    {result.debug.isWebCheckIn && <div>Web Check-in: Yes</div>}
-                    {result.debug.eventInfo && (
-                      <div>
-                        Event: {result.debug.eventInfo.title} ({result.debug.eventInfo.id})
-                      </div>
-                    )}
+                    <div className="font-medium mt-2">Attendee Information:</div>
+                    <div>Attendee ID: {result.attendee._id}</div>
                   </>
                 )}
-                {!result.debug && result.ticket?._id && <div>Ticket ID: {result.ticket._id}</div>}
-                {!result.debug && result.attendee?._id && <div>Attendee ID: {result.attendee._id}</div>}
+
+                {result.debug?.eventInfo && (
+                  <>
+                    <div className="font-medium mt-2">Event Information:</div>
+                    <div>
+                      Event: {result.debug.eventInfo.title} ({result.debug.eventInfo.id})
+                    </div>
+                  </>
+                )}
+
                 {result.attendee?.formData && (
                   <div>
-                    <div className="font-medium mt-1">Form Data Fields:</div>
+                    <div className="font-medium mt-2">Form Data Fields:</div>
                     <div className="pl-2">
                       {Object.keys(result.attendee.formData).map((key) => (
                         <div key={key}>

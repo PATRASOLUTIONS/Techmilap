@@ -5,11 +5,17 @@ export interface ITicket extends Document {
   event: mongoose.Types.ObjectId
   ticketType: string
   ticketNumber: string
+  customId?: string
+  displayId?: string
+  referenceId?: string
+  formattedId?: string
   price: number
   status: string
   purchasedAt: Date
   name?: string
   email?: string
+  attendeeName?: string
+  attendeeEmail?: string
   isCheckedIn: boolean
   checkedInAt?: Date
   lastCheckedInAt?: Date
@@ -17,6 +23,8 @@ export interface ITicket extends Document {
   checkInCount: number
   isWebCheckIn?: boolean
   webCheckInDate?: Date
+  metadata?: Record<string, any>
+  notes?: string
 }
 
 const TicketSchema = new Schema<ITicket>(
@@ -41,6 +49,23 @@ const TicketSchema = new Schema<ITicket>(
       type: String,
       required: [true, "Ticket number is required"],
       unique: true,
+      index: true,
+    },
+    customId: {
+      type: String,
+      index: true,
+    },
+    displayId: {
+      type: String,
+      index: true,
+    },
+    referenceId: {
+      type: String,
+      index: true,
+    },
+    formattedId: {
+      type: String,
+      index: true,
     },
     price: {
       type: Number,
@@ -60,7 +85,15 @@ const TicketSchema = new Schema<ITicket>(
     },
     email: {
       type: String,
-      index: true, // Add index for faster email-based lookups
+      index: true,
+    },
+    attendeeName: {
+      type: String,
+      index: true,
+    },
+    attendeeEmail: {
+      type: String,
+      index: true,
     },
     isCheckedIn: {
       type: Boolean,
@@ -87,13 +120,22 @@ const TicketSchema = new Schema<ITicket>(
     webCheckInDate: {
       type: Date,
     },
+    metadata: {
+      type: Schema.Types.Mixed,
+    },
+    notes: {
+      type: String,
+    },
   },
   {
     timestamps: true,
   },
 )
 
-// Add compound index for userId and email for better query performance
+// Add compound indices for better query performance
 TicketSchema.index({ userId: 1, email: 1 })
+TicketSchema.index({ eventId: 1, ticketNumber: 1 })
+TicketSchema.index({ eventId: 1, customId: 1 })
+TicketSchema.index({ eventId: 1, attendeeEmail: 1 })
 
 export default mongoose.models.Ticket || mongoose.model<ITicket>("Ticket", TicketSchema)
