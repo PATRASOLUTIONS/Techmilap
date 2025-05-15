@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb"
 import { sendEmail } from "@/lib/email-service"
 import { format, addMinutes } from "date-fns"
 import { z } from "zod"
+import mongoose from "mongoose"
 
 // Define validation schema for form submission
 const FormSubmissionSchema = z
@@ -114,9 +115,13 @@ export async function handleFormSubmission(
   emailSubject?: string,
 ) {
   try {
+    console.log(`Handling form submission for event: ${eventIdOrSlug}, form type: ${formType}`)
+    console.log("Form data:", formData)
+
     // Validate form data
     const validationResult = FormSubmissionSchema.safeParse(formData)
     if (!validationResult.success) {
+      console.error("Validation error:", validationResult.error.format())
       return {
         success: false,
         message: "Invalid form data",
@@ -126,22 +131,32 @@ export async function handleFormSubmission(
 
     // Sanitize form data
     const sanitizedFormData = sanitizeFormData(validationResult.data)
+    console.log("Sanitized form data:", sanitizedFormData)
 
     const { db } = await connectToDatabase()
 
     // Find the event by ID or slug
     let event
     try {
-      const objectId = new ObjectId(eventIdOrSlug)
-      event = await db.collection("events").findOne({ _id: objectId })
+      if (mongoose.isValidObjectId(eventIdOrSlug)) {
+        const objectId = new ObjectId(eventIdOrSlug)
+        event = await db.collection("events").findOne({ _id: objectId })
+      } else {
+        // If not a valid ObjectId, try to find by slug
+        event = await db.collection("events").findOne({ slug: eventIdOrSlug })
+      }
     } catch (error) {
-      // If not a valid ObjectId, try to find by slug
+      console.error("Error finding event:", error)
+      // If error occurs, try to find by slug
       event = await db.collection("events").findOne({ slug: eventIdOrSlug })
     }
 
     if (!event) {
+      console.error(`Event not found for ID/slug: ${eventIdOrSlug}`)
       return { success: false, message: "Event not found" }
     }
+
+    console.log(`Found event: ${event.title || event.name} (${event._id})`)
 
     // Always set status to pending for all form types
     const status = "pending"
@@ -179,11 +194,18 @@ export async function handleFormSubmission(
       updatedAt: new Date(),
     }
 
+    console.log("Creating form submission:", submission)
+
     // Insert the submission - use the correct collection name with lowercase 's'
     const result = await db.collection("formsubmissions").insertOne(submission)
+    console.log(`Form submission created with ID: ${result.insertedId}`)
 
     // Send confirmation email to the user
-    await sendConfirmationEmailToUser(event, formType, name, email, emailSubject)
+    if (email) {
+      await sendConfirmationEmailToUser(event, formType, name, email, emailSubject)
+    } else {
+      console.warn("No email address found in form data, skipping confirmation email")
+    }
 
     // Send notification email to the organizer
     await sendNotificationEmailToOrganizer(event, formType, submission, result.insertedId.toString(), emailSubject)
