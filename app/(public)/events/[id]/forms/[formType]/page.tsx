@@ -74,6 +74,29 @@ export default function FormPage({ params }: { params: { id: string; formType: s
       setSubmitting(true)
       console.log("Submitting form data:", data)
 
+      // Make sure we have at least an email field
+      let hasEmail = false
+      const emailFields = ["email", "corporateEmail", "userEmail", "emailAddress", "mail"]
+      for (const field of emailFields) {
+        if (data[field] && typeof data[field] === "string" && data[field].includes("@")) {
+          hasEmail = true
+          break
+        }
+      }
+
+      if (!hasEmail) {
+        // Try to find an email field in the form questions
+        const emailQuestion = formData.questions.find(
+          (q) => q.type === "email" || q.id.toLowerCase().includes("email") || q.label?.toLowerCase().includes("email"),
+        )
+
+        if (emailQuestion && !data[emailQuestion.id]) {
+          throw new Error("Please provide a valid email address to register for this event.")
+        } else if (!emailQuestion) {
+          throw new Error("Email address is required but no email field was found in the form.")
+        }
+      }
+
       // Determine the endpoint based on form type
       let endpoint = ""
       if (formType === "register" || formType === "attendee") {
@@ -100,20 +123,11 @@ export default function FormPage({ params }: { params: { id: string; formType: s
         // Check if this is a validation error with details
         if (errorData.error === "Validation error" && errorData.details) {
           console.error("Validation error details:", errorData.details)
-          const errorMessage = Object.values(errorData.details)
-            .map((field) => {
-              if (typeof field === "object" && field._errors) {
-                return field._errors.join(", ")
-              }
-              return String(field)
-            })
-            .filter(Boolean)
-            .join("; ")
-
-          throw new Error(`Validation error: ${errorMessage || "Please check your form inputs"}`)
+          const errorMessage = errorData.message || "Please check your form inputs and try again."
+          throw new Error(`Validation error: ${errorMessage}`)
         }
 
-        throw new Error(errorData.error || "Failed to submit form")
+        throw new Error(errorData.error || errorData.message || "Failed to submit form")
       }
 
       const result = await response.json()
