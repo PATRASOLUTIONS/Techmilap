@@ -9,6 +9,7 @@ import Event from "@/models/Event"
 import User from "@/models/User"
 import Link from "next/link"
 import mongoose from "mongoose"
+import { getImageUrl, handleImageError } from "@/lib/image-utils"
 
 // Helper function to safely format dates
 function formatEventDate(dateString) {
@@ -68,13 +69,6 @@ function formatEventTime(timeString) {
   }
 }
 
-// Helper function to safely get image URL
-function getImageUrl(url) {
-  if (!url) return "/vibrant-tech-event.png"
-  if (url.startsWith("http") || url.startsWith("/")) return url
-  return `/${url}`
-}
-
 async function getEvent(id: string) {
   try {
     await connectToDatabase()
@@ -130,6 +124,8 @@ async function getEvent(id: string) {
     // Process image URL
     if (event.image) {
       event.image = getImageUrl(event.image)
+    } else if (event.coverImageUrl) {
+      event.image = getImageUrl(event.coverImageUrl)
     }
 
     return {
@@ -168,6 +164,7 @@ export default async function EventPage({ params }: { params: { id: string } }) 
 
     // Default image if none is provided
     const imageUrl = event.image || "/vibrant-tech-event.png"
+    const fallbackImageUrl = "/vibrant-tech-event.png"
 
     return (
       <div className="container mx-auto py-12 px-4 md:px-6">
@@ -190,6 +187,8 @@ export default async function EventPage({ params }: { params: { id: string } }) 
                 className="object-cover"
                 priority
                 unoptimized={imageUrl.startsWith("http")}
+                onError={(e) => handleImageError(e, fallbackImageUrl)}
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 50vw"
               />
             </div>
 

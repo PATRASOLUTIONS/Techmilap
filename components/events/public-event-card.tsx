@@ -5,6 +5,7 @@ import Image from "next/image"
 import { Calendar, MapPin, Clock, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { getImageUrl, handleImageError } from "@/lib/image-utils"
 
 interface PublicEventCardProps {
   event: any
@@ -43,6 +44,10 @@ export function PublicEventCard({ event }: PublicEventCardProps) {
   // Create a random ticket number based on event ID for visual effect
   const ticketNumber = event._id ? event._id.slice(-8).toUpperCase() : "TKT12345"
 
+  // Process image URL
+  const imageUrl = getImageUrl(event.image || event.coverImageUrl)
+  const fallbackImageUrl = "/vibrant-tech-event.png"
+
   return (
     <div className="group h-full transform-gpu transition-all duration-300 hover:-translate-y-1">
       {/* Ticket Container */}
@@ -64,16 +69,14 @@ export function PublicEventCard({ event }: PublicEventCardProps) {
           {/* Ticket Top - Image and Category */}
           <div className="relative h-48 overflow-hidden">
             <Image
-              src={event.image || "/vibrant-tech-event.png"}
+              src={imageUrl || "/placeholder.svg"}
               alt={event.title || "Event"}
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-105"
-              onError={(e) => {
-                // @ts-ignore - fallback to default image
-                e.target.src = "/vibrant-tech-event.png"
-                // Prevent infinite loop
-                e.currentTarget.onerror = null
-              }}
+              onError={(e) => handleImageError(e, fallbackImageUrl)}
+              unoptimized={imageUrl.startsWith("http")}
+              priority={false}
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
 
