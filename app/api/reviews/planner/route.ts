@@ -30,64 +30,51 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search")
     const tab = searchParams.get("tab")
     const sort = searchParams.get("sort") || "date" // "date" (default), "rating-high", "rating-low"
-    const debug = searchParams.get("debug") === "true"
 
     const skip = (page - 1) * limit
 
-    console.log("Planner API query params:", { page, limit, eventId, rating, status, search, tab, sort, debug })
+    console.log("Planner API query params:", { page, limit, eventId, rating, status, search, tab, sort })
 
     // Build the query
     const query: any = {}
 
     // If not super admin, only show reviews for events created by this user
     if (session.user.role !== "super-admin") {
-      try {
-        // First, get all events created by this user
-        const events = await db
-          .collection("events")
-          .find({
-            organizerId: new ObjectId(session.user.id),
-          })
-          .project({ _id: 1, title: 1 })
-          .toArray()
+      // First, get all events created by this user
+      const events = await db
+        .collection("events")
+        .find({
+          organizerId: new ObjectId(session.user.id),
+        })
+        .project({ _id: 1 })
+        .toArray()
 
-        console.log("Found events for organizer:", events.length)
+      console.log("Found events for organizer:", events.length)
 
-        if (debug) {
-          console.log(
-            "Events found:",
-            events.map((e) => ({ id: e._id.toString(), title: e.title })),
-          )
-        }
-
-        const eventIds = events.map((event) => event._id)
-        if (eventIds.length === 0) {
-          // No events found, return empty response
-          return NextResponse.json({
-            reviews: [],
-            totalPages: 0,
-            stats: {
-              total: 0,
-              average: 0,
-              pending: 0,
-              approved: 0,
-              rejected: 0,
-              ratings: {
-                1: 0,
-                2: 0,
-                3: 0,
-                4: 0,
-                5: 0,
-              },
+      const eventIds = events.map((event) => event._id)
+      if (eventIds.length === 0) {
+        // No events found, return empty response
+        return NextResponse.json({
+          reviews: [],
+          totalPages: 0,
+          stats: {
+            total: 0,
+            average: 0,
+            pending: 0,
+            approved: 0,
+            rejected: 0,
+            ratings: {
+              1: 0,
+              2: 0,
+              3: 0,
+              4: 0,
+              5: 0,
             },
-          })
-        }
-
-        query.eventId = { $in: eventIds }
-      } catch (error) {
-        console.error("Error finding organizer events:", error)
-        return NextResponse.json({ error: "Failed to find organizer events" }, { status: 500 })
+          },
+        })
       }
+
+      query.eventId = { $in: eventIds }
     }
 
     // Apply filters
@@ -115,31 +102,11 @@ export async function GET(req: NextRequest) {
       query.$or = [{ title: { $regex: search, $options: "i" } }, { comment: { $regex: search, $options: "i" } }]
     }
 
-    console.log(
-      "Final MongoDB query:",
-      JSON.stringify(query, (key, value) =>
-        key === "$in" && Array.isArray(value) ? value.map((v) => v.toString()) : value,
-      ),
-    )
+    console.log("Final MongoDB query:", JSON.stringify(query))
 
     // Get total count for pagination
     const totalCount = await db.collection("reviews").countDocuments(query)
     console.log("Total reviews count:", totalCount)
-
-    // If debug mode is on, let's check if there are any reviews at all for these events
-    if (debug && totalCount === 0) {
-      // Check if there are any reviews at all
-      const allReviews = await db.collection("reviews").find({}).limit(5).toArray()
-      console.log(
-        "Sample of all reviews in system:",
-        allReviews.map((r) => ({
-          id: r._id.toString(),
-          eventId: r.eventId?.toString(),
-          title: r.title,
-          status: r.status,
-        })),
-      )
-    }
 
     // Determine sort options
     let sortOptions = {}
