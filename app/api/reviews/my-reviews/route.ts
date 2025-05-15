@@ -1,8 +1,8 @@
-import { NextResponse, type NextRequest } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
+import mongoose from "mongoose"
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,139 +11,178 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { db } = await connectToDatabase()
-    const userId = new ObjectId(session.user.id)
-
-    // Get query parameters
     const url = new URL(req.url)
+    const eventId = url.searchParams.get("eventId")
+    const status = url.searchParams.get("status")
+    const rating = url.searchParams.get("rating")
+    const search = url.searchParams.get("search")
     const page = Number.parseInt(url.searchParams.get("page") || "1")
     const limit = Number.parseInt(url.searchParams.get("limit") || "10")
-    const status = url.searchParams.get("status")
-    const eventId = url.searchParams.get("eventId")
-    const search = url.searchParams.get("search")
     const skip = (page - 1) * limit
 
-    // Find events the user is registered for
-    // This includes:
-    // 1. Events with the user in the registrations array
-    // 2. Events with approved form submissions from the user
+    const { db } = await connectToDatabase()
 
-    // First, get events where the user is directly registered
-    const registeredEvents = await db
-      .collection("events")
-      .find({
-        "registrations.userId": userId,
-      })
-      .project({ _id: 1 })
-      .toArray()
-
-    // Next, get events where the user has approved form submissions
-    const approvedSubmissions = await db
-      .collection("formsubmissions")
-      .find({
-        userId: userId,
-        status: "approved",
-        formType: { $in: ["attendee", "speaker", "volunteer"] },
-      })
-      .project({ eventId: 1 })
-      .toArray()
-
-    // Combine the event IDs
-    const registeredEventIds = registeredEvents.map((event) => event._id)
-    const submissionEventIds = approvedSubmissions.map((sub) => sub.eventId)
-
-    // Merge and remove duplicates
-    const allEventIds = [...new Set([...registeredEventIds, ...submissionEventIds])]
-
-    // If the user isn't registered for any events, return empty array
-    if (allEventIds.length === 0) {
-      return NextResponse.json({
-        reviews: [],
-        pagination: {
-          total: 0,
-          page,
-          limit,
-          pages: 0,
-        },
-        events: [],
-      })
-    }
-
-    // Build the query for reviews
+    // Build the query
     const query: any = {
-      $or: [
-        // Reviews created by the user
-        { userId },
-        // Reviews for events the user is registered for
-        { eventId: { $in: allEventIds } },
-      ],
+      userId: new mongoose.Types.ObjectId(session.user.id),
     }
 
-    // Add filters if provided
-    if (status) {
+    // Apply filters
+    if (eventId && eventId !== "all") {
+      query.eventId = new mongoose.Types.ObjectId(eventId)
+    }
+
+    if (status && status !== "all") {
       query.status = status
     }
 
-    if (eventId) {
-      query.eventId = new ObjectId(eventId)
+    if (rating && rating !== "all") {
+      query.rating = Number.parseInt(rating)
     }
 
     if (search) {
       query.$or = [{ title: { $regex: search, $options: "i" } }, { comment: { $regex: search, $options: "i" } }]
     }
 
-    // Get reviews with pagination
-    const reviews = await db.collection("reviews").find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray()
-
     // Get total count for pagination
-    const total = await db.collection("reviews").countDocuments(query)
+    const totalCount = await db.collection("reviews").countDocuments(query)
 
-    // Get event details for the dropdown filter
-    const events = await db
-      .collection("events")
-      .find({ _id: { $in: allEventIds } })
-      .project({ _id: 1, title: 1, date: 1, image: 1 })
+    // Get reviews with pagination
+    const reviews = await db
+      .collection("reviews")
+      .aggregate([
+        { $match: query },
+        {
+          $lookup: {
+            from: "events",
+            localField: "eventId",
+            foreignField: "_id",
+            as: "eventDetails",
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "userDetails",
+          },
+        },
+        {
+          $addFields: {
+            event: { $arrayElemAt: ["$eventDetails", 0] },
+            user: { $arrayElemAt: ["$userDetails", 0] },
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            title: 1,
+            comment: 1,
+            rating: 1,
+            status: 1,
+            reply: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            "event._id": 1,
+            "event.title": 1,
+            "event.date": 1,
+            "event.location": 1,
+            "event.image": 1,
+            "user._id": 1,
+            "user.firstName": 1,
+            "user.lastName": 1,
+            "user.email": 1,
+            "user.profileImage": 1,
+          },
+        },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+      ])
       .toArray()
 
-    // Populate event and user details for each review
-    const populatedReviews = await Promise.all(
-      reviews.map(async (review) => {
-        // Get event details
-        const event = await db
-          .collection("events")
-          .findOne({ _id: review.eventId }, { projection: { title: 1, date: 1, image: 1 } })
+    // Get statistics
+    const stats = {
+      total: totalCount,
+      average: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      ratings: {
+        1: 0,
+        2: 0,
+        3: 0,
+        4: 0,
+        5: 0,
+      },
+    }
 
-        // Get user details
-        const user = await db
-          .collection("users")
-          .findOne({ _id: review.userId }, { projection: { firstName: 1, lastName: 1, email: 1, profileImage: 1 } })
+    // Get counts by status
+    const statusCounts = await db
+      .collection("reviews")
+      .aggregate([
+        { $match: { userId: new mongoose.Types.ObjectId(session.user.id) } },
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 },
+          },
+        },
+      ])
+      .toArray()
 
-        return {
-          ...review,
-          event: event || { title: "Unknown Event" },
-          user: user
-            ? {
-                name: `${user.firstName} ${user.lastName}`,
-                email: user.email,
-                image: user.profileImage,
-              }
-            : { name: "Unknown User" },
-        }
-      }),
-    )
+    statusCounts.forEach((item) => {
+      if (item._id === "pending") stats.pending = item.count
+      if (item._id === "approved") stats.approved = item.count
+      if (item._id === "rejected") stats.rejected = item.count
+    })
+
+    // Get counts by rating
+    const ratingCounts = await db
+      .collection("reviews")
+      .aggregate([
+        { $match: { userId: new mongoose.Types.ObjectId(session.user.id) } },
+        {
+          $group: {
+            _id: "$rating",
+            count: { $sum: 1 },
+          },
+        },
+      ])
+      .toArray()
+
+    ratingCounts.forEach((item) => {
+      if (item._id >= 1 && item._id <= 5) {
+        stats.ratings[item._id] = item.count
+      }
+    })
+
+    // Calculate average rating
+    const ratingResult = await db
+      .collection("reviews")
+      .aggregate([
+        { $match: { userId: new mongoose.Types.ObjectId(session.user.id) } },
+        {
+          $group: {
+            _id: null,
+            average: { $avg: "$rating" },
+          },
+        },
+      ])
+      .toArray()
+
+    if (ratingResult.length > 0) {
+      stats.average = Number.parseFloat(ratingResult[0].average.toFixed(1))
+    }
 
     return NextResponse.json({
-      reviews: populatedReviews,
-      pagination: {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
-      },
-      events,
+      reviews,
+      totalPages: Math.ceil(totalCount / limit),
+      stats,
     })
   } catch (error) {
-    console.error("Error fetching my reviews:", error)
+    console.error("Error fetching user reviews:", error)
     return NextResponse.json({ error: "Failed to fetch reviews" }, { status: 500 })
   }
 }

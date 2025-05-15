@@ -5,7 +5,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 import Review from "@/models/Review"
 import Event from "@/models/Event"
 
-// Update review status (approve or reject)
+// Update review status (approve/reject)
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
@@ -20,7 +20,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     const { status } = await req.json()
 
-    if (!status || !["approved", "rejected"].includes(status)) {
+    if (!status || !["pending", "approved", "rejected"].includes(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 })
     }
 

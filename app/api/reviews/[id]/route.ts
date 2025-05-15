@@ -24,14 +24,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     // Check if the user has permission to view this review
-    if (session.user.role === "user" && review.userId.toString() !== session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-    }
-
-    if (session.user.role === "event-planner") {
-      // Check if the event belongs to this planner
-      const event = await Event.findById(review.eventId)
-      if (!event || event.organizer.toString() !== session.user.id) {
+    // Users can view their own reviews
+    // Event planners can view reviews for their events
+    // Super admins can view all reviews
+    if (session.user.role !== "super-admin" && review.userId._id.toString() !== session.user.id) {
+      // If user is not the review owner, check if they're the event planner
+      if (session.user.role === "event-planner") {
+        const event = await Event.findById(review.eventId)
+        if (!event || event.organizer.toString() !== session.user.id) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+        }
+      } else {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
       }
     }
@@ -43,7 +46,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-// Update a review (user can update their own review, admin can update any review)
+// Update a review
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
@@ -53,6 +56,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     const { rating, title, comment } = await req.json()
 
+    if (!rating || !title || !comment) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+
     await connectToDatabase()
 
     const review = await Review.findById(params.id)
@@ -61,19 +68,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "Review not found" }, { status: 404 })
     }
 
-    // Only the review author can update the review content
+    // Only the review owner can update it
     if (review.userId.toString() !== session.user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
     // Update the review
-    if (rating) review.rating = rating
-    if (title) review.title = title
-    if (comment) review.comment = comment
-
-    // Reset status to pending if content was changed
-    review.status = "pending"
-
+    review.rating = rating
+    review.title = title
+    review.comment = comment
+    review.status = "pending" // Reset to pending when updated
     await review.save()
 
     return NextResponse.json({ success: true, review })
@@ -99,12 +103,22 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       return NextResponse.json({ error: "Review not found" }, { status: 404 })
     }
 
-    // Only the review author or admin can delete the review
-    if (review.userId.toString() !== session.user.id && session.user.role !== "super-admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+    // Users can delete their own reviews
+    // Event planners can delete reviews for their events
+    // Super admins can delete any review
+    if (session.user.role !== "super-admin" && review.userId.toString() !== session.user.id) {
+      // If user is not the review owner, check if they're the event planner
+      if (session.user.role === "event-planner") {
+        const event = await Event.findById(review.eventId)
+        if (!event || event.organizer.toString() !== session.user.id) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+        }
+      } else {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+      }
     }
 
-    await review.deleteOne()
+    await Review.findByIdAndDelete(params.id)
 
     return NextResponse.json({ success: true, message: "Review deleted successfully" })
   } catch (error) {

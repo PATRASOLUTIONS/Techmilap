@@ -3,15 +3,28 @@
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Search } from "lucide-react"
+import { Search, Plus, Filter } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
 import { ReviewList } from "@/components/reviews/review-list"
 import { ReviewStats } from "@/components/reviews/review-stats"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { StarRating } from "@/components/reviews/star-rating"
 
 export default function EventReviewsPage() {
   const { data: session, status } = useSession()
@@ -27,6 +40,13 @@ export default function EventReviewsPage() {
     pending: 0,
     approved: 0,
     rejected: 0,
+    ratings: {
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+    },
   })
 
   // Filters
@@ -35,6 +55,16 @@ export default function EventReviewsPage() {
   const [selectedStatus, setSelectedStatus] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [currentTab, setCurrentTab] = useState("all")
+
+  // Review form
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
+  const [reviewFormData, setReviewFormData] = useState({
+    eventId: "",
+    rating: 5,
+    title: "",
+    comment: "",
+  })
+  const [submitting, setSubmitting] = useState(false)
 
   // Pagination
   const [page, setPage] = useState(1)
@@ -47,18 +77,17 @@ export default function EventReviewsPage() {
       return
     }
 
-    if (session?.user?.role !== "event-planner" && session?.user?.role !== "super-admin") {
-      router.push("/user-dashboard")
-      return
-    }
-
     fetchEvents()
     fetchReviews()
   }, [session, status, router, page, selectedEvent, selectedRating, selectedStatus, searchQuery, currentTab])
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch("/api/events/my-events/all")
+      // For event planners, fetch their events
+      // For users, fetch events they've attended
+      const endpoint =
+        session?.user?.role === "event-planner" ? "/api/events/my-events/all" : "/api/reviews/eligible-events"
+      const response = await fetch(endpoint)
       if (!response.ok) throw new Error("Failed to fetch events")
 
       const data = await response.json()
@@ -86,7 +115,13 @@ export default function EventReviewsPage() {
         ...(currentTab !== "all" && { tab: currentTab }),
       })
 
-      const response = await fetch(`/api/reviews/planner?${queryParams.toString()}`)
+      // Different endpoints for different user roles
+      const endpoint =
+        session?.user?.role === "event-planner"
+          ? `/api/reviews/planner?${queryParams.toString()}`
+          : `/api/reviews/my-reviews?${queryParams.toString()}`
+
+      const response = await fetch(endpoint)
       if (!response.ok) throw new Error("Failed to fetch reviews")
 
       const data = await response.json()
@@ -99,6 +134,13 @@ export default function EventReviewsPage() {
           pending: 0,
           approved: 0,
           rejected: 0,
+          ratings: {
+            1: 0,
+            2: 0,
+            3: 0,
+            4: 0,
+            5: 0,
+          },
         },
       )
     } catch (error) {
@@ -131,7 +173,7 @@ export default function EventReviewsPage() {
       // Update the review in the list
       setReviews(
         reviews.map((review) =>
-          review._id === id ? { ...review, reply: text, replyDate: new Date().toISOString() } : review,
+          review._id === id ? { ...review, reply: { text, createdAt: new Date().toISOString() } } : review,
         ),
       )
     } catch (error) {
@@ -247,6 +289,93 @@ export default function EventReviewsPage() {
     }
   }
 
+  const handleSubmitReview = async (e) => {
+    e.preventDefault()
+
+    if (!reviewFormData.eventId) {
+      toast({
+        title: "Error",
+        description: "Please select an event to review",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!reviewFormData.title.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a review title",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!reviewFormData.comment.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter your review",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSubmitting(true)
+
+    try {
+      const response = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reviewFormData),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to submit review")
+      }
+
+      toast({
+        title: "Success",
+        description: "Your review has been submitted successfully",
+      })
+
+      // Reset form and close dialog
+      setReviewFormData({
+        eventId: "",
+        rating: 5,
+        title: "",
+        comment: "",
+      })
+      setReviewDialogOpen(false)
+
+      // Refresh reviews
+      fetchReviews()
+    } catch (error) {
+      console.error("Error submitting review:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit review. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleReviewFormChange = (e) => {
+    const { name, value } = e.target
+    setReviewFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
+  const handleRatingChange = (rating) => {
+    setReviewFormData((prev) => ({
+      ...prev,
+      rating,
+    }))
+  }
+
   if (status === "loading") {
     return (
       <div className="container mx-auto py-10">
@@ -269,16 +398,111 @@ export default function EventReviewsPage() {
     <div className="container mx-auto py-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Event Reviews</h1>
-          <p className="text-muted-foreground">Manage and respond to reviews for all your events</p>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {session?.user?.role === "event-planner" ? "Event Reviews" : "My Reviews"}
+          </h1>
+          <p className="text-muted-foreground">
+            {session?.user?.role === "event-planner"
+              ? "Manage and respond to reviews for all your events"
+              : "View and manage your reviews for events you've attended"}
+          </p>
         </div>
+
+        {session?.user?.role !== "event-planner" && (
+          <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+                <Plus className="mr-2 h-4 w-4" /> Write a Review
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Write a Review</DialogTitle>
+                <DialogDescription>Share your experience about an event you attended</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmitReview}>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="eventId">Select Event</Label>
+                    <Select
+                      name="eventId"
+                      value={reviewFormData.eventId}
+                      onValueChange={(value) => setReviewFormData((prev) => ({ ...prev, eventId: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an event" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {events.length === 0 ? (
+                          <SelectItem value="" disabled>
+                            No eligible events found
+                          </SelectItem>
+                        ) : (
+                          events.map((event) => (
+                            <SelectItem key={event._id} value={event._id}>
+                              {event.title}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>Rating</Label>
+                    <StarRating rating={reviewFormData.rating} onRatingChange={handleRatingChange} size={24} />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="title">Review Title</Label>
+                    <Input
+                      id="title"
+                      name="title"
+                      value={reviewFormData.title}
+                      onChange={handleReviewFormChange}
+                      placeholder="Summarize your experience"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="comment">Your Review</Label>
+                    <Textarea
+                      id="comment"
+                      name="comment"
+                      value={reviewFormData.comment}
+                      onChange={handleReviewFormChange}
+                      placeholder="Share details of your experience at this event"
+                      rows={4}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setReviewDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={submitting || events.length === 0}
+                    className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                  >
+                    {submitting ? "Submitting..." : "Submit Review"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="grid gap-6">
         <Card>
           <CardHeader>
             <CardTitle>Review Statistics</CardTitle>
-            <CardDescription>Overview of all reviews for your events</CardDescription>
+            <CardDescription>
+              {session?.user?.role === "event-planner"
+                ? "Overview of all reviews for your events"
+                : "Overview of your reviews for events you've attended"}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ReviewStats stats={stats} />
@@ -287,7 +511,10 @@ export default function EventReviewsPage() {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle>Filters</CardTitle>
+            <CardTitle className="flex items-center">
+              <Filter className="mr-2 h-5 w-5 text-muted-foreground" />
+              Filters
+            </CardTitle>
             <CardDescription>Filter reviews by event, rating, or status</CardDescription>
           </CardHeader>
           <CardContent>
@@ -301,7 +528,7 @@ export default function EventReviewsPage() {
                     <SelectItem value="all">All Events</SelectItem>
                     {events.map((event) => (
                       <SelectItem key={event._id} value={event._id}>
-                        {event.name}
+                        {event.title}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -356,18 +583,22 @@ export default function EventReviewsPage() {
                   All Reviews
                   <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs">{stats.total}</span>
                 </TabsTrigger>
-                <TabsTrigger value="pending">
-                  Pending
-                  <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs">{stats.pending}</span>
-                </TabsTrigger>
+                {session?.user?.role === "event-planner" && (
+                  <TabsTrigger value="pending">
+                    Pending
+                    <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs">{stats.pending}</span>
+                  </TabsTrigger>
+                )}
                 <TabsTrigger value="approved">
                   Approved
                   <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs">{stats.approved}</span>
                 </TabsTrigger>
-                <TabsTrigger value="rejected">
-                  Rejected
-                  <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs">{stats.rejected}</span>
-                </TabsTrigger>
+                {session?.user?.role === "event-planner" && (
+                  <TabsTrigger value="rejected">
+                    Rejected
+                    <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs">{stats.rejected}</span>
+                  </TabsTrigger>
+                )}
               </TabsList>
             </Tabs>
           </CardHeader>
@@ -378,10 +609,13 @@ export default function EventReviewsPage() {
               page={page}
               totalPages={totalPages}
               onPageChange={setPage}
-              onReply={handleReply}
-              onApprove={handleApprove}
-              onReject={handleReject}
+              onReply={session?.user?.role === "event-planner" ? handleReply : undefined}
+              onApprove={session?.user?.role === "event-planner" ? handleApprove : undefined}
+              onReject={session?.user?.role === "event-planner" ? handleReject : undefined}
               onDelete={handleDelete}
+              onEdit={
+                session?.user?.role !== "event-planner" ? (id) => router.push(`/my-reviews/edit/${id}`) : undefined
+              }
               showEventDetails={true}
             />
           </CardContent>

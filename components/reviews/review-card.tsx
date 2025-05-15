@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useSession } from "next-auth/react"
 import { formatDistanceToNow } from "date-fns"
-import { Star, ThumbsUp, Flag, MoreVertical, MessageSquare, Trash, Edit } from "lucide-react"
+import { Star, ThumbsUp, Flag, MoreVertical, MessageSquare, Trash, Edit, Check, X } from "lucide-react"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 interface ReviewCardProps {
   review: any
@@ -36,17 +37,20 @@ export function ReviewCard({
   const [replyText, setReplyText] = useState("")
   const [isReplying, setIsReplying] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showReplyActions, setShowReplyActions] = useState(false)
 
-  const isOwner = session?.user?.id === review.userId._id
+  const isOwner = session?.user?.id === review.userId?._id
   const isEventPlanner = session?.user?.role === "event-planner"
   const isAdmin = session?.user?.role === "super-admin"
   const canModerate = isEventPlanner || isAdmin
+  const canReply = canModerate && onReply
 
   const handleReply = async () => {
     if (!replyText.trim()) {
       toast({
         title: "Error",
         description: "Reply cannot be empty",
+        variant: "destructive",
       })
       return
     }
@@ -56,10 +60,15 @@ export function ReviewCard({
       await onReply?.(review._id, replyText)
       setReplyText("")
       setIsReplying(false)
+      toast({
+        title: "Success",
+        description: "Your reply has been posted",
+      })
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "Something went wrong",
+        variant: "destructive",
       })
     } finally {
       setIsSubmitting(false)
@@ -67,12 +76,19 @@ export function ReviewCard({
   }
 
   const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this review?")) return
+
     try {
       await onDelete?.(review._id)
+      toast({
+        title: "Success",
+        description: "Review deleted successfully",
+      })
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "Something went wrong",
+        variant: "destructive",
       })
     }
   }
@@ -80,10 +96,15 @@ export function ReviewCard({
   const handleApprove = async () => {
     try {
       await onApprove?.(review._id)
+      toast({
+        title: "Success",
+        description: "Review approved successfully",
+      })
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "Something went wrong",
+        variant: "destructive",
       })
     }
   }
@@ -91,29 +112,69 @@ export function ReviewCard({
   const handleReject = async () => {
     try {
       await onReject?.(review._id)
+      toast({
+        title: "Success",
+        description: "Review rejected successfully",
+      })
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "Something went wrong",
+        variant: "destructive",
       })
     }
   }
 
+  // Format the date
+  const formattedDate = review.createdAt
+    ? formatDistanceToNow(new Date(review.createdAt), { addSuffix: true })
+    : "recently"
+
+  // Format the reply date if it exists
+  const formattedReplyDate = review.reply?.createdAt
+    ? formatDistanceToNow(new Date(review.reply.createdAt), { addSuffix: true })
+    : ""
+
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div className="flex items-center space-x-4">
-          <Avatar>
-            <AvatarImage src={review.userId?.image || "/placeholder.svg"} />
-            <AvatarFallback>{review.userId?.name?.charAt(0)}</AvatarFallback>
+    <Card
+      className={cn(
+        "w-full transition-all duration-200",
+        review.status === "pending" && "border-orange-300 bg-orange-50/30",
+        review.status === "rejected" && "border-red-300 bg-red-50/30",
+      )}
+    >
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+        <div className="flex items-start space-x-4">
+          <Avatar className="h-10 w-10 border">
+            <AvatarImage src={review.userId?.image || "/placeholder.svg?height=40&width=40&query=user"} />
+            <AvatarFallback>
+              {review.userId?.name?.charAt(0) || review.userId?.firstName?.charAt(0) || "U"}
+            </AvatarFallback>
           </Avatar>
           <div>
-            <h3 className="text-sm font-medium">{review.userId?.name}</h3>
-            <div className="flex items-center space-x-1 text-xs text-gray-500">
-              <Star className="h-4 w-4" />
-              <span>{review.rating}</span>
+            <h3 className="text-sm font-medium">
+              {review.userId?.name || `${review.userId?.firstName || ""} ${review.userId?.lastName || ""}`}
+            </h3>
+            <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+              <div className="flex items-center">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star
+                    key={i}
+                    className={cn("h-3 w-3", i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300")}
+                  />
+                ))}
+              </div>
               <span className="mx-1">•</span>
-              <span>{formatDistanceToNow(new Date(review.createdAt), { addSuffix: true })}</span>
+              <span>{formattedDate}</span>
+
+              {showEventDetails && review.event && (
+                <>
+                  <span className="mx-1">•</span>
+                  <Badge variant="outline" className="text-xs font-normal">
+                    {review.event.name || review.event.title}
+                  </Badge>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -152,30 +213,105 @@ export function ReviewCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
-      <CardContent className="break-words text-sm">
-        <p>{review.text}</p>
-        {showEventDetails && review.event && <Badge className="mt-2">Reviewed Event: {review.event.name}</Badge>}
-      </CardContent>
-      <CardFooter className="flex items-center justify-between">
-        <Button variant="ghost" onClick={() => setIsReplying(!isReplying)}>
-          <MessageSquare className="mr-2 h-4 w-4" /> Reply
-        </Button>
-        {review.status !== "approved" && canModerate && <Badge variant="secondary">{review.status}</Badge>}
-      </CardFooter>
-      {isReplying && (
-        <CardFooter className="flex flex-col space-y-2">
-          <Textarea
-            value={replyText}
-            onChange={(e) => setReplyText(e.target.value)}
-            placeholder="Write your reply here..."
-          />
-          <div className="flex justify-end">
-            <Button isLoading={isSubmitting} onClick={handleReply} disabled={isSubmitting}>
-              Post Reply
-            </Button>
+      <CardContent className="pt-4">
+        <h4 className="font-medium mb-2">{review.title}</h4>
+        <p className="text-sm text-muted-foreground mb-4">{review.comment}</p>
+
+        {review.reply && (
+          <div className="mt-4 pl-4 border-l-2 border-blue-200">
+            <div className="flex items-center gap-2 mb-1">
+              <Badge variant="outline" className="bg-blue-50">
+                Event Organizer Reply
+              </Badge>
+              <span className="text-xs text-muted-foreground">{formattedReplyDate}</span>
+            </div>
+            <p className="text-sm">{review.reply.text}</p>
           </div>
-        </CardFooter>
-      )}
+        )}
+      </CardContent>
+      <CardFooter className="flex flex-col space-y-2">
+        {canReply && !isReplying && !review.reply && (
+          <Button variant="outline" size="sm" className="self-start" onClick={() => setIsReplying(true)}>
+            <MessageSquare className="mr-2 h-4 w-4" /> Reply to Review
+          </Button>
+        )}
+
+        {isReplying && (
+          <div className="w-full space-y-2">
+            <Textarea
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              placeholder="Write your reply here..."
+              onFocus={() => setShowReplyActions(true)}
+              className="w-full"
+            />
+            {showReplyActions && (
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsReplying(false)
+                    setReplyText("")
+                    setShowReplyActions(false)
+                  }}
+                >
+                  <X className="mr-1 h-4 w-4" /> Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleReply}
+                  disabled={isSubmitting || !replyText.trim()}
+                  className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                >
+                  {isSubmitting ? (
+                    "Posting..."
+                  ) : (
+                    <>
+                      <Check className="mr-1 h-4 w-4" /> Post Reply
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {review.status !== "approved" && canModerate && (
+          <div className="w-full flex justify-between items-center">
+            <Badge
+              variant={review.status === "pending" ? "outline" : "secondary"}
+              className={cn(
+                review.status === "pending" && "border-orange-300 bg-orange-50 text-orange-700",
+                review.status === "rejected" && "border-red-300 bg-red-50 text-red-700",
+              )}
+            >
+              {review.status.charAt(0).toUpperCase() + review.status.slice(1)}
+            </Badge>
+
+            {review.status === "pending" && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReject}
+                  className="border-red-200 hover:bg-red-50 text-red-600"
+                >
+                  <X className="mr-1 h-3 w-3" /> Reject
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleApprove}
+                  className="border-green-200 hover:bg-green-50 text-green-600"
+                >
+                  <Check className="mr-1 h-3 w-3" /> Approve
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </CardFooter>
     </Card>
   )
 }

@@ -66,11 +66,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (search) {
-      query.$or = [
-        { text: { $regex: search, $options: "i" } },
-        { "userId.name": { $regex: search, $options: "i" } },
-        { "event.name": { $regex: search, $options: "i" } },
-      ]
+      query.$or = [{ title: { $regex: search, $options: "i" } }, { comment: { $regex: search, $options: "i" } }]
     }
 
     // Get total count for pagination
@@ -106,22 +102,23 @@ export async function GET(req: NextRequest) {
         {
           $project: {
             _id: 1,
-            text: 1,
+            title: 1,
+            comment: 1,
             rating: 1,
             status: 1,
             reply: 1,
-            replyDate: 1,
             createdAt: 1,
             updatedAt: 1,
             "userId._id": 1,
-            "userId.name": 1,
+            "userId.firstName": 1,
+            "userId.lastName": 1,
             "userId.email": 1,
-            "userId.image": 1,
+            "userId.profileImage": 1,
             "event._id": 1,
-            "event.name": 1,
+            "event.title": 1,
             "event.date": 1,
             "event.location": 1,
-            "event.imageUrl": 1,
+            "event.image": 1,
           },
         },
         { $sort: { createdAt: -1 } },
@@ -137,6 +134,13 @@ export async function GET(req: NextRequest) {
       pending: 0,
       approved: 0,
       rejected: 0,
+      ratings: {
+        1: 0,
+        2: 0,
+        3: 0,
+        4: 0,
+        5: 0,
+      },
     }
 
     // Get counts by status
@@ -157,6 +161,26 @@ export async function GET(req: NextRequest) {
       if (item._id === "pending") stats.pending = item.count
       if (item._id === "approved") stats.approved = item.count
       if (item._id === "rejected") stats.rejected = item.count
+    })
+
+    // Get counts by rating
+    const ratingCounts = await db
+      .collection("reviews")
+      .aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: "$rating",
+            count: { $sum: 1 },
+          },
+        },
+      ])
+      .toArray()
+
+    ratingCounts.forEach((item) => {
+      if (item._id >= 1 && item._id <= 5) {
+        stats.ratings[item._id] = item.count
+      }
     })
 
     // Calculate average rating
