@@ -105,7 +105,6 @@ export async function GET(request: Request, { params }: { params: { id: string; 
         {
           error: "Failed to fetch event. Please try again later.",
           details: eventError instanceof Error ? eventError.message : "Unknown error fetching event",
-          stack: process.env.NODE_ENV === "development" ? eventError.stack : undefined,
         },
         {
           status: 500,
@@ -164,10 +163,16 @@ export async function GET(request: Request, { params }: { params: { id: string; 
 
       console.log(`Form status: ${formStatus}`)
       console.log(`Found ${questions.length} questions`)
+
+      // Add default questions if none exist
+      if (!questions || questions.length === 0) {
+        console.log("No custom questions found, adding default questions")
+        questions = getDefaultQuestions(normalizedFormType)
+      }
     } catch (formError) {
       console.error(`Error extracting form data:`, formError)
-      // Don't fail the request, just use empty questions
-      questions = []
+      // Don't fail the request, just use default questions
+      questions = getDefaultQuestions(normalizedFormType)
     }
 
     // Check if event has already started or passed
@@ -224,6 +229,9 @@ export async function GET(request: Request, { params }: { params: { id: string; 
       eventSlug: event.slug || eventId,
       eventDate: event.date || null,
       startTime: event.startTime || null,
+      endTime: event.endTime || null,
+      location: event.location || null,
+      capacity: event.capacity || null,
       isEventPassed: isEventPassed,
     }
 
@@ -242,7 +250,6 @@ export async function GET(request: Request, { params }: { params: { id: string; 
       JSON.stringify({
         error: "An unexpected error occurred. Please try again later.",
         details: error instanceof Error ? error.message : "Unknown error",
-        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
       }),
       {
         status: 500,
@@ -250,4 +257,111 @@ export async function GET(request: Request, { params }: { params: { id: string; 
       },
     )
   }
+}
+
+// Helper function to get default questions based on form type
+function getDefaultQuestions(formType: string) {
+  const commonQuestions = [
+    {
+      id: "name",
+      type: "text",
+      label: "Full Name",
+      placeholder: "Enter your full name",
+      required: true,
+    },
+    {
+      id: "email",
+      type: "email",
+      label: "Email Address",
+      placeholder: "Enter your email address",
+      required: true,
+    },
+    {
+      id: "phone",
+      type: "text",
+      label: "Phone Number",
+      placeholder: "Enter your phone number",
+      required: true,
+    },
+  ]
+
+  if (formType === "attendee") {
+    return [
+      ...commonQuestions,
+      {
+        id: "organization",
+        type: "text",
+        label: "Organization/Company",
+        placeholder: "Enter your organization or company name",
+        required: false,
+      },
+      {
+        id: "dietaryRestrictions",
+        type: "text",
+        label: "Dietary Restrictions",
+        placeholder: "Enter any dietary restrictions or preferences",
+        required: false,
+      },
+    ]
+  } else if (formType === "volunteer") {
+    return [
+      ...commonQuestions,
+      {
+        id: "availability",
+        type: "textarea",
+        label: "Availability",
+        placeholder: "Please describe your availability for this event",
+        required: true,
+      },
+      {
+        id: "experience",
+        type: "textarea",
+        label: "Previous Volunteer Experience",
+        placeholder: "Describe any previous volunteer experience you have",
+        required: false,
+      },
+      {
+        id: "interests",
+        type: "textarea",
+        label: "Areas of Interest",
+        placeholder: "What areas are you interested in volunteering for?",
+        required: true,
+      },
+    ]
+  } else if (formType === "speaker") {
+    return [
+      ...commonQuestions,
+      {
+        id: "title",
+        type: "text",
+        label: "Talk Title",
+        placeholder: "Enter the title of your proposed talk",
+        required: true,
+      },
+      {
+        id: "abstract",
+        type: "textarea",
+        label: "Talk Abstract",
+        placeholder: "Provide a brief abstract of your talk (250 words max)",
+        required: true,
+      },
+      {
+        id: "bio",
+        type: "textarea",
+        label: "Speaker Bio",
+        placeholder: "Provide a short bio about yourself (150 words max)",
+        required: true,
+      },
+      {
+        id: "previousExperience",
+        type: "textarea",
+        label: "Previous Speaking Experience",
+        placeholder: "Describe your previous speaking experience",
+        required: false,
+      },
+    ]
+  }
+
+  // Default to attendee questions if form type is not recognized
+  return commonQuestions
 }
