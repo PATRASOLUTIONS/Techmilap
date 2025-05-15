@@ -33,12 +33,10 @@ const eventPlannerPaths = [
   "/dashboard/events/create",
   "/create-event",
   "/event-dashboard",
-  "/my-events",
-  "/past-events",
+  "/settings/email-templates",
+  "/settings/email-designs",
+  "/settings/email-history",
   "/event-reviews",
-  "/settings",
-  "/profile",
-  "/explore",
 ]
 
 // Define paths for regular users
@@ -49,10 +47,12 @@ const userPaths = [
   "/profile",
   "/settings",
   "/explore",
-  "/my-events", // Add this
-  "/past-events", // Add this
-  "/explore", // Already included
+  "/my-events",
+  "/past-events",
 ]
+
+// Define shared paths that both event planners and regular users can access
+const sharedPaths = ["/my-events", "/past-events", "/explore", "/profile", "/settings", "/my-tickets", "/my-reviews"]
 
 // Function to check if a path starts with any of the given prefixes
 function pathStartsWith(path: string, prefixes: string[]): boolean {
@@ -138,9 +138,23 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Check for shared paths that both event planners and regular users can access
+  if (pathStartsWith(pathname, sharedPaths)) {
+    return response
+  }
+
   // Check for event-planner routes
   if (pathStartsWith(pathname, eventPlannerPaths) && token.role !== "event-planner" && token.role !== "super-admin") {
     return NextResponse.redirect(new URL("/user-dashboard", request.url))
+  }
+
+  // Check for user routes
+  if (pathStartsWith(pathname, userPaths) && token.role !== "user" && !pathStartsWith(pathname, sharedPaths)) {
+    if (token.role === "event-planner" || token.role === "super-admin") {
+      // Allow event planners and super admins to access user routes
+      return response
+    }
+    return NextResponse.redirect(new URL("/login", request.url))
   }
 
   // For any other authenticated routes, allow access
