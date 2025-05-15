@@ -3,23 +3,16 @@ import mongoose, { Schema, type Document } from "mongoose"
 export interface IFormSubmission extends Document {
   eventId: mongoose.Types.ObjectId
   userId?: mongoose.Types.ObjectId
-  userName?: string
   userEmail?: string
-  formType: "attendee" | "volunteer" | "speaker"
-  formData: Record<string, any>
-  status: "pending" | "approved" | "rejected"
-  createdAt: Date
-  updatedAt: Date
-  notes?: string
+  userName?: string
+  formType: string
+  data: Record<string, any>
+  status: string
   reviewedBy?: mongoose.Types.ObjectId
   reviewedAt?: Date
-  isCheckedIn: boolean
-  checkedInAt?: Date
-  lastCheckedInAt?: Date
-  checkedInBy?: mongoose.Types.ObjectId
-  checkInCount: number
-  isWebCheckIn?: boolean
-  webCheckInDate?: Date
+  reviewNotes?: string
+  createdAt: Date
+  updatedAt: Date
 }
 
 const FormSubmissionSchema = new Schema<IFormSubmission>(
@@ -32,21 +25,21 @@ const FormSubmissionSchema = new Schema<IFormSubmission>(
     userId: {
       type: Schema.Types.ObjectId,
       ref: "User",
-    },
-    userName: {
-      type: String,
-      trim: true,
+      // Not required to allow submissions from non-registered users
     },
     userEmail: {
       type: String,
-      trim: true,
+      index: true, // Add index for faster email-based lookups
+    },
+    userName: {
+      type: String,
     },
     formType: {
       type: String,
-      enum: ["attendee", "volunteer", "speaker"],
       required: [true, "Form type is required"],
+      enum: ["attendee", "volunteer", "speaker", "custom"],
     },
-    formData: {
+    data: {
       type: Schema.Types.Mixed,
       required: [true, "Form data is required"],
     },
@@ -55,10 +48,6 @@ const FormSubmissionSchema = new Schema<IFormSubmission>(
       enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
-    notes: {
-      type: String,
-      trim: true,
-    },
     reviewedBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -66,35 +55,16 @@ const FormSubmissionSchema = new Schema<IFormSubmission>(
     reviewedAt: {
       type: Date,
     },
-    isCheckedIn: {
-      type: Boolean,
-      default: false,
-    },
-    checkedInAt: {
-      type: Date,
-    },
-    lastCheckedInAt: {
-      type: Date,
-    },
-    checkedInBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-    },
-    checkInCount: {
-      type: Number,
-      default: 0,
-    },
-    isWebCheckIn: {
-      type: Boolean,
-      default: false,
-    },
-    webCheckInDate: {
-      type: Date,
+    reviewNotes: {
+      type: String,
     },
   },
   {
     timestamps: true,
   },
 )
+
+// Add compound index for userId, userEmail, and status for better query performance
+FormSubmissionSchema.index({ userId: 1, userEmail: 1, status: 1 })
 
 export default mongoose.models.FormSubmission || mongoose.model<IFormSubmission>("FormSubmission", FormSubmissionSchema)

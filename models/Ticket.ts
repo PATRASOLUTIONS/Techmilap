@@ -60,6 +60,7 @@ const TicketSchema = new Schema<ITicket>(
     },
     email: {
       type: String,
+      index: true, // Add index for faster email-based lookups
     },
     isCheckedIn: {
       type: Boolean,
@@ -91,5 +92,8 @@ const TicketSchema = new Schema<ITicket>(
     timestamps: true,
   },
 )
+
+// Add compound index for userId and email for better query performance
+TicketSchema.index({ userId: 1, email: 1 })
 
 export default mongoose.models.Ticket || mongoose.model<ITicket>("Ticket", TicketSchema)

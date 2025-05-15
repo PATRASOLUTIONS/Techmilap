@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge"
 import { jsPDF } from "jspdf"
 import "jspdf-autotable"
 import QRCode from "qrcode"
+import { useSession } from "next-auth/react"
 
 export default function MyTicketsPage() {
   const [tickets, setTickets] = useState<{
@@ -40,6 +41,7 @@ export default function MyTicketsPage() {
   const { toast } = useToast()
   const [sentEmailIds, setSentEmailIds] = useState<Set<string>>(new Set())
   const [retryCount, setRetryCount] = useState(0)
+  const { data: session } = useSession()
 
   const fetchTickets = async (forceRefresh = false) => {
     try {
@@ -47,6 +49,7 @@ export default function MyTicketsPage() {
       setError(null)
 
       console.log("Fetching tickets...", forceRefresh ? "(forced refresh)" : "")
+      console.log("Current user email:", session?.user?.email)
 
       // Add timestamp to prevent caching
       const timestamp = new Date().getTime()
@@ -87,6 +90,11 @@ export default function MyTicketsPage() {
           data.tickets.all.map((t) => t.ticketType || t.formType),
         )
         console.log("Form submission tickets:", data.tickets.all.filter((t) => t.isFormSubmission).length)
+        console.log(
+          "Email-based tickets:",
+          data.tickets.all.filter((t) => t.email === session?.user?.email || t.attendeeEmail === session?.user?.email)
+            .length,
+        )
       }
 
       setDebugInfo(data)
@@ -126,8 +134,10 @@ export default function MyTicketsPage() {
 
   // Fetch tickets when component mounts or retry count changes
   useEffect(() => {
-    fetchTickets(retryCount > 0)
-  }, [retryCount])
+    if (session?.user) {
+      fetchTickets(retryCount > 0)
+    }
+  }, [retryCount, session])
 
   // Function to retry fetching tickets
   const retryFetch = () => {
@@ -205,6 +215,11 @@ export default function MyTicketsPage() {
           <p className="text-muted-foreground">
             View tickets for events you're attending, volunteering at, or speaking at
           </p>
+          {session?.user?.email && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Showing tickets for: <span className="font-medium">{session.user.email}</span>
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <Button variant="outline" size="sm" onClick={() => retryFetch()} disabled={loading}>
@@ -372,12 +387,21 @@ export default function MyTicketsPage() {
                   <li>Volunteer: {volunteerTickets.length}</li>
                   <li>Speaker: {speakerTickets.length}</li>
                   <li>Form Submissions: {tickets.all?.filter((t) => t.isFormSubmission)?.length || 0}</li>
+                  <li>
+                    Email-based:{" "}
+                    {tickets.all?.filter(
+                      (t) => t.email === session?.user?.email || t.attendeeEmail === session?.user?.email,
+                    )?.length || 0}
+                  </li>
                   <li>Retry Count: {retryCount}</li>
                 </ul>
               </div>
               <div className="bg-white p-3 rounded border">
-                <h4 className="font-medium mb-2">API Response</h4>
+                <h4 className="font-medium mb-2">User Information</h4>
                 <div className="text-sm">
+                  <p>User ID: {session?.user?.id || "Not available"}</p>
+                  <p>Email: {session?.user?.email || "Not available"}</p>
+                  <p>Role: {session?.user?.role || "Not available"}</p>
                   <p>Status: {error ? "Error" : "Success"}</p>
                   <p>Loading: {loading ? "Yes" : "No"}</p>
                   <p>Error: {error || "None"}</p>
@@ -408,6 +432,7 @@ function TicketItem({ ticket, index }: { ticket: any; index: number }) {
     type: ticket.ticketType || ticket.formType,
     isFormSubmission: ticket.isFormSubmission,
     event: ticket.event?.title,
+    email: ticket.email || ticket.attendeeEmail,
   })
 
   // For form submissions, use the FormSubmissionTicket component
@@ -475,7 +500,7 @@ function TicketQRCode({ data, size = 120 }: { data: string; size?: number }) {
 // Component to display form submission as a ticket
 function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number }) {
   const [showAllDetails, setShowAllDetails] = useState(false)
-  const [isSendingEmail, setIsSendingEmail] = useState(isSendingEmail)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [isSharing, setIsSharing] = useState(false)
   const [isAddingToCalendar, setIsAddingToCalendar] = useState(false)
@@ -524,24 +549,23 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
 
   // Extract name and email from form data
   const getName = () => {
-    if (!ticket.formData) return ticket.attendeeName || ticket.userName || "N/A"
+    if (!ticket.formData) return ticket.attendeeName || "N/A"
 
     // Try different possible field names for name
     let nameField =
       ticket.attendeeName ||
-      ticket.userName ||
       ticket.formData.name ||
       ticket.formData.fullName ||
       ticket.formData.firstName ||
       ticket.formData["question_name"] ||
-      ticket.formData["question_name_1747035152969"] // Add specific field from the example
+      ticket.userName
 
     // If name is still not found, look for custom question fields containing "name"
     if (!nameField || nameField === "N/A") {
-      // Look for keys that match the pattern "question_name" followed by a timestamp
+      // Look for keys that match the pattern "Question name" followed by a timestamp
       const nameKeys = Object.keys(ticket.formData).filter(
         (key) =>
-          key.toLowerCase().includes("question_name") ||
+          key.toLowerCase().includes("question name") ||
           (key.toLowerCase().includes("question") && key.toLowerCase().includes("name")),
       )
 
@@ -562,22 +586,13 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
     if (!ticket.formData) return ticket.attendeeEmail || ticket.userEmail || "N/A"
 
     // Try different possible field names for email
-    const emailValue =
-      ticket.attendeeEmail ||
-      ticket.userEmail ||
-      ticket.formData.email ||
-      ticket.formData.emailAddress ||
-      ticket.formData["question_email_1747035152970"] // Add specific field from the example
+    // Also look for dynamic field names containing "email"
+    const emailValue = ticket.attendeeEmail || ticket.userEmail || ticket.formData.email || ticket.formData.emailAddress
 
     if (emailValue) return emailValue
 
     const emailKeys = Object.keys(ticket.formData).filter(
-      (key) =>
-        key === "email" ||
-        key === "emailAddress" ||
-        key.includes("email") ||
-        key.includes("Email") ||
-        key.includes("question_email"),
+      (key) => key === "email" || key === "emailAddress" || key.includes("email") || key.includes("Email"),
     )
 
     return emailKeys.length > 0 ? ticket.formData[emailKeys[0]] : "N/A"

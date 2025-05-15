@@ -35,11 +35,11 @@ export async function GET(req: NextRequest) {
       } else {
         // If not a valid ObjectId, try to find user by other means
         const user = await User.findOne({
-          $or: [{ _id: userId }, { email: session.user.email }],
+          $or: [{ _id: userId }, { email: userEmail }],
         })
 
         if (!user) {
-          console.error("User not found in database:", userId, session.user.email)
+          console.error("User not found in database:", userId, userEmail)
           return NextResponse.json({ error: "User not found" }, { status: 404 })
         }
 
@@ -57,11 +57,15 @@ export async function GET(req: NextRequest) {
 
     console.log("Fetching tickets for user ObjectId:", userObjectId, "and email:", userEmail)
 
-    // 1. Get tickets directly
+    // 1. Get tickets directly - now including email-based lookup
     let tickets = []
     try {
       // Try different query approaches to ensure we find all tickets
-      const ticketQueries = [{ userId: userObjectId }, { userId: userId.toString() }, { email: userEmail }]
+      const ticketQueries = [
+        { userId: userObjectId, status: "confirmed" },
+        { userId: userId.toString(), status: "confirmed" },
+        { email: userEmail, status: "confirmed" },
+      ]
 
       // Log the queries we're about to run
       console.log("Running ticket queries:", JSON.stringify(ticketQueries))
@@ -106,6 +110,7 @@ export async function GET(req: NextRequest) {
             userId: t.userId,
             status: t.status,
             ticketType: t.ticketType,
+            email: t.email,
           })),
         )
       }
@@ -114,16 +119,14 @@ export async function GET(req: NextRequest) {
       tickets = []
     }
 
-    // 2. Get approved form submissions - now also checking for userEmail
+    // 2. Get approved form submissions - now including email-based lookup
     let approvedSubmissions = []
     try {
-      // Try different query approaches for form submissions including email-based queries
+      // Try different query approaches for form submissions too
       const submissionQueries = [
         { userId: userObjectId, status: "approved" },
         { userId: userId.toString(), status: "approved" },
-        { userEmail: userEmail, status: "approved" }, // Add query for userEmail
-        { "data.email": userEmail, status: "approved" }, // Check email in data field
-        { "data.question_email_1747035152970": userEmail, status: "approved" }, // Check specific email field
+        { userEmail: userEmail, status: "approved" },
       ]
 
       // Log the queries we're about to run
@@ -164,22 +167,16 @@ export async function GET(req: NextRequest) {
           JSON.stringify(approvedSubmissions[0], null, 2).substring(0, 500) + "...",
         )
       } else {
-        // If no submissions found, try a direct query with the email to debug
-        const emailSubmissions = await FormSubmission.find({
-          $or: [{ userEmail: userEmail }, { "data.email": userEmail }],
-          status: "approved",
-        })
-          .limit(5)
-          .lean()
-
+        // If no submissions found, log the raw database query to help debug
+        const rawSubmissions = await FormSubmission.find({}).limit(5).lean()
         console.log(
-          `Direct email query found ${emailSubmissions.length} submissions:`,
-          emailSubmissions.map((s) => ({
+          `No submissions found for user. Sample of ${rawSubmissions.length} submissions in database:`,
+          rawSubmissions.map((s) => ({
             _id: s._id,
             userId: s.userId,
-            userEmail: s.userEmail,
             status: s.status,
             formType: s.formType,
+            userEmail: s.userEmail,
           })),
         )
       }
@@ -187,6 +184,35 @@ export async function GET(req: NextRequest) {
       console.error("Error fetching form submissions:", error)
       approvedSubmissions = []
     }
+
+    // 3. Additional check for email-based submissions that might not have userId
+    let emailOnlySubmissions = []
+    if (userEmail) {
+      try {
+        // Find submissions that only have email but no userId
+        const emailSubmissions = await FormSubmission.find({
+          userEmail: userEmail,
+          status: "approved",
+          $or: [{ userId: { $exists: false } }, { userId: null }, { userId: "" }],
+        })
+          .populate({
+            path: "eventId",
+            model: Event,
+            select: "title date location status image capacity attendees _id slug organizer startTime endTime",
+          })
+          .lean()
+
+        console.log(`Found ${emailSubmissions.length} email-only submissions`)
+
+        // Add these to our approved submissions
+        emailOnlySubmissions = emailSubmissions
+      } catch (error) {
+        console.error("Error fetching email-only submissions:", error)
+      }
+    }
+
+    // Combine all approved submissions
+    approvedSubmissions = [...approvedSubmissions, ...emailOnlySubmissions]
 
     // Convert form submissions to ticket format
     const submissionTickets = approvedSubmissions
