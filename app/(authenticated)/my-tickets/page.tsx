@@ -475,7 +475,7 @@ function TicketQRCode({ data, size = 120 }: { data: string; size?: number }) {
 // Component to display form submission as a ticket
 function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number }) {
   const [showAllDetails, setShowAllDetails] = useState(false)
-  const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(isSendingEmail)
   const [isDownloading, setIsDownloading] = useState(false)
   const [isSharing, setIsSharing] = useState(false)
   const [isAddingToCalendar, setIsAddingToCalendar] = useState(false)
@@ -524,23 +524,24 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
 
   // Extract name and email from form data
   const getName = () => {
-    if (!ticket.formData) return ticket.attendeeName || "N/A"
+    if (!ticket.formData) return ticket.attendeeName || ticket.userName || "N/A"
 
     // Try different possible field names for name
     let nameField =
       ticket.attendeeName ||
+      ticket.userName ||
       ticket.formData.name ||
       ticket.formData.fullName ||
       ticket.formData.firstName ||
       ticket.formData["question_name"] ||
-      ticket.userName
+      ticket.formData["question_name_1747035152969"] // Add specific field from the example
 
     // If name is still not found, look for custom question fields containing "name"
     if (!nameField || nameField === "N/A") {
-      // Look for keys that match the pattern "Question name" followed by a timestamp
+      // Look for keys that match the pattern "question_name" followed by a timestamp
       const nameKeys = Object.keys(ticket.formData).filter(
         (key) =>
-          key.toLowerCase().includes("question name") ||
+          key.toLowerCase().includes("question_name") ||
           (key.toLowerCase().includes("question") && key.toLowerCase().includes("name")),
       )
 
@@ -561,13 +562,22 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
     if (!ticket.formData) return ticket.attendeeEmail || ticket.userEmail || "N/A"
 
     // Try different possible field names for email
-    // Also look for dynamic field names containing "email"
-    const emailValue = ticket.attendeeEmail || ticket.userEmail || ticket.formData.email || ticket.formData.emailAddress
+    const emailValue =
+      ticket.attendeeEmail ||
+      ticket.userEmail ||
+      ticket.formData.email ||
+      ticket.formData.emailAddress ||
+      ticket.formData["question_email_1747035152970"] // Add specific field from the example
 
     if (emailValue) return emailValue
 
     const emailKeys = Object.keys(ticket.formData).filter(
-      (key) => key === "email" || key === "emailAddress" || key.includes("email") || key.includes("Email"),
+      (key) =>
+        key === "email" ||
+        key === "emailAddress" ||
+        key.includes("email") ||
+        key.includes("Email") ||
+        key.includes("question_email"),
     )
 
     return emailKeys.length > 0 ? ticket.formData[emailKeys[0]] : "N/A"

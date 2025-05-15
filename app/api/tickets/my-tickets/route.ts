@@ -13,7 +13,8 @@ export async function GET(req: NextRequest) {
     }
 
     const userId = session.user.id
-    console.log("My Tickets API - User:", userId, "Role:", session.user.role)
+    const userEmail = session.user.email
+    console.log("My Tickets API - User:", userId, "Email:", userEmail, "Role:", session.user.role)
 
     // Connect to database first
     await connectToDatabase()
@@ -54,18 +55,13 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url)
     const exclude = url.searchParams.get("exclude") || undefined
 
-    console.log("Fetching tickets for user ObjectId:", userObjectId)
+    console.log("Fetching tickets for user ObjectId:", userObjectId, "and email:", userEmail)
 
     // 1. Get tickets directly
     let tickets = []
     try {
       // Try different query approaches to ensure we find all tickets
-      const ticketQueries = [
-        { userId: userObjectId },
-        { userId: userId.toString() },
-        { userId: userObjectId },
-        { userId: userId.toString() },
-      ]
+      const ticketQueries = [{ userId: userObjectId }, { userId: userId.toString() }, { email: userEmail }]
 
       // Log the queries we're about to run
       console.log("Running ticket queries:", JSON.stringify(ticketQueries))
@@ -118,15 +114,16 @@ export async function GET(req: NextRequest) {
       tickets = []
     }
 
-    // 2. Get approved form submissions
+    // 2. Get approved form submissions - now also checking for userEmail
     let approvedSubmissions = []
     try {
-      // Try different query approaches for form submissions too
+      // Try different query approaches for form submissions including email-based queries
       const submissionQueries = [
         { userId: userObjectId, status: "approved" },
         { userId: userId.toString(), status: "approved" },
-        { userId: userObjectId, status: "approved" },
-        { userId: userId.toString(), status: "approved" },
+        { userEmail: userEmail, status: "approved" }, // Add query for userEmail
+        { "data.email": userEmail, status: "approved" }, // Check email in data field
+        { "data.question_email_1747035152970": userEmail, status: "approved" }, // Check specific email field
       ]
 
       // Log the queries we're about to run
@@ -167,13 +164,20 @@ export async function GET(req: NextRequest) {
           JSON.stringify(approvedSubmissions[0], null, 2).substring(0, 500) + "...",
         )
       } else {
-        // If no submissions found, log the raw database query to help debug
-        const rawSubmissions = await FormSubmission.find({}).limit(5).lean()
+        // If no submissions found, try a direct query with the email to debug
+        const emailSubmissions = await FormSubmission.find({
+          $or: [{ userEmail: userEmail }, { "data.email": userEmail }],
+          status: "approved",
+        })
+          .limit(5)
+          .lean()
+
         console.log(
-          `No submissions found for user. Sample of ${rawSubmissions.length} submissions in database:`,
-          rawSubmissions.map((s) => ({
+          `Direct email query found ${emailSubmissions.length} submissions:`,
+          emailSubmissions.map((s) => ({
             _id: s._id,
             userId: s.userId,
+            userEmail: s.userEmail,
             status: s.status,
             formType: s.formType,
           })),
