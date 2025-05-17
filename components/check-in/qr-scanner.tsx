@@ -224,7 +224,6 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
             // Add additional configuration to help with stability
             aspectRatio: 1.0,
             disableFlip: false,
-            formatsToSupport: [Html5Qrcode.FORMATS.QR_CODE],
           },
           (data) => {
             // Clean the ticket ID by removing any "#" prefix
@@ -509,11 +508,11 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
         )}
 
         <div className="flex flex-col items-center">
-          <div id={scannerContainerId} className="w-full max-w-sm h-64 bg-gray-100 rounded-lg overflow-hidden relative">
+          <div id={scannerContainerId} className="w-full max-w-sm h-64 bg-gray-100 rounded-lg overflow-hidden relative"></div>
             {!isScanning && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/5">
+              <div className="absolute inset-0 flex items-center justify-center bg-black/5 pointer-events-none">
                 {permissionState === "denied" ? (
-                  <div className="text-center p-4">
+                  <div className="text-center p-4 pointer-events-auto">
                     <Camera className="h-12 w-12 text-gray-400 mx-auto mb-2" />
                     <h3 className="font-medium text-gray-900">Camera Access Required</h3>
                     <p className="text-sm text-gray-500 mt-1 mb-3">
@@ -541,12 +540,11 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
                 )}
               </div>
             )}
-          </div>
 
           <div className="flex gap-2 mt-4">
             {!isScanning ? (
               <Button
-                onClick={startScanner}
+                onClick={() => startScanner()}
                 disabled={isLoading || permissionState === "denied"}
                 className="bg-green-600 hover:bg-green-700"
               >
