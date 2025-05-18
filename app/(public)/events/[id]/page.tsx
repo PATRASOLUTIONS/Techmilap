@@ -9,7 +9,8 @@ import Event from "@/models/Event"
 import User from "@/models/User"
 import Link from "next/link"
 import mongoose from "mongoose"
-import { getImageUrl, handleImageError } from "@/lib/image-utils"
+import { getImageUrl } from "@/lib/image-utils"
+import EventImage from "@/components/EventImage"
 
 // Helper function to safely format dates
 function formatEventDate(dateString) {
@@ -164,7 +165,6 @@ export default async function EventPage({ params }: { params: { id: string } }) 
 
     // Default image if none is provided
     const imageUrl = event.image || "/vibrant-tech-event.png"
-    const fallbackImageUrl = "/vibrant-tech-event.png"
 
     return (
       <div className="container mx-auto py-12 px-4 md:px-6">
@@ -180,14 +180,14 @@ export default async function EventPage({ params }: { params: { id: string } }) 
           <div className="lg:col-span-2 space-y-8">
             {/* Event Image */}
             <div className="relative aspect-video overflow-hidden rounded-lg shadow-md">
-              <Image
+              {/* Event handlers should not be passed from Server Components to Client Components. */}
+              <EventImage
                 src={imageUrl || "/placeholder.svg"}
                 alt={event.title || "Event"}
                 fill
                 className="object-cover"
                 priority
                 unoptimized={imageUrl.startsWith("http")}
-                onError={(e) => handleImageError(e, fallbackImageUrl)}
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 50vw"
               />
             </div>
