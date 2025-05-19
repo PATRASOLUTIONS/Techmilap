@@ -21,7 +21,6 @@ if (!cached) {
 const options = {
   serverSelectionTimeoutMS: 5000, // Timeout after 5 seconds
   socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-  bufferCommands: false,
 }
 
 let client: MongoClient
@@ -53,8 +52,6 @@ export async function connectToDatabase() {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
     }
 
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
@@ -73,16 +70,44 @@ export async function connectToDatabase() {
   return cached.conn
 }
 
-// Define models to ensure they exist
+// Add schema definitions for Event and User models
 export function defineModels() {
   // Only define models if they don't already exist
   if (!mongoose.models.Event) {
-    const eventSchema = new mongoose.Schema({}, { strict: false })
+    const eventSchema = new mongoose.Schema(
+      {
+        title: String,
+        description: String,
+        date: Date,
+        endDate: Date,
+        startTime: String,
+        endTime: String,
+        location: String,
+        image: String,
+        coverImageUrl: String,
+        category: String,
+        price: Number,
+        tags: [String],
+        slug: String,
+        organizer: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      },
+      { strict: false },
+    )
+
     mongoose.model("Event", eventSchema)
   }
 
   if (!mongoose.models.User) {
-    const userSchema = new mongoose.Schema({}, { strict: false })
+    const userSchema = new mongoose.Schema(
+      {
+        firstName: String,
+        lastName: String,
+        email: String,
+        name: String,
+      },
+      { strict: false },
+    )
+
     mongoose.model("User", userSchema)
   }
 }
