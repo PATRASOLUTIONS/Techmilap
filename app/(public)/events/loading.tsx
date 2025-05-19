@@ -1,53 +1,29 @@
-import { EventListSkeleton } from "@/components/events/event-list-skeleton"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Search } from "lucide-react"
-import { Input } from "@/components/ui/input"
-
-export default function Loading() {
+export default function EventsLoading() {
   return (
-    <div className="pt-16">
-      <div className="container mx-auto py-8 px-4 md:px-6">
-        {/* Header section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+    <div className="container mx-auto py-12 px-4 md:px-6">
+      <div className="mb-6">
+        <div className="w-32 h-6 bg-gray-200 rounded animate-pulse"></div>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
+          <div className="relative aspect-video bg-gray-200 rounded-lg animate-pulse"></div>
           <div>
-            <Skeleton className="h-10 w-48 mb-2" />
-            <Skeleton className="h-5 w-64" />
-          </div>
-
-          <div className="w-full md:w-auto flex flex-col sm:flex-row gap-3">
-            {/* Search input */}
-            <div className="flex-1 min-w-[200px] relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground z-10" />
-              <Skeleton className="h-10 w-full absolute" />
-              <Input disabled type="search" placeholder="Search events..." className="pl-8 opacity-0" />
-            </div>
-
-            {/* Category filter */}
-            <div className="flex-1 min-w-[150px]">
-              <Skeleton className="h-10 w-full" />
-              <div className="mt-2">
-                <Skeleton className="h-8 w-full" />
-              </div>
+            <div className="h-10 bg-gray-200 rounded w-3/4 mb-4 animate-pulse"></div>
+            <div className="w-20 h-6 bg-gray-200 rounded mb-4 animate-pulse"></div>
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
+              <div className="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
+              <div className="h-4 bg-gray-200 rounded w-5/6 animate-pulse"></div>
             </div>
           </div>
         </div>
-
-        {/* Upcoming Events Section */}
-        <div className="mb-12">
-          <Skeleton className="h-8 w-48 mt-8 mb-4" />
-          <EventListSkeleton count={3} />
-        </div>
-
-        {/* Running Events Section */}
-        <div className="mb-12">
-          <Skeleton className="h-8 w-48 mt-8 mb-4" />
-          <EventListSkeleton count={3} />
-        </div>
-
-        {/* Past Events Section */}
-        <div>
-          <Skeleton className="h-8 w-48 mt-8 mb-4" />
-          <EventListSkeleton count={3} />
+        <div className="space-y-6">
+          <div className="bg-gray-200 rounded-lg h-64 animate-pulse"></div>
+          <div className="space-y-3">
+            <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
+          </div>
         </div>
       </div>
     </div>
