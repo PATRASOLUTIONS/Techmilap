@@ -180,12 +180,13 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
   }
 
   const handleVisibilityChange = (value) => {
+    // Always set to Public regardless of selection
     updateData({
       ...data,
-      visibility: value,
+      visibility: "Public",
     })
 
-    // Show toast notification when switching to Private
+    // Show toast notification when trying to switch to Private
     if (value === "Private") {
       toast({
         title: "Premium Feature",
@@ -387,7 +388,8 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
               <h3 className="font-medium">Event Visibility</h3>
             </div>
             <RadioGroup
-              defaultValue={data.visibility || "Public"}
+              defaultValue="Public"
+              value="Public"
               onValueChange={handleVisibilityChange}
               className="flex flex-col space-y-2"
             >
@@ -397,10 +399,10 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                   Public
                 </Label>
               </div>
-              <div className="flex items-center space-x-2 rounded-md border p-3 transition-colors hover:bg-muted/50">
-                <RadioGroupItem value="Private" id="private" />
+              <div className="flex items-center space-x-2 rounded-md border p-3 transition-colors hover:bg-muted/50 opacity-50">
+                <RadioGroupItem value="Private" id="private" disabled />
                 <Label htmlFor="private" className="flex-1 cursor-pointer">
-                  Private
+                  Private <span className="text-xs text-muted-foreground ml-1">(Premium feature)</span>
                 </Label>
               </div>
             </RadioGroup>

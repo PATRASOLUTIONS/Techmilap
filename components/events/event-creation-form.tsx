@@ -247,6 +247,9 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
             // Ensure numeric values are properly formatted
             price: ticket.price ? Number(ticket.price) : 0,
             quantity: ticket.quantity ? Number(ticket.quantity) : 0,
+            // Add default values for required fields that shouldn't be mandatory
+            ticketNumber: ticket.ticketNumber || `TICKET-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            userId: ticket.userId || "system-generated",
           })) || [],
         customQuestions: {
           attendee: Array.isArray(formData.customQuestions.attendee) ? formData.customQuestions.attendee : [],
@@ -276,6 +279,13 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: "Failed to parse error response" }))
+        console.error("API Error Response:", errorData)
+
+        // Handle validation errors specifically
+        if (errorData.details && Array.isArray(errorData.details)) {
+          throw new Error(`Validation errors: ${errorData.details.join(", ")}`)
+        }
+
         throw new Error(
           errorData.error || `Failed to ${isEditing ? "update" : "create"} event (Status: ${response.status})`,
         )
