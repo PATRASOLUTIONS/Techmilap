@@ -1,11 +1,23 @@
 import { MongoClient } from "mongodb"
 import mongoose from "mongoose"
 
-if (!process.env.MONGODB_URI) {
-  throw new Error("Please add your Mongo URI to .env.local")
+const MONGODB_URI = process.env.MONGODB_URI
+
+if (!MONGODB_URI) {
+  throw new Error("Please define the MONGODB_URI environment variable inside .env.local")
 }
 
-const uri = process.env.MONGODB_URI
+/**
+ * Global is used here to maintain a cached connection across hot reloads
+ * in development. This prevents connections growing exponentially
+ * during API Route usage.
+ */
+let cached = global.mongoose
+
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null }
+}
+
 const options = {
   serverSelectionTimeoutMS: 5000, // Timeout after 5 seconds
   socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
@@ -22,34 +34,81 @@ if (process.env.NODE_ENV === "development") {
   }
 
   if (!globalWithMongo._mongoClientPromise) {
-    client = new MongoClient(uri, options)
+    client = new MongoClient(MONGODB_URI, options)
     globalWithMongo._mongoClientPromise = client.connect()
   }
   clientPromise = globalWithMongo._mongoClientPromise
 } else {
   // In production mode, it's best to not use a global variable.
-  client = new MongoClient(uri, options)
+  client = new MongoClient(MONGODB_URI, options)
   clientPromise = client.connect()
 }
 
-// Set up mongoose connection as well
-const connectToDatabase = async () => {
-  try {
-    // If already connected, return
-    if (mongoose.connection.readyState >= 1) {
-      return { db: mongoose.connection.db }
+export async function connectToDatabase() {
+  if (cached.conn) {
+    return cached.conn
+  }
+
+  if (!cached.promise) {
+    const opts = {
+      bufferCommands: false,
     }
 
-    console.log("Connecting to MongoDB...")
-    await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-    } as mongoose.ConnectOptions)
-    console.log("Connected to MongoDB")
-    return { db: mongoose.connection.db }
-  } catch (error) {
-    console.error("Failed to connect to MongoDB:", error)
-    throw new Error("Unable to connect to database")
+    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
+      return mongoose
+    })
+  }
+
+  try {
+    cached.conn = await cached.promise
+  } catch (e) {
+    cached.promise = null
+    console.error("MongoDB connection error:", e)
+    throw e
+  }
+
+  return cached.conn
+}
+
+// Add schema definitions for Event and User models
+export function defineModels() {
+  // Only define models if they don't already exist
+  if (!mongoose.models.Event) {
+    const eventSchema = new mongoose.Schema(
+      {
+        title: String,
+        description: String,
+        date: Date,
+        endDate: Date,
+        startTime: String,
+        endTime: String,
+        location: String,
+        image: String,
+        coverImageUrl: String,
+        category: String,
+        price: Number,
+        tags: [String],
+        slug: String,
+        organizer: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      },
+      { strict: false },
+    )
+
+    mongoose.model("Event", eventSchema)
+  }
+
+  if (!mongoose.models.User) {
+    const userSchema = new mongoose.Schema(
+      {
+        firstName: String,
+        lastName: String,
+        email: String,
+        name: String,
+      },
+      { strict: false },
+    )
+
+    mongoose.model("User", userSchema)
   }
 }
 
@@ -62,5 +121,5 @@ const isConnected = () => {
   return mongoose.connection.readyState === 1
 }
 
-export { connectToDatabase, getDatabase, isConnected }
+export { getDatabase, isConnected }
 export default clientPromise

@@ -1,7 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
-import Event from "@/models/Event"
-import Ticket from "@/models/Ticket" // Import the Ticket model
+import { connectToDatabase, defineModels } from "@/lib/mongodb"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import mongoose from "mongoose"
@@ -9,119 +7,73 @@ import mongoose from "mongoose"
 // Update the GET function to properly handle speaker form data
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    console.log(`GET request for event ID/slug: ${params.id}`)
-    try {
-      await connectToDatabase()
-    } catch (dbError) {
-      console.error("Database connection error:", dbError)
-      return NextResponse.json({ error: "Failed to connect to database. Please try again later." }, { status: 500 })
-    }
+    // Connect to database
+    await connectToDatabase()
 
-    // Check if we're requesting public access
-    const isPublicRequest = req.headers.get("x-public-request") === "true"
+    // Define models
+    defineModels()
 
-    // Also check for form-related requests which should be public
-    const isFormRequest =
-      req.headers.get("x-form-request") === "true" ||
-      req.url.includes("/forms/") ||
-      req.url.includes("/register") ||
-      req.url.includes("/volunteer") ||
-      req.url.includes("/speaker")
+    // Get models
+    const Event = mongoose.models.Event
+    const User = mongoose.models.User
 
-    // If it's a form request, treat it as public
-    const session = isPublicRequest || isFormRequest ? null : await getServerSession(authOptions)
-
+    // Try to find event by ID or slug
     let event = null
-    const idOrSlug = params.id
 
-    // Check if the ID is a valid MongoDB ObjectId
-    const isValidObjectId = mongoose.isValidObjectId(idOrSlug)
-
-    try {
-      if (isValidObjectId) {
-        // If it's a valid ObjectId, try to find by ID first
-        console.log(`Looking up event by ID: ${idOrSlug}`)
-        event = await Event.findById(idOrSlug).lean()
-      }
-
-      // If not found by ID or not a valid ObjectId, try to find by slug
-      if (!event) {
-        console.log(`Event not found by ID or not a valid ObjectId, trying slug: ${idOrSlug}`)
-        event = await Event.findOne({ slug: idOrSlug }).lean()
-      }
-
-      if (!event) {
-        console.log(`Event not found for ID/slug: ${idOrSlug}`)
-        return NextResponse.json({ error: "Event not found" }, { status: 404 })
-      }
-    } catch (findError) {
-      console.error("Error finding event:", findError)
-      return NextResponse.json({ error: "An error occurred while finding the event" }, { status: 500 })
+    if (mongoose.isValidObjectId(params.id)) {
+      event = await Event.findById(params.id).lean()
     }
 
-    console.log(`Found event: ${event.title} (${event._id})`)
+    if (!event) {
+      event = await Event.findOne({ slug: params.id }).lean()
+    }
 
-    // For public requests, only return published events
-    if ((isPublicRequest || isFormRequest) && event.status !== "published" && event.status !== "active") {
-      console.log(`Public request for non-published event: ${event._id}`)
+    if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
-    // For authenticated requests, check permissions
-    if (!isPublicRequest && !isFormRequest && session) {
-      // Check if the user is the organizer or a super-admin
-      if (event.organizer.toString() !== session.user.id && session.user.role !== "super-admin") {
-        console.log(`Permission denied for user ${session.user.id} on event ${event._id}`)
-        return NextResponse.json(
-          { error: "Forbidden: You don't have permission to access this event" },
-          { status: 403 },
-        )
+    // Get organizer info
+    const organizerInfo = { name: "Event Organizer" }
+
+    if (event.organizer && mongoose.isValidObjectId(event.organizer)) {
+      try {
+        const organizer = await User.findById(event.organizer).lean()
+        if (organizer) {
+          if (organizer.firstName || organizer.lastName) {
+            organizerInfo.name = `${organizer.firstName || ""} ${organizer.lastName || ""}`.trim()
+          } else if (organizer.name) {
+            organizerInfo.name = organizer.name
+          } else if (organizer.email) {
+            organizerInfo.name = organizer.email.split("@")[0]
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching organizer:", error)
       }
     }
 
-    // Ensure form status fields exist
-    event.attendeeForm = event.attendeeForm || { status: "draft" }
-    event.volunteerForm = event.volunteerForm || { status: "draft" }
-    event.speakerForm = event.speakerForm || { status: "draft" }
-
-    // Fetch tickets for the event
-    let tickets = []
-    try {
-      tickets = await Ticket.find({ event: event._id }).lean()
-    } catch (ticketError) {
-      console.error("Error fetching tickets:", ticketError)
-      // Don't fail the request if tickets can't be fetched
-      tickets = []
-    }
-
-    // Add tickets to the event object
-    event.tickets = tickets
-
-    console.log(`Returning event data with form statuses:`, {
-      attendee: event.attendeeForm.status,
-      volunteer: event.volunteerForm.status,
-      speaker: event.speakerForm.status,
-    })
-
-    // Ensure all necessary fields are included in the response
+    // Prepare response
     const eventData = {
-      ...event,
-      customQuestions: event.customQuestions || { attendee: [], volunteer: [], speaker: [] },
-      attendeeForm: event.attendeeForm || { status: "draft" },
-      volunteerForm: event.volunteerForm || { status: "draft" },
-      speakerForm: event.speakerForm || { status: "draft" },
-      tickets: tickets || [],
-      type: event.type || "Offline",
-      visibility: event.visibility || "Public",
-      category: event.category || "",
-      venue: event.venue || "",
-      image: event.image || "",
+      id: event._id.toString(),
+      title: event.title || "Untitled Event",
+      description: event.description || "",
+      date: event.date || null,
+      endDate: event.endDate || null,
+      startTime: event.startTime || null,
+      endTime: event.endTime || null,
+      location: event.location || "Location TBA",
+      image: event.image || event.coverImageUrl || "/vibrant-tech-event.png",
+      category: event.category || null,
+      price: event.price || 0,
+      tags: Array.isArray(event.tags) ? event.tags : [],
+      slug: event.slug || event._id.toString(),
+      organizerInfo,
     }
 
-    return NextResponse.json({ event: eventData })
-  } catch (error: any) {
+    return NextResponse.json(eventData)
+  } catch (error) {
     console.error("Error fetching event:", error)
-    return NextResponse.json({ error: error.message || "An error occurred while fetching the event" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch event" }, { status: 500 })
   }
 }
 
@@ -135,6 +87,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     await connectToDatabase()
+
+    // Define models
+    defineModels()
+
+    // Get models
+    const Event = mongoose.models.Event
 
     // Check if the ID is a valid MongoDB ObjectId
     const isValidObjectId = mongoose.isValidObjectId(params.id)
@@ -228,6 +186,12 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     }
 
     await connectToDatabase()
+
+    // Define models
+    defineModels()
+
+    // Get models
+    const Event = mongoose.models.Event
 
     // Check if the ID is a valid MongoDB ObjectId
     const isValidObjectId = mongoose.isValidObjectId(params.id)
