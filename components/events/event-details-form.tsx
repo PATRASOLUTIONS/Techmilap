@@ -78,7 +78,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
         slug: generatedSlug,
       })
     }
-  }, [data?.name, data.slug, updateData])
+  }, [data]) // Removed data?.name from dependency array
 
   useEffect(() => {
     if (data.startDate) {
@@ -377,7 +377,19 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                 </Label>
               </div>
               <div className="flex items-center space-x-2 rounded-md border p-3 transition-colors hover:bg-muted/50">
-                <RadioGroupItem value="Private" id="private" />
+                <RadioGroupItem
+                  value="Private"
+                  id="private"
+                  onClick={() => {
+                    if (data.visibility !== "Private") {
+                      toast({
+                        title: "Coming Soon",
+                        description: "Private events feature is not yet released. It will be available soon!",
+                        variant: "default",
+                      })
+                    }
+                  }}
+                />
                 <Label htmlFor="private" className="flex-1 cursor-pointer">
                   Private
                 </Label>
@@ -479,138 +491,136 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
             </div>
 
             {/* Modern Date Range Picker */}
-            <div className="grid gap-4">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    id="date"
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal border border-input bg-background hover:bg-accent hover:text-accent-foreground h-auto py-3",
-                      !dateRange && "text-muted-foreground",
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  id="date"
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal border border-input bg-background hover:bg-accent hover:text-accent-foreground h-auto py-3",
+                    !dateRange && "text-muted-foreground",
+                  )}
+                >
+                  <div className="flex flex-col items-start gap-1 w-full">
+                    <div className="flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4" />
+                      <span className="font-medium">Select Date Range</span>
+                    </div>
+                    {dateRange?.from ? (
+                      <p className="text-sm">
+                        {dateRange.to ? (
+                          <>
+                            <span className="font-medium">{format(dateRange.from, "LLL dd, y")}</span> -
+                            <span className="font-medium"> {format(dateRange.to, "LLL dd, y")}</span>
+                          </>
+                        ) : (
+                          <span className="font-medium">{format(dateRange.from, "LLL dd, y")}</span>
+                        )}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No date selected</p>
                     )}
-                  >
-                    <div className="flex flex-col items-start gap-1 w-full">
-                      <div className="flex items-center gap-2">
-                        <CalendarIcon className="h-4 w-4" />
-                        <span className="font-medium">Select Date Range</span>
-                      </div>
-                      {dateRange?.from ? (
-                        <p className="text-sm">
-                          {dateRange.to ? (
-                            <>
-                              <span className="font-medium">{format(dateRange.from, "LLL dd, y")}</span> -
-                              <span className="font-medium"> {format(dateRange.to, "LLL dd, y")}</span>
-                            </>
-                          ) : (
-                            <span className="font-medium">{format(dateRange.from, "LLL dd, y")}</span>
-                          )}
-                        </p>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">No date selected</p>
-                      )}
-                    </div>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <div className="p-3 border-b">
-                    <h3 className="font-medium">Select Event Dates</h3>
-                    <p className="text-sm text-muted-foreground">Choose a start and end date for your event</p>
                   </div>
-                  <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={dateRange?.from}
-                    selected={dateRange}
-                    onSelect={handleDateRangeChange}
-                    numberOfMonths={2}
-                    disabled={(date) => {
-                      // Disable dates in the past
-                      const today = new Date()
-                      today.setHours(0, 0, 0, 0)
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="p-3 border-b">
+                  <h3 className="font-medium">Select Event Dates</h3>
+                  <p className="text-sm text-muted-foreground">Choose a start and end date for your event</p>
+                </div>
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={handleDateRangeChange}
+                  numberOfMonths={2}
+                  disabled={(date) => {
+                    // Disable dates in the past
+                    const today = new Date()
+                    today.setHours(0, 0, 0, 0)
 
-                      // Disable dates more than 1 year in the future
-                      const oneYearFromNow = new Date()
-                      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
+                    // Disable dates more than 1 year in the future
+                    const oneYearFromNow = new Date()
+                    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
 
-                      return date < today || date > oneYearFromNow
-                    }}
-                    className="rounded-md border-0 shadow-none p-3"
-                  />
-                  <div className="p-3 border-t border-border bg-muted/30">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-muted-foreground">Quick select:</div>
-                      <div className="space-x-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const today = new Date()
-                            const nextWeek = addDays(today, 7)
-                            handleDateRangeChange({
-                              from: today,
-                              to: nextWeek,
-                            })
-                          }}
-                        >
-                          Next 7 days
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const today = new Date()
-                            const nextMonth = new Date(today)
-                            nextMonth.setMonth(today.getMonth() + 1)
-                            handleDateRangeChange({
-                              from: today,
-                              to: nextMonth,
-                            })
-                          }}
-                        >
-                          Next 30 days
-                        </Button>
-                      </div>
+                    return date < today || date > oneYearFromNow
+                  }}
+                  className="rounded-md border-0 shadow-none p-3"
+                />
+                <div className="p-3 border-t border-border bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">Quick select:</div>
+                    <div className="space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const today = new Date()
+                          const nextWeek = addDays(today, 7)
+                          handleDateRangeChange({
+                            from: today,
+                            to: nextWeek,
+                          })
+                        }}
+                      >
+                        Next 7 days
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const today = new Date()
+                          const nextMonth = new Date(today)
+                          nextMonth.setMonth(today.getMonth() + 1)
+                          handleDateRangeChange({
+                            from: today,
+                            to: nextMonth,
+                          })
+                        }}
+                      >
+                        Next 30 days
+                      </Button>
                     </div>
                   </div>
-                </PopoverContent>
-              </Popover>
+                </div>
+              </PopoverContent>
+            </Popover>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Start Time</Label>
-                  <Select value={data.startTime} onValueChange={(value) => handleTimeChange(value, "startTime")}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select time" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {startTimeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.display}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">End Time</Label>
-                  <Select
-                    value={data.endTime}
-                    onValueChange={(value) => handleTimeChange(value, "endTime")}
-                    disabled={!data.startTime}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={data.startTime ? "Select time" : "Set start time first"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {endTimeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.display}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Start Time</Label>
+                <Select value={data.startTime} onValueChange={(value) => handleTimeChange(value, "startTime")}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {startTimeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.display}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">End Time</Label>
+                <Select
+                  value={data.endTime}
+                  onValueChange={(value) => handleTimeChange(value, "endTime")}
+                  disabled={!data.startTime}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={data.startTime ? "Select time" : "Set start time first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {endTimeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.display}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </Card>
@@ -654,6 +664,37 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
           Event Description
         </h2>
         <Card className="p-4 space-y-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm text-muted-foreground">Use Markdown to format your description</div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                toast({
+                  title: "Markdown Formatting Guide",
+                  description: (
+                    <div className="space-y-2 mt-2 text-sm">
+                      <p>
+                        <strong>Bold</strong>: **bold text**
+                      </p>
+                      <p>
+                        <em>Italic</em>: *italic text*
+                      </p>
+                      <p>Link: [text](https://example.com)</p>
+                      <p>Image: ![alt text](image-url.jpg)</p>
+                      <p>Heading: # Heading text</p>
+                      <p>List: - Item 1</p>
+                      <p>Numbered list: 1. Item 1</p>
+                    </div>
+                  ),
+                  variant: "default",
+                  duration: 10000,
+                })
+              }}
+            >
+              Formatting Help
+            </Button>
+          </div>
           <MarkdownEditor
             value={data.description}
             onChange={(value) =>
@@ -664,6 +705,27 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
             }
             placeholder="Describe your event..."
             minHeight="250px"
+            onToolbarClick={(tool) => {
+              const helpMessages = {
+                bold: "Make text bold with **text**",
+                italic: "Make text italic with *text*",
+                heading: "Create headings with # (more # means smaller heading)",
+                quote: "Create a blockquote with > at the start of the line",
+                code: "Format code with `inline code` or ```code blocks```",
+                link: "Create a link with [text](url)",
+                image: "Insert an image with ![alt text](image-url)",
+                unorderedList: "Create a bullet list with - or * at the start of each line",
+                orderedList: "Create a numbered list with 1. at the start of each line",
+              }
+
+              if (helpMessages[tool]) {
+                toast({
+                  title: `${tool.charAt(0).toUpperCase() + tool.slice(1)} Formatting`,
+                  description: helpMessages[tool],
+                  variant: "default",
+                })
+              }
+            }}
           />
         </Card>
       </motion.div>
@@ -672,35 +734,38 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
         <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
           Event Cover Image
         </h2>
-        <Card className="p-4 space-y-4">
-          <div className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="coverImageUrl">Image URL</Label>
-              <Input
-                id="coverImageUrl"
-                name="coverImageUrl"
-                value={data.coverImageUrl}
-                onChange={handleImageUrlChange}
-                placeholder="https://example.com/image.jpg"
-                className="transition-all focus:ring-2 focus:ring-primary/50"
-                required
+        <div className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="coverImageUrl">Image URL</Label>
+            <Input
+              id="coverImageUrl"
+              name="coverImageUrl"
+              value={data.coverImageUrl}
+              onChange={handleImageUrlChange}
+              placeholder="https://example.com/image.jpg"
+              className="transition-all focus:ring-2 focus:ring-primary/50"
+              required
+            />
+          </div>
+          {data.coverImageUrl && (
+            <div className="mt-4 border rounded-md overflow-hidden">
+              <img
+                src={data.coverImageUrl || "/placeholder.svg"}
+                alt="Event cover preview"
+                className="w-full h-48 object-cover"
+                onError={(e) => {
+                  e.target.src = "/placeholder.svg?key=8ogq3"
+                  e.target.alt = "Failed to load image"
+                  toast({
+                    title: "Invalid Image URL",
+                    description: "The provided URL doesn't contain a valid image. Please check and try again.",
+                    variant: "destructive",
+                  })
+                }}
               />
             </div>
-            {data.coverImageUrl && (
-              <div className="mt-4 border rounded-md overflow-hidden">
-                <img
-                  src={data.coverImageUrl || "/placeholder.svg"}
-                  alt="Event cover preview"
-                  className="w-full h-48 object-cover"
-                  onError={(e) => {
-                    e.target.src = "/placeholder.svg?key=8ogq3"
-                    e.target.alt = "Failed to load image"
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        </Card>
+          )}
+        </div>
       </motion.div>
       <Button onClick={handleNext}>Next</Button>
     </motion.div>

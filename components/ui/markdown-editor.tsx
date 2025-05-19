@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,6 +13,7 @@ interface MarkdownEditorProps {
   placeholder?: string
   className?: string
   minHeight?: string
+  onToolbarClick?: (tool: string) => void // Add this line
 }
 
 export function MarkdownEditor({
@@ -21,8 +22,10 @@ export function MarkdownEditor({
   placeholder = "Write your content here...",
   className = "",
   minHeight = "250px",
+  onToolbarClick,
 }: MarkdownEditorProps) {
   const [activeTab, setActiveTab] = useState<string>("write")
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const insertMarkdown = (markdownSymbol: string, selectionOffset = 0) => {
     const textarea = document.getElementById("markdown-textarea") as HTMLTextAreaElement
@@ -91,28 +94,125 @@ export function MarkdownEditor({
     }, 0)
   }
 
+  const insertText = (text: string, selectedText: string) => {
+    if (!textareaRef.current) return value
+
+    const start = textareaRef.current.selectionStart
+    const end = textareaRef.current.selectionEnd
+
+    const newText = value.substring(0, start) + text + value.substring(end)
+    const newCursorPos = start + text.length
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus()
+        textareaRef.current.setSelectionRange(newCursorPos - selectedText.length, newCursorPos)
+      }
+    }, 0)
+
+    return newText
+  }
+
   return (
     <div className={`border rounded-md overflow-hidden ${className}`}>
       <div className="bg-muted p-2 border-b flex items-center gap-1 flex-wrap">
-        <Button type="button" variant="ghost" size="sm" onClick={() => insertMarkdown("**")} title="Bold">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            if (onToolbarClick) onToolbarClick("bold")
+            // Existing code for handling bold
+            const selection = textareaRef.current?.value.substring(
+              textareaRef.current?.selectionStart,
+              textareaRef.current?.selectionEnd,
+            )
+            if (selection) {
+              const newText = insertText(`**${selection}**`, selection)
+              onChange(newText)
+            } else {
+              const newText = insertText("**bold text**", "bold text")
+              onChange(newText)
+            }
+          }}
+          title="Bold"
+        >
           <Bold className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={() => insertMarkdown("*")} title="Italic">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            if (onToolbarClick) onToolbarClick("italic")
+            // Existing code for handling italic
+            const selection = textareaRef.current?.value.substring(
+              textareaRef.current?.selectionStart,
+              textareaRef.current?.selectionEnd,
+            )
+            if (selection) {
+              const newText = insertText(`*${selection}*`, selection)
+              onChange(newText)
+            } else {
+              const newText = insertText("*italic text*", "italic text")
+              onChange(newText)
+            }
+          }}
+          title="Italic"
+        >
           <Italic className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={() => insertMarkdown("# ")} title="Heading 1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            if (onToolbarClick) onToolbarClick("heading")
+            insertMarkdown("# ")
+          }}
+          title="Heading 1"
+        >
           <Heading className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={() => insertMarkdown("- ")} title="Bullet List">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            if (onToolbarClick) onToolbarClick("bulletList")
+            insertMarkdown("- ")
+          }}
+          title="Bullet List"
+        >
           <List className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={() => insertMarkdown("1. ")} title="Numbered List">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            if (onToolbarClick) onToolbarClick("numberedList")
+            insertMarkdown("1. ")
+          }}
+          title="Numbered List"
+        >
           <ListOrdered className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={() => insertMarkdown("[](url)", 1)} title="Link">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            if (onToolbarClick) onToolbarClick("link")
+            insertMarkdown("[](url)", 1)
+          }}
+          title="Link"
+        >
           <Link className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={() => insertMarkdown("![](url)", 1)} title="Image">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            if (onToolbarClick) onToolbarClick("image")
+            insertMarkdown("![](url)", 1)
+          }}
+          title="Image"
+        >
           <ImageIcon className="h-4 w-4" />
         </Button>
       </div>
@@ -139,6 +239,7 @@ export function MarkdownEditor({
             placeholder={placeholder}
             className="border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
             style={{ minHeight }}
+            ref={textareaRef}
           />
         </TabsContent>
 
