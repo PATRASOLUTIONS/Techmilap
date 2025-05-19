@@ -193,28 +193,8 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
     })
   }
 
-  // Function to validate if a string is a valid URL
-  const isValidUrl = (urlString) => {
-    try {
-      new URL(urlString)
-      return true
-    } catch (e) {
-      return false
-    }
-  }
-
   const handleImageUrlChange = (e) => {
     const { value } = e.target
-
-    // Validate if the input is a valid URL
-    if (value && !isValidUrl(value)) {
-      toast({
-        title: "Invalid URL Format",
-        description: "Please enter a valid URL starting with http:// or https://",
-        variant: "destructive",
-      })
-    }
-
     updateData({
       ...data,
       coverImageUrl: value,
@@ -403,9 +383,8 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                   onClick={() => {
                     if (data.visibility !== "Private") {
                       toast({
-                        title: "Premium Feature",
-                        description:
-                          "Private events are only available for premium members. Upgrade your account to access this feature.",
+                        title: "Coming Soon",
+                        description: "Private events feature is not yet released. It will be available soon!",
                         variant: "default",
                       })
                     }
