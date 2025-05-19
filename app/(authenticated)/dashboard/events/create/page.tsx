@@ -25,6 +25,11 @@ export default async function CreateEventPage() {
           Fill out the form below to create a new event. Events can be scheduled up to 1 year in advance, with operating
           hours between 9:00 and 21:00.
         </p>
+        <div className="mt-2 p-3 border rounded-md bg-[#fea91b]/10 text-[#170f83]">
+          <p className="text-sm font-medium">
+            Note: Some premium features like private events require a subscription upgrade.
+          </p>
+        </div>
       </div>
 
       <EventCreationForm />

@@ -71,14 +71,14 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
 
   // Generate slug when name changes
   useEffect(() => {
-    if (data?.name && !data.slug) {
+    if (data.name && !data.slug) {
       const generatedSlug = generateSlug(data.name)
       updateData({
         ...data,
         slug: generatedSlug,
       })
     }
-  }, [data?.name, data.slug, updateData])
+  }, [data.name]) // Removed data.slug from dependency array
 
   useEffect(() => {
     if (data.startDate) {
@@ -184,6 +184,15 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
       ...data,
       visibility: value,
     })
+
+    // Show toast notification when switching to Private
+    if (value === "Private") {
+      toast({
+        title: "Premium Feature",
+        description: "Private events require a premium subscription. Please upgrade to continue.",
+        variant: "warning",
+      })
+    }
   }
 
   const handleTimeChange = (value, field) => {
@@ -195,10 +204,22 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
 
   const handleImageUrlChange = (e) => {
     const { value } = e.target
+
+    // Basic URL validation
+    const isValidUrl = /^https?:\/\/.+/.test(value)
+
     updateData({
       ...data,
       coverImageUrl: value,
     })
+
+    if (value && !isValidUrl) {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid URL starting with http:// or https://",
+        variant: "destructive",
+      })
+    }
   }
 
   const container = {
@@ -479,138 +500,146 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
             </div>
 
             {/* Modern Date Range Picker */}
-            <div className="grid gap-4">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    id="date"
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal border border-input bg-background hover:bg-accent hover:text-accent-foreground h-auto py-3",
-                      !dateRange && "text-muted-foreground",
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  id="date"
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal border border-input bg-background hover:bg-accent hover:text-accent-foreground h-auto py-3",
+                    !dateRange && "text-muted-foreground",
+                  )}
+                >
+                  <div className="flex flex-col items-start gap-1 w-full">
+                    <div className="flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4" />
+                      <span className="font-medium">Select Date Range</span>
+                    </div>
+                    {dateRange?.from ? (
+                      <p className="text-sm">
+                        {dateRange.to ? (
+                          <>
+                            <span className="font-medium">{format(dateRange.from, "LLL dd, y")}</span> -
+                            <span className="font-medium"> {format(dateRange.to, "LLL dd, y")}</span>
+                          </>
+                        ) : (
+                          <span className="font-medium">{format(dateRange.from, "LLL dd, y")}</span>
+                        )}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No date selected</p>
                     )}
-                  >
-                    <div className="flex flex-col items-start gap-1 w-full">
-                      <div className="flex items-center gap-2">
-                        <CalendarIcon className="h-4 w-4" />
-                        <span className="font-medium">Select Date Range</span>
-                      </div>
-                      {dateRange?.from ? (
-                        <p className="text-sm">
-                          {dateRange.to ? (
-                            <>
-                              <span className="font-medium">{format(dateRange.from, "LLL dd, y")}</span> -
-                              <span className="font-medium"> {format(dateRange.to, "LLL dd, y")}</span>
-                            </>
-                          ) : (
-                            <span className="font-medium">{format(dateRange.from, "LLL dd, y")}</span>
-                          )}
-                        </p>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">No date selected</p>
-                      )}
-                    </div>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <div className="p-3 border-b">
-                    <h3 className="font-medium">Select Event Dates</h3>
-                    <p className="text-sm text-muted-foreground">Choose a start and end date for your event</p>
                   </div>
-                  <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={dateRange?.from}
-                    selected={dateRange}
-                    onSelect={handleDateRangeChange}
-                    numberOfMonths={2}
-                    disabled={(date) => {
-                      // Disable dates in the past
-                      const today = new Date()
-                      today.setHours(0, 0, 0, 0)
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 shadow-lg" align="start">
+                <div className="p-3 border-b">
+                  <h3 className="font-medium">Select Event Dates</h3>
+                  <p className="text-sm text-muted-foreground">Choose a start and end date for your event</p>
+                </div>
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={handleDateRangeChange}
+                  numberOfMonths={2}
+                  disabled={(date) => {
+                    // Disable dates in the past
+                    const today = new Date()
+                    today.setHours(0, 0, 0, 0)
 
-                      // Disable dates more than 1 year in the future
-                      const oneYearFromNow = new Date()
-                      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
+                    // Disable dates more than 1 year in the future
+                    const oneYearFromNow = new Date()
+                    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
 
-                      return date < today || date > oneYearFromNow
-                    }}
-                    className="rounded-md border-0 shadow-none p-3"
-                  />
-                  <div className="p-3 border-t border-border bg-muted/30">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-muted-foreground">Quick select:</div>
-                      <div className="space-x-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const today = new Date()
-                            const nextWeek = addDays(today, 7)
-                            handleDateRangeChange({
-                              from: today,
-                              to: nextWeek,
-                            })
-                          }}
-                        >
-                          Next 7 days
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const today = new Date()
-                            const nextMonth = new Date(today)
-                            nextMonth.setMonth(today.getMonth() + 1)
-                            handleDateRangeChange({
-                              from: today,
-                              to: nextMonth,
-                            })
-                          }}
-                        >
-                          Next 30 days
-                        </Button>
-                      </div>
+                    return date < today || date > oneYearFromNow
+                  }}
+                  className="rounded-md border-0 shadow-none p-3"
+                  showOutsideDays={true}
+                  fixedWeeks={true}
+                  weekStartsOn={1}
+                  classNames={{
+                    day_selected: "bg-[#0aacf7] text-white hover:bg-[#0aacf7] hover:text-white",
+                    day_today: "bg-[#fea91b]/10 text-[#170f83] font-bold",
+                    day_range_middle: "bg-[#0aacf7]/20",
+                    day_range_end: "bg-[#0aacf7] text-white hover:bg-[#0aacf7] hover:text-white",
+                    day_range_start: "bg-[#0aacf7] text-white hover:bg-[#0aacf7] hover:text-white",
+                  }}
+                />
+                <div className="p-3 border-t border-border bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">Quick select:</div>
+                    <div className="space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const today = new Date()
+                          const nextWeek = addDays(today, 7)
+                          handleDateRangeChange({
+                            from: today,
+                            to: nextWeek,
+                          })
+                        }}
+                      >
+                        Next 7 days
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const today = new Date()
+                          const nextMonth = new Date(today)
+                          nextMonth.setMonth(today.getMonth() + 1)
+                          handleDateRangeChange({
+                            from: today,
+                            to: nextMonth,
+                          })
+                        }}
+                      >
+                        Next 30 days
+                      </Button>
                     </div>
                   </div>
-                </PopoverContent>
-              </Popover>
+                </div>
+              </PopoverContent>
+            </Popover>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Start Time</Label>
-                  <Select value={data.startTime} onValueChange={(value) => handleTimeChange(value, "startTime")}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select time" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {startTimeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.display}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">End Time</Label>
-                  <Select
-                    value={data.endTime}
-                    onValueChange={(value) => handleTimeChange(value, "endTime")}
-                    disabled={!data.startTime}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={data.startTime ? "Select time" : "Set start time first"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {endTimeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.display}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Start Time</Label>
+                <Select value={data.startTime} onValueChange={(value) => handleTimeChange(value, "startTime")}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {startTimeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.display}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">End Time</Label>
+                <Select
+                  value={data.endTime}
+                  onValueChange={(value) => handleTimeChange(value, "endTime")}
+                  disabled={!data.startTime}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={data.startTime ? "Select time" : "Set start time first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {endTimeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.display}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </Card>
@@ -683,8 +712,12 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                 onChange={handleImageUrlChange}
                 placeholder="https://example.com/image.jpg"
                 className="transition-all focus:ring-2 focus:ring-primary/50"
+                type="url"
+                pattern="https?://.+"
+                title="Please enter a valid URL starting with http:// or https://"
                 required
               />
+              <p className="text-xs text-muted-foreground">Enter a valid image URL starting with http:// or https://</p>
             </div>
             {data.coverImageUrl && (
               <div className="mt-4 border rounded-md overflow-hidden">
