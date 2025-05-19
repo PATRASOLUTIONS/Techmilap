@@ -27,20 +27,29 @@ export default function SuperAdminEventsPage() {
   })
   const [search, setSearch] = useState("")
 
-  const fetchEvents = async (page = 1, searchTerm = "") => {
+  async function fetchEvents(page = 1, searchTerm = "") {
     setLoading(true)
+    setError(null)
+
     try {
       const response = await fetch(`/api/admin/events?page=${page}&limit=${pagination.limit}&search=${searchTerm}`)
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error("Failed to fetch events")
+        throw new Error(data.error || `Error ${response.status}: Failed to fetch events`)
       }
 
-      const data = await response.json()
+      if (!data.events) {
+        throw new Error("Invalid response format: missing events data")
+      }
+
       setEvents(data.events)
       setPagination(data.pagination)
     } catch (err) {
-      setError(err.message)
+      console.error("Error fetching events:", err)
+      setError(err.message || "An unknown error occurred")
+      setEvents([])
     } finally {
       setLoading(false)
     }
@@ -84,7 +93,13 @@ export default function SuperAdminEventsPage() {
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
             </div>
           ) : error ? (
-            <div className="text-center text-red-500 py-8">{error}</div>
+            <div className="text-center py-8">
+              <div className="text-red-500 font-medium mb-2">Error loading events</div>
+              <div className="text-sm text-gray-600">{error}</div>
+              <Button variant="outline" className="mt-4" onClick={() => fetchEvents(pagination.page, search)}>
+                Try Again
+              </Button>
+            </div>
           ) : events.length === 0 ? (
             <div className="text-center py-8">No events found</div>
           ) : (

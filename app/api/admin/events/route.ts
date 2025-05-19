@@ -8,21 +8,27 @@ export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions)
 
     // Check if user is authenticated and is an admin
-    if (!session || session.user.role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!session) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    }
+
+    if (session.user.role !== "admin") {
+      return NextResponse.json({ error: "Not authorized. Admin role required." }, { status: 403 })
     }
 
     // Connect to database
-    await connectToDatabase()
+    const db = await connectToDatabase()
+    if (!db) {
+      return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
+    }
 
-    // Import models after database connection is established
+    // Import models
     const Event = (await import("@/models/Event")).default
-    const User = (await import("@/models/User")).default
     const FormSubmission = (await import("@/models/FormSubmission")).default
 
     // Get query parameters
     const url = new URL(req.url)
-    const limit = Number.parseInt(url.searchParams.get("limit") || "50")
+    const limit = Number.parseInt(url.searchParams.get("limit") || "10")
     const page = Number.parseInt(url.searchParams.get("page") || "1")
     const skip = (page - 1) * limit
     const sort = url.searchParams.get("sort") || "createdAt"
@@ -37,7 +43,10 @@ export async function GET(req: NextRequest) {
       query.$or = [{ title: { $regex: search, $options: "i" } }, { description: { $regex: search, $options: "i" } }]
     }
 
-    // Get events
+    // Get total count first
+    const total = await Event.countDocuments(query)
+
+    // Get events with organizer information
     const events = await Event.find(query)
       .sort({ [sort]: order === "asc" ? 1 : -1 })
       .skip(skip)
@@ -48,35 +57,43 @@ export async function GET(req: NextRequest) {
     // Get counts for each event
     const eventsWithCounts = await Promise.all(
       events.map(async (event) => {
-        const attendeeCount = await FormSubmission.countDocuments({
-          eventId: event._id,
-          formType: "attendee",
-          status: "approved",
-        })
+        try {
+          const [attendeeCount, volunteerCount, speakerCount] = await Promise.all([
+            FormSubmission.countDocuments({
+              eventId: event._id,
+              formType: "attendee",
+              status: "approved",
+            }),
+            FormSubmission.countDocuments({
+              eventId: event._id,
+              formType: "volunteer",
+              status: "approved",
+            }),
+            FormSubmission.countDocuments({
+              eventId: event._id,
+              formType: "speaker",
+              status: "approved",
+            }),
+          ])
 
-        const volunteerCount = await FormSubmission.countDocuments({
-          eventId: event._id,
-          formType: "volunteer",
-          status: "approved",
-        })
-
-        const speakerCount = await FormSubmission.countDocuments({
-          eventId: event._id,
-          formType: "speaker",
-          status: "approved",
-        })
-
-        return {
-          ...event,
-          attendeeCount,
-          volunteerCount,
-          speakerCount,
+          return {
+            ...event,
+            attendeeCount,
+            volunteerCount,
+            speakerCount,
+          }
+        } catch (error) {
+          console.error(`Error getting counts for event ${event._id}:`, error)
+          return {
+            ...event,
+            attendeeCount: 0,
+            volunteerCount: 0,
+            speakerCount: 0,
+            error: "Failed to get counts",
+          }
         }
       }),
     )
-
-    // Get total count
-    const total = await Event.countDocuments(query)
 
     return NextResponse.json({
       events: eventsWithCounts,
@@ -89,6 +106,12 @@ export async function GET(req: NextRequest) {
     })
   } catch (error) {
     console.error("Error fetching admin events:", error)
-    return NextResponse.json({ error: "Failed to fetch events" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to fetch events",
+        details: error.message,
+      },
+      { status: 500 },
+    )
   }
 }
