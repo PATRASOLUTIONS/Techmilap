@@ -46,7 +46,7 @@ const TicketSchema = z.object({
   name: z.string().min(1, "Ticket name is required"),
   type: z.string().optional(),
   description: z.string().optional(),
-  pricingModel: z.enum(["Free", "Paid"]).default("Free"),
+  pricingModel: z.enum(["Free", "Paid", "Donation"]).default("Free"),
   price: z.number().min(0, "Price cannot be negative").optional(),
   quantity: z.number().min(1, "Quantity must be at least 1").optional(),
   saleStartDate: z
@@ -62,6 +62,8 @@ const TicketSchema = z.object({
     })
     .optional(),
   feeStructure: z.string().optional(),
+  ticketNumber: z.string().optional(), // Make ticketNumber optional
+  userId: z.string().optional(), // Make userId optional
 })
 
 // Define validation schema for event creation request
@@ -238,10 +240,13 @@ export async function POST(req: NextRequest) {
 
     // Create tickets if they exist
     if (Array.isArray(tickets) && tickets.length > 0) {
-      const ticketPromises = tickets.map((ticket) => {
+      const ticketPromises = tickets.map((ticket, index) => {
         // Ensure numeric values are properly parsed
         const price = Number(ticket.price || 0)
         const quantity = Number(ticket.quantity || 0)
+
+        // Generate a unique ticket number if not provided
+        const ticketNumber = ticket.ticketNumber || `TICKET-${Date.now()}-${index}-${Math.floor(Math.random() * 10000)}`
 
         return new Ticket({
           name: ticket.name || "General Admission",
@@ -255,6 +260,8 @@ export async function POST(req: NextRequest) {
           feeStructure: ticket.feeStructure || "Organizer",
           event: event._id,
           createdBy: session.user.id,
+          ticketNumber: ticketNumber, // Add auto-generated ticket number
+          userId: ticket.userId || session.user.id, // Use session user ID if not provided
         }).save()
       })
 
