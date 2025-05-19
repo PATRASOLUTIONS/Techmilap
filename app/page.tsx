@@ -4,10 +4,9 @@ import { LandingHeader } from "@/components/landing/landing-header"
 import { SiteFooter } from "@/components/site-footer"
 import { HeroSection } from "@/components/landing/hero-section-enhanced"
 import { FeaturesSection } from "@/components/landing/features-section-enhanced"
-import { TestimonialsSection } from "@/components/landing/testimonials-section-enhanced"
 import { CtaSection } from "@/components/landing/cta-section"
 import { StatsSectionWrapper } from "@/components/landing/stats-section-wrapper"
-import { PartnersSection } from "@/components/landing/partners-section"
+import { WhyChooseUsSection } from "@/components/landing/why-choose-us-section"
 import { DecorativeBlob } from "@/components/ui/decorative-blob"
 import { motion } from "framer-motion"
 
@@ -42,16 +41,17 @@ export default function LandingPage() {
           <HeroSection />
 
           {/* Partners Section */}
-          
 
           {/* Stats Section - Using the client component wrapper */}
           <StatsSectionWrapper />
+
+          {/* Why Choose Us Section */}
+          <WhyChooseUsSection />
 
           {/* Enhanced Features Section */}
           <FeaturesSection />
 
           {/* Enhanced Testimonials Section */}
-          
 
           {/* CTA Section */}
           <CtaSection />
