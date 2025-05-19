@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import mongoose from "mongoose"
 
-// Fallback event data
+// Fallback event data (only used if database fetch completely fails)
 const fallbackEvent = {
   title: "Event Details",
   description: "<p>Event details will be available soon.</p>",
@@ -52,109 +52,119 @@ function formatEventTime(timeString) {
   }
 }
 
-export default async function EventPage({ params }: { params: { id: string } }) {
+// Function to directly fetch event from database
+async function fetchEventFromDatabase(id) {
+  console.log(`Fetching event with ID/slug: ${id}`)
+
   // Initialize with fallback data
   let event = { ...fallbackEvent }
   let organizerName = "Event Organizer"
 
   try {
-    // Import mongoose dynamically to avoid issues
+    // Get MongoDB URI from environment variables
     const MONGODB_URI = process.env.MONGODB_URI
 
-    if (MONGODB_URI) {
-      // Connect to MongoDB directly
-      if (mongoose.connection.readyState !== 1) {
-        await mongoose.connect(MONGODB_URI, {
-          serverSelectionTimeoutMS: 5000,
-          socketTimeoutMS: 45000,
-        })
+    if (!MONGODB_URI) {
+      console.error("MONGODB_URI is not defined")
+      return { event, organizerName }
+    }
+
+    // Connect to MongoDB directly
+    if (mongoose.connection.readyState !== 1) {
+      console.log("Connecting to MongoDB...")
+      await mongoose.connect(MONGODB_URI, {
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+      })
+      console.log("Connected to MongoDB")
+    }
+
+    // Get or create Event model
+    const Event = mongoose.models.Event || mongoose.model("Event", new mongoose.Schema({}, { strict: false }))
+
+    // Get or create User model
+    const User = mongoose.models.User || mongoose.model("User", new mongoose.Schema({}, { strict: false }))
+
+    // Try to find event by ID or slug
+    let eventData = null
+
+    // First try by ID if it's a valid ObjectId
+    if (mongoose.isValidObjectId(id)) {
+      console.log(`Looking up event by ID: ${id}`)
+      eventData = await Event.findById(id).lean()
+    }
+
+    // If not found by ID, try by slug
+    if (!eventData) {
+      console.log(`Looking up event by slug: ${id}`)
+      eventData = await Event.findOne({ slug: id }).lean()
+    }
+
+    // If still not found, try a more flexible search
+    if (!eventData) {
+      console.log(`Looking up event by flexible search: ${id}`)
+      eventData = await Event.findOne({
+        $or: [{ title: { $regex: id, $options: "i" } }, { slug: { $regex: id, $options: "i" } }],
+      }).lean()
+    }
+
+    // If event found, update our event object
+    if (eventData) {
+      console.log(`Found event: ${eventData.title || "Untitled"}`)
+
+      // Process image URL
+      const imageUrl = eventData.image || eventData.coverImageUrl || fallbackEvent.image
+
+      // Update event object with database data
+      event = {
+        ...event,
+        ...eventData,
+        title: eventData.title || fallbackEvent.title,
+        description: eventData.description || fallbackEvent.description,
+        date: eventData.date || fallbackEvent.date,
+        location: eventData.location || fallbackEvent.location,
+        image: imageUrl,
+        category: eventData.category || fallbackEvent.category,
+        price: eventData.price || fallbackEvent.price,
+        tags: Array.isArray(eventData.tags) ? eventData.tags : fallbackEvent.tags,
       }
 
-      // Define a simple schema for Event
-      const EventSchema = new mongoose.Schema(
-        {
-          title: String,
-          description: String,
-          date: Date,
-          endDate: Date,
-          startTime: String,
-          endTime: String,
-          location: String,
-          image: String,
-          coverImageUrl: String,
-          category: String,
-          price: Number,
-          tags: [String],
-          slug: String,
-          organizer: mongoose.Schema.Types.ObjectId,
-        },
-        { strict: false },
-      )
+      // Try to get organizer info
+      if (eventData.organizer && mongoose.isValidObjectId(eventData.organizer)) {
+        try {
+          console.log(`Looking up organizer: ${eventData.organizer}`)
+          const organizer = await User.findById(eventData.organizer).lean()
 
-      // Define a simple schema for User
-      const UserSchema = new mongoose.Schema(
-        {
-          firstName: String,
-          lastName: String,
-          email: String,
-          name: String,
-        },
-        { strict: false },
-      )
+          if (organizer) {
+            console.log(`Found organizer: ${organizer.email || "Unknown"}`)
 
-      // Get or create models
-      const Event = mongoose.models.Event || mongoose.model("Event", EventSchema)
-      const User = mongoose.models.User || mongoose.model("User", UserSchema)
-
-      // Try to find event by ID or slug
-      let eventData = null
-
-      if (mongoose.isValidObjectId(params.id)) {
-        eventData = await Event.findById(params.id).lean()
-      }
-
-      if (!eventData) {
-        eventData = await Event.findOne({ slug: params.id }).lean()
-      }
-
-      // If event found, update our event object
-      if (eventData) {
-        event = {
-          ...event,
-          ...eventData,
-          title: eventData.title || fallbackEvent.title,
-          description: eventData.description || fallbackEvent.description,
-          date: eventData.date || fallbackEvent.date,
-          location: eventData.location || fallbackEvent.location,
-          image: eventData.image || eventData.coverImageUrl || fallbackEvent.image,
-          category: eventData.category || fallbackEvent.category,
-          price: eventData.price || fallbackEvent.price,
-          tags: Array.isArray(eventData.tags) ? eventData.tags : fallbackEvent.tags,
-        }
-
-        // Try to get organizer info
-        if (eventData.organizer && mongoose.isValidObjectId(eventData.organizer)) {
-          try {
-            const organizer = await User.findById(eventData.organizer).lean()
-            if (organizer) {
-              if (organizer.firstName || organizer.lastName) {
-                organizerName = `${organizer.firstName || ""} ${organizer.lastName || ""}`.trim()
-              } else if (organizer.name) {
-                organizerName = organizer.name
-              } else if (organizer.email) {
-                organizerName = organizer.email.split("@")[0]
-              }
+            if (organizer.firstName || organizer.lastName) {
+              organizerName = `${organizer.firstName || ""} ${organizer.lastName || ""}`.trim()
+            } else if (organizer.name) {
+              organizerName = organizer.name
+            } else if (organizer.email) {
+              organizerName = organizer.email.split("@")[0]
             }
-          } catch (error) {
-            console.error("Error fetching organizer:", error)
           }
+        } catch (error) {
+          console.error("Error fetching organizer:", error)
         }
       }
+    } else {
+      console.log(`No event found for ID/slug: ${id}`)
     }
   } catch (error) {
-    console.error("Error fetching event:", error)
-    // Continue with fallback data
+    console.error("Error fetching event from database:", error)
   }
+
+  return { event, organizerName }
+}
+
+export default async function EventPage({ params }: { params: { id: string } }) {
+  console.log(`Rendering event page for: ${params.id}`)
+
+  // Fetch event data from database
+  const { event, organizerName } = await fetchEventFromDatabase(params.id)
 
   // Format dates and times
   const formattedDate = formatEventDate(event.date)
