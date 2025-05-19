@@ -325,7 +325,7 @@ export function DashboardSidebar() {
       </SheetTrigger>
       <SheetContent side="left" className="w-[280px] sm:w-[320px] p-0">
         <div className="flex flex-col h-full bg-gradient-to-b from-slate-50 to-white">
-          <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-600 to-cyan-500">
+          <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-[#170f83] to-[#0aacf7]">
             <Link href="/" className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-md bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
                 <Calendar className="h-5 w-5" />
@@ -337,7 +337,7 @@ export function DashboardSidebar() {
           {/* User info section - Moved to top */}
           <div className="p-4 border-b bg-slate-50">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-r from-[#c12b6b] to-[#fea91b] flex items-center justify-center">
                 <User className="h-5 w-5 text-white" />
               </div>
               <div>
@@ -347,7 +347,7 @@ export function DashboardSidebar() {
             </div>
             <Button
               variant="outline"
-              className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors mt-3"
+              className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:text-[#c12b6b] hover:border-[#c12b6b]/20 hover:bg-[#c12b6b]/10 transition-colors mt-3"
               onClick={handleLogout}
             >
               <LogOut className="h-4 w-4" />
@@ -366,8 +366,8 @@ export function DashboardSidebar() {
                       onClick={() => toggleSection(item.section)}
                     >
                       <span className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-md bg-gradient-to-r from-blue-500/10 to-cyan-500/10 flex items-center justify-center">
-                          <item.icon className="h-4 w-4 text-blue-600" />
+                        <div className="h-8 w-8 rounded-md bg-gradient-to-r from-[#170f83]/10 to-[#0aacf7]/10 flex items-center justify-center">
+                          <item.icon className="h-4 w-4 text-[#170f83]" />
                         </div>
                         {item.title}
                       </span>
@@ -396,8 +396,8 @@ export function DashboardSidebar() {
                                   className={cn(
                                     "justify-start w-full px-3 py-1.5 h-9 font-normal",
                                     pathname === child.href
-                                      ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-700 font-medium"
-                                      : "hover:bg-slate-100 hover:text-blue-600",
+                                      ? "bg-gradient-to-r from-[#170f83]/10 to-[#0aacf7]/10 text-[#170f83] font-medium"
+                                      : "hover:bg-slate-100 hover:text-[#0aacf7]",
                                   )}
                                   onClick={() => handleIconClick(child.title)}
                                 >
@@ -433,14 +433,14 @@ export function DashboardSidebar() {
                     className={cn(
                       "justify-start gap-3 px-3 font-medium mb-1",
                       pathname === item.href
-                        ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-700"
-                        : "hover:bg-slate-100 hover:text-blue-600",
+                        ? "bg-gradient-to-r from-[#170f83]/10 to-[#0aacf7]/10 text-[#170f83]"
+                        : "hover:bg-slate-100 hover:text-[#0aacf7]",
                     )}
                     onClick={() => handleIconClick(item.title)}
                   >
                     <Link href={item.href} className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-md bg-gradient-to-r from-blue-500/10 to-cyan-500/10 flex items-center justify-center">
-                        <item.icon className="h-4 w-4 text-blue-600" />
+                      <div className="h-8 w-8 rounded-md bg-gradient-to-r from-[#170f83]/10 to-[#0aacf7]/10 flex items-center justify-center">
+                        <item.icon className="h-4 w-4 text-[#170f83]" />
                       </div>
                       {item.title}
                     </Link>
@@ -468,7 +468,7 @@ export function DashboardSidebar() {
           isCollapsed ? "w-[80px]" : "w-[280px]",
         )}
       >
-        <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-600 to-cyan-500">
+        <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-[#170f83] to-[#0aacf7]">
           {!isCollapsed && (
             <Link href="/" className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-md bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
@@ -509,7 +509,7 @@ export function DashboardSidebar() {
           {!isCollapsed ? (
             <>
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-[#c12b6b] to-[#fea91b] flex items-center justify-center">
                   <User className="h-5 w-5 text-white" />
                 </div>
                 <div>
@@ -519,7 +519,7 @@ export function DashboardSidebar() {
               </div>
               <Button
                 variant="outline"
-                className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors mt-3"
+                className="w-full justify-start gap-2 border-slate-200 text-slate-600 hover:text-[#c12b6b] hover:border-[#c12b6b]/20 hover:bg-[#c12b6b]/10 transition-colors mt-3"
                 onClick={handleLogout}
               >
                 <LogOut className="h-4 w-4" />
@@ -528,12 +528,12 @@ export function DashboardSidebar() {
             </>
           ) : (
             <div className="flex flex-col items-center gap-2">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-r from-[#c12b6b] to-[#fea91b] flex items-center justify-center">
                 <User className="h-5 w-5 text-white" />
               </div>
               <Button
                 variant="outline"
-                className="w-10 h-10 p-0 border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
+                className="w-10 h-10 p-0 border-slate-200 text-slate-600 hover:text-[#c12b6b] hover:border-[#c12b6b]/20 hover:bg-[#c12b6b]/10 transition-colors"
                 onClick={handleLogout}
                 title="Logout"
               >
@@ -559,11 +559,11 @@ export function DashboardSidebar() {
                     <span className={cn("flex items-center", isCollapsed ? "justify-center" : "gap-3")}>
                       <div
                         className={cn(
-                          "rounded-md bg-gradient-to-r from-blue-500/10 to-cyan-500/10 flex items-center justify-center",
+                          "rounded-md bg-gradient-to-r from-[#170f83]/10 to-[#0aacf7]/10 flex items-center justify-center",
                           isCollapsed ? "h-10 w-10" : "h-8 w-8",
                         )}
                       >
-                        <item.icon className="h-4 w-4 text-blue-600" />
+                        <item.icon className="h-4 w-4 text-[#170f83]" />
                       </div>
                       {!isCollapsed && item.title}
                     </span>
@@ -594,8 +594,8 @@ export function DashboardSidebar() {
                                 className={cn(
                                   "justify-start w-full px-3 py-1.5 h-9 font-normal",
                                   pathname === child.href
-                                    ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-700 font-medium"
-                                    : "hover:bg-slate-100 hover:text-blue-600",
+                                    ? "bg-gradient-to-r from-[#170f83]/10 to-[#0aacf7]/10 text-[#170f83] font-medium"
+                                    : "hover:bg-slate-100 hover:text-[#0aacf7]",
                                 )}
                                 onClick={() => handleIconClick(child.title)}
                               >
@@ -632,8 +632,8 @@ export function DashboardSidebar() {
                     "font-medium mb-1",
                     isCollapsed ? "justify-center h-14 w-14 mx-auto p-0" : "justify-start gap-3 px-3 w-full",
                     pathname === item.href
-                      ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-700"
-                      : "hover:bg-slate-100 hover:text-blue-600",
+                      ? "bg-gradient-to-r from-[#170f83]/10 to-[#0aacf7]/10 text-[#170f83]"
+                      : "hover:bg-slate-100 hover:text-[#0aacf7]",
                   )}
                   title={isCollapsed ? item.title : undefined}
                   onClick={() => handleIconClick(item.title)}
@@ -641,7 +641,7 @@ export function DashboardSidebar() {
                   <Link href={item.href} className={cn("flex items-center", isCollapsed ? "justify-center" : "gap-3")}>
                     <motion.div
                       className={cn(
-                        "rounded-md bg-gradient-to-r from-blue-500/10 to-cyan-500/10 flex items-center justify-center",
+                        "rounded-md bg-gradient-to-r from-[#170f83]/10 to-[#0aacf7]/10 flex items-center justify-center",
                         isCollapsed ? "h-10 w-10" : "h-8 w-8",
                       )}
                       animate={
@@ -654,7 +654,7 @@ export function DashboardSidebar() {
                           : {}
                       }
                     >
-                      <item.icon className="h-4 w-4 text-blue-600" />
+                      <item.icon className="h-4 w-4 text-[#170f83]" />
                     </motion.div>
                     {!isCollapsed && item.title}
                   </Link>
