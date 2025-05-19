@@ -1,775 +1,330 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Button } from "@/components/ui/button"
-import { CalendarIcon, MapPin, Globe, Users, Edit, AlertCircle } from "lucide-react"
-import { format, addDays } from "date-fns"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+import { CalendarIcon, Clock } from "lucide-react"
+import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import { motion } from "framer-motion"
-import { Card } from "@/components/ui/card"
-import { MarkdownEditor } from "@/components/ui/markdown-editor"
-import type { DateRange } from "react-day-picker"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { useToast } from "@/hooks/use-toast"
 
-export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, formData, toast }) {
-  const [formState, setFormState] = useState({
-    name: "",
-    displayName: "",
-    type: "Offline",
-    visibility: "Public",
-    startDate: "",
-    startTime: "",
-    endTime: "",
-    endDate: "",
-    venue: "",
-    description: "",
-    coverImageUrl: "",
-    desktopCoverImage: null,
-    mobileCoverImage: null,
-    slug: "",
-    category: "",
+// Define the schema for form validation
+const formSchema = z.object({
+  title: z.string().min(3, { message: "Title must be at least 3 characters" }),
+  description: z.string().min(10, { message: "Description must be at least 10 characters" }),
+  date: z.date({ required_error: "Event date is required" }),
+  startTime: z.string().min(1, { message: "Start time is required" }),
+  endTime: z.string().min(1, { message: "End time is required" }),
+  location: z.string().min(3, { message: "Location must be at least 3 characters" }),
+  category: z.string().min(1, { message: "Category is required" }),
+  image: z
+    .string()
+    .url({ message: "Please enter a valid URL" })
+    .refine((url) => url.startsWith("http://") || url.startsWith("https://"), {
+      message: "URL must start with http:// or https://",
+    }),
+  visibility: z.enum(["Public", "Private"]),
+  type: z.enum(["Online", "Offline", "Hybrid"]),
+})
+
+export function EventDetailsForm({ onSubmit, initialData = {} }) {
+  const [categories, setCategories] = useState([])
+  const { toast } = useToast()
+
+  // Initialize the form with default values or initial data
+  const form = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: initialData.title || "",
+      description: initialData.description || "",
+      date: initialData.date ? new Date(initialData.date) : new Date(),
+      startTime: initialData.startTime || "09:00",
+      endTime: initialData.endTime || "17:00",
+      location: initialData.location || "",
+      category: initialData.category || "",
+      image: initialData.image || "",
+      visibility: initialData.visibility || "Public",
+      type: initialData.type || "Offline",
+    },
   })
-  // Ensure all form fields are properly initialized with existing data
+
+  // Fetch categories on component mount
   useEffect(() => {
-    if (data) {
-      console.log("Initializing EventDetailsForm with data:", data)
-      setFormState({
-        name: data.name || "",
-        displayName: data.displayName || "",
-        type: data.type || "Offline",
-        visibility: data.visibility || "Public",
-        startDate: data.startDate || "",
-        startTime: data.startTime || "",
-        endTime: data.endTime || "",
-        endDate: data.endDate || "",
-        venue: data.venue || data.location || "", // Use location as fallback for venue
-        description: data.description || "",
-        coverImageUrl: data.coverImageUrl || "",
-        desktopCoverImage: null,
-        mobileCoverImage: null,
-        slug: data.slug || "",
-        category: data.category || "",
-      })
-    }
-  }, [data])
-  const [startDate, setStartDate] = useState(data.startDate ? new Date(data.startDate) : undefined)
-  const [endDate, setEndDate] = useState(data.endDate ? new Date(data.endDate) : undefined)
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(
-    startDate && endDate
-      ? {
-          from: startDate,
-          to: endDate,
+    async function fetchCategories() {
+      try {
+        const response = await fetch("/api/events/categories")
+        const data = await response.json()
+        if (data.categories) {
+          setCategories(data.categories)
         }
-      : undefined,
-  )
-  const [isEditingSlug, setIsEditingSlug] = useState(false)
-  const [imageError, setImageError] = useState(false)
-
-  // Generate slug when name changes
-  useEffect(() => {
-    if (data.name && !data.slug) {
-      const generatedSlug = generateSlug(data.name)
-      updateData({
-        ...data,
-        slug: generatedSlug,
-      })
-    }
-  }, [data.name]) // Removed data.slug from dependency array
-
-  useEffect(() => {
-    if (data.startDate) {
-      setStartDate(new Date(data.startDate))
-    }
-    if (data.endDate) {
-      setEndDate(new Date(data.endDate))
-    }
-
-    // Update date range when start or end date changes
-    if (data.startDate && data.endDate) {
-      setDateRange({
-        from: new Date(data.startDate),
-        to: new Date(data.endDate),
-      })
-    } else if (data.startDate) {
-      setDateRange({
-        from: new Date(data.startDate),
-        to: undefined,
-      })
-    }
-  }, [data.startDate, data.endDate])
-
-  const generateSlug = (text) => {
-    return text
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, "") // Remove special characters
-      .replace(/\s+/g, "-") // Replace spaces with hyphens
-      .replace(/-+/g, "-") // Replace multiple hyphens with single hyphen
-      .trim()
-  }
-
-  const handleChange = (e) => {
-    const { name, value } = e.target
-    updateData({
-      ...data,
-      [name]: value,
-    })
-
-    // Auto-generate slug when name changes
-    if (name === "name" && !isEditingSlug) {
-      updateData({
-        ...data,
-        name: value,
-        slug: generateSlug(value),
-      })
-    }
-
-    // Sync venue with location
-    if (name === "venue") {
-      updateData({
-        ...data,
-        venue: value,
-        location: value, // Update location when venue changes
-      })
-    }
-  }
-
-  const handleSlugChange = (e) => {
-    const { value } = e.target
-    updateData({
-      ...data,
-      slug: generateSlug(value),
-    })
-  }
-
-  const handleDateRangeChange = (range: DateRange | undefined) => {
-    if (range?.from) {
-      setDateRange(range)
-      setStartDate(range.from)
-      updateData({
-        ...data,
-        startDate: range.from.toISOString(),
-        endDate: range.to ? range.to.toISOString() : range.from.toISOString(),
-      })
-
-      if (range.to) {
-        setEndDate(range.to)
-      } else {
-        setEndDate(range.from)
+      } catch (error) {
+        console.error("Failed to fetch categories:", error)
+        setCategories(["Conference", "Workshop", "Networking", "Seminar", "Webinar", "Hackathon", "Meetup", "Other"])
       }
-    } else {
-      setDateRange(undefined)
-      setStartDate(undefined)
-      setEndDate(undefined)
-      updateData({
-        ...data,
-        startDate: "",
-        endDate: "",
-      })
     }
-  }
 
-  const handleTypeChange = (value) => {
-    updateData({
-      ...data,
-      type: value,
-    })
-  }
+    fetchCategories()
+  }, [])
 
-  const handleVisibilityChange = (value) => {
-    // Always set to Public regardless of selection
-    updateData({
-      ...data,
-      visibility: "Public",
-    })
-
-    // Show toast notification when trying to switch to Private
-    if (value === "Private") {
+  // Handle form submission
+  const handleSubmit = (data) => {
+    // Check if the image URL is valid
+    if (data.image && !(data.image.startsWith("http://") || data.image.startsWith("https://"))) {
       toast({
-        title: "Premium Feature",
-        description: "Private events require a premium subscription. Please upgrade to continue.",
-        variant: "warning",
-      })
-    }
-  }
-
-  const handleTimeChange = (value, field) => {
-    updateData({
-      ...data,
-      [field]: value,
-    })
-  }
-
-  const handleImageUrlChange = (e) => {
-    const { value } = e.target
-    setImageError(false)
-
-    // Basic URL validation
-    const isValidUrl = /^https?:\/\/.+/.test(value)
-
-    updateData({
-      ...data,
-      coverImageUrl: value,
-    })
-
-    if (value && !isValidUrl) {
-      toast({
-        title: "Invalid URL",
-        description: "Please enter a valid URL starting with http:// or https://",
+        title: "Invalid Image URL",
+        description: "Image URL must start with http:// or https://",
         variant: "destructive",
       })
-    }
-  }
-
-  const handleImageError = (e) => {
-    setImageError(true)
-    e.target.src = "/placeholder.svg?key=8ogq3"
-    e.target.alt = "Failed to load image"
-
-    toast({
-      title: "Image Error",
-      description: "The image URL could not be loaded. Please check the URL and try again.",
-      variant: "destructive",
-    })
-  }
-
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  }
-
-  const item = {
-    hidden: { y: 10, opacity: 0 },
-    show: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 24 } },
-  }
-
-  // Add this function inside the EventDetailsForm component
-  const validateTimes = () => {
-    if (data.startTime && data.endTime) {
-      if (data.startTime > data.endTime && startDate?.getTime() === endDate?.getTime()) {
-        toast({
-          title: "Invalid Time Range",
-          description: "End time cannot be earlier than start time.",
-          variant: "destructive",
-        })
-        return false
-      }
-    }
-    return true
-  }
-
-  const validateDetailsForm = () => {
-    const missingFields = []
-    if (!data.name) missingFields.push("Event Name")
-    if (!data.displayName) missingFields.push("Event Display Name")
-    if (!data.slug) missingFields.push("Website URL Slug")
-    if (!data.coverImageUrl) missingFields.push("Image URL")
-    return missingFields
-  }
-
-  const handleNext = () => {
-    if (activeTab === "details") {
-      const missingFields = validateDetailsForm()
-
-      if (missingFields.length > 0) {
-        toast({
-          title: "Required Fields Missing",
-          description: `Please fill in the following fields: ${missingFields.join(", ")}`,
-          variant: "destructive",
-        })
-        return
-      }
-
-      // Validate image URL format
-      if (!data.coverImageUrl.match(/^https?:\/\/.+/)) {
-        toast({
-          title: "Invalid Image URL",
-          description: "Image URL must start with http:// or https://",
-          variant: "destructive",
-        })
-        return
-      }
-
-      if (!validateTimes()) {
-        return
-      }
-
-      setActiveTab("tickets")
-    } else if (activeTab === "tickets") {
-      // Validate that at least one ticket exists
-      if (formData.tickets.length === 0) {
-        toast({
-          title: "Ticket Required",
-          description: "Please add at least one ticket type before proceeding.",
-          variant: "destructive",
-        })
-        return
-      }
-      setActiveTab("questions")
-    } else if (activeTab === "questions") {
-      setActiveTab("preview")
-    }
-  }
-
-  // Generate time options starting from 8:00 AM
-  const generateTimeOptions = (startHour = 8) => {
-    const options = []
-    for (let hour = startHour; hour < 24; hour++) {
-      for (const minute of [0, 15, 30, 45]) {
-        const h = hour.toString().padStart(2, "0")
-        const m = minute.toString().padStart(2, "0")
-        const time = `${h}:${m}`
-        const displayTime = `${hour % 12 || 12}:${m.padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`
-        options.push({ value: time, display: displayTime })
-      }
-    }
-    return options
-  }
-
-  // Generate end time options that are after the selected start time
-  const generateEndTimeOptions = () => {
-    if (!data.startTime) {
-      return generateTimeOptions(8) // If no start time, show all options from 8 AM
+      return
     }
 
-    // Parse the start time
-    const [startHour, startMinute] = data.startTime.split(":").map(Number)
-
-    // Generate options starting from the start time
-    const options = []
-    for (let hour = startHour; hour < 24; hour++) {
-      for (const minute of [0, 15, 30, 45]) {
-        // Skip times before or equal to start time
-        if (hour === startHour && minute <= startMinute) continue
-
-        const h = hour.toString().padStart(2, "0")
-        const m = minute.toString().padStart(2, "0")
-        const time = `${h}:${m}`
-        const displayTime = `${hour % 12 || 12}:${m.padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`
-        options.push({ value: time, display: displayTime })
-      }
+    // Check if visibility is Private and show a toast
+    if (data.visibility === "Private") {
+      toast({
+        title: "Premium Feature",
+        description: "Private events are a premium feature. Your event will be set to Public.",
+        variant: "default",
+      })
+      data.visibility = "Public" // Force to Public
     }
-    return options
-  }
 
-  // Get time options
-  const startTimeOptions = generateTimeOptions(8) // Start from 8:00 AM
-  const endTimeOptions = generateEndTimeOptions()
+    // Pass the validated data to the parent component
+    onSubmit(data)
+  }
 
   return (
-    <motion.div className="space-y-8" variants={container} initial="hidden" animate="show" id="event-details-form">
-      <motion.div className="space-y-4" variants={item}>
-        <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-          Event Type & Visibility
-        </h2>
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card className="p-4 space-y-3 pt-6">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Globe className="h-4 w-4 text-primary" />
-              </div>
-              <h3 className="font-medium">Event Type</h3>
-            </div>
-            <RadioGroup
-              defaultValue={data.type || "Offline"}
-              onValueChange={handleTypeChange}
-              className="flex flex-col space-y-2"
-            >
-              <div className="flex items-center space-x-2 rounded-md border p-3 transition-colors hover:bg-muted/50">
-                <RadioGroupItem value="Offline" id="offline" />
-                <Label htmlFor="offline" className="flex-1 cursor-pointer">
-                  Offline
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2 rounded-md border p-3 transition-colors hover:bg-muted/50">
-                <RadioGroupItem value="Online" id="online" />
-                <Label htmlFor="online" className="flex-1 cursor-pointer">
-                  Online
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2 rounded-md border p-3 transition-colors hover:bg-muted/50">
-                <RadioGroupItem value="Hybrid" id="hybrid" />
-                <Label htmlFor="hybrid" className="flex-1 cursor-pointer">
-                  Hybrid
-                </Label>
-              </div>
-            </RadioGroup>
-          </Card>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Event Title</FormLabel>
+              <FormControl>
+                <Input placeholder="Enter event title" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-          <Card className="p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center">
-                <Users className="h-4 w-4 text-secondary" />
-              </div>
-              <h3 className="font-medium">Event Visibility</h3>
-            </div>
-            <RadioGroup
-              defaultValue="Public"
-              value="Public"
-              onValueChange={handleVisibilityChange}
-              className="flex flex-col space-y-2"
-            >
-              <div className="flex items-center space-x-2 rounded-md border p-3 transition-colors hover:bg-muted/50">
-                <RadioGroupItem value="Public" id="public" />
-                <Label htmlFor="public" className="flex-1 cursor-pointer">
-                  Public
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2 rounded-md border p-3 transition-colors hover:bg-muted/50 opacity-50">
-                <RadioGroupItem value="Private" id="private" disabled />
-                <Label htmlFor="private" className="flex-1 cursor-pointer">
-                  Private <span className="text-xs text-muted-foreground ml-1">(Premium feature)</span>
-                </Label>
-              </div>
-            </RadioGroup>
-          </Card>
-        </div>
-      </motion.div>
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Describe your event" className="min-h-32" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      <motion.div className="space-y-4" variants={item}>
-        <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-          Event Details
-        </h2>
-        <div className="grid gap-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-medium">
-                Event Name
-              </Label>
-              <Input
-                id="name"
-                name="name"
-                value={data.name}
-                onChange={handleChange}
-                placeholder="Tech Conference 2023"
-                className="transition-all focus:ring-2 focus:ring-primary/50"
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                The full name of your event as it will appear on event listings and promotional materials.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="displayName" className="text-sm font-medium">
-                Event Display Name (Short Name)
-              </Label>
-              <Input
-                id="displayName"
-                name="displayName"
-                value={data.displayName}
-                onChange={handleChange}
-                placeholder="TC23"
-                className="transition-all focus:ring-2 focus:ring-primary/50"
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                A shorter version of your event name for tickets, badges, and places where space is limited.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="slug" className="text-sm font-medium flex items-center">
-              Website URL Slug
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-2 h-6 px-2"
-                onClick={() => setIsEditingSlug(!isEditingSlug)}
-              >
-                <Edit className="h-3 w-3" />
-                <span className="ml-1 text-xs">{isEditingSlug ? "Auto-generate" : "Edit"}</span>
-              </Button>
-            </Label>
-            <div className="flex items-center">
-              <div className="bg-muted px-3 py-2 rounded-l-md border-y border-l text-muted-foreground text-sm">
-                {window.location.origin}/events/
-              </div>
-              <Input
-                id="slug"
-                name="slug"
-                value={data.slug || ""}
-                onChange={handleSlugChange}
-                placeholder="event-name"
-                className="rounded-l-none focus:ring-2 focus:ring-primary/50"
-                disabled={!isEditingSlug}
-                required
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              This is the URL where attendees can access your event page. It's automatically generated from your event
-              name.
-            </p>
-          </div>
-        </div>
-      </motion.div>
-
-      <motion.div className="space-y-4" variants={item}>
-        <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-          Event Schedule
-        </h2>
-        <div className="grid gap-6">
-          <Card className="p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <CalendarIcon className="h-4 w-4 text-primary" />
-              </div>
-              <h3 className="font-medium">Event Dates</h3>
-            </div>
-
-            {/* Modern Date Range Picker */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  id="date"
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal border border-input bg-background hover:bg-accent hover:text-accent-foreground h-auto py-3",
-                    !dateRange && "text-muted-foreground",
-                  )}
-                >
-                  <div className="flex flex-col items-start gap-1 w-full">
-                    <div className="flex items-center gap-2">
-                      <CalendarIcon className="h-4 w-4" />
-                      <span className="font-medium">Select Date Range</span>
-                    </div>
-                    {dateRange?.from ? (
-                      <p className="text-sm">
-                        {dateRange.to ? (
-                          <>
-                            <span className="font-medium">{format(dateRange.from, "LLL dd, y")}</span> -
-                            <span className="font-medium"> {format(dateRange.to, "LLL dd, y")}</span>
-                          </>
-                        ) : (
-                          <span className="font-medium">{format(dateRange.from, "LLL dd, y")}</span>
-                        )}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No date selected</p>
-                    )}
-                  </div>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 shadow-lg" align="start">
-                <div className="p-3 border-b">
-                  <h3 className="font-medium">Select Event Dates</h3>
-                  <p className="text-sm text-muted-foreground">Choose a start and end date for your event</p>
-                </div>
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={dateRange?.from}
-                  selected={dateRange}
-                  onSelect={handleDateRangeChange}
-                  numberOfMonths={2}
-                  disabled={(date) => {
-                    // Disable dates in the past
-                    const today = new Date()
-                    today.setHours(0, 0, 0, 0)
-
-                    // Disable dates more than 1 year in the future
-                    const oneYearFromNow = new Date()
-                    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
-
-                    return date < today || date > oneYearFromNow
-                  }}
-                  className="rounded-md border-0 shadow-none p-3"
-                  showOutsideDays={true}
-                  fixedWeeks={true}
-                  weekStartsOn={1}
-                  classNames={{
-                    day_selected: "bg-[#0aacf7] text-white hover:bg-[#0aacf7] hover:text-white",
-                    day_today: "bg-[#fea91b]/10 text-[#170f83] font-bold",
-                    day_range_middle: "bg-[#0aacf7]/20",
-                    day_range_end: "bg-[#0aacf7] text-white hover:bg-[#0aacf7] hover:text-white",
-                    day_range_start: "bg-[#0aacf7] text-white hover:bg-[#0aacf7] hover:text-white",
-                  }}
-                />
-                <div className="p-3 border-t border-border bg-muted/30">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">Quick select:</div>
-                    <div className="space-x-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="date"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Event Date</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
                       <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const today = new Date()
-                          const nextWeek = addDays(today, 7)
-                          handleDateRangeChange({
-                            from: today,
-                            to: nextWeek,
-                          })
-                        }}
+                        variant={"outline"}
+                        className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
                       >
-                        Next 7 days
+                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const today = new Date()
-                          const nextMonth = new Date(today)
-                          nextMonth.setMonth(today.getMonth() + 1)
-                          handleDateRangeChange({
-                            from: today,
-                            to: nextMonth,
-                          })
-                        }}
-                      >
-                        Next 30 days
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Start Time</Label>
-                <Select value={data.startTime} onValueChange={(value) => handleTimeChange(value, "startTime")}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {startTimeOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.display}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">End Time</Label>
-                <Select
-                  value={data.endTime}
-                  onValueChange={(value) => handleTimeChange(value, "endTime")}
-                  disabled={!data.startTime}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={data.startTime ? "Select time" : "Set start time first"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {endTimeOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.display}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </motion.div>
-
-      {(data.type === "Offline" || data.type === "Hybrid") && (
-        <motion.div className="space-y-4" variants={item}>
-          <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-            Google Map Location
-          </h2>
-          <Card className="p-4 space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <MapPin className="h-4 w-4 text-primary" />
-              </div>
-              <h3 className="font-medium">Location Information</h3>
-            </div>
-            <div className="grid gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="venue" className="text-sm font-medium">
-                  Venue Name
-                </Label>
-                <Input
-                  id="venue"
-                  name="venue"
-                  value={data.venue || data.location || ""}
-                  onChange={handleChange}
-                  placeholder="Convention Center"
-                  className="transition-all focus:ring-2 focus:ring-primary/50"
-                />
-                <p className="text-xs text-muted-foreground">This will be used as the location for your event.</p>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-      )}
-
-      <motion.div className="space-y-4" variants={item}>
-        <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-          Event Description
-        </h2>
-        <Card className="p-4 space-y-3">
-          <MarkdownEditor
-            value={data.description}
-            onChange={(value) =>
-              updateData({
-                ...data,
-                description: value,
-              })
-            }
-            placeholder="Describe your event..."
-            minHeight="250px"
-          />
-        </Card>
-      </motion.div>
-
-      <motion.div className="space-y-4" variants={item}>
-        <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-          Event Cover Image
-        </h2>
-        <Card className="p-4 space-y-4">
-          <div className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="coverImageUrl" className="flex items-center">
-                Image URL <span className="text-red-500 ml-1">*</span>
-              </Label>
-              <Input
-                id="coverImageUrl"
-                name="coverImageUrl"
-                value={data.coverImageUrl}
-                onChange={handleImageUrlChange}
-                placeholder="https://example.com/image.jpg"
-                className={`transition-all focus:ring-2 focus:ring-primary/50 ${imageError ? "border-red-500" : ""}`}
-                type="url"
-                pattern="https?://.+"
-                title="Please enter a valid URL starting with http:// or https://"
-                required
-              />
-              {imageError && (
-                <div className="flex items-center text-red-500 text-xs mt-1">
-                  <AlertCircle className="h-3 w-3 mr-1" />
-                  The image URL could not be loaded. Please check the URL and try again.
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Enter a valid image URL starting with http:// or https:// (required)
-              </p>
-            </div>
-            {data.coverImageUrl && (
-              <div className="mt-4 border rounded-md overflow-hidden">
-                <img
-                  src={data.coverImageUrl || "/placeholder.svg"}
-                  alt="Event cover preview"
-                  className="w-full h-48 object-cover"
-                  onError={handleImageError}
-                />
-              </div>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={field.onChange}
+                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
             )}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="startTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Start Time</FormLabel>
+                  <div className="flex items-center">
+                    <Clock className="mr-2 h-4 w-4 opacity-50" />
+                    <Input type="time" {...field} />
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="endTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>End Time</FormLabel>
+                  <div className="flex items-center">
+                    <Clock className="mr-2 h-4 w-4 opacity-50" />
+                    <Input type="time" {...field} />
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
-        </Card>
-      </motion.div>
-      <Button onClick={handleNext}>Next</Button>
-    </motion.div>
+        </div>
+
+        <FormField
+          control={form.control}
+          name="location"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Location</FormLabel>
+              <FormControl>
+                <Input placeholder="Event location or address" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="category"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Category</FormLabel>
+              <FormControl>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  {...field}
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="image"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Image URL</FormLabel>
+              <FormControl>
+                <Input placeholder="https://example.com/image.jpg" {...field} required />
+              </FormControl>
+              <FormDescription>Enter a valid URL starting with http:// or https://</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="visibility"
+            render={({ field }) => (
+              <FormItem className="space-y-3">
+                <FormLabel>Visibility</FormLabel>
+                <FormControl>
+                  <RadioGroup
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    className="flex flex-col space-y-1"
+                  >
+                    <FormItem className="flex items-center space-x-3 space-y-0">
+                      <FormControl>
+                        <RadioGroupItem value="Public" />
+                      </FormControl>
+                      <FormLabel className="font-normal">Public</FormLabel>
+                    </FormItem>
+                    <FormItem className="flex items-center space-x-3 space-y-0">
+                      <FormControl>
+                        <RadioGroupItem value="Private" disabled />
+                      </FormControl>
+                      <FormLabel className="font-normal text-muted-foreground">Private (Premium feature)</FormLabel>
+                    </FormItem>
+                  </RadioGroup>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="type"
+            render={({ field }) => (
+              <FormItem className="space-y-3">
+                <FormLabel>Event Type</FormLabel>
+                <FormControl>
+                  <RadioGroup
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    className="flex flex-col space-y-1"
+                  >
+                    <FormItem className="flex items-center space-x-3 space-y-0">
+                      <FormControl>
+                        <RadioGroupItem value="Offline" />
+                      </FormControl>
+                      <FormLabel className="font-normal">In-person</FormLabel>
+                    </FormItem>
+                    <FormItem className="flex items-center space-x-3 space-y-0">
+                      <FormControl>
+                        <RadioGroupItem value="Online" />
+                      </FormControl>
+                      <FormLabel className="font-normal">Online</FormLabel>
+                    </FormItem>
+                    <FormItem className="flex items-center space-x-3 space-y-0">
+                      <FormControl>
+                        <RadioGroupItem value="Hybrid" />
+                      </FormControl>
+                      <FormLabel className="font-normal">Hybrid</FormLabel>
+                    </FormItem>
+                  </RadioGroup>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <Button type="submit" className="w-full">
+          Continue
+        </Button>
+      </form>
+    </Form>
   )
 }

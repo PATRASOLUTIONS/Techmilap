@@ -25,7 +25,7 @@ function formatEventDate(dateString) {
       return "Date TBA"
     }
 
-    // Format the date using toLocaleDateString with a safe timezone
+    // Format the date using toLocaleDateString without specifying timezone
     return date.toLocaleDateString("en-US", {
       weekday: "long",
       year: "numeric",
@@ -44,7 +44,7 @@ function formatEventTime(timeString) {
 
   try {
     // If it's just a time string like "14:30"
-    if (timeString.length <= 5 && timeString.includes(":")) {
+    if (typeof timeString === "string" && timeString.length <= 5 && timeString.includes(":")) {
       const [hours, minutes] = timeString.split(":").map(Number)
       const period = hours >= 12 ? "PM" : "AM"
       const hour12 = hours % 12 || 12
@@ -88,7 +88,7 @@ async function getEvent(id: string) {
     if (!event) {
       try {
         event = await Event.findOne({
-          $or: [{ slug: { $regex: new RegExp(`^${id}$`, "i") } }, { slug: id }],
+          slug: id,
         }).lean()
       } catch (error) {
         console.log("Error finding by slug:", error)
@@ -114,7 +114,13 @@ async function getEvent(id: string) {
     let organizerInfo = null
     if (event.organizer) {
       try {
-        organizerInfo = await User.findById(event.organizer, { name: 1, email: 1 }).lean()
+        organizerInfo = await User.findById(event.organizer, { firstName: 1, lastName: 1, email: 1 }).lean()
+
+        // Create a name field from firstName and lastName
+        if (organizerInfo) {
+          organizerInfo.name =
+            `${organizerInfo.firstName || ""} ${organizerInfo.lastName || ""}`.trim() || "Event Organizer"
+        }
       } catch (error) {
         console.error("Error fetching organizer:", error)
       }
@@ -129,7 +135,7 @@ async function getEvent(id: string) {
 
     return {
       ...event,
-      organizerInfo,
+      organizerInfo: organizerInfo || { name: "Event Organizer" },
     }
   } catch (error) {
     console.error("Error fetching event:", error)
@@ -139,8 +145,6 @@ async function getEvent(id: string) {
 
 export default async function EventPage({ params }: { params: { id: string } }) {
   try {
-    // Import mongoose here to avoid reference errors
-
     const event = await getEvent(params.id)
 
     if (!event) {
@@ -198,12 +202,16 @@ export default async function EventPage({ params }: { params: { id: string } }) 
               {event.category && <Badge className="mb-4 bg-primary text-white">{event.category}</Badge>}
 
               <div className="prose max-w-none mt-6">
-                <div dangerouslySetInnerHTML={{ __html: event.description || "No description available." }} />
+                {event.description ? (
+                  <div dangerouslySetInnerHTML={{ __html: event.description }} />
+                ) : (
+                  <p>No description available.</p>
+                )}
               </div>
             </div>
 
             {/* Tags */}
-            {event.tags && event.tags.length > 0 && (
+            {event.tags && Array.isArray(event.tags) && event.tags.length > 0 && (
               <div className="mt-6">
                 <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
                   <Tag className="h-5 w-5" />
