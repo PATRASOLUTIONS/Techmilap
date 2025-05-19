@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       console.log(`Access denied: User role is ${userRole}, required admin or super-admin`)
       return NextResponse.json(
         {
-          error: "Not authorized. Admin role required.",
+          error: "Not authorized. Admin or super-admin role required.",
           userRole: userRole,
         },
         { status: 403 },
