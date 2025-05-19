@@ -38,7 +38,9 @@ import {
 
 interface UserData {
   _id: string
-  name: string
+  name?: string
+  firstName?: string
+  lastName?: string
   email: string
   role: string
   createdAt: string
@@ -141,7 +143,7 @@ export default function UsersManagementPage() {
     // Convert users to CSV format
     const headers = ["Name", "Email", "Role", "Created At", "Verified"]
     const csvData = users.map((user) => [
-      user.name,
+      getFullName(user),
       user.email,
       user.role,
       new Date(user.createdAt).toLocaleDateString(),
@@ -167,6 +169,24 @@ export default function UsersManagementPage() {
     })
   }
 
+  // Get full name from user data
+  const getFullName = (user: UserData): string => {
+    // If name exists, return it
+    if (user.name) return user.name
+
+    // If firstName and lastName exist, combine them
+    if (user.firstName && user.lastName) return `${user.firstName} ${user.lastName}`
+
+    // If only firstName exists
+    if (user.firstName) return user.firstName
+
+    // If only lastName exists
+    if (user.lastName) return user.lastName
+
+    // Fallback to email or Unknown
+    return user.email ? user.email.split("@")[0] : "Unknown"
+  }
+
   // Format date
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -181,10 +201,10 @@ export default function UsersManagementPage() {
     switch (role) {
       case "super-admin":
         return "bg-red-100 text-red-800 hover:bg-red-200"
-      case "admin":
-        return "bg-purple-100 text-purple-800 hover:bg-purple-200"
-      case "planner":
+      case "event-planner":
         return "bg-blue-100 text-blue-800 hover:bg-blue-200"
+      case "user":
+        return "bg-gray-100 text-gray-800 hover:bg-gray-200"
       default:
         return "bg-gray-100 text-gray-800 hover:bg-gray-200"
     }
@@ -313,8 +333,7 @@ export default function UsersManagementPage() {
                   <SelectContent>
                     <SelectItem value="all">All Roles</SelectItem>
                     <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="planner">Planner</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="event-planner">Event Planner</SelectItem>
                     <SelectItem value="super-admin">Super Admin</SelectItem>
                   </SelectContent>
                 </Select>
@@ -405,7 +424,7 @@ export default function UsersManagementPage() {
                   ) : (
                     users.map((user) => (
                       <TableRow key={user._id}>
-                        <TableCell className="font-medium">{user.name || "N/A"}</TableCell>
+                        <TableCell className="font-medium">{getFullName(user)}</TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
                           <Badge className={getRoleBadgeColor(user.role)}>{user.role}</Badge>
