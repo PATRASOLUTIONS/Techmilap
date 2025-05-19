@@ -7,7 +7,9 @@ import { FeaturesSection } from "@/components/landing/features-section-enhanced"
 import { CtaSection } from "@/components/landing/cta-section"
 import { StatsSectionWrapper } from "@/components/landing/stats-section-wrapper"
 import { WhyChooseUsSection } from "@/components/landing/why-choose-us-section"
-import { OrganizerTestimonialsSection } from "@/components/landing/organizer-testimonials-section"
+import { TestimonialsSlider } from "@/components/landing/testimonials-slider"
+import { ComparisonTable } from "@/components/landing/comparison-table"
+import { FaqSection } from "@/components/landing/faq-section"
 import { DecorativeBlob } from "@/components/ui/decorative-blob"
 import { motion } from "framer-motion"
 
@@ -47,11 +49,17 @@ export default function LandingPage() {
           {/* Why Choose Us Section */}
           <WhyChooseUsSection />
 
+          {/* Comparison Table */}
+          <ComparisonTable />
+
           {/* Enhanced Features Section */}
           <FeaturesSection />
 
-          {/* Organizer Testimonials Section */}
-          <OrganizerTestimonialsSection />
+          {/* Testimonials Slider */}
+          <TestimonialsSlider />
+
+          {/* FAQ Section */}
+          <FaqSection />
 
           {/* CTA Section */}
           <CtaSection />

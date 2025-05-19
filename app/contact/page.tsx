@@ -31,11 +31,11 @@ export default function ContactPage() {
                 Our Location
               </h2>
               <address className="not-italic text-muted-foreground">
-                123 Tech Avenue
+                Bengaluru
                 <br />
-                Innovation District
+                Karnataka
                 <br />
-                San Francisco, CA 94107
+                India
               </address>
             </div>
 
@@ -44,8 +44,8 @@ export default function ContactPage() {
                 <Mail className="h-5 w-5 text-primary" />
                 Email Us
               </h2>
-              <a href="mailto:contact@techeventplanner.com" className="text-primary hover:underline">
-                contact@techeventplanner.com
+              <a href="mailto:info@techmilap.com" className="text-primary hover:underline">
+                info@techmilap.com
               </a>
             </div>
 
@@ -55,8 +55,8 @@ export default function ContactPage() {
                 Call Us
               </h2>
               <p className="text-muted-foreground">
-                <a href="tel:+14155552671" className="text-primary hover:underline">
-                  +1 (415) 555-2671
+                <a href="tel:+918332936831" className="text-primary hover:underline">
+                  +91 8332936831
                 </a>
               </p>
             </div>

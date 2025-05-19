@@ -32,6 +32,7 @@ export default function LoginPage() {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [registeredSuccess, setRegisteredSuccess] = useState(false)
   const [verifiedSuccess, setVerifiedSuccess] = useState(false)
+  const [loginAs, setLoginAs] = useState("user") // Default role
 
   const { toast } = useToast()
 
@@ -116,6 +117,7 @@ export default function LoginPage() {
         redirect: false, // Important: never redirect automatically
         email,
         password,
+        role: loginAs, // Pass the selected role
       })
 
       // Check for authentication errors
@@ -422,6 +424,44 @@ export default function LoginPage() {
                         >
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
+                      </div>
+                    </motion.div>
+
+                    {/* Login As Role Selector */}
+                    <motion.div
+                      className="space-y-2"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.25 }}
+                    >
+                      <Label htmlFor="loginAs" className="text-sm font-medium">
+                        Login As
+                      </Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <Button
+                          type="button"
+                          variant={loginAs === "user" ? "default" : "outline"}
+                          className={`w-full ${loginAs === "user" ? "bg-primary hover:bg-primary/90" : ""}`}
+                          onClick={() => setLoginAs("user")}
+                        >
+                          User
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={loginAs === "event-planner" ? "default" : "outline"}
+                          className={`w-full ${loginAs === "event-planner" ? "bg-primary hover:bg-primary/90" : ""}`}
+                          onClick={() => setLoginAs("event-planner")}
+                        >
+                          Planner
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={loginAs === "super-admin" ? "default" : "outline"}
+                          className={`w-full ${loginAs === "super-admin" ? "bg-primary hover:bg-primary/90" : ""}`}
+                          onClick={() => setLoginAs("super-admin")}
+                        >
+                          Admin
+                        </Button>
                       </div>
                     </motion.div>
 
