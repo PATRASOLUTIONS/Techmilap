@@ -1,12 +1,9 @@
-import { notFound } from "next/navigation"
 import Image from "next/image"
 import { CalendarIcon, MapPinIcon, Clock, Users, Tag, Ticket } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { connectToDatabase } from "@/lib/mongodb"
-import Event from "@/models/Event"
-import User from "@/models/User"
 import Link from "next/link"
 import mongoose from "mongoose"
 
@@ -20,7 +17,6 @@ function formatEventDate(dateString) {
 
     // Check if date is valid
     if (isNaN(date.getTime())) {
-      console.log("Invalid date:", dateString)
       return "Date TBA"
     }
 
@@ -32,7 +28,6 @@ function formatEventDate(dateString) {
       day: "numeric",
     })
   } catch (error) {
-    console.error("Error formatting date:", error, dateString)
     return "Date TBA"
   }
 }
@@ -62,14 +57,23 @@ function formatEventTime(timeString) {
 
     return "Time TBA"
   } catch (error) {
-    console.error("Error formatting time:", error, timeString)
     return "Time TBA"
   }
 }
 
 async function getEvent(id: string) {
   try {
-    await connectToDatabase()
+    // Connect to database
+    try {
+      await connectToDatabase()
+    } catch (error) {
+      console.error("Database connection error:", error)
+      return null
+    }
+
+    // Import models dynamically to avoid issues
+    const Event = mongoose.models.Event || mongoose.model("Event", new mongoose.Schema({}))
+    const User = mongoose.models.User || mongoose.model("User", new mongoose.Schema({}))
 
     // Try to find by ID or slug
     let event = null
@@ -97,38 +101,36 @@ async function getEvent(id: string) {
     }
 
     // Fetch organizer info if available
-    let organizerInfo = null
-    if (event.organizer) {
+    const organizerInfo = { name: "Event Organizer" }
+    if (event.organizer && mongoose.isValidObjectId(event.organizer)) {
       try {
-        organizerInfo = await User.findById(event.organizer).lean()
-
-        // Create a name field from firstName and lastName or use email as fallback
-        if (organizerInfo) {
-          if (organizerInfo.firstName || organizerInfo.lastName) {
-            organizerInfo.name = `${organizerInfo.firstName || ""} ${organizerInfo.lastName || ""}`.trim()
-          } else if (organizerInfo.email) {
-            organizerInfo.name = organizerInfo.email.split("@")[0]
-          } else {
-            organizerInfo.name = "Event Organizer"
-          }
+        const organizer = await User.findById(event.organizer).lean()
+        if (organizer) {
+          organizerInfo.name =
+            `${organizer.firstName || ""} ${organizer.lastName || ""}`.trim() ||
+            (organizer.email ? organizer.email.split("@")[0] : "Event Organizer")
         }
       } catch (error) {
         console.error("Error fetching organizer:", error)
       }
     }
 
-    // Process image URL
-    let imageUrl = "/vibrant-tech-event.png" // Default fallback
-    if (event.image) {
-      imageUrl = event.image
-    } else if (event.coverImageUrl) {
-      imageUrl = event.coverImageUrl
-    }
-
+    // Ensure all required fields exist
     return {
-      ...event,
-      image: imageUrl,
-      organizerInfo: organizerInfo || { name: "Event Organizer" },
+      _id: event._id?.toString() || id,
+      title: event.title || "Untitled Event",
+      description: event.description || "",
+      date: event.date || null,
+      endDate: event.endDate || null,
+      startTime: event.startTime || null,
+      endTime: event.endTime || null,
+      location: event.location || "Location TBA",
+      image: event.image || "/vibrant-tech-event.png",
+      category: event.category || null,
+      price: event.price || 0,
+      tags: Array.isArray(event.tags) ? event.tags : [],
+      slug: event.slug || event._id?.toString() || id,
+      organizerInfo,
     }
   } catch (error) {
     console.error("Error fetching event:", error)
@@ -137,11 +139,22 @@ async function getEvent(id: string) {
 }
 
 export default async function EventPage({ params }: { params: { id: string } }) {
+  // Fallback content in case of error
+  const fallbackContent = (
+    <div className="container mx-auto py-12 px-4 md:px-6 text-center">
+      <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
+      <p className="mb-6">We couldn't load this event. Please try again later.</p>
+      <Button asChild>
+        <Link href="/events">Back to Events</Link>
+      </Button>
+    </div>
+  )
+
   try {
     const event = await getEvent(params.id)
 
     if (!event) {
-      notFound()
+      return fallbackContent
     }
 
     // Format dates
@@ -160,7 +173,6 @@ export default async function EventPage({ params }: { params: { id: string } }) 
 
     // Default image if none is provided
     const imageUrl = event.image || "/vibrant-tech-event.png"
-    const fallbackImageUrl = "/vibrant-tech-event.png"
 
     return (
       <div className="container mx-auto py-12 px-4 md:px-6">
@@ -175,23 +187,22 @@ export default async function EventPage({ params }: { params: { id: string } }) 
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
             {/* Event Image */}
-            <div className="relative aspect-video overflow-hidden rounded-lg shadow-md">
-              <Image
-                src={imageUrl || "/placeholder.svg"}
-                alt={event.title || "Event"}
-                fill
-                className="object-cover"
-                priority
-                unoptimized={imageUrl.startsWith("http")}
-                onError={(e) => {
-                  // Simple fallback for image errors
-                  const target = e.target as HTMLImageElement
-                  if (target.src !== fallbackImageUrl) {
-                    target.src = fallbackImageUrl
-                  }
-                }}
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 50vw"
-              />
+            <div className="relative aspect-video overflow-hidden rounded-lg shadow-md bg-gray-100">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Image
+                  src={imageUrl || "/placeholder.svg"}
+                  alt={event.title || "Event"}
+                  fill
+                  className="object-cover"
+                  priority
+                  unoptimized={imageUrl.startsWith("http")}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement
+                    target.src = "/vibrant-tech-event.png"
+                  }}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 50vw"
+                />
+              </div>
             </div>
 
             {/* Event Details */}
@@ -202,7 +213,11 @@ export default async function EventPage({ params }: { params: { id: string } }) 
 
               <div className="prose max-w-none mt-6">
                 {event.description ? (
-                  <div dangerouslySetInnerHTML={{ __html: event.description }} />
+                  typeof event.description === "string" ? (
+                    <div dangerouslySetInnerHTML={{ __html: event.description }} />
+                  ) : (
+                    <p>{JSON.stringify(event.description)}</p>
+                  )
                 ) : (
                   <p>No description available.</p>
                 )}
@@ -304,14 +319,6 @@ export default async function EventPage({ params }: { params: { id: string } }) 
     )
   } catch (error) {
     console.error("Error rendering event page:", error)
-    return (
-      <div className="container mx-auto py-12 px-4 md:px-6 text-center">
-        <h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
-        <p className="mb-6">We couldn't load this event. Please try again later.</p>
-        <Button asChild>
-          <Link href="/events">Back to Events</Link>
-        </Button>
-      </div>
-    )
+    return fallbackContent
   }
 }
