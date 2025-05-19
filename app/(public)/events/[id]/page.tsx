@@ -1,44 +1,22 @@
-import { Suspense } from "react"
+import Link from "next/link"
 import Image from "next/image"
 import { CalendarIcon, MapPinIcon, Clock, Users, Tag, Ticket } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import Link from "next/link"
-import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
 
-// Loading skeleton component
-function EventSkeleton() {
-  return (
-    <div className="container mx-auto py-12 px-4 md:px-6">
-      <div className="mb-6">
-        <div className="w-32 h-6 bg-gray-200 rounded animate-pulse"></div>
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <div className="relative aspect-video bg-gray-200 rounded-lg animate-pulse"></div>
-          <div>
-            <div className="h-10 bg-gray-200 rounded w-3/4 mb-4 animate-pulse"></div>
-            <div className="w-20 h-6 bg-gray-200 rounded mb-4 animate-pulse"></div>
-            <div className="space-y-2">
-              <div className="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
-              <div className="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
-              <div className="h-4 bg-gray-200 rounded w-5/6 animate-pulse"></div>
-            </div>
-          </div>
-        </div>
-        <div className="space-y-6">
-          <div className="bg-gray-200 rounded-lg h-64 animate-pulse"></div>
-          <div className="space-y-3">
-            <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
-            <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
-            <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+// Fallback event data
+const fallbackEvent = {
+  title: "Event Details",
+  description: "<p>Event details will be available soon.</p>",
+  date: new Date().toISOString(),
+  location: "To be announced",
+  image: "/vibrant-tech-event.png",
+  category: "Event",
+  price: 0,
+  tags: ["event"],
+  organizerName: "Event Organizer",
 }
 
 // Helper function to safely format dates
@@ -74,70 +52,108 @@ function formatEventTime(timeString) {
   }
 }
 
-// Fallback event data
-const fallbackEvent = {
-  title: "Event Details",
-  description: "<p>Event details will be available soon.</p>",
-  date: new Date().toISOString(),
-  location: "To be announced",
-  image: "/vibrant-tech-event.png",
-  category: "Event",
-  price: 0,
-  tags: ["event"],
-  organizerInfo: { name: "Event Organizer" },
-}
-
-// Main event content component
-async function EventContent({ id }) {
-  let event = null
+export default async function EventPage({ params }: { params: { id: string } }) {
+  // Initialize with fallback data
+  let event = { ...fallbackEvent }
+  let organizerName = "Event Organizer"
 
   try {
-    // Connect to database
-    await connectToDatabase()
+    // Import mongoose dynamically to avoid issues
+    const MONGODB_URI = process.env.MONGODB_URI
 
-    // Get models
-    const Event = mongoose.models.Event || mongoose.model("Event", new mongoose.Schema({}))
-    const User = mongoose.models.User || mongoose.model("User", new mongoose.Schema({}))
-
-    // Try to find event by ID or slug
-    if (mongoose.isValidObjectId(id)) {
-      event = await Event.findById(id).lean()
-    }
-
-    if (!event) {
-      event = await Event.findOne({ slug: id }).lean()
-    }
-
-    // If event found, get organizer info
-    if (event) {
-      const organizerInfo = { name: "Event Organizer" }
-
-      if (event.organizer && mongoose.isValidObjectId(event.organizer)) {
-        try {
-          const organizer = await User.findById(event.organizer).lean()
-          if (organizer) {
-            if (organizer.firstName || organizer.lastName) {
-              organizerInfo.name = `${organizer.firstName || ""} ${organizer.lastName || ""}`.trim()
-            } else if (organizer.name) {
-              organizerInfo.name = organizer.name
-            } else if (organizer.email) {
-              organizerInfo.name = organizer.email.split("@")[0]
-            }
-          }
-        } catch (error) {
-          console.error("Error fetching organizer:", error)
-        }
+    if (MONGODB_URI) {
+      // Connect to MongoDB directly
+      if (mongoose.connection.readyState !== 1) {
+        await mongoose.connect(MONGODB_URI, {
+          serverSelectionTimeoutMS: 5000,
+          socketTimeoutMS: 45000,
+        })
       }
 
-      event.organizerInfo = organizerInfo
+      // Define a simple schema for Event
+      const EventSchema = new mongoose.Schema(
+        {
+          title: String,
+          description: String,
+          date: Date,
+          endDate: Date,
+          startTime: String,
+          endTime: String,
+          location: String,
+          image: String,
+          coverImageUrl: String,
+          category: String,
+          price: Number,
+          tags: [String],
+          slug: String,
+          organizer: mongoose.Schema.Types.ObjectId,
+        },
+        { strict: false },
+      )
+
+      // Define a simple schema for User
+      const UserSchema = new mongoose.Schema(
+        {
+          firstName: String,
+          lastName: String,
+          email: String,
+          name: String,
+        },
+        { strict: false },
+      )
+
+      // Get or create models
+      const Event = mongoose.models.Event || mongoose.model("Event", EventSchema)
+      const User = mongoose.models.User || mongoose.model("User", UserSchema)
+
+      // Try to find event by ID or slug
+      let eventData = null
+
+      if (mongoose.isValidObjectId(params.id)) {
+        eventData = await Event.findById(params.id).lean()
+      }
+
+      if (!eventData) {
+        eventData = await Event.findOne({ slug: params.id }).lean()
+      }
+
+      // If event found, update our event object
+      if (eventData) {
+        event = {
+          ...event,
+          ...eventData,
+          title: eventData.title || fallbackEvent.title,
+          description: eventData.description || fallbackEvent.description,
+          date: eventData.date || fallbackEvent.date,
+          location: eventData.location || fallbackEvent.location,
+          image: eventData.image || eventData.coverImageUrl || fallbackEvent.image,
+          category: eventData.category || fallbackEvent.category,
+          price: eventData.price || fallbackEvent.price,
+          tags: Array.isArray(eventData.tags) ? eventData.tags : fallbackEvent.tags,
+        }
+
+        // Try to get organizer info
+        if (eventData.organizer && mongoose.isValidObjectId(eventData.organizer)) {
+          try {
+            const organizer = await User.findById(eventData.organizer).lean()
+            if (organizer) {
+              if (organizer.firstName || organizer.lastName) {
+                organizerName = `${organizer.firstName || ""} ${organizer.lastName || ""}`.trim()
+              } else if (organizer.name) {
+                organizerName = organizer.name
+              } else if (organizer.email) {
+                organizerName = organizer.email.split("@")[0]
+              }
+            }
+          } catch (error) {
+            console.error("Error fetching organizer:", error)
+          }
+        }
+      }
     }
   } catch (error) {
     console.error("Error fetching event:", error)
-  }
-
-  // Use fallback if no event found
-  if (!event) {
-    event = fallbackEvent
+    // Continue with fallback data
   }
 
   // Format dates and times
@@ -153,7 +169,7 @@ async function EventContent({ id }) {
   }
 
   // Prepare image URL
-  const imageUrl = event.image || event.coverImageUrl || "/vibrant-tech-event.png"
+  const imageUrl = event.image || "/vibrant-tech-event.png"
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
@@ -246,21 +262,19 @@ async function EventContent({ id }) {
                   </div>
                 </div>
 
-                {event.location && (
-                  <div className="flex items-start gap-3">
-                    <MapPinIcon className="h-5 w-5 text-primary mt-0.5" />
-                    <div>
-                      <p className="font-medium">Location</p>
-                      <p>{event.location}</p>
-                    </div>
+                <div className="flex items-start gap-3">
+                  <MapPinIcon className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <p className="font-medium">Location</p>
+                    <p>{event.location}</p>
                   </div>
-                )}
+                </div>
 
                 <div className="flex items-start gap-3">
                   <Users className="h-5 w-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-medium">Organizer</p>
-                    <p>{event.organizerInfo?.name || "Event Organizer"}</p>
+                    <p>{organizerName}</p>
                   </div>
                 </div>
 
@@ -277,29 +291,19 @@ async function EventContent({ id }) {
 
           <div className="space-y-3">
             <Button asChild className="w-full">
-              <Link href={`/events/${id}/register`}>Register Now</Link>
+              <Link href={`/events/${params.id}/register`}>Register Now</Link>
             </Button>
 
             <Button variant="outline" asChild className="w-full">
-              <Link href={`/events/${id}/volunteer`}>Volunteer</Link>
+              <Link href={`/events/${params.id}/volunteer`}>Volunteer</Link>
             </Button>
 
             <Button variant="outline" asChild className="w-full">
-              <Link href={`/events/${id}/speaker`}>Apply as Speaker</Link>
+              <Link href={`/events/${params.id}/speaker`}>Apply as Speaker</Link>
             </Button>
           </div>
         </div>
       </div>
     </div>
-  )
-}
-
-// Main page component with error boundary
-export default function EventPage({ params }: { params: { id: string } }) {
-  return (
-    <Suspense fallback={<EventSkeleton />}>
-      {/* @ts-ignore */}
-      <EventContent id={params.id} />
-    </Suspense>
   )
 }

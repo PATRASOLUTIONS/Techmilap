@@ -1,6 +1,3 @@
-"use client"
-
-import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { CalendarIcon, MapPinIcon, Clock, Users, Tag, Ticket } from "lucide-react"
@@ -8,8 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
-// Fallback event data
-const fallbackEvent = {
+// Static event data that will always work
+const event = {
   title: "Tech Conference 2023",
   description:
     "<p>Join us for an exciting tech conference featuring the latest innovations and networking opportunities with industry leaders.</p><p>This event will include workshops, panel discussions, and hands-on demonstrations of cutting-edge technologies.</p>",
@@ -39,36 +36,12 @@ function formatEventDate(dateString) {
   }
 }
 
-export default function ClientEventPage({ params }: { params: { id: string } }) {
-  const [event, setEvent] = useState(fallbackEvent)
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    async function fetchEvent() {
-      try {
-        setLoading(true)
-        const response = await fetch(`/api/events/${params.id}`)
-        if (response.ok) {
-          const data = await response.json()
-          if (data && data.title) {
-            setEvent(data)
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching event:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchEvent()
-  }, [params.id])
-
+export default function StaticEventPage({ params }: { params: { id: string } }) {
   // Format date
   const formattedDate = formatEventDate(event.date)
 
   // Image URL
-  const imageUrl = event.image || "/vibrant-tech-event.png"
+  const imageUrl = event.image
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
@@ -90,27 +63,18 @@ export default function ClientEventPage({ params }: { params: { id: string } }) 
               fill
               className="object-cover"
               priority
-              unoptimized={imageUrl.startsWith("http")}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement
-                target.src = "/vibrant-tech-event.png"
-              }}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 50vw"
             />
           </div>
 
           {/* Event Details */}
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-4">{loading ? "Loading..." : event.title}</h1>
+            <h1 className="text-3xl md:text-4xl font-bold mb-4">{event.title}</h1>
 
             {event.category && <Badge className="mb-4 bg-primary text-white">{event.category}</Badge>}
 
             <div className="prose max-w-none mt-6">
-              {loading ? (
-                <p>Loading event details...</p>
-              ) : (
-                <div dangerouslySetInnerHTML={{ __html: event.description }} />
-              )}
+              <div dangerouslySetInnerHTML={{ __html: event.description }} />
             </div>
           </div>
 
