@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
-import { CalendarIcon, MapPin, Globe, Users, Edit } from "lucide-react"
+import { CalendarIcon, MapPin, Globe, Users, Edit, AlertCircle } from "lucide-react"
 import { format, addDays } from "date-fns"
 import { cn } from "@/lib/utils"
 import { motion } from "framer-motion"
@@ -68,6 +68,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
       : undefined,
   )
   const [isEditingSlug, setIsEditingSlug] = useState(false)
+  const [imageError, setImageError] = useState(false)
 
   // Generate slug when name changes
   useEffect(() => {
@@ -205,6 +206,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
 
   const handleImageUrlChange = (e) => {
     const { value } = e.target
+    setImageError(false)
 
     // Basic URL validation
     const isValidUrl = /^https?:\/\/.+/.test(value)
@@ -221,6 +223,18 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
         variant: "destructive",
       })
     }
+  }
+
+  const handleImageError = (e) => {
+    setImageError(true)
+    e.target.src = "/placeholder.svg?key=8ogq3"
+    e.target.alt = "Failed to load image"
+
+    toast({
+      title: "Image Error",
+      description: "The image URL could not be loaded. Please check the URL and try again.",
+      variant: "destructive",
+    })
   }
 
   const container = {
@@ -258,6 +272,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
     if (!data.name) missingFields.push("Event Name")
     if (!data.displayName) missingFields.push("Event Display Name")
     if (!data.slug) missingFields.push("Website URL Slug")
+    if (!data.coverImageUrl) missingFields.push("Image URL")
     return missingFields
   }
 
@@ -269,6 +284,16 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
         toast({
           title: "Required Fields Missing",
           description: `Please fill in the following fields: ${missingFields.join(", ")}`,
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Validate image URL format
+      if (!data.coverImageUrl.match(/^https?:\/\/.+/)) {
+        toast({
+          title: "Invalid Image URL",
+          description: "Image URL must start with http:// or https://",
           variant: "destructive",
         })
         return
@@ -706,20 +731,30 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
         <Card className="p-4 space-y-4">
           <div className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label htmlFor="coverImageUrl">Image URL</Label>
+              <Label htmlFor="coverImageUrl" className="flex items-center">
+                Image URL <span className="text-red-500 ml-1">*</span>
+              </Label>
               <Input
                 id="coverImageUrl"
                 name="coverImageUrl"
                 value={data.coverImageUrl}
                 onChange={handleImageUrlChange}
                 placeholder="https://example.com/image.jpg"
-                className="transition-all focus:ring-2 focus:ring-primary/50"
+                className={`transition-all focus:ring-2 focus:ring-primary/50 ${imageError ? "border-red-500" : ""}`}
                 type="url"
                 pattern="https?://.+"
                 title="Please enter a valid URL starting with http:// or https://"
                 required
               />
-              <p className="text-xs text-muted-foreground">Enter a valid image URL starting with http:// or https://</p>
+              {imageError && (
+                <div className="flex items-center text-red-500 text-xs mt-1">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  The image URL could not be loaded. Please check the URL and try again.
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Enter a valid image URL starting with http:// or https:// (required)
+              </p>
             </div>
             {data.coverImageUrl && (
               <div className="mt-4 border rounded-md overflow-hidden">
@@ -727,10 +762,7 @@ export function EventDetailsForm({ data, updateData, activeTab, setActiveTab, fo
                   src={data.coverImageUrl || "/placeholder.svg"}
                   alt="Event cover preview"
                   className="w-full h-48 object-cover"
-                  onError={(e) => {
-                    e.target.src = "/placeholder.svg?key=8ogq3"
-                    e.target.alt = "Failed to load image"
-                  }}
+                  onError={handleImageError}
                 />
               </div>
             )}

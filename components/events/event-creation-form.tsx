@@ -16,10 +16,12 @@ import { CheckCircle2, ChevronLeft, ChevronRight, Rocket, LinkIcon } from "lucid
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { useSession } from "next-auth/react"
 
 export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   const router = useRouter()
   const { toast } = useToast()
+  const { data: session } = useSession()
   const [activeTab, setActiveTab] = useState("details")
   const [formData, setFormData] = useState({
     details: {
@@ -32,7 +34,6 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       endTime: "",
       endDate: "",
       venue: "",
-
       description: "",
       coverImageUrl: "",
       desktopCoverImage: null,
@@ -144,6 +145,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
     if (!details.endDate) missingFields.push("End Date")
     if (!details.endTime) missingFields.push("End Time")
     if (!details.description) missingFields.push("Event Description")
+    if (!details.coverImageUrl) missingFields.push("Image URL")
 
     // Check venue details for offline or hybrid events
     if (details.type === "Offline" || details.type === "Hybrid") {
@@ -161,6 +163,16 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
         toast({
           title: "Required Fields Missing",
           description: `Please fill in the following fields: ${missingFields.join(", ")}`,
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Validate image URL format
+      if (formData.details.coverImageUrl && !formData.details.coverImageUrl.match(/^https?:\/\/.+/)) {
+        toast({
+          title: "Invalid Image URL",
+          description: "Image URL must start with http:// or https://",
           variant: "destructive",
         })
         return
@@ -216,6 +228,20 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
         throw new Error("Event name is required")
       }
 
+      if (!formData.details.coverImageUrl) {
+        throw new Error("Image URL is required")
+      }
+
+      if (!formData.details.coverImageUrl.match(/^https?:\/\/.+/)) {
+        throw new Error("Image URL must start with http:// or https://")
+      }
+
+      // Get the current user ID from the session
+      const userId = session?.user?.id || null
+      if (!userId) {
+        console.warn("User ID not found in session, using fallback")
+      }
+
       // Convert form data to the format expected by the API
       const apiData = {
         details: {
@@ -226,7 +252,6 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
           startTime: formData.details.startTime,
           endTime: formData.details.endTime,
           endDate: formData.details.endDate,
-
           venue: formData.details.venue,
           type: formData.details.type,
           visibility: formData.details.visibility || "Public", // Default to Public if not specified
@@ -242,15 +267,20 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
             `event-${Date.now()}`,
         },
         tickets:
-          formData.tickets.map((ticket) => ({
-            ...ticket,
-            // Ensure numeric values are properly formatted
-            price: ticket.price ? Number(ticket.price) : 0,
-            quantity: ticket.quantity ? Number(ticket.quantity) : 0,
-            // Add default values for required fields that shouldn't be mandatory
-            ticketNumber: ticket.ticketNumber || `TICKET-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-            userId: ticket.userId || "system-generated",
-          })) || [],
+          formData.tickets.map((ticket, index) => {
+            // Generate a unique ticket number if not provided
+            const ticketNumber = ticket.ticketNumber || `TICKET-${Date.now()}-${index}`
+
+            return {
+              ...ticket,
+              // Ensure numeric values are properly formatted
+              price: ticket.price ? Number(ticket.price) : 0,
+              quantity: ticket.quantity ? Number(ticket.quantity) : 0,
+              // Add required fields
+              ticketNumber: ticketNumber,
+              userId: userId || "system-generated",
+            }
+          }) || [],
         customQuestions: {
           attendee: Array.isArray(formData.customQuestions.attendee) ? formData.customQuestions.attendee : [],
           volunteer: Array.isArray(formData.customQuestions.volunteer) ? formData.customQuestions.volunteer : [],
@@ -549,7 +579,14 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                   transition={{ duration: 0.3 }}
                 >
                   {activeTab === "details" && (
-                    <EventDetailsForm data={formData.details} updateData={(data) => updateFormData("details", data)} />
+                    <EventDetailsForm
+                      data={formData.details}
+                      updateData={(data) => updateFormData("details", data)}
+                      activeTab={activeTab}
+                      setActiveTab={setActiveTab}
+                      formData={formData}
+                      toast={toast}
+                    />
                   )}
 
                   {activeTab === "tickets" && (
@@ -557,6 +594,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                       data={formData.tickets}
                       updateData={(data) => updateFormData("tickets", data)}
                       eventId={isEditing ? existingEvent._id : null}
+                      toast={toast}
                     />
                   )}
 

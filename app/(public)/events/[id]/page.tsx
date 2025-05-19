@@ -25,9 +25,8 @@ function formatEventDate(dateString) {
       return "Date TBA"
     }
 
-    // Format the date using toLocaleDateString with Asia/Tokyo timezone
+    // Format the date using toLocaleDateString with a safe timezone
     return date.toLocaleDateString("en-US", {
-      timeZone: "Asia/Tokyo",
       weekday: "long",
       year: "numeric",
       month: "long",
