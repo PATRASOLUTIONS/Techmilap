@@ -9,7 +9,6 @@ import Event from "@/models/Event"
 import User from "@/models/User"
 import Link from "next/link"
 import mongoose from "mongoose"
-import { getImageUrl, handleImageError } from "@/lib/image-utils"
 
 // Helper function to safely format dates
 function formatEventDate(dateString) {
@@ -76,33 +75,20 @@ async function getEvent(id: string) {
     let event = null
 
     // First try to find by exact ID match
-    try {
-      if (mongoose.isValidObjectId(id)) {
+    if (mongoose.isValidObjectId(id)) {
+      try {
         event = await Event.findById(id).lean()
+      } catch (error) {
+        console.log("Error finding by ID:", error)
       }
-    } catch (error) {
-      console.log("Error finding by ID, trying slug lookup:", error)
     }
 
-    // If not found by ID, try to find by slug (case insensitive)
+    // If not found by ID, try to find by slug
     if (!event) {
       try {
-        event = await Event.findOne({
-          slug: id,
-        }).lean()
+        event = await Event.findOne({ slug: id }).lean()
       } catch (error) {
         console.log("Error finding by slug:", error)
-      }
-    }
-
-    // If still not found, try a more flexible search
-    if (!event) {
-      try {
-        event = await Event.findOne({
-          $or: [{ title: { $regex: id, $options: "i" } }, { slug: { $regex: id, $options: "i" } }],
-        }).lean()
-      } catch (error) {
-        console.log("Error finding by title or slug:", error)
       }
     }
 
@@ -114,12 +100,17 @@ async function getEvent(id: string) {
     let organizerInfo = null
     if (event.organizer) {
       try {
-        organizerInfo = await User.findById(event.organizer, { firstName: 1, lastName: 1, email: 1 }).lean()
+        organizerInfo = await User.findById(event.organizer).lean()
 
-        // Create a name field from firstName and lastName
+        // Create a name field from firstName and lastName or use email as fallback
         if (organizerInfo) {
-          organizerInfo.name =
-            `${organizerInfo.firstName || ""} ${organizerInfo.lastName || ""}`.trim() || "Event Organizer"
+          if (organizerInfo.firstName || organizerInfo.lastName) {
+            organizerInfo.name = `${organizerInfo.firstName || ""} ${organizerInfo.lastName || ""}`.trim()
+          } else if (organizerInfo.email) {
+            organizerInfo.name = organizerInfo.email.split("@")[0]
+          } else {
+            organizerInfo.name = "Event Organizer"
+          }
         }
       } catch (error) {
         console.error("Error fetching organizer:", error)
@@ -127,14 +118,16 @@ async function getEvent(id: string) {
     }
 
     // Process image URL
+    let imageUrl = "/vibrant-tech-event.png" // Default fallback
     if (event.image) {
-      event.image = getImageUrl(event.image)
+      imageUrl = event.image
     } else if (event.coverImageUrl) {
-      event.image = getImageUrl(event.coverImageUrl)
+      imageUrl = event.coverImageUrl
     }
 
     return {
       ...event,
+      image: imageUrl,
       organizerInfo: organizerInfo || { name: "Event Organizer" },
     }
   } catch (error) {
@@ -151,7 +144,7 @@ export default async function EventPage({ params }: { params: { id: string } }) 
       notFound()
     }
 
-    // Format dates using the same approach as in EventCard
+    // Format dates
     const formattedDate = formatEventDate(event.date)
     const formattedEndDate = event.endDate ? formatEventDate(event.endDate) : null
 
@@ -190,7 +183,13 @@ export default async function EventPage({ params }: { params: { id: string } }) 
                 className="object-cover"
                 priority
                 unoptimized={imageUrl.startsWith("http")}
-                onError={(e) => handleImageError(e, fallbackImageUrl)}
+                onError={(e) => {
+                  // Simple fallback for image errors
+                  const target = e.target as HTMLImageElement
+                  if (target.src !== fallbackImageUrl) {
+                    target.src = fallbackImageUrl
+                  }
+                }}
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 50vw"
               />
             </div>
