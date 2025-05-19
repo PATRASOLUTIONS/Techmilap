@@ -33,6 +33,19 @@ import { useState, useEffect } from "react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { motion, AnimatePresence } from "framer-motion"
 
+/**
+ * Color Codes Used in Sidebar:
+ *
+ * Sidebar Header: bg-gradient-to-r from-blue-600 to-cyan-500
+ * Icon Background: bg-gradient-to-r from-blue-500/10 to-cyan-500/10
+ * Icon Text: text-blue-600
+ * Active Item: bg-gradient-to-r from-blue-500/10 to-cyan-500/10 text-blue-700 font-medium
+ * Hover Item: hover:bg-slate-100 hover:text-blue-600
+ * User Avatar: bg-gradient-to-r from-blue-500 to-cyan-500
+ *
+ * For a complete reference of all color codes, see lib/color-reference.ts
+ */
+
 export function DashboardSidebar() {
   const pathname = usePathname()
   const { data: session, status } = useSession()

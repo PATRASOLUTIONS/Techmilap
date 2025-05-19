@@ -18,6 +18,16 @@ import { signOut } from "next-auth/react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { DashboardSidebar } from "./dashboard-sidebar"
 
+/**
+ * Color Codes Used in Header:
+ *
+ * Header Background: bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60
+ * Logo Text: bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent
+ * User Avatar: bg-gradient-to-br from-blue-500 to-cyan-400
+ *
+ * For a complete reference of all color codes, see lib/color-reference.ts
+ */
+
 export function DashboardHeader() {
   const { data: session } = useSession()
   const [mounted, setMounted] = useState(false)
