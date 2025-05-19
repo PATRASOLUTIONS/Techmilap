@@ -7,13 +7,22 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
-    // Check if user is authenticated and is an admin
+    // Check if user is authenticated
     if (!session) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    if (session.user.role !== "admin") {
-      return NextResponse.json({ error: "Not authorized. Admin role required." }, { status: 403 })
+    // Check if user has admin privileges (either admin or super-admin role)
+    const userRole = session.user.role
+    if (userRole !== "admin" && userRole !== "super-admin") {
+      console.log(`Access denied: User role is ${userRole}, required admin or super-admin`)
+      return NextResponse.json(
+        {
+          error: "Not authorized. Admin role required.",
+          userRole: userRole,
+        },
+        { status: 403 },
+      )
     }
 
     // Connect to database
