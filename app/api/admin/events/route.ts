@@ -1,0 +1,94 @@
+import { NextResponse, type NextRequest } from "next/server"
+import { connectToDatabase } from "@/lib/mongodb"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    // Check if user is authenticated and is an admin
+    if (!session || session.user.role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Connect to database
+    await connectToDatabase()
+
+    // Import models after database connection is established
+    const Event = (await import("@/models/Event")).default
+    const User = (await import("@/models/User")).default
+    const FormSubmission = (await import("@/models/FormSubmission")).default
+
+    // Get query parameters
+    const url = new URL(req.url)
+    const limit = Number.parseInt(url.searchParams.get("limit") || "50")
+    const page = Number.parseInt(url.searchParams.get("page") || "1")
+    const skip = (page - 1) * limit
+    const sort = url.searchParams.get("sort") || "createdAt"
+    const order = url.searchParams.get("order") || "desc"
+    const search = url.searchParams.get("search") || ""
+
+    // Build query
+    const query: any = {}
+
+    // Add search filter if provided
+    if (search) {
+      query.$or = [{ title: { $regex: search, $options: "i" } }, { description: { $regex: search, $options: "i" } }]
+    }
+
+    // Get events
+    const events = await Event.find(query)
+      .sort({ [sort]: order === "asc" ? 1 : -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("organizer", "name email")
+      .lean()
+
+    // Get counts for each event
+    const eventsWithCounts = await Promise.all(
+      events.map(async (event) => {
+        const attendeeCount = await FormSubmission.countDocuments({
+          eventId: event._id,
+          formType: "attendee",
+          status: "approved",
+        })
+
+        const volunteerCount = await FormSubmission.countDocuments({
+          eventId: event._id,
+          formType: "volunteer",
+          status: "approved",
+        })
+
+        const speakerCount = await FormSubmission.countDocuments({
+          eventId: event._id,
+          formType: "speaker",
+          status: "approved",
+        })
+
+        return {
+          ...event,
+          attendeeCount,
+          volunteerCount,
+          speakerCount,
+        }
+      }),
+    )
+
+    // Get total count
+    const total = await Event.countDocuments(query)
+
+    return NextResponse.json({
+      events: eventsWithCounts,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    })
+  } catch (error) {
+    console.error("Error fetching admin events:", error)
+    return NextResponse.json({ error: "Failed to fetch events" }, { status: 500 })
+  }
+}
