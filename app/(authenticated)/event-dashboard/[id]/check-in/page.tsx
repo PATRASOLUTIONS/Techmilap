@@ -81,7 +81,8 @@ export default function EventCheckInPage() {
       setIsProcessing(true)
 
       // Process the scanned QR code
-      const ticketId = data.trim()
+      const url = data.trim()
+      const ticketId = url.split("/tickets/")[1];
 
       // Call the check-in API
       const response = await fetch("/api/tickets/check-in", {
@@ -97,6 +98,8 @@ export default function EventCheckInPage() {
       })
 
       const result = await response.json()
+
+      console.log("Check-in result:", result)
 
       // Set the scan result
       setScanResult(result)
@@ -219,7 +222,7 @@ export default function EventCheckInPage() {
 
   const resetScan = () => {
     setScanResult(null)
-    setIsScanning(true)
+    setIsScanning(false)
   }
 
   if (loading) {

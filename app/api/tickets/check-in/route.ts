@@ -1,8 +1,12 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { type NextRequest, NextResponse } from "next/server";
+import { connectToDatabase } from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import Event from "@/models/Event";
+import Ticket from "@/models/Ticket";
+import FormSubmission from "@/models/FormSubmission";
+import CheckIn from "@/models/CheckIn";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +16,6 @@ export async function POST(req: NextRequest) {
     }
 
     const { ticketId: rawTicketId, eventId, allowDuplicateCheckIn = false } = await req.json()
-
     // Clean the ticket ID by removing any "#" prefix
     const ticketId = rawTicketId.startsWith("#") ? rawTicketId.substring(1) : rawTicketId
 
@@ -22,15 +25,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Ticket ID and Event ID are required" }, { status: 400 })
     }
 
-    const { db } = await connectToDatabase()
+    await connectToDatabase();
 
     // First, try to find the event
-    const event = await db.collection("events").findOne({
-      _id: new ObjectId(eventId),
-    })
-
+    const event = await Event.findById(eventId);
     if (!event) {
-      return NextResponse.json({ success: false, message: "Event not found" }, { status: 404 })
+      return NextResponse.json({ success: false, message: "Event not found" }, { status: 404 });
     }
 
     // Log the search parameters for debugging
@@ -40,30 +40,22 @@ export async function POST(req: NextRequest) {
     let ticket = null
     let attendee = null
     let isObjectId = false
+    if (ObjectId.isValid(ticketId)) {
+      isObjectId = true;
+      ticket = await Ticket.findOne({
+        _id: ticketId,
+        eventId: eventId,
+      });
 
-    try {
-      // Check if the ticketId is a valid ObjectId
-      if (ObjectId.isValid(ticketId)) {
-        isObjectId = true
-
-        // Try to find a ticket with this ID
-        ticket = await db.collection("tickets").findOne({
-          _id: new ObjectId(ticketId),
-          eventId: new ObjectId(eventId),
-        })
-
-        // If no ticket found, try to find a form submission with this ID
-        if (!ticket) {
-          attendee = await db.collection("formSubmissions").findOne({
-            _id: new ObjectId(ticketId),
-            eventId: new ObjectId(eventId),
-            formType: "attendee",
-            status: "approved",
-          })
-        }
+      // If not found in Ticket, try FormSubmission by ID
+      if (!ticket) {
+        attendee = await FormSubmission.findOne({
+          _id: ticketId,
+          eventId: eventId,
+          formType: "attendee",
+          status: "approved",
+        });
       }
-    } catch (error) {
-      console.error("Error searching by ObjectId:", error)
     }
 
     // If no ticket or attendee found by ID, try to find by email
@@ -76,63 +68,60 @@ export async function POST(req: NextRequest) {
         // Try to find a ticket with this email
         ticket = await db.collection("tickets").findOne({
           attendeeEmail: ticketId,
-          eventId: new ObjectId(eventId),
+          eventId: eventId,
         })
 
-        // If no ticket found, try to find a form submission with this email
         if (!ticket) {
-          // First try exact email match
-          attendee = await db.collection("formSubmissions").findOne({
-            $or: [{ userEmail: ticketId }, { "formData.email": ticketId }, { "formData.emailAddress": ticketId }],
-            eventId: new ObjectId(eventId),
+          attendee = await FormSubmission.findOne({
+            $or: [
+              { userEmail: ticketId },
+              { "formData.email": ticketId },
+              { "formData.emailAddress": ticketId },
+            ],
+            eventId: eventId,
             formType: "attendee",
             status: "approved",
-          })
+          });
         }
       }
     }
 
-    // If still no ticket or attendee found, try to find by name
+    // If still no ticket or attendee found, try to find by name (exact match, case-insensitive)
     if (!ticket && !attendee && !isObjectId) {
-      console.log(`Searching by name: ${ticketId}`)
-
-      // Try to find a ticket with this name
-      ticket = await db.collection("tickets").findOne({
+      ticket = await Ticket.findOne({
         attendeeName: ticketId,
-        eventId: new ObjectId(eventId),
-      })
+        eventId: eventId,
+      });
 
-      // If no ticket found, try to find a form submission with this name
       if (!ticket) {
-        // Try to find by name (case insensitive)
-        attendee = await db.collection("formSubmissions").findOne({
+        attendee = await FormSubmission.findOne({
           $or: [
             { "formData.name": { $regex: new RegExp(`^${ticketId}$`, "i") } },
             { "formData.fullName": { $regex: new RegExp(`^${ticketId}$`, "i") } },
             { userName: { $regex: new RegExp(`^${ticketId}$`, "i") } },
           ],
-          eventId: new ObjectId(eventId),
+          eventId: eventId,
           formType: "attendee",
           status: "approved",
-        })
+        });
       }
     }
 
-    // If still no exact match, try a more flexible search for name
+    // If still no exact match, try a more flexible search for name (partial match, case-insensitive)
     if (!ticket && !attendee && !isObjectId && ticketId.length > 3) {
       console.log(`Performing flexible name search for: ${ticketId}`)
 
       // Try to find a form submission with a similar name
       attendee = await db.collection("formSubmissions").findOne({
         $or: [
-          { "formData.name": { $regex: new RegExp(ticketId, "i") } },
-          { "formData.fullName": { $regex: new RegExp(ticketId, "i") } },
-          { userName: { $regex: new RegExp(ticketId, "i") } },
+          { "formData.name": { $regex: ticketId, $options: "i" } },
+          { "formData.fullName": { $regex: ticketId, $options: "i" } },
+          { userName: { $regex: ticketId, $options: "i" } },
         ],
-        eventId: new ObjectId(eventId),
+        eventId: eventId,
         formType: "attendee",
         status: "approved",
-      })
+      });
     }
 
     // If still no ticket or attendee found, try removing any special characters
@@ -140,28 +129,24 @@ export async function POST(req: NextRequest) {
       // Clean the ID by removing special characters
       const cleanedId = ticketId.replace(/[^a-zA-Z0-9]/g, "")
       console.log(`Searching with cleaned ID (no special chars): ${cleanedId}`)
+      if (cleanedId !== ticketId && ObjectId.isValid(cleanedId)) {
+        ticket = await Ticket.findOne({
+          _id: cleanedId,
+          eventId: eventId,
+        });
 
-      if (cleanedId !== ticketId) {
-        // Try to find by the cleaned ID
-        if (ObjectId.isValid(cleanedId)) {
-          ticket = await db.collection("tickets").findOne({
-            _id: new ObjectId(cleanedId),
-            eventId: new ObjectId(eventId),
-          })
-
-          if (!ticket) {
-            attendee = await db.collection("formSubmissions").findOne({
-              _id: new ObjectId(cleanedId),
-              eventId: new ObjectId(eventId),
-              formType: "attendee",
-              status: "approved",
-            })
-          }
+        if (!ticket) {
+          attendee = await FormSubmission.findOne({
+            _id: cleanedId,
+            eventId: eventId,
+            formType: "attendee",
+            status: "approved",
+          });
         }
       }
     }
 
-    // If no ticket or attendee found, return error
+    // If still not found, return error
     if (!ticket && !attendee) {
       return NextResponse.json(
         {
@@ -169,7 +154,7 @@ export async function POST(req: NextRequest) {
           message: "No valid ticket found with the provided ID. Please check the ID and try again.",
           searchTerm: ticketId,
         },
-        { status: 404 },
+        { status: 404 }
       )
     }
 
@@ -177,9 +162,9 @@ export async function POST(req: NextRequest) {
     const responseData: any = {
       success: true,
       message: "Check-in successful",
-    }
+    };
 
-    const now = new Date()
+    const now = new Date();
 
     // Handle ticket check-in
     if (ticket) {
@@ -187,9 +172,9 @@ export async function POST(req: NextRequest) {
         _id: ticket._id,
         name: ticket.attendeeName,
         email: ticket.attendeeEmail,
-      }
+      };
 
-      // Check if already checked in
+      // Prevent duplicate check-in unless allowed
       if (ticket.isCheckedIn && !allowDuplicateCheckIn) {
         return NextResponse.json(
           {
@@ -200,12 +185,12 @@ export async function POST(req: NextRequest) {
             checkInCount: ticket.checkInCount || 1,
             checkedInAt: ticket.checkedInAt,
           },
-          { status: 200 },
-        )
+          { status: 200 }
+        );
       }
 
-      // Update the ticket
-      await db.collection("tickets").updateOne(
+      // Update ticket check-in status and increment count
+      await Ticket.updateOne(
         { _id: ticket._id },
         {
           $set: {
@@ -216,13 +201,13 @@ export async function POST(req: NextRequest) {
           },
           $inc: { checkInCount: 1 },
           $setOnInsert: { checkedInAt: ticket.checkedInAt || now },
-        },
+        }
       )
 
-      // Add check-in record
-      await db.collection("checkIns").insertOne({
+      // Log the check-in in the CheckIn collection
+      await CheckIn.create({
         ticketId: ticket._id,
-        eventId: new ObjectId(eventId),
+        eventId: eventId,
         attendeeName: ticket.attendeeName,
         attendeeEmail: ticket.attendeeEmail,
         checkedInAt: now,
@@ -232,20 +217,21 @@ export async function POST(req: NextRequest) {
         isDuplicate: ticket.isCheckedIn ? true : false,
       })
 
+      // Set response status/message based on duplicate or first check-in
       if (ticket.isCheckedIn) {
-        responseData.status = "duplicate_check_in"
-        responseData.message = "This ticket has been checked in again"
-        responseData.checkInCount = (ticket.checkInCount || 1) + 1
+        responseData.status = "duplicate_check_in";
+        responseData.message = "This ticket has been checked in again";
+        responseData.checkInCount = (ticket.checkInCount || 1) + 1;
       } else {
-        responseData.status = "first_check_in"
-        responseData.checkInCount = 1
+        responseData.status = "first_check_in";
+        responseData.checkInCount = 1;
       }
 
       responseData.checkedInAt = now
     }
     // Handle attendee check-in
     else if (attendee) {
-      // Extract name and email from form data
+      // Extract name/email from formData or fallback fields
       const formData = attendee.formData || {}
       const name =
         formData.name ||
@@ -262,7 +248,7 @@ export async function POST(req: NextRequest) {
         email,
       }
 
-      // Check if already checked in
+      // Prevent duplicate check-in unless allowed
       if (attendee.isCheckedIn && !allowDuplicateCheckIn) {
         return NextResponse.json(
           {
@@ -273,12 +259,12 @@ export async function POST(req: NextRequest) {
             checkInCount: attendee.checkInCount || 1,
             checkedInAt: attendee.checkedInAt,
           },
-          { status: 200 },
+          { status: 200 }
         )
       }
 
-      // Update the attendee
-      await db.collection("formSubmissions").updateOne(
+      // Update attendee check-in status and increment count
+      await FormSubmission.updateOne(
         { _id: attendee._id },
         {
           $set: {
@@ -289,13 +275,13 @@ export async function POST(req: NextRequest) {
           },
           $inc: { checkInCount: 1 },
           $setOnInsert: { checkedInAt: attendee.checkedInAt || now },
-        },
+        }
       )
 
-      // Add check-in record
-      await db.collection("checkIns").insertOne({
+      // Log the check-in in the CheckIn collection
+      await CheckIn.create({
         submissionId: attendee._id,
-        eventId: new ObjectId(eventId),
+        eventId: eventId,
         attendeeName: name,
         attendeeEmail: email,
         checkedInAt: now,
@@ -305,6 +291,7 @@ export async function POST(req: NextRequest) {
         isDuplicate: attendee.isCheckedIn ? true : false,
       })
 
+      // Set response status/message based on duplicate or first check-in
       if (attendee.isCheckedIn) {
         responseData.status = "duplicate_check_in"
         responseData.message = "This attendee has been checked in again"
@@ -322,7 +309,7 @@ export async function POST(req: NextRequest) {
     console.error("Error in check-in API:", error)
     return NextResponse.json(
       { success: false, message: `Error processing check-in: ${error.message}` },
-      { status: 500 },
-    )
+      { status: 500 }
+    );
   }
 }

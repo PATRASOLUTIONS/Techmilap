@@ -19,6 +19,7 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
   const [selectedCamera, setSelectedCamera] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [fallbackMode, setFallbackMode] = useState(false)
+  const [isProcessingScan, setIsProcessingScan] = useState(false);
 
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const scannerContainerId = "qr-reader"
@@ -224,9 +225,10 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
             // Add additional configuration to help with stability
             aspectRatio: 1.0,
             disableFlip: false,
-            formatsToSupport: [Html5Qrcode.FORMATS.QR_CODE],
           },
           (data) => {
+            if (isProcessingScan) return; // Prevent multiple triggers
+            setIsProcessingScan(true);
             // Clean the ticket ID by removing any "#" prefix
             const cleanedData = data.startsWith("#") ? data.substring(1) : data
             console.log("QR code scanned:", cleanedData)
@@ -287,6 +289,8 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
           await new Promise((resolve) => setTimeout(resolve, 1000))
           return startScanner(retryCount + 1)
         }
+      } finally {
+        setIsProcessingScan(false);
       }
     } catch (err: any) {
       console.error("Error in scanner initialization process", err)
@@ -509,44 +513,43 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
         )}
 
         <div className="flex flex-col items-center">
-          <div id={scannerContainerId} className="w-full max-w-sm h-64 bg-gray-100 rounded-lg overflow-hidden relative">
-            {!isScanning && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/5">
-                {permissionState === "denied" ? (
-                  <div className="text-center p-4">
-                    <Camera className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                    <h3 className="font-medium text-gray-900">Camera Access Required</h3>
-                    <p className="text-sm text-gray-500 mt-1 mb-3">
-                      Please enable camera access in your browser settings to scan QR codes. Microphone access is
-                      optional.
-                    </p>
-                    <div className="text-xs text-gray-500 mt-2 space-y-1 text-left">
-                      <p className="font-medium">How to enable access:</p>
-                      <p>1. Click the camera/lock icon in your browser's address bar</p>
-                      <p>2. Select "Allow" for camera access</p>
-                      <p>3. Refresh this page</p>
-                    </div>
-                    <div className="text-xs text-amber-600 mt-2 p-2 bg-amber-50 rounded-md">
-                      <p className="font-medium">Troubleshooting:</p>
-                      <p>• Make sure you're using a secure (HTTPS) connection</p>
-                      <p>• Try using Chrome, Edge, or Safari for best compatibility</p>
-                      <p>• If using iOS, ensure camera access is enabled in device settings</p>
-                    </div>
-                    <Button onClick={() => window.location.reload()} variant="outline" size="sm" className="mt-3">
-                      Refresh Page
-                    </Button>
+          <div id={scannerContainerId} className="w-full max-w-sm h-64 bg-gray-100 rounded-lg overflow-hidden relative"></div>
+          {!isScanning && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/5 pointer-events-none">
+              {permissionState === "denied" ? (
+                <div className="text-center p-4 pointer-events-auto">
+                  <Camera className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                  <h3 className="font-medium text-gray-900">Camera Access Required</h3>
+                  <p className="text-sm text-gray-500 mt-1 mb-3">
+                    Please enable camera access in your browser settings to scan QR codes. Microphone access is
+                    optional.
+                  </p>
+                  <div className="text-xs text-gray-500 mt-2 space-y-1 text-left">
+                    <p className="font-medium">How to enable access:</p>
+                    <p>1. Click the camera/lock icon in your browser's address bar</p>
+                    <p>2. Select "Allow" for camera access</p>
+                    <p>3. Refresh this page</p>
                   </div>
-                ) : (
-                  <Camera className="h-12 w-12 text-gray-400" />
-                )}
-              </div>
-            )}
-          </div>
+                  <div className="text-xs text-amber-600 mt-2 p-2 bg-amber-50 rounded-md">
+                    <p className="font-medium">Troubleshooting:</p>
+                    <p>• Make sure you're using a secure (HTTPS) connection</p>
+                    <p>• Try using Chrome, Edge, or Safari for best compatibility</p>
+                    <p>• If using iOS, ensure camera access is enabled in device settings</p>
+                  </div>
+                  <Button onClick={() => window.location.reload()} variant="outline" size="sm" className="mt-3">
+                    Refresh Page
+                  </Button>
+                </div>
+              ) : (
+                <Camera className="h-12 w-12 text-gray-400" />
+              )}
+            </div>
+          )}
 
           <div className="flex gap-2 mt-4">
             {!isScanning ? (
               <Button
-                onClick={startScanner}
+                onClick={() => startScanner()}
                 disabled={isLoading || permissionState === "denied"}
                 className="bg-green-600 hover:bg-green-700"
               >
