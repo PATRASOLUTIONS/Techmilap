@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { useSession } from "next-auth/react"
+import { logWithTimestamp } from "@/utils/logger"
 
 export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   const router = useRouter()
@@ -25,17 +26,17 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   const [activeTab, setActiveTab] = useState("details")
   const [formData, setFormData] = useState({
     details: {
-      name: "",
+      title: "",
       displayName: "",
       type: "Offline",
       visibility: "Public",
-      startDate: "",
+      date: "",
+      endDate: "",
       startTime: "",
       endTime: "",
-      endDate: "",
-      venue: "",
+      location: "",
       description: "",
-      coverImageUrl: "",
+      image: "",
       desktopCoverImage: null,
       mobileCoverImage: null,
       slug: "",
@@ -76,7 +77,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       // Convert the existing event data to the format expected by the form
       const convertedData = {
         details: {
-          name: existingEvent.title || "",
+          title: existingEvent.title || "",
           displayName: existingEvent.displayName || existingEvent.title || "",
           type: existingEvent.type || "Offline",
           visibility: existingEvent.visibility || "Public",
@@ -90,7 +91,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
               : "",
           venue: existingEvent.venue || "",
           description: existingEvent.description || "",
-          coverImageUrl: existingEvent.image || "",
+          image: existingEvent.image || "",
           desktopCoverImage: null,
           mobileCoverImage: null,
           slug: existingEvent.slug || "",
@@ -136,20 +137,21 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
 
   const validateDetailsForm = () => {
     const details = formData.details
+    logWithTimestamp("info", "Validating details form:", details)
     const missingFields = []
 
-    if (!details.name) missingFields.push("Event Name")
-    if (!details.displayName) missingFields.push("Event Display Name")
-    if (!details.startDate) missingFields.push("Start Date")
+    if (!details.title) missingFields.push("Event Name")
+    // if (!details.displayName) missingFields.push("Event Display Name")
+    if (!details.date) missingFields.push("Start Date")
     if (!details.startTime) missingFields.push("Start Time")
     if (!details.endDate) missingFields.push("End Date")
     if (!details.endTime) missingFields.push("End Time")
     if (!details.description) missingFields.push("Event Description")
-    if (!details.coverImageUrl) missingFields.push("Image URL")
+    if (!details.image) missingFields.push("Image URL")
 
     // Check venue details for offline or hybrid events
     if (details.type === "Offline" || details.type === "Hybrid") {
-      if (!details.venue) missingFields.push("Venue Name")
+      if (!details.location) missingFields.push("Venue Name")
     }
 
     return missingFields
@@ -585,7 +587,9 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                       activeTab={activeTab}
                       setActiveTab={setActiveTab}
                       formData={formData}
+                      setFormData={setFormData}
                       toast={toast}
+                      handleNext={handleNext}
                     />
                   )}
 
