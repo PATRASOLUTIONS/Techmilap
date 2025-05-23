@@ -287,6 +287,15 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
               .replace(/-+/g, "-")
               .trim() ||
             `event-${Date.now()}`,
+          customQuestions: {
+            attendee: Array.isArray(formData.customQuestions.attendee) ? formData.customQuestions.attendee : [],
+            volunteer: Array.isArray(formData.customQuestions.volunteer) ? formData.customQuestions.volunteer : [],
+            speaker: Array.isArray(formData.customQuestions.speaker) ? formData.customQuestions.speaker : [],
+          },
+          status: status, // This will be "published" or "draft" based on the button clicked
+          attendeeForm: { status: formStatus.attendee },
+          volunteerForm: { status: formStatus.volunteer },
+          speakerForm: { status: formStatus.speaker },
         },
         tickets:
           formData.tickets.map((ticket, index) => {
@@ -303,15 +312,6 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
               userId: userId || "system-generated",
             }
           }) || [],
-        customQuestions: {
-          attendee: Array.isArray(formData.customQuestions.attendee) ? formData.customQuestions.attendee : [],
-          volunteer: Array.isArray(formData.customQuestions.volunteer) ? formData.customQuestions.volunteer : [],
-          speaker: Array.isArray(formData.customQuestions.speaker) ? formData.customQuestions.speaker : [],
-        },
-        status: status, // This will be "published" or "draft" based on the button clicked
-        attendeeForm: { status: formStatus.attendee },
-        volunteerForm: { status: formStatus.volunteer },
-        speakerForm: { status: formStatus.speaker },
       }
 
       console.log("Submitting event data:", apiData)

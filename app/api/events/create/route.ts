@@ -29,20 +29,18 @@ const ticketSchema = z.object({
 
 const detailsSchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters" }),
+  displayName: z.string().min(1, { message: "Display name is required" }),
   description: z.string().min(10, { message: "Description must be at least 10 characters" }),
   date: z.string().or(z.date()),
   startTime: z.string().min(1, { message: "Start time is required" }),
   endTime: z.string().min(1, { message: "End time is required" }),
+  endDate: z.string().or(z.date()).optional(),
   location: z.string().min(3, { message: "Location must be at least 3 characters" }),
   category: z.string().min(1, { message: "Category is required" }),
-  image: z.string().url({ message: "Please enter a valid URL" }),
-  visibility: z.enum(["Public", "Private"]),
   type: z.enum(["Online", "Offline", "Hybrid"]),
-});
-
-const eventSchema = z.object({
-  details: detailsSchema,
-  tickets: z.array(ticketSchema),
+  visibility: z.enum(["Public", "Private"]),
+  image: z.string().url({ message: "Please enter a valid URL" }),
+  slug: z.string(),
   customQuestions: z.object({
     attendee: z.array(questionSchema),
     volunteer: z.array(questionSchema),
@@ -52,6 +50,11 @@ const eventSchema = z.object({
   attendeeForm: z.object({ status: z.string() }),
   volunteerForm: z.object({ status: z.string() }),
   speakerForm: z.object({ status: z.string() }),
+});
+
+const eventSchema = z.object({
+  details: detailsSchema,
+  tickets: z.array(ticketSchema),
 });
 
 export async function POST(req: Request) {
@@ -65,6 +68,8 @@ export async function POST(req: Request) {
     await connectToDatabase()
 
     const requestData = await req.json()
+
+    logWithTimestamp("info", "Request data:", requestData)
 
     // Validate the request data
     try {
@@ -81,10 +86,10 @@ export async function POST(req: Request) {
     }
 
     // Generate a slug from the title
-    const slug = generateSlug(requestData.details.title)
+    // const slug = generateSlug(requestData.details.title)
 
     // Check for duplicate slug
-    const existingEvent = await Event.findOne({ slug });
+    const existingEvent = await Event.findOne({ slug: requestData.details.slug });
     if (existingEvent) {
       logWithTimestamp("error", "Duplicate slug error:", existingEvent)
       return NextResponse.json(
@@ -93,25 +98,21 @@ export async function POST(req: Request) {
       );
     }
 
+    const organizerId =
+      session && session?.user && session?.user.id
+        ? session.user.id
+        : requestData.tickets.userId;
 
     // Create the event
     const event = new Event({
-      title: requestData.details.title,
-      description: requestData.details.description,
-      date: requestData.details.date,
-      startTime: requestData.details.startTime,
-      endTime: requestData.details.endTime,
-      location: requestData.details.location,
-      category: requestData.details.category,
-      image: requestData.details.image,
-      visibility: requestData.details.visibility,
-      type: requestData.details.type,
-      organizer: session.user.id,
-      slug: slug,
-      status: requestData.details.visibility === "Public" ? "published" : "draft",
+      ...requestData.details,
+      tags: [],
+      organizer: organizerId,
     })
 
-    // await event.save()
+    logWithTimestamp("info", "Event data before saving Event:", event)
+
+    await event.save()
 
     // Create tickets for the event
     const tickets = []
@@ -121,10 +122,6 @@ export async function POST(req: Request) {
         ticketData.ticketNumber ||
         `TKT-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Date.now().toString().substring(9)}`
 
-      // Use the session user ID if not provided
-      logWithTimestamp("info", "Session user ID:", session.user.id)
-      const userId = session.user.id || ticketData.userId
-
       const ticket = new Ticket({
         event: event._id,
         name: ticketData.name,
@@ -133,11 +130,11 @@ export async function POST(req: Request) {
         quantity: ticketData.quantity,
         ticketType: ticketData.ticketType,
         ticketNumber: ticketNumber,
-        userId: userId,
+        userId: organizerId,
       })
 
       await ticket.save()
-      await event.save()
+      // await event.save()
 
       tickets.push(ticket)
     }
