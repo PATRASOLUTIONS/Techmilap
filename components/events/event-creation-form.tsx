@@ -35,13 +35,22 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       startTime: "",
       endTime: "",
       location: "",
+      category: "",
       description: "",
       image: "",
       desktopCoverImage: null,
       mobileCoverImage: null,
       slug: "",
     },
-    tickets: [],
+    tickets: [{
+      name: "General Admission",
+      description: "Standard entry ticket",
+      price: 0,
+      quantity: 100,
+      ticketType: "Free",
+      ticketNumber: `TKT-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Date.now().toString().substring(9)}`,
+      userId: "",
+    },],
     customQuestions: {
       attendee: [],
       volunteer: [],
@@ -99,10 +108,10 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
         },
         tickets: Array.isArray(existingEvent.tickets)
           ? existingEvent.tickets.map((ticket) => ({
-              ...ticket,
-              price: ticket.price !== undefined ? ticket.price : 0,
-              quantity: ticket.quantity !== undefined ? ticket.quantity : 0,
-            }))
+            ...ticket,
+            price: ticket.price !== undefined ? ticket.price : 0,
+            quantity: ticket.quantity !== undefined ? ticket.quantity : 0,
+          }))
           : [],
         customQuestions: existingEvent.customQuestions || { attendee: [], volunteer: [], speaker: [] },
         status: existingEvent.status || "draft",
@@ -171,12 +180,22 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       }
 
       // Validate image URL format
-      if (formData.details.coverImageUrl && !formData.details.coverImageUrl.match(/^https?:\/\/.+/)) {
+      if (formData.details.image && !formData.details.image.match(/^https?:\/\/.+/)) {
         toast({
           title: "Invalid Image URL",
           description: "Image URL must start with http:// or https://",
           variant: "destructive",
         })
+        return
+      }
+
+      if (formData.details.visibility === "Private") {
+        toast({
+          title: "Premium Feature",
+          description: "Private events are a premium feature. Your event will be set to Public.",
+          variant: "default",
+        })
+        formData.details.visibility = "Public" // Force to Public
         return
       }
 
@@ -226,15 +245,15 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
 
     try {
       // Ensure all required fields are present
-      if (!formData.details.name) {
+      if (!formData.details.title) {
         throw new Error("Event name is required")
       }
 
-      if (!formData.details.coverImageUrl) {
+      if (!formData.details.image) {
         throw new Error("Image URL is required")
       }
 
-      if (!formData.details.coverImageUrl.match(/^https?:\/\/.+/)) {
+      if (!formData.details.image.match(/^https?:\/\/.+/)) {
         throw new Error("Image URL must start with http:// or https://")
       }
 
@@ -247,20 +266,21 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       // Convert form data to the format expected by the API
       const apiData = {
         details: {
-          name: formData.details.name,
-          displayName: formData.details.displayName || formData.details.name,
+          title: formData.details.title,
+          displayName: formData.details.displayName || formData.details.title,
           description: formData.details.description || "",
-          startDate: formData.details.startDate,
+          date: formData.details.date,
           startTime: formData.details.startTime,
           endTime: formData.details.endTime,
           endDate: formData.details.endDate,
-          venue: formData.details.venue,
+          location: formData.details.location,
+          category: formData.details.category || "",
           type: formData.details.type,
           visibility: formData.details.visibility || "Public", // Default to Public if not specified
-          coverImageUrl: formData.details.coverImageUrl,
+          image: formData.details.image,
           slug:
             formData.details.slug ||
-            formData.details.name
+            formData.details.title
               .toLowerCase()
               .replace(/[^\w\s-]/g, "")
               .replace(/\s+/g, "-")
@@ -308,6 +328,8 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
         },
         body: JSON.stringify(apiData),
       })
+
+      logWithTimestamp("info", "API response:", response)
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: "Failed to parse error response" }))
@@ -524,9 +546,8 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                     {[1, 2, 3, 4].map((step) => (
                       <motion.div
                         key={step}
-                        className={`flex items-center justify-center w-8 h-8 rounded-full cursor-pointer ${
-                          step <= getStepNumber() ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-                        }`}
+                        className={`flex items-center justify-center w-8 h-8 rounded-full cursor-pointer ${step <= getStepNumber() ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                          }`}
                         initial={{ scale: 0.8 }}
                         animate={{
                           scale: step === getStepNumber() ? 1.1 : 1,
@@ -595,10 +616,10 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
 
                   {activeTab === "tickets" && (
                     <TicketManagementForm
-                      data={formData.tickets}
+                      initialData={formData.tickets}
                       updateData={(data) => updateFormData("tickets", data)}
                       eventId={isEditing ? existingEvent._id : null}
-                      toast={toast}
+                      handleNext={handleNext}
                     />
                   )}
 

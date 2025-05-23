@@ -12,6 +12,25 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useToast } from "@/hooks/use-toast"
 import { useSession } from "next-auth/react"
+import { logWithTimestamp } from "@/utils/logger"
+
+type Ticket = {
+  name: string;
+  description?: string;
+  price: number;
+  quantity: number;
+  ticketType: "Free" | "Paid" | "Donation";
+  ticketNumber?: string;
+  userId?: string;
+};
+
+type TicketManagementFormProps = {
+  updateData: (data: { tickets: Ticket[] }) => void;
+  handleNext: () => void;
+  initialData: Ticket[];
+  eventId?: string | null;
+  toast?: (options: { title: string; description?: string; variant?: string }) => void;
+};
 
 // Define the schema for a single ticket
 const ticketSchema = z.object({
@@ -29,9 +48,9 @@ const formSchema = z.object({
   tickets: z.array(ticketSchema).min(1, { message: "At least one ticket type is required" }),
 })
 
-export function TicketManagementForm({ onSubmit, initialData = {} }) {
+export function TicketManagementForm({ updateData, initialData , handleNext}: TicketManagementFormProps) {
   const [tickets, setTickets] = useState(
-    initialData.tickets || [
+    initialData || [
       {
         name: "General Admission",
         description: "Standard entry ticket",
@@ -46,6 +65,9 @@ export function TicketManagementForm({ onSubmit, initialData = {} }) {
 
   const { toast } = useToast()
   const { data: session } = useSession()
+  logWithTimestamp("info", "Session Data", session)
+
+  logWithTimestamp("info", "Initial Tickets Data", initialData)
 
   // Initialize the form with default values
   const form = useForm({
@@ -90,6 +112,7 @@ export function TicketManagementForm({ onSubmit, initialData = {} }) {
 
   // Update a ticket field
   const updateTicket = (index, field, value) => {
+    logWithTimestamp("info", `Updating Ticket ${index} Field: ${field}`, value)
     const updatedTickets = [...tickets]
     updatedTickets[index] = { ...updatedTickets[index], [field]: value }
 
@@ -119,7 +142,9 @@ export function TicketManagementForm({ onSubmit, initialData = {} }) {
       userId: ticket.userId || session?.user?.id || "",
     }))
 
-    onSubmit({ tickets: processedTickets })
+    // updateData({ tickets: processedTickets })
+    logWithTimestamp("info", "Processed Tickets Data", tickets)
+    handleNext()
   }
 
   return (

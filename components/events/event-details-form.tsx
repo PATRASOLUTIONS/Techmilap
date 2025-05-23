@@ -117,7 +117,6 @@ export function EventDetailsForm({
     }
 
     // Pass the validated data to the parent component
-    handleNext()
   }
 
   return (
@@ -410,10 +409,6 @@ export function EventDetailsForm({
             )}
           />
         </div>
-
-        <Button type="submit" className="w-full">
-          Continue
-        </Button>
       </form>
     </Form>
   )

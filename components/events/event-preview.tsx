@@ -228,7 +228,7 @@ export function EventPreview({ formData }) {
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {tickets.map((ticket) => (
                       <Card
-                        key={ticket.id}
+                        key={ticket.ticketNumber}
                         className={cn(
                           "overflow-hidden border-0 shadow-md transition-all hover:shadow-lg",
                           ticket.pricingModel === "Free"
