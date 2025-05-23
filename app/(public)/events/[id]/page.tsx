@@ -1,27 +1,152 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { CalendarIcon, MapPinIcon, Clock, Users, Tag, Ticket } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { logWithTimestamp } from "@/utils/logger"
 
-// Static event data that will always work
-const staticEvent = {
-  title: "Tech Conference 2023",
+type EventType = {
+  title: string;
+  description: string;
+  date: string;
+  endDate?: string;
+  location: string;
+  image: string;
+  category: string;
+  price: number;
+  organizerName: string;
+  tags?: string[];
+  startTime?: string;
+  endTime?: string;
+  // Add any other fields you expect
+};
+
+// Static fallback data for when the event can't be loaded
+const fallbackEvent = {
+  title: "Event Details",
   description:
-    "<p>Join us for an exciting tech conference featuring the latest innovations and networking opportunities.</p>",
-  date: "2023-12-15",
-  location: "Tech Center, Downtown",
+    "<p>This event will be a gathering of professionals and enthusiasts. Join us for networking, learning, and fun!</p>",
+  date: new Date().toISOString(),
+  endDate: new Date(Date.now() + 86400000).toISOString(), // 1 day later
+  location: "Event Venue",
   image: "/vibrant-tech-event.png",
-  category: "Technology",
+  category: "General",
   price: 0,
-  tags: ["tech", "networking", "innovation"],
-  organizerName: "Tech Events Team",
+  organizerName: "Event Organizer",
+  tags: ["networking", "community"],
+  startTime: "09:00",
+  endTime: "17:00",
+}
+
+// Helper function to safely format dates
+function formatEventDate(dateString) {
+  if (!dateString) return "Date TBA"
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return "Date TBA"
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+  } catch (error) {
+    return "Date TBA"
+  }
+}
+
+// Helper function to safely format time
+function formatEventTime(timeString) {
+  if (!timeString) return "Time TBA"
+  try {
+    if (typeof timeString === "string" && timeString.length <= 5 && timeString.includes(":")) {
+      const [hours, minutes] = timeString.split(":").map(Number)
+      const period = hours >= 12 ? "PM" : "AM"
+      const hour12 = hours % 12 || 12
+      return `${hour12}:${minutes.toString().padStart(2, "0")} ${period}`
+    }
+    return "Time TBA"
+  } catch (error) {
+    return "Time TBA"
+  }
 }
 
 export default function EventPage({ params }: { params: { id: string } }) {
-  // Use static data to ensure the page always renders
-  const event = staticEvent
+  const [event, setEvent] = useState<EventType>(fallbackEvent);
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    async function fetchEvent() {
+      try {
+        const response = await fetch(`/api/events/${params.id}/static`)
+        if (!response.ok) {
+          throw new Error("Failed to fetch event")
+        }
+        const data = await response.json()
+        setEvent(data)
+        setLoading(false)
+      } catch (error) {
+        console.error("Error fetching event:", error)
+        setError(true)
+        setLoading(false)
+      }
+    }
+
+    fetchEvent()
+  }, [params.id])
+
+  // Format dates
+  const formattedDate = formatEventDate(event.date)
+  const formattedEndDate = event.endDate ? formatEventDate(event.endDate) : null
+
+  // Format time
+  let formattedTime = "Time TBA"
+  if (event.startTime) {
+    formattedTime = formatEventTime(event.startTime)
+    if (event.endTime) {
+      formattedTime += ` - ${formatEventTime(event.endTime)}`
+    }
+  }
+
+  // Default image
+  const imageUrl = event.image || "/vibrant-tech-event.png"
+
+  if (loading) {
+    return (
+      <div className="container mx-auto py-12 px-4 md:px-6">
+        <div className="animate-pulse">
+          <div className="h-6 w-32 bg-gray-200 rounded mb-6"></div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-8">
+              <div className="aspect-video bg-gray-200 rounded-lg"></div>
+              <div>
+                <div className="h-10 bg-gray-200 rounded w-3/4 mb-4"></div>
+                <div className="w-20 h-6 bg-gray-200 rounded mb-4"></div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-full"></div>
+                  <div className="h-4 bg-gray-200 rounded w-full"></div>
+                  <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div className="bg-gray-200 rounded-lg h-64"></div>
+              <div className="space-y-3">
+                <div className="h-10 bg-gray-200 rounded"></div>
+                <div className="h-10 bg-gray-200 rounded"></div>
+                <div className="h-10 bg-gray-200 rounded"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
@@ -38,11 +163,16 @@ export default function EventPage({ params }: { params: { id: string } }) {
           {/* Event Image */}
           <div className="relative aspect-video overflow-hidden rounded-lg shadow-md bg-gray-100">
             <Image
-              src="/vibrant-tech-event.png"
-              alt={event.title}
+              src={imageUrl || "/placeholder.svg"}
+              alt={event.title || "Event"}
               fill
               className="object-cover"
               priority
+              unoptimized={imageUrl.startsWith("http")}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement
+                target.src = "/vibrant-tech-event.png"
+              }}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 50vw"
             />
           </div>
@@ -54,24 +184,34 @@ export default function EventPage({ params }: { params: { id: string } }) {
             {event.category && <Badge className="mb-4 bg-primary text-white">{event.category}</Badge>}
 
             <div className="prose max-w-none mt-6">
-              <div dangerouslySetInnerHTML={{ __html: event.description }} />
+              {event.description ? (
+                typeof event.description === "string" ? (
+                  <div dangerouslySetInnerHTML={{ __html: event.description }} />
+                ) : (
+                  <p>Event description available at the venue.</p>
+                )
+              ) : (
+                <p>No description available.</p>
+              )}
             </div>
           </div>
 
           {/* Tags */}
-          <div className="mt-6">
-            <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-              <Tag className="h-5 w-5" />
-              Tags
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {event.tags.map((tag, index) => (
-                <Badge key={index} variant="outline">
-                  {tag}
-                </Badge>
-              ))}
+          {event.tags && Array.isArray(event.tags) && event.tags.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                <Tag className="h-5 w-5" />
+                Tags
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {event.tags.map((tag, index) => (
+                  <Badge key={index} variant="outline">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Sidebar */}
@@ -86,7 +226,8 @@ export default function EventPage({ params }: { params: { id: string } }) {
                   <CalendarIcon className="h-5 w-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-medium">Date</p>
-                    <p>Friday, December 15, 2023</p>
+                    <p>{formattedDate}</p>
+                    {formattedEndDate && <p className="text-sm text-muted-foreground">Ends: {formattedEndDate}</p>}
                   </div>
                 </div>
 
@@ -94,17 +235,19 @@ export default function EventPage({ params }: { params: { id: string } }) {
                   <Clock className="h-5 w-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-medium">Time</p>
-                    <p>9:00 AM - 5:00 PM</p>
+                    <p>{formattedTime}</p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3">
-                  <MapPinIcon className="h-5 w-5 text-primary mt-0.5" />
-                  <div>
-                    <p className="font-medium">Location</p>
-                    <p>{event.location}</p>
+                {event.location && (
+                  <div className="flex items-start gap-3">
+                    <MapPinIcon className="h-5 w-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="font-medium">Location</p>
+                      <p>{event.location}</p>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="flex items-start gap-3">
                   <Users className="h-5 w-5 text-primary mt-0.5" />
@@ -118,7 +261,7 @@ export default function EventPage({ params }: { params: { id: string } }) {
                   <Ticket className="h-5 w-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-medium">Price</p>
-                    <p>Free</p>
+                    <p>{event.price === 0 ? "Free" : `$${event.price}`}</p>
                   </div>
                 </div>
               </div>
