@@ -654,7 +654,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                   </Button>
                 ) : (
                   <div className="flex gap-3">
-                    <Button
+                    {/* <Button
                       onClick={() => handleSubmit("draft")}
                       variant="outline"
                       className="button-hover"
@@ -705,7 +705,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                           {isEditing ? "Save as Draft" : "Save as Draft"}
                         </>
                       )}
-                    </Button>
+                    </Button> */}
                     <Button
                       onClick={() => handleSubmit("published")}
                       className="button-hover bg-gradient-to-r from-primary to-secondary"
