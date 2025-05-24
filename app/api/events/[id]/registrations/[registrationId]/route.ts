@@ -1,11 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
 import { sendRegistrationApprovalEmail, sendRegistrationRejectionEmail } from "@/lib/email-service"
+import Event from "@/models/Event"
+import FormSubmission from "@/models/FormSubmission"
+import User from "@/models/User"
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string; registrationId: string } }) {
   try {
-    const { db } = await connectToDatabase()
+    await connectToDatabase()
     const { status, attendeeEmail, attendeeName } = await req.json()
 
     if (!status) {
@@ -13,21 +15,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
 
     // Find the registration
-    const registration = await db.collection("formsubmissions").findOne({
-      _id: new ObjectId(params.registrationId),
-    })
+    const registration = await FormSubmission.findById(params.registrationId)
 
     if (!registration) {
       return NextResponse.json({ error: "Registration not found" }, { status: 404 })
     }
 
     // Update the registration status
-    await db
-      .collection("formsubmissions")
-      .updateOne({ _id: new ObjectId(params.registrationId) }, { $set: { status, updatedAt: new Date() } })
+    if (registration) {
+      registration.status = status
+      registration.updatedAt = new Date()
+      await registration.save()
+    }
 
     // Get the event details for the email
-    const event = await db.collection("events").findOne({ _id: new ObjectId(params.id) })
+    const event = await Event.findById(params.id)
 
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
@@ -38,7 +40,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     let organizerUser = null
     if (event.organizerId) {
       try {
-        organizerUser = await db.collection("users").findOne({ _id: new ObjectId(event.organizerId) })
+        organizerUser = await User.findById(event.organizerId)
         if (organizerUser && organizerUser.email) {
           organizerEmail = organizerUser.email
           console.log(`Found organizer email: ${organizerEmail}`)
@@ -93,10 +95,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       formData.Name ||
       formData.FullName ||
       ((formData.firstName || formData.first_name || formData.FirstName) &&
-      (formData.lastName || formData.last_name || formData.LastName)
-        ? `${formData.firstName || formData.first_name || formData.FirstName} ${
-            formData.lastName || formData.last_name || formData.LastName
-          }`
+        (formData.lastName || formData.last_name || formData.LastName)
+        ? `${formData.firstName || formData.first_name || formData.FirstName} ${formData.lastName || formData.last_name || formData.LastName
+        }`
         : formData.firstName || formData.first_name || formData.FirstName) ||
       registration.userName ||
       "Attendee"
