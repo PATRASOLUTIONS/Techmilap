@@ -3,6 +3,8 @@ import { connectToDatabase } from "@/lib/mongodb"
 import Event from "@/models/Event"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { logWithTimestamp } from "@/utils/logger"
+import FormSubmission from "@/models/FormSubmission"
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -14,16 +16,21 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     await connectToDatabase()
 
-    const event = await Event.findById(params.id).lean()
-
+    // Find event by ID or slug
+    let event = await Event.findById(params.id)
+    if (!event) {
+      event = await Event.findOne({ slug: params.id })
+    }
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
-    // Check if the user is the organizer
+    // Check if the user is the organizer or super-admin
     if (event.organizer.toString() !== session.user.id && session.user.role !== "super-admin") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
+
+    logWithTimestamp("info", "Fetching volunteer applications for event:", event)
 
     // Get query parameters for filtering
     const url = new URL(req.url)
@@ -32,32 +39,34 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const page = Number.parseInt(url.searchParams.get("page") || "1")
     const limit = Number.parseInt(url.searchParams.get("limit") || "10")
 
-    // Get the applications
-    const applications = event.volunteerApplications || []
-
-    // Apply filters manually (since we're working with a lean document)
-    let filteredApplications = applications
-
-    if (status) {
-      filteredApplications = filteredApplications.filter((app) => app.status === status)
+    // Build query for FormSubmission
+    const query: any = {
+      eventId: event._id,
+      formType: "volunteer",
     }
-
+    if (status) query.status = status
     if (search) {
-      const searchLower = search.toLowerCase()
-      filteredApplications = filteredApplications.filter(
-        (app) =>
-          (app.formData.name && app.formData.name.toLowerCase().includes(searchLower)) ||
-          (app.formData.email && app.formData.email.toLowerCase().includes(searchLower)),
-      )
+      query.$or = [
+        { "data.name": { $regex: search, $options: "i" } },
+        { "data.email": { $regex: search, $options: "i" } },
+        { userName: { $regex: search, $options: "i" } },
+        { userEmail: { $regex: search, $options: "i" } },
+        { "data.question_name_0": { $regex: search, $options: "i" } },
+        { "data.question_email_0": { $regex: search, $options: "i" } },
+      ]
     }
 
     // Pagination
     const skip = (page - 1) * limit
-    const paginatedApplications = filteredApplications.slice(skip, skip + limit)
-    const total = filteredApplications.length
+    const total = await FormSubmission.countDocuments(query)
+    const submissions = await FormSubmission.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean()
 
     return NextResponse.json({
-      applications: paginatedApplications,
+      submissions,
       pagination: {
         total,
         page,

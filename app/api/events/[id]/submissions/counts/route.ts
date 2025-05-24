@@ -3,6 +3,9 @@ import { connectToDatabase } from "@/lib/mongodb"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { ObjectId } from "mongodb"
+import Event from "@/models/Event"
+import FormSubmission from "@/models/FormSubmission"
+
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -13,23 +16,22 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     // Connect to MongoDB directly
-    const { db } = await connectToDatabase()
+    await connectToDatabase()
 
     // Convert string ID to ObjectId if possible
-    let eventId
+    let eventId;
+    let event;
     try {
       eventId = new ObjectId(params.id)
+      event = await Event.findOne({ _id: eventId })
     } catch (error) {
       // If not a valid ObjectId, try to find by slug
-      const event = await db.collection("events").findOne({ slug: params.id })
+      event = await Event.findOne({ slug: params.id })
       if (!event) {
         return NextResponse.json({ error: "Event not found" }, { status: 404 })
       }
       eventId = event._id
     }
-
-    // Find the event to check permissions
-    const event = await db.collection("events").findOne({ _id: eventId })
 
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
@@ -54,27 +56,20 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // Get counts for each form type
     for (const type of formTypes) {
       // Get total count
-      const total = await db.collection("formsubmissions").countDocuments({
-        eventId: eventId,
-        formType: type,
-      })
+      const total = await FormSubmission.countDocuments({ eventId, formType: type })
 
       // Get pending count
-      const pending = await db.collection("formsubmissions").countDocuments({
-        eventId: eventId,
-        formType: type,
-        status: "pending",
-      })
+      const pending = await FormSubmission.countDocuments({ eventId, formType: type, status: "pending" })
 
       // Get approved count
-      const approved = await db.collection("formsubmissions").countDocuments({
+      const approved = await FormSubmission.countDocuments({
         eventId: eventId,
         formType: type,
         status: "approved",
       })
 
       // Get rejected count
-      const rejected = await db.collection("formsubmissions").countDocuments({
+      const rejected = await FormSubmission.countDocuments({
         eventId: eventId,
         formType: type,
         status: "rejected",
