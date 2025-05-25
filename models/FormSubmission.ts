@@ -11,6 +11,12 @@ export interface IFormSubmission extends Document {
   reviewedBy?: mongoose.Types.ObjectId
   reviewedAt?: Date
   reviewNotes?: string
+  isCheckedIn?: boolean
+  lastCheckedInAt?: Date
+  isWebCheckIn?: boolean
+  webCheckInDate?: Date
+  checkInCount?: number
+  checkedInAt?: Date
   createdAt: Date
   updatedAt: Date
 }
@@ -57,6 +63,27 @@ const FormSubmissionSchema = new Schema<IFormSubmission>(
     },
     reviewNotes: {
       type: String,
+    },
+    isCheckedIn: {
+      type: Boolean,
+      default: false,
+    },
+    lastCheckedInAt: {
+      type: Date,
+    },
+    isWebCheckIn: {
+      type: Boolean,
+      default: false,
+    },
+    webCheckInDate: {
+      type: Date,
+    },
+    checkInCount: {
+      type: Number,
+      default: 0,
+    },
+    checkedInAt: {
+      type: Date,
     },
   },
   {

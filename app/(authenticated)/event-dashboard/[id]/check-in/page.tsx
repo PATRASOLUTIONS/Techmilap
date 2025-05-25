@@ -110,7 +110,7 @@ export default function EventCheckInPage() {
           toast({
             title: "Duplicate Check-in",
             description: `${result.attendee?.name || result.ticket?.name || "Attendee"} has been checked in again.`,
-            variant: "warning",
+            variant: "default",
           })
         } else {
           toast({
@@ -123,7 +123,7 @@ export default function EventCheckInPage() {
         toast({
           title: "Already Checked In",
           description: `${result.attendee?.name || result.ticket?.name || "Attendee"} was already checked in ${result.checkInCount > 1 ? result.checkInCount + " times" : ""}.`,
-          variant: "warning",
+          variant: "default",
         })
       } else {
         toast({
@@ -183,7 +183,7 @@ export default function EventCheckInPage() {
           toast({
             title: "Duplicate Check-in",
             description: `${result.attendee?.name || result.ticket?.name || "Attendee"} has been checked in again.`,
-            variant: "warning",
+            variant: "default",
           })
         } else {
           toast({
@@ -196,7 +196,7 @@ export default function EventCheckInPage() {
         toast({
           title: "Already Checked In",
           description: `${result.attendee?.name || result.ticket?.name || "Attendee"} was already checked in ${result.checkInCount > 1 ? result.checkInCount + " times" : ""}.`,
-          variant: "warning",
+          variant: "default",
         })
       } else {
         toast({

@@ -104,7 +104,15 @@ export default function MyTicketsPage() {
         throw new Error("Invalid response format: missing tickets property")
       }
 
-      setTickets(data.tickets)
+      // Filter out tickets that are not form submissions
+      const filteredTickets = {
+        ...data.tickets,
+        all: data.tickets.all.filter((t: any) => t.isFormSubmission),
+        upcoming: data.tickets.upcoming.filter((t: any) => t.isFormSubmission),
+        past: data.tickets.past.filter((t: any) => t.isFormSubmission),
+      }
+
+      setTickets(filteredTickets)
 
       // Show success toast on forced refresh
       if (forceRefresh && data.tickets.all.length > 0) {
@@ -847,18 +855,18 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
         .toISOString()
         .replace(/-|:|\.\d+/g, "")
         .slice(0, 8)}T${startDate
-        .toISOString()
-        .replace(/-|:|\.\d+/g, "")
-        .slice(9, 13)}00Z/${endDate
-        .toISOString()
-        .replace(/-|:|\.\d+/g, "")
-        .slice(0, 8)}T${endDate
-        .toISOString()
-        .replace(/-|:|\.\d+/g, "")
-        .slice(
-          9,
-          13,
-        )}00Z&details=${encodeURIComponent(`Your ${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Pass for ${event.title || "Event"}. Ticket #: ${ticket._id.substring(0, 6)}
+          .toISOString()
+          .replace(/-|:|\.\d+/g, "")
+          .slice(9, 13)}00Z/${endDate
+            .toISOString()
+            .replace(/-|:|\.\d+/g, "")
+            .slice(0, 8)}T${endDate
+              .toISOString()
+              .replace(/-|:|\.\d+/g, "")
+              .slice(
+                9,
+                13,
+              )}00Z&details=${encodeURIComponent(`Your ${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Pass for ${event.title || "Event"}. Ticket #: ${ticket._id.substring(0, 6)}
 View your ticket: ${virtualTicketUrl}`)}&location=${encodeURIComponent(event.location || "")}`
 
       window.open(googleCalendarUrl, "_blank")
