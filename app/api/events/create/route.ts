@@ -108,6 +108,7 @@ export async function POST(req: Request) {
       ...requestData.details,
       tags: [],
       organizer: organizerId,
+      tickets: requestData.tickets
     })
 
     logWithTimestamp("info", "Event data before saving Event:", event)

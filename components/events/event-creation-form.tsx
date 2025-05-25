@@ -81,7 +81,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   // Load existing event data if editing
   useEffect(() => {
     if (existingEvent) {
-      console.log("Loading existing event data for editing:", existingEvent.title)
+      console.log("Loading existing event data for editing:", existingEvent)
 
       // Convert the existing event data to the format expected by the form
       const convertedData = {
@@ -90,7 +90,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
           displayName: existingEvent.displayName || existingEvent.title || "",
           type: existingEvent.type || "Offline",
           visibility: existingEvent.visibility || "Public",
-          startDate: existingEvent.date ? new Date(existingEvent.date).toISOString().split("T")[0] : "",
+          date: existingEvent.date ? new Date(existingEvent.date).toISOString().split("T")[0] : "",
           startTime: existingEvent.startTime || "",
           endTime: existingEvent.endTime || "",
           endDate: existingEvent.endDate
@@ -98,7 +98,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
             : existingEvent.date
               ? new Date(existingEvent.date).toISOString().split("T")[0]
               : "",
-          venue: existingEvent.venue || "",
+          location: existingEvent.location || "",
           description: existingEvent.description || "",
           image: existingEvent.image || "",
           desktopCoverImage: null,
@@ -512,7 +512,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       {isSubmitted ? (
         <EventCreationSuccess
           eventId={submittedEventId}
-          eventName={formData.details.name || "New Event"}
+          eventName={formData.details.title || "New Event"}
           eventSlug={submittedEventSlug}
           isEditing={isEditing}
           isPublished={publishStatus === "published"}
@@ -526,7 +526,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                 ? "Update your event details below"
                 : "Fill out the details below to create a new event that will wow your attendees."
             }
-            className="mb-8"
+            // className="mb-8"
           />
 
           <Card className="border-0 shadow-lg overflow-hidden">

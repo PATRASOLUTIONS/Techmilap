@@ -96,6 +96,28 @@ export function EventDetailsForm({
     fetchCategories()
   }, [])
 
+  // Effect to reset form when 'data' prop changes (e.g., when editing an existing event)
+  useEffect(() => {
+    if (data) {
+      form.reset({
+        title: data.title || "",
+        description: data.description || "",
+        date: data.date ? new Date(data.date) : new Date(),
+        endDate: data.endDate ? new Date(data.endDate) : new Date(),
+        startTime: data.startTime || "09:00",
+        endTime: data.endTime || "17:00",
+        location: data.location || "",
+        category: data.category || "",
+        image: data.image || "",
+        visibility: data.visibility || "Public",
+        type: data.type || "Offline",
+      })
+    }
+    // form.reset is stable, so the effect primarily depends on `data`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, form.reset])
+
+
   // Handle form submission
   const handleSubmit = (data) => {
     // Check if the image URL is valid

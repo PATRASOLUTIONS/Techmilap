@@ -75,6 +75,24 @@ const RegistrationSchema = new mongoose.Schema(
   { _id: false },
 )
 
+// Define the schema for embedded tickets
+const EmbeddedTicketSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    description: { type: String, trim: true },
+    price: { type: Number, required: true, min: 0 },
+    quantity: { type: Number, required: true, min: 1 },
+    ticketType: {
+      type: String,
+      required: true,
+      enum: ["Free", "Paid", "Donation"],
+    },
+    ticketNumber: { type: String, trim: true }, // As seen in your example data
+    userId: { type: String, trim: true }, // As seen in your example data (can be empty string)
+  },
+  { _id: false }, // No separate _id for embedded tickets unless specifically needed
+)
+
 // Define the schema for events with improved validation and indexing
 const EventSchema = new mongoose.Schema(
   {
@@ -237,6 +255,7 @@ const EventSchema = new mongoose.Schema(
       },
     },
     registrations: [RegistrationSchema],
+    tickets: [EmbeddedTicketSchema], // Required for editing a form
   },
   {
     timestamps: true,
