@@ -57,6 +57,8 @@ export function EventDetailsForm({
   toast,
 }: EventDetailsFormProps) {
   const [categories, setCategories] = useState<string[]>([]);
+  const [dateOpen, setDateOpen] = useState(false)
+  const [endDateOpen, setEndDateOpen] = useState(false)
 
   // Initialize the form with default values or initial data
   const form = useForm({
@@ -169,7 +171,7 @@ export function EventDetailsForm({
             render={({ field }) => (
               <FormItem className="flex flex-col">
                 <FormLabel>Start Date</FormLabel>
-                <Popover>
+                <Popover open={dateOpen} onOpenChange={setDateOpen}>
                   <PopoverTrigger asChild>
                     <FormControl>
                       <Button
@@ -185,9 +187,13 @@ export function EventDetailsForm({
                     <Calendar
                       mode="single"
                       selected={field.value}
-                      onSelect={field.onChange}
+                      onSelect={(e) => {
+                        field.onChange(e)
+                        updateData({ ...form.getValues(), date: e });
+                        setDateOpen(false)
+                      }}
                       disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                      initialFocus
+                      autoFocus
                     />
                   </PopoverContent>
                 </Popover>
@@ -204,7 +210,12 @@ export function EventDetailsForm({
                   <FormLabel>Start Time</FormLabel>
                   <div className="flex items-center">
                     <Clock className="mr-2 h-4 w-4 opacity-50" />
-                    <Input type="time" {...field} />
+                    <Input type="time"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                        updateData({ ...form.getValues(), startTime: e.target.value });
+                      }} />
                   </div>
                   <FormMessage />
                 </FormItem>
@@ -220,7 +231,7 @@ export function EventDetailsForm({
             render={({ field }) => (
               <FormItem className="flex flex-col">
                 <FormLabel>End Date</FormLabel>
-                <Popover>
+                <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
                   <PopoverTrigger asChild>
                     <FormControl>
                       <Button
@@ -236,9 +247,13 @@ export function EventDetailsForm({
                     <Calendar
                       mode="single"
                       selected={field.value}
-                      onSelect={field.onChange}
-                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                      initialFocus
+                      onSelect={(e) => {
+                        field.onChange(e)
+                        updateData({ ...form.getValues(), endDate: e });
+                        setEndDateOpen(false)
+                      }}
+                      disabled={(endDate) => endDate < data.date}
+                      autoFocus
                     />
                   </PopoverContent>
                 </Popover>
@@ -255,7 +270,12 @@ export function EventDetailsForm({
                   <FormLabel>End Time</FormLabel>
                   <div className="flex items-center">
                     <Clock className="mr-2 h-4 w-4 opacity-50" />
-                    <Input type="time" {...field} />
+                    <Input type="time"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                        updateData({ ...form.getValues(), endTime: e.target.value });
+                      }} />
                   </div>
                   <FormMessage />
                 </FormItem>
@@ -346,7 +366,7 @@ export function EventDetailsForm({
                     onValueChange={(val) => {
                       field.onChange(val);
                       updateData({ ...form.getValues(), visibility: val });
-                    }} 
+                    }}
                     defaultValue={field.value}
                     className="flex flex-col space-y-1"
                   >
@@ -380,7 +400,7 @@ export function EventDetailsForm({
                     onValueChange={(val) => {
                       field.onChange(val);
                       updateData({ ...form.getValues(), type: val });
-                    }} 
+                    }}
                     defaultValue={field.value}
                     className="flex flex-col space-y-1"
                   >
