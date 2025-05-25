@@ -7,6 +7,7 @@ import Event from "@/models/Event";
 import Ticket from "@/models/Ticket";
 import FormSubmission from "@/models/FormSubmission";
 import CheckIn from "@/models/CheckIn";
+import { logWithTimestamp } from "@/utils/logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
         console.log(`Searching by email: ${ticketId}`)
 
         // Try to find a ticket with this email
-        ticket = await db.collection("tickets").findOne({
+        ticket = await Ticket.findOne({
           attendeeEmail: ticketId,
           eventId: eventId,
         })
@@ -112,7 +113,7 @@ export async function POST(req: NextRequest) {
       console.log(`Performing flexible name search for: ${ticketId}`)
 
       // Try to find a form submission with a similar name
-      attendee = await db.collection("formSubmissions").findOne({
+      attendee = await FormSubmission.findOne({
         $or: [
           { "formData.name": { $regex: ticketId, $options: "i" } },
           { "formData.fullName": { $regex: ticketId, $options: "i" } },
@@ -166,6 +167,8 @@ export async function POST(req: NextRequest) {
 
     const now = new Date();
 
+    logWithTimestamp("info", "POST req ticket", ticket)
+
     // Handle ticket check-in
     if (ticket) {
       responseData.ticket = {
@@ -196,11 +199,11 @@ export async function POST(req: NextRequest) {
           $set: {
             isCheckedIn: true,
             lastCheckedInAt: now,
+            checkedInAt: now,
             isWebCheckIn: true,
             webCheckInDate: now,
           },
           $inc: { checkInCount: 1 },
-          $setOnInsert: { checkedInAt: ticket.checkedInAt || now },
         }
       )
 
@@ -216,6 +219,22 @@ export async function POST(req: NextRequest) {
         method: "web",
         isDuplicate: ticket.isCheckedIn ? true : false,
       })
+
+
+      // // Update attendee check-in status and increment count
+      // const updateResult = await FormSubmission.updateOne(
+      //   { _id: attendee._id, eventId: eventId },
+      //   {
+      //     $set: {
+      //       isCheckedIn: true,
+      //       checkedInAt: now,
+      //       isWebCheckIn: true,
+      //       webCheckInDate: now,
+      //     },
+      //     $inc: { checkInCount: 1 },
+      //   }
+      // )
+      // logWithTimestamp("info", "Update result for attendee check-in", updateResult)
 
       // Set response status/message based on duplicate or first check-in
       if (ticket.isCheckedIn) {
@@ -264,19 +283,20 @@ export async function POST(req: NextRequest) {
       }
 
       // Update attendee check-in status and increment count
-      await FormSubmission.updateOne(
-        { _id: attendee._id },
+      const updateResult = await FormSubmission.updateOne(
+        { _id: attendee._id, eventId: eventId },
         {
           $set: {
             isCheckedIn: true,
             lastCheckedInAt: now,
+            checkedInAt: now,
             isWebCheckIn: true,
             webCheckInDate: now,
           },
           $inc: { checkInCount: 1 },
-          $setOnInsert: { checkedInAt: attendee.checkedInAt || now },
         }
       )
+      logWithTimestamp("info", "Update result for attendee check-in", updateResult)
 
       // Log the check-in in the CheckIn collection
       await CheckIn.create({
