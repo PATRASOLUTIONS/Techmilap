@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { use, useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { CalendarIcon, MapPinIcon, Clock, Users, Tag, Ticket } from "lucide-react"
@@ -75,15 +75,17 @@ function formatEventTime(timeString) {
   }
 }
 
-export default function EventPage({ params }: { params: { id: string } }) {
+export default function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const [event, setEvent] = useState<EventType>(fallbackEvent);
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
+  const {id} = use(params as Promise<{id: string}>)
+
   useEffect(() => {
     async function fetchEvent() {
       try {
-        const response = await fetch(`/api/events/${params.id}/static`)
+        const response = await fetch(`/api/events/${id}/static`)
         if (!response.ok) {
           throw new Error("Failed to fetch event")
         }
@@ -98,7 +100,7 @@ export default function EventPage({ params }: { params: { id: string } }) {
     }
 
     fetchEvent()
-  }, [params.id])
+  }, [id])
 
   // Format dates
   const formattedDate = formatEventDate(event.date)
@@ -270,15 +272,15 @@ export default function EventPage({ params }: { params: { id: string } }) {
 
           <div className="space-y-3">
             <Button asChild className="w-full">
-              <Link href={`/events/${params.id}/register`}>Register Now</Link>
+              <Link href={`/events/${id}/register`}>Register Now</Link>
             </Button>
 
             <Button variant="outline" asChild className="w-full">
-              <Link href={`/events/${params.id}/volunteer`}>Volunteer</Link>
+              <Link href={`/events/${id}/volunteer`}>Volunteer</Link>
             </Button>
 
             <Button variant="outline" asChild className="w-full">
-              <Link href={`/events/${params.id}/speaker`}>Apply as Speaker</Link>
+              <Link href={`/events/${id}/speaker`}>Apply as Speaker</Link>
             </Button>
           </div>
         </div>

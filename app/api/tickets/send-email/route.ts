@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth"
 import { sendTemplatedEmail } from "@/lib/email-template-service"
 import FormSubmission from "@/models/FormSubmission"
 import { extractNameFromFormData, extractEmailFromFormData } from "@/lib/ticket-utils"
+import { logWithTimestamp } from "@/utils/logger"
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,7 +32,8 @@ export async function POST(req: NextRequest) {
     if (ticketType === "submission" || formType) {
       // This is a form submission ticket
       console.log(`Looking for form submission with ID: ${ticketId}`)
-      const submission = await FormSubmission.findById(ticketId).populate("event")
+      const submission = await FormSubmission.findById(ticketId)
+      // .populate("event")
 
       if (!submission) {
         console.error(`Form submission not found for ID: ${ticketId}`)
@@ -39,9 +41,13 @@ export async function POST(req: NextRequest) {
       }
 
       console.log(`Found form submission: ${submission._id}`)
+      logWithTimestamp("info", "Form submission Event", submission)
+
       ticket = submission
-      event = submission.event
-      formData = submission.formData || {}
+      let eventId = submission.eventId
+      formData = submission.data || {}
+
+      event = await Event.findById(eventId)
 
       // Extract name and email from form data
       attendeeName = extractNameFromFormData(formData, submission)

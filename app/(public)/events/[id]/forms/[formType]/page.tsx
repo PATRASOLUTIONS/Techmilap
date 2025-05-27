@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import {use, useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,8 +24,8 @@ import { useRouter } from "next/navigation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { logWithTimestamp } from "@/utils/logger";
 
-export default function FormPage({ params }: { params: { id: string; formType: string } }) {
-  const { id, formType } = params
+export default function FormPage({ params }: { params: Promise<{ id: string; formType: string }> }) {
+  const { id, formType } = use(params as Promise<{ id: string; formType: string }>)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState<any>(null)

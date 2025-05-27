@@ -57,7 +57,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     // The 'organizer' ObjectId is destructured out as 'eventOrganizerId' (and not used further in this scope)
     // because we are replacing its representation with the derived 'organizerInfo'.
-    const { _id, organizer: eventOrganizerId, ...restOfEventProperties } = event as any;
+    const { _id, ...restOfEventProperties } = event as any;
 
 
     // Prepare response

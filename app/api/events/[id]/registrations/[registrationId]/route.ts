@@ -4,6 +4,7 @@ import { sendRegistrationApprovalEmail, sendRegistrationRejectionEmail } from "@
 import Event from "@/models/Event"
 import FormSubmission from "@/models/FormSubmission"
 import User from "@/models/User"
+import { logWithTimestamp } from "@/utils/logger"
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string; registrationId: string } }) {
   try {
@@ -29,18 +30,25 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
 
     // Get the event details for the email
-    const event = await Event.findById(params.id)
+    const event = await Event.findById(params.id).lean()
 
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 })
     }
 
+    logWithTimestamp("info", "Event Details", event)
+
+    const users = await User.find({}); // An empty query {} fetches all documents
+
+    logWithTimestamp("info", "Users", users);
+
+
     // Get the organizer's email
     let organizerEmail = null
     let organizerUser = null
-    if (event.organizerId) {
+    if (event.organizer) {
       try {
-        organizerUser = await User.findById(event.organizerId)
+        organizerUser = await User.findById(event.organizer)
         if (organizerUser && organizerUser.email) {
           organizerEmail = organizerUser.email
           console.log(`Found organizer email: ${organizerEmail}`)
@@ -53,6 +61,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     } else {
       console.log("No organizerId found in event")
     }
+
+
+
+    //log organizer email
+    logWithTimestamp("info", `Organizer Email: ${organizerEmail}`)
+
+    // return
 
     // Extract attendee information for email notification
     // Check multiple possible email fields in the form data
@@ -115,7 +130,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           // Enhanced event details for the email
           const enhancedEventDetails = {
             ...event,
-            organizer: event.organizerId,
+            organizer: event.organizer,
             organizerName: organizerUser?.name || "Event Organizer",
             attendeeId: registration._id.toString(),
           }
@@ -126,7 +141,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
             attendeeName: finalName,
             eventDetails: enhancedEventDetails,
             eventId: params.id,
-            organizerEmail: organizerEmail, // Pass the organizer email
+            organizerEmail: organizerEmail,
+            organizerId: event.organizer // Pass the organizer email
           })
         } else if (status === "rejected") {
           console.log(`Sending rejection email to ${finalEmail}`)
@@ -145,6 +161,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
             attendeeName: finalName,
             eventId: params.id,
             eventDetails: enhancedEventDetails,
+            organizerEmail: organizerEmail,
+            organizerId: event.organizer // Pass the organizer email
           })
         }
 
