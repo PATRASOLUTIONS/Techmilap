@@ -262,6 +262,10 @@ export default function SignupPage() {
                         type="password"
                         placeholder="Password"
                         required
+                        minLength={8}
+                        maxLength={16}
+                        pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$"
+                        title="Password must be at least 8 characters and include uppercase, lowercase, number, and special character."
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       />
@@ -274,6 +278,10 @@ export default function SignupPage() {
                         type="password"
                         placeholder="Confirm password"
                         required
+                        minLength={8}
+                        maxLength={64}
+                        pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$"
+                        title="Password must be at least 8 characters and include uppercase, lowercase, number, and special character."
                         value={formData.confirmPassword}
                         onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                       />

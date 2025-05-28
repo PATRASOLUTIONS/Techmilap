@@ -5,6 +5,7 @@ import FormSubmission from "@/models/FormSubmission"
 import mongoose from "mongoose"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+import { logWithTimestamp } from "@/utils/logger"
 
 export async function POST(req: NextRequest, { params }: { params: { id: string; formType: string } }) {
   console.log(`POST request for form submission: ${params.formType}, event ID: ${params.id}`)
@@ -85,6 +86,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string;
     else if (formData.fullName) userName = formData.fullName
     else if (formData.firstName && formData.lastName) userName = `${formData.firstName} ${formData.lastName}`
     else if (formData.firstName) userName = formData.firstName
+    else {
+      // Look for a key that starts with "question_name_"
+      const nameKey = Object.keys(formData).find(key => key.startsWith("question_name_"))
+      if (nameKey) userName = formData[nameKey]
+    }    
 
     // Create a new form submission
     // FIXED: Use 'data' field instead of 'formData'

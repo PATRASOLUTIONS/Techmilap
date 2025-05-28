@@ -24,6 +24,7 @@ import { jsPDF } from "jspdf"
 import "jspdf-autotable"
 import QRCode from "qrcode"
 import { useSession } from "next-auth/react"
+import { logWithTimestamp } from "@/utils/logger"
 
 export default function MyTicketsPage() {
   const [tickets, setTickets] = useState<{
@@ -42,6 +43,7 @@ export default function MyTicketsPage() {
   const [sentEmailIds, setSentEmailIds] = useState<Set<string>>(new Set())
   const [retryCount, setRetryCount] = useState(0)
   const { data: session } = useSession()
+  const [isSendingBulkEmails, setIsSendingBulkEmails] = useState(false)
 
   const fetchTickets = async (forceRefresh = false) => {
     try {
@@ -87,13 +89,14 @@ export default function MyTicketsPage() {
         console.log("All tickets count:", data.tickets.all.length)
         console.log(
           "Ticket types:",
-          data.tickets.all.map((t) => t.ticketType || t.formType),
+          data.tickets.all.map((t: any) => t.ticketType || t.formType),
         )
-        console.log("Form submission tickets:", data.tickets.all.filter((t) => t.isFormSubmission).length)
+        console.log("Form submission tickets:", data.tickets.all.filter((t: any) => t.isFormSubmission).length)
         console.log(
           "Email-based tickets:",
-          data.tickets.all.filter((t) => t.email === session?.user?.email || t.attendeeEmail === session?.user?.email)
-            .length,
+          data.tickets.all.filter(
+            (t: any) => t.email === session?.user?.email || t.attendeeEmail === session?.user?.email,
+          ).length,
         )
       }
 
@@ -104,7 +107,15 @@ export default function MyTicketsPage() {
         throw new Error("Invalid response format: missing tickets property")
       }
 
-      setTickets(data.tickets)
+      // Filter out tickets that are not form submissions
+      const filteredTickets = {
+        ...data.tickets,
+        all: data.tickets.all.filter((t: any) => t.isFormSubmission),
+        upcoming: data.tickets.upcoming.filter((t: any) => t.isFormSubmission),
+        past: data.tickets.past.filter((t: any) => t.isFormSubmission),
+      }
+
+      setTickets(filteredTickets)
 
       // Show success toast on forced refresh
       if (forceRefresh && data.tickets.all.length > 0) {
@@ -144,13 +155,17 @@ export default function MyTicketsPage() {
     setRetryCount((prev) => prev + 1)
   }
 
-  // Function to send ticket email if not already sent
-  const sendTicketEmailIfNeeded = async (ticket: any) => {
-    // Skip if already sent during this session
-    if (sentEmailIds.has(ticket._id)) return
+  const sendTicketEmailIfNeeded = async (ticket: any): Promise<boolean> => {
+    logWithTimestamp("info", `[sendTicketEmailIfNeeded] Called for ticket: ${ticket._id}`, { ticketStatus: ticket.status, isFormSubmission: ticket.isFormSubmission });
+    if (sentEmailIds.has(ticket._id)) {
+      logWithTimestamp("info", `[sendTicketEmailIfNeeded] Email already processed for ticket ${ticket._id} in this session. Skipping.`);
+      return false; // Indicate not sent in this call, but already processed
+    }
 
-    // Only send for approved tickets that are from form submissions
+    let emailSentSuccessfully = false;
+
     if (ticket.isFormSubmission && ticket.status === "confirmed") {
+      logWithTimestamp("info", `[sendTicketEmailIfNeeded] Conditions met for ticket ${ticket._id}. Attempting to send email.`);
       try {
         console.log("Sending email for newly approved ticket:", ticket._id)
 
@@ -168,26 +183,71 @@ export default function MyTicketsPage() {
 
         if (response.ok) {
           console.log("Email sent successfully for ticket:", ticket._id)
-          // Mark as sent
+          logWithTimestamp("info", `[sendTicketEmailIfNeeded] API call successful for ${ticket._id}. Updating sentEmailIds.`);
           setSentEmailIds((prev) => new Set([...prev, ticket._id]))
+          emailSentSuccessfully = true;
+        } else {
+          const errorData = await response.json().catch(() => ({ error: "Failed to parse error response" }));
+          logWithTimestamp("error", `[sendTicketEmailIfNeeded] API call FAILED for ${ticket._id}. Status: ${response.status}`, errorData);
+          console.error(`Failed to send email for ticket ${ticket._id}, status: ${response.status}`, errorData);
         }
       } catch (error) {
+        logWithTimestamp("error", `[sendTicketEmailIfNeeded] Exception during email sending for ${ticket._id}`, error);
         console.error("Error sending automatic ticket email:", error)
       }
+    } else {
+      logWithTimestamp("info", `[sendTicketEmailIfNeeded] Conditions NOT met for ticket ${ticket._id}. Status: ${ticket.status}, isFormSubmission: ${ticket.isFormSubmission}`);
     }
+    return emailSentSuccessfully;
   }
 
-  // Update the useEffect to call this function when tickets are loaded
-  useEffect(() => {
+  const handleSendAllConfirmationEmails = async () => {
+    setIsSendingBulkEmails(true)
+    let emailsAttempted = 0
+    let emailsSentSuccessfully = 0
+
+    logWithTimestamp("info", "[handleSendAllConfirmationEmails] Initiated.");
+
     if (!loading && tickets.all && tickets.all.length > 0) {
-      // Send emails for newly approved tickets
-      tickets.all.forEach((ticket) => {
-        if (ticket.isFormSubmission && !sentEmailIds.has(ticket._id)) {
-          sendTicketEmailIfNeeded(ticket)
-        }
+      const eligibleTickets = tickets.all.filter(
+        (ticket) => ticket.isFormSubmission && ticket.status === "confirmed" && !sentEmailIds.has(ticket._id),
+      )
+      logWithTimestamp("info", `[handleSendAllConfirmationEmails] Found ${eligibleTickets.length} eligible tickets.`);
+
+
+      if (eligibleTickets.length === 0) {
+        toast({
+          title: "No Emails to Send",
+          description: "All confirmation emails for eligible tickets have already been processed in this session or there are no new confirmed tickets.",
+        })
+        setIsSendingBulkEmails(false)
+        return
+      }
+
+      toast({
+        title: "Sending Emails...",
+        description: `Attempting to send ${eligibleTickets.length} confirmation email(s).`,
       })
+
+      for (const ticket of eligibleTickets) {
+        emailsAttempted++
+        logWithTimestamp("info", `[handleSendAllConfirmationEmails] Processing ticket ${ticket._id} (${emailsAttempted}/${eligibleTickets.length})`);
+        const success = await sendTicketEmailIfNeeded(ticket)
+        if (success) {
+          emailsSentSuccessfully++
+        }
+      }
+    } else {
+      logWithTimestamp("info", "[handleSendAllConfirmationEmails] No tickets loaded or tickets.all is empty.");
     }
-  }, [tickets, loading, sentEmailIds])
+    toast({
+      title: "Email Sending Complete",
+      description: `Successfully sent ${emailsSentSuccessfully} out of ${emailsAttempted} email(s).`,
+    })
+    logWithTimestamp("info", `[handleSendAllConfirmationEmails] Completed. Sent: ${emailsSentSuccessfully}/${emailsAttempted}`);
+    setIsSendingBulkEmails(false)
+  }
+
 
   // Filter tickets by type
   const attendeeTickets =
@@ -239,6 +299,21 @@ export default function MyTicketsPage() {
             <Ticket className="h-5 w-5 text-indigo-600" />
             <span className="font-medium">{loading ? "..." : tickets.all?.length || 0} Tickets</span>
           </div>
+          {tickets.all?.some(t => t.isFormSubmission && t.status === "confirmed") && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleSendAllConfirmationEmails}
+              disabled={loading || isSendingBulkEmails}
+            >
+              {isSendingBulkEmails ? (
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Mail className="mr-2 h-4 w-4" />
+              )}
+              {isSendingBulkEmails ? "Sending Emails..." : "Send All Confirmation Emails"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -531,7 +606,7 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
   const roleType = ticket.formType || ticket.ticketType || "attendee"
 
   // Create the virtual ticket URL - ensure it's a complete URL with http/https
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "");
   const virtualTicketUrl = `${baseUrl}/tickets/${ticket._id}`
 
   // QR code data - ensure it's the complete URL
@@ -847,18 +922,18 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
         .toISOString()
         .replace(/-|:|\.\d+/g, "")
         .slice(0, 8)}T${startDate
-        .toISOString()
-        .replace(/-|:|\.\d+/g, "")
-        .slice(9, 13)}00Z/${endDate
-        .toISOString()
-        .replace(/-|:|\.\d+/g, "")
-        .slice(0, 8)}T${endDate
-        .toISOString()
-        .replace(/-|:|\.\d+/g, "")
-        .slice(
-          9,
-          13,
-        )}00Z&details=${encodeURIComponent(`Your ${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Pass for ${event.title || "Event"}. Ticket #: ${ticket._id.substring(0, 6)}
+          .toISOString()
+          .replace(/-|:|\.\d+/g, "")
+          .slice(9, 13)}00Z/${endDate
+            .toISOString()
+            .replace(/-|:|\.\d+/g, "")
+            .slice(0, 8)}T${endDate
+              .toISOString()
+              .replace(/-|:|\.\d+/g, "")
+              .slice(
+                9,
+                13,
+              )}00Z&details=${encodeURIComponent(`Your ${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Pass for ${event.title || "Event"}. Ticket #: ${ticket._id.substring(0, 6)}
 View your ticket: ${virtualTicketUrl}`)}&location=${encodeURIComponent(event.location || "")}`
 
       window.open(googleCalendarUrl, "_blank")
@@ -962,18 +1037,15 @@ Please present this ticket at the event entrance.
             <div key={`bottom-${i}`} className="w-1 h-1 rounded-full bg-gray-200"></div>
           ))}
         </div>
-
         <div className="flex flex-col md:flex-row">
           {/* Left ticket stub */}
           <div className="w-full md:w-1/4 bg-gray-50 p-4 flex flex-col items-center justify-center border-r border-dashed border-gray-300 relative">
             <div className="absolute -right-2.5 top-1/3 w-5 h-5 bg-white rounded-full border border-gray-300"></div>
             <div className="absolute -right-2.5 bottom-1/3 w-5 h-5 bg-white rounded-full border border-gray-300"></div>
-
             <div className="text-center mb-4">
               <div className="font-bold text-gray-700 mb-1 uppercase">{roleType} Pass</div>
               <div className="text-xs text-gray-500">#{ticket._id.substring(0, 6)}</div>
             </div>
-
             <div className="bg-white p-2 rounded-md shadow-sm mb-4 w-32 h-32 flex items-center justify-center">
               <TicketQRCode data={qrCodeData} size={120} />
             </div>
@@ -1012,7 +1084,6 @@ Please present this ticket at the event entrance.
                   <Clock className="h-5 w-5 mr-2 text-gray-500" />
                   <span>{formattedTime}</span>
                 </div>
-
                 <div className="flex items-start text-gray-700">
                   <MapPin className="h-5 w-5 mr-2 flex-shrink-0 text-gray-500" />
                   <span>{event.location || "Location not specified"}</span>

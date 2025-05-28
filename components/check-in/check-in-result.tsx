@@ -24,7 +24,7 @@ export function CheckInResult({ result, onReset }: CheckInResultProps) {
 
   if (!result) return null
 
-  const isSuccess = result.status === "checked_in" || result.status === "duplicate_check_in"
+  const isSuccess = result.status === "checked_in" || result.status === "duplicate_check_in" || result.status === "first_check_in"
   const isAlreadyCheckedIn = result.status === "already_checked_in"
   const isDuplicateCheckIn = result.status === "duplicate_check_in"
   const isInvalid = result.status === "invalid" || result.status === "error"

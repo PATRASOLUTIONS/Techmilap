@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import {use, useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,9 +22,10 @@ import { DynamicForm } from "@/components/forms/dynamic-form"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { logWithTimestamp } from "@/utils/logger";
 
-export default function FormPage({ params }: { params: { id: string; formType: string } }) {
-  const { id, formType } = params
+export default function FormPage({ params }: { params: Promise<{ id: string; formType: string }> }) {
+  const { id, formType } = use(params as Promise<{ id: string; formType: string }>)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState<any>(null)
@@ -49,6 +50,8 @@ export default function FormPage({ params }: { params: { id: string; formType: s
           },
           cache: "no-store",
         })
+
+        logWithTimestamp("info", "Form data response:", res)
 
         if (!res.ok) {
           // Try to get more detailed error information
@@ -130,7 +133,7 @@ export default function FormPage({ params }: { params: { id: string; formType: s
       // Last resort: check form questions for an email field
       if (!hasEmail && formData && formData.questions) {
         const emailQuestion = formData.questions.find(
-          (q) =>
+          (q:any) =>
             q.type === "email" ||
             q.id.toLowerCase().includes("email") ||
             (q.label && q.label.toLowerCase().includes("email")),
@@ -190,6 +193,7 @@ export default function FormPage({ params }: { params: { id: string; formType: s
 
       // Prepare the request body based on the endpoint
       const requestBody = { formData: data }
+      logWithTimestamp("info", "Request body before submission:", requestBody)
 
       console.log("Request body:", JSON.stringify(requestBody).substring(0, 500) + "...")
 
@@ -200,6 +204,8 @@ export default function FormPage({ params }: { params: { id: string; formType: s
         },
         body: JSON.stringify(requestBody),
       })
+
+      logWithTimestamp("info", "Form submission response:", response)
 
       // Handle non-OK responses
       if (!response.ok) {
@@ -231,7 +237,7 @@ export default function FormPage({ params }: { params: { id: string; formType: s
       }
 
       const result = await response.json()
-      console.log("Submission result:", result)
+      logWithTimestamp("info", "Submission result:", result)
 
       setSuccess(true)
       toast({

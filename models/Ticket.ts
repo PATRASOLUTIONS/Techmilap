@@ -34,8 +34,8 @@ const TicketSchema = new Schema<ITicket>(
     ticketType: {
       type: String,
       required: [true, "Ticket type is required"],
-      enum: ["attendee", "volunteer", "speaker", "vip", "standard", "early-bird"],
-      default: "attendee",
+      enum: ["Free", "Paid", "Donation"],
+      default: "Free",
     },
     ticketNumber: {
       type: String,

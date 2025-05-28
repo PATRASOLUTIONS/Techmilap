@@ -302,7 +302,7 @@ export function DynamicForm({
             <SelectContent>
               {field.options.map((option: any) => (
                 <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+                  {option.value}
                 </SelectItem>
               ))}
             </SelectContent>

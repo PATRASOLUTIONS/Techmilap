@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+import { logWithTimestamp } from "@/utils/logger"
 
 // Import models
 const Ticket = mongoose.models.Ticket || mongoose.model("Ticket", require("@/models/Ticket").default.schema)
@@ -62,15 +63,30 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     // Combine the stats
     const formStats = formSubmissionStats.length > 0 ? formSubmissionStats[0] : { total: 0, checkedIn: 0 }
-    const tStats = ticketStats.length > 0 ? ticketStats[0] : { total: 0, checkedIn: 0 }
 
+    // do not need the ticket stats for now
+    //
+    // const tStats = ticketStats.length > 0 ? ticketStats[0] : { total: 0, checkedIn: 0 }
+    //
+    // const stats = {
+    //   total: formStats.total + tStats.total,
+    //   checkedIn: formStats.checkedIn + tStats.checkedIn,
+    //   remaining: formStats.total + tStats.total - (formStats.checkedIn + tStats.checkedIn),
+    //   percentage:
+    //     formStats.total + tStats.total > 0
+    //       ? Math.round(((formStats.checkedIn + tStats.checkedIn) / (formStats.total + tStats.total)) * 100)
+    //       : 0,
+    // }
+
+
+    // Only sending form submission stats for now
     const stats = {
-      total: formStats.total + tStats.total,
-      checkedIn: formStats.checkedIn + tStats.checkedIn,
-      remaining: formStats.total + tStats.total - (formStats.checkedIn + tStats.checkedIn),
+      total: formStats.total,
+      checkedIn: formStats.checkedIn,
+      remaining: formStats.total - formStats.checkedIn,
       percentage:
-        formStats.total + tStats.total > 0
-          ? Math.round(((formStats.checkedIn + tStats.checkedIn) / (formStats.total + tStats.total)) * 100)
+        formStats.total > 0
+          ? Math.round((formStats.checkedIn / formStats.total) * 100)
           : 0,
     }
 
@@ -83,13 +99,18 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .limit(10)
       .lean()
 
-    const recentTicketCheckIns = await Ticket.find({ event: eventId, isCheckedIn: true }, { name: 1, checkedInAt: 1 })
-      .sort({ checkedInAt: -1 })
-      .limit(10)
-      .lean()
+    // Do not need the ticket checkins for now
+    // const recentTicketCheckIns = await Ticket.find({ event: eventId, isCheckedIn: true }, { name: 1, checkedInAt: 1 })
+    //   .sort({ checkedInAt: -1 })
+    //   .limit(10)
+    //   .lean()
+
+    //log recent from checkin and recent ticket checkins
+    logWithTimestamp("info", "Recent Form Check-Ins:", recentFormCheckIns)
 
     // Combine and sort recent check-ins
-    const recentCheckIns = [...recentFormCheckIns, ...recentTicketCheckIns]
+    // const recentCheckIns = [...recentFormCheckIns, ...recentTicketCheckIns] //do not need this ticket checkins for now
+    const recentCheckIns = [...recentFormCheckIns]
       .sort((a, b) => new Date(b.checkedInAt).getTime() - new Date(a.checkedInAt).getTime())
       .slice(0, 10)
       .map((checkIn) => ({

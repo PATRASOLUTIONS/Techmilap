@@ -552,7 +552,7 @@ export function DashboardSidebar() {
                     variant="ghost"
                     className={cn(
                       "font-medium bg-slate-100/70 hover:bg-slate-200/70",
-                      isCollapsed ? "justify-center px-0" : "justify-between px-3 w-full",
+                      isCollapsed ? "justify-center h-14 w-14 mx-auto p-0 ml-1" : "justify-between px-3 w-full",
                     )}
                     onClick={() => !isCollapsed && toggleSection(item.section)}
                   >

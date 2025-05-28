@@ -82,22 +82,22 @@ export default function EventDashboardPage() {
       const data = await response.json()
       console.log("Event data received:", data)
 
-      if (!data.event) {
+      if (!data) {
         throw new Error("Event data is missing or invalid")
       }
 
-      setEvent(data.event)
+      setEvent(data)
 
       // Initialize edit form data
       setEditFormData({
-        location: data.event.location || "",
-        category: data.event.category || "",
-        description: data.event.description || "",
+        location: data.location || "",
+        category: data.category || "",
+        description: data.description || "",
       })
 
       // Generate form URLs
       const baseUrl = window.location.origin
-      const eventSlug = data.event.slug || eventId
+      const eventSlug = data.slug || eventId
       setFormUrls({
         attendee: `${baseUrl}/events/${eventSlug}/register`,
         volunteer: `${baseUrl}/events/${eventSlug}/volunteer`,

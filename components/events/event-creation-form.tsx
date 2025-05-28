@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { useSession } from "next-auth/react"
+import { logWithTimestamp } from "@/utils/logger"
 
 export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   const router = useRouter()
@@ -25,22 +26,31 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   const [activeTab, setActiveTab] = useState("details")
   const [formData, setFormData] = useState({
     details: {
-      name: "",
+      title: "",
       displayName: "",
       type: "Offline",
       visibility: "Public",
-      startDate: "",
+      date: "",
+      endDate: "",
       startTime: "",
       endTime: "",
-      endDate: "",
-      venue: "",
+      location: "",
+      category: "",
       description: "",
-      coverImageUrl: "",
+      image: "",
       desktopCoverImage: null,
       mobileCoverImage: null,
       slug: "",
     },
-    tickets: [],
+    tickets: [{
+      name: "General Admission",
+      description: "Standard entry ticket",
+      price: 0,
+      quantity: 100,
+      ticketType: "Free",
+      ticketNumber: `TKT-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Date.now().toString().substring(9)}`,
+      userId: "",
+    },],
     customQuestions: {
       attendee: [],
       volunteer: [],
@@ -71,16 +81,16 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
   // Load existing event data if editing
   useEffect(() => {
     if (existingEvent) {
-      console.log("Loading existing event data for editing:", existingEvent.title)
+      console.log("Loading existing event data for editing:", existingEvent)
 
       // Convert the existing event data to the format expected by the form
       const convertedData = {
         details: {
-          name: existingEvent.title || "",
+          title: existingEvent.title || "",
           displayName: existingEvent.displayName || existingEvent.title || "",
           type: existingEvent.type || "Offline",
           visibility: existingEvent.visibility || "Public",
-          startDate: existingEvent.date ? new Date(existingEvent.date).toISOString().split("T")[0] : "",
+          date: existingEvent.date ? new Date(existingEvent.date).toISOString().split("T")[0] : "",
           startTime: existingEvent.startTime || "",
           endTime: existingEvent.endTime || "",
           endDate: existingEvent.endDate
@@ -88,9 +98,9 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
             : existingEvent.date
               ? new Date(existingEvent.date).toISOString().split("T")[0]
               : "",
-          venue: existingEvent.venue || "",
+          location: existingEvent.location || "",
           description: existingEvent.description || "",
-          coverImageUrl: existingEvent.image || "",
+          image: existingEvent.image || "",
           desktopCoverImage: null,
           mobileCoverImage: null,
           slug: existingEvent.slug || "",
@@ -98,10 +108,10 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
         },
         tickets: Array.isArray(existingEvent.tickets)
           ? existingEvent.tickets.map((ticket) => ({
-              ...ticket,
-              price: ticket.price !== undefined ? ticket.price : 0,
-              quantity: ticket.quantity !== undefined ? ticket.quantity : 0,
-            }))
+            ...ticket,
+            price: ticket.price !== undefined ? ticket.price : 0,
+            quantity: ticket.quantity !== undefined ? ticket.quantity : 0,
+          }))
           : [],
         customQuestions: existingEvent.customQuestions || { attendee: [], volunteer: [], speaker: [] },
         status: existingEvent.status || "draft",
@@ -136,20 +146,21 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
 
   const validateDetailsForm = () => {
     const details = formData.details
+    logWithTimestamp("info", "Validating details form:", details)
     const missingFields = []
 
-    if (!details.name) missingFields.push("Event Name")
-    if (!details.displayName) missingFields.push("Event Display Name")
-    if (!details.startDate) missingFields.push("Start Date")
+    if (!details.title) missingFields.push("Event Name")
+    // if (!details.displayName) missingFields.push("Event Display Name")
+    if (!details.date) missingFields.push("Start Date")
     if (!details.startTime) missingFields.push("Start Time")
     if (!details.endDate) missingFields.push("End Date")
     if (!details.endTime) missingFields.push("End Time")
     if (!details.description) missingFields.push("Event Description")
-    if (!details.coverImageUrl) missingFields.push("Image URL")
+    if (!details.image) missingFields.push("Image URL")
 
     // Check venue details for offline or hybrid events
     if (details.type === "Offline" || details.type === "Hybrid") {
-      if (!details.venue) missingFields.push("Venue Name")
+      if (!details.location) missingFields.push("Venue Name")
     }
 
     return missingFields
@@ -169,12 +180,22 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       }
 
       // Validate image URL format
-      if (formData.details.coverImageUrl && !formData.details.coverImageUrl.match(/^https?:\/\/.+/)) {
+      if (formData.details.image && !formData.details.image.match(/^https?:\/\/.+/)) {
         toast({
           title: "Invalid Image URL",
           description: "Image URL must start with http:// or https://",
           variant: "destructive",
         })
+        return
+      }
+
+      if (formData.details.visibility === "Private") {
+        toast({
+          title: "Premium Feature",
+          description: "Private events are a premium feature. Your event will be set to Public.",
+          variant: "default",
+        })
+        formData.details.visibility = "Public" // Force to Public
         return
       }
 
@@ -224,15 +245,15 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
 
     try {
       // Ensure all required fields are present
-      if (!formData.details.name) {
+      if (!formData.details.title) {
         throw new Error("Event name is required")
       }
 
-      if (!formData.details.coverImageUrl) {
+      if (!formData.details.image) {
         throw new Error("Image URL is required")
       }
 
-      if (!formData.details.coverImageUrl.match(/^https?:\/\/.+/)) {
+      if (!formData.details.image.match(/^https?:\/\/.+/)) {
         throw new Error("Image URL must start with http:// or https://")
       }
 
@@ -245,26 +266,36 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       // Convert form data to the format expected by the API
       const apiData = {
         details: {
-          name: formData.details.name,
-          displayName: formData.details.displayName || formData.details.name,
+          title: formData.details.title,
+          displayName: formData.details.displayName || formData.details.title,
           description: formData.details.description || "",
-          startDate: formData.details.startDate,
+          date: formData.details.date,
           startTime: formData.details.startTime,
           endTime: formData.details.endTime,
           endDate: formData.details.endDate,
-          venue: formData.details.venue,
+          location: formData.details.location,
+          category: formData.details.category || "",
           type: formData.details.type,
           visibility: formData.details.visibility || "Public", // Default to Public if not specified
-          coverImageUrl: formData.details.coverImageUrl,
+          image: formData.details.image,
           slug:
             formData.details.slug ||
-            formData.details.name
+            formData.details.title
               .toLowerCase()
               .replace(/[^\w\s-]/g, "")
               .replace(/\s+/g, "-")
               .replace(/-+/g, "-")
               .trim() ||
             `event-${Date.now()}`,
+          customQuestions: {
+            attendee: Array.isArray(formData.customQuestions.attendee) ? formData.customQuestions.attendee : [],
+            volunteer: Array.isArray(formData.customQuestions.volunteer) ? formData.customQuestions.volunteer : [],
+            speaker: Array.isArray(formData.customQuestions.speaker) ? formData.customQuestions.speaker : [],
+          },
+          status: status, // This will be "published" or "draft" based on the button clicked
+          attendeeForm: { status: formStatus.attendee },
+          volunteerForm: { status: formStatus.volunteer },
+          speakerForm: { status: formStatus.speaker },
         },
         tickets:
           formData.tickets.map((ticket, index) => {
@@ -281,15 +312,6 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
               userId: userId || "system-generated",
             }
           }) || [],
-        customQuestions: {
-          attendee: Array.isArray(formData.customQuestions.attendee) ? formData.customQuestions.attendee : [],
-          volunteer: Array.isArray(formData.customQuestions.volunteer) ? formData.customQuestions.volunteer : [],
-          speaker: Array.isArray(formData.customQuestions.speaker) ? formData.customQuestions.speaker : [],
-        },
-        status: status, // This will be "published" or "draft" based on the button clicked
-        attendeeForm: { status: formStatus.attendee },
-        volunteerForm: { status: formStatus.volunteer },
-        speakerForm: { status: formStatus.speaker },
       }
 
       console.log("Submitting event data:", apiData)
@@ -306,6 +328,8 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
         },
         body: JSON.stringify(apiData),
       })
+
+      logWithTimestamp("info", "API response:", response)
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: "Failed to parse error response" }))
@@ -488,7 +512,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       {isSubmitted ? (
         <EventCreationSuccess
           eventId={submittedEventId}
-          eventName={formData.details.name || "New Event"}
+          eventName={formData.details.title || "New Event"}
           eventSlug={submittedEventSlug}
           isEditing={isEditing}
           isPublished={publishStatus === "published"}
@@ -502,7 +526,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                 ? "Update your event details below"
                 : "Fill out the details below to create a new event that will wow your attendees."
             }
-            className="mb-8"
+            // className="mb-8"
           />
 
           <Card className="border-0 shadow-lg overflow-hidden">
@@ -522,9 +546,8 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                     {[1, 2, 3, 4].map((step) => (
                       <motion.div
                         key={step}
-                        className={`flex items-center justify-center w-8 h-8 rounded-full cursor-pointer ${
-                          step <= getStepNumber() ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-                        }`}
+                        className={`flex items-center justify-center w-8 h-8 rounded-full cursor-pointer ${step <= getStepNumber() ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                          }`}
                         initial={{ scale: 0.8 }}
                         animate={{
                           scale: step === getStepNumber() ? 1.1 : 1,
@@ -585,16 +608,18 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                       activeTab={activeTab}
                       setActiveTab={setActiveTab}
                       formData={formData}
+                      setFormData={setFormData}
                       toast={toast}
+                      handleNext={handleNext}
                     />
                   )}
 
                   {activeTab === "tickets" && (
                     <TicketManagementForm
-                      data={formData.tickets}
+                      initialData={formData.tickets}
                       updateData={(data) => updateFormData("tickets", data)}
                       eventId={isEditing ? existingEvent._id : null}
-                      toast={toast}
+                      handleNext={handleNext}
                     />
                   )}
 
@@ -629,7 +654,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                   </Button>
                 ) : (
                   <div className="flex gap-3">
-                    <Button
+                    {/* <Button
                       onClick={() => handleSubmit("draft")}
                       variant="outline"
                       className="button-hover"
@@ -680,7 +705,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                           {isEditing ? "Save as Draft" : "Save as Draft"}
                         </>
                       )}
-                    </Button>
+                    </Button> */}
                     <Button
                       onClick={() => handleSubmit("published")}
                       className="button-hover bg-gradient-to-r from-primary to-secondary"

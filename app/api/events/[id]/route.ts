@@ -3,6 +3,7 @@ import { connectToDatabase, defineModels } from "@/lib/mongodb"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import mongoose from "mongoose"
+import { logWithTimestamp } from "@/utils/logger"
 
 // Update the GET function to properly handle speaker form data
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -52,22 +53,18 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       }
     }
 
+    logWithTimestamp("info", "Event Data from DB", event);
+
+    // The 'organizer' ObjectId is destructured out as 'eventOrganizerId' (and not used further in this scope)
+    // because we are replacing its representation with the derived 'organizerInfo'.
+    const { _id, ...restOfEventProperties } = event as any;
+
+
     // Prepare response
     const eventData = {
       id: event._id.toString(),
-      title: event.title || "Untitled Event",
-      description: event.description || "",
-      date: event.date || null,
-      endDate: event.endDate || null,
-      startTime: event.startTime || null,
-      endTime: event.endTime || null,
-      location: event.location || "Location TBA",
-      image: event.image || event.coverImageUrl || "/vibrant-tech-event.png",
-      category: event.category || null,
-      price: event.price || 0,
-      tags: Array.isArray(event.tags) ? event.tags : [],
-      slug: event.slug || event._id.toString(),
       organizerInfo,
+      ...restOfEventProperties
     }
 
     return NextResponse.json(eventData)

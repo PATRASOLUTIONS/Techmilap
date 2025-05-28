@@ -3,6 +3,8 @@ import { format, addMinutes } from "date-fns"
 import { rateLimit } from "@/lib/rate-limit"
 import { sendTemplatedEmail } from "@/lib/email-template-service"
 import nodemailer from "nodemailer"
+import { logWithTimestamp } from "@/utils/logger"
+import { info } from "console"
 
 // Create a rate limiter for email sending
 const emailRateLimiter = rateLimit({
@@ -69,12 +71,14 @@ function sanitizeHtml(html) {
 const createTransporter = () => {
   const secure = process.env.EMAIL_SECURE === "true"
 
+  logWithTimestamp("info", "User", process.env.EMAIL_USER)
+
   return nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: Number.parseInt(process.env.EMAIL_PORT || "587"),
     secure: secure, // true for 465, false for other ports
     auth: {
-      user: process.env.EMAIL_USER,
+      user: process.env.EMAIL_SERVER_USER,
       pass: process.env.EMAIL_PASSWORD,
     },
     tls: {
@@ -84,66 +88,107 @@ const createTransporter = () => {
   })
 }
 
+// New email service using the provided API
+async function sendEmailViaAPI({ to, subject, text, html }) {
+  try {
+    console.log(`Sending email to ${to} with subject: ${subject} via API`)
+
+    // Prepare email body
+    const emailBody = html || text || `Subject: ${subject}`
+
+    // Make API request
+    const response = await fetch(
+      "https://prod-22.southindia.logic.azure.com:443/workflows/6df0b999ee0c4e67b8c86d428bbc0eb6/triggers/When_a_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_a_HTTP_request_is_received%2Frun&sv=1.0&sig=mUyOOITrrkN_fiKdv12Yp11TJmNA_eZNzJ_-gQYpuDU",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: to,
+          emailbody: emailBody,
+          emailsubject: subject || "Notification from Tech Milap", // Provide a default subject if none is given
+        }),
+      },
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`API responded with status ${response.status}: ${errorText}`)
+      return false
+    }
+
+    console.log(`Email sent successfully to ${to}`)
+    return true
+  } catch (error) {
+    console.error(`Error sending email to ${to}:`, error)
+    return false
+  }
+}
+
 // Generic function to send emails using SMTP - exported as required
 export async function sendEmail({ to, subject, text, html, retries = 3 }) {
-  // Validate email address format
-  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
-  if (!emailRegex.test(to)) {
-    console.error(`Invalid email address format: ${to}`)
-    return false
-  }
 
-  // Apply rate limiting
-  try {
-    await emailRateLimiter.check(5, to) // 5 tokens per email address
-  } catch (error) {
-    console.error(`Rate limit exceeded for email: ${to}`)
-    return false
-  }
+  return sendEmailViaAPI({ to, subject, text, html });
 
-  // Sanitize HTML content
-  const sanitizedHtml = html ? sanitizeHtml(html) : null
+  // // Validate email address format
+  // const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+  // if (!emailRegex.test(to)) {
+  //   console.error(`Invalid email address format: ${to}`)
+  //   return false
+  // }
 
-  let attempt = 0
-  while (attempt < retries) {
-    try {
-      attempt++
-      console.log(`Email attempt ${attempt} to ${to} with subject: ${subject}`)
+  // // Apply rate limiting
+  // try {
+  //   await emailRateLimiter.check(5, to) // 5 tokens per email address
+  // } catch (error) {
+  //   console.error(`Rate limit exceeded for email: ${to}`)
+  //   return false
+  // }
 
-      // Create a transporter for each attempt to avoid connection issues
-      const transporter = createTransporter()
+  // // Sanitize HTML content
+  // const sanitizedHtml = html ? sanitizeHtml(html) : null
 
-      // Prepare the email options
-      const mailOptions = {
-        from: `Tech Milap <${process.env.EMAIL_USER}>`,
-        to: to,
-        subject: subject,
-        text: text,
-        html: sanitizedHtml || undefined,
-      }
+  // let attempt = 0
+  // while (attempt < retries) {
+  //   try {
+  //     attempt++
+  //     console.log(`Email attempt ${attempt} to ${to} with subject: ${subject}`)
 
-      console.log(`Sending email to ${to} with subject: ${subject}`)
+  //     // Create a transporter for each attempt to avoid connection issues
+  //     const transporter = createTransporter()
 
-      // Send the email
-      const info = await transporter.sendMail(mailOptions)
-      console.log(`Email sent to ${to}: ${info.messageId}`)
-      return true
-    } catch (error) {
-      console.error(`Error sending email to ${to} (attempt ${attempt}/${retries}):`, error)
+  //     // Prepare the email options
+  //     const mailOptions = {
+  //       from: `Tech Milap <${process.env.EMAIL_USER}>`,
+  //       to: to,
+  //       subject: subject,
+  //       text: text,
+  //       html: sanitizedHtml || undefined,
+  //     }
 
-      // If we've reached max retries, give up
-      if (attempt >= retries) {
-        console.error(`Failed to send email to ${to} after ${retries} attempts`)
-        return false
-      }
+  //     console.log(`Sending email to ${to} with subject: ${subject}`)
 
-      // Wait before retrying (exponential backoff)
-      const delay = Math.pow(2, attempt) * 1000
-      await new Promise((resolve) => setTimeout(resolve, delay))
-    }
-  }
+  //     // Send the email
+  //     const info = await transporter.sendMail(mailOptions)
+  //     console.log(`Email sent to ${to}: ${info.messageId}`)
+  //     return true
+  //   } catch (error) {
+  //     console.error(`Error sending email to ${to} (attempt ${attempt}/${retries}):`, error)
 
-  return false
+  //     // If we've reached max retries, give up
+  //     if (attempt >= retries) {
+  //       console.error(`Failed to send email to ${to} after ${retries} attempts`)
+  //       return false
+  //     }
+
+  //     // Wait before retrying (exponential backoff)
+  //     const delay = Math.pow(2, attempt) * 1000
+  //     await new Promise((resolve) => setTimeout(resolve, delay))
+  //   }
+  // }
+
+  // return false
 }
 
 // The rest of the file remains unchanged
@@ -337,7 +382,8 @@ export async function sendRegistrationApprovalEmail({
   eventDetails,
   eventId,
   organizerEmail,
-  emailSubject = null,
+  emailSubject = "Registration Approved",
+  organizerId
 }: {
   eventName: string
   attendeeEmail: string
@@ -346,6 +392,7 @@ export async function sendRegistrationApprovalEmail({
   eventId: string
   organizerEmail?: string
   emailSubject?: string
+  organizerId?: string
 }) {
   try {
     if (!attendeeEmail) {
@@ -381,7 +428,7 @@ export async function sendRegistrationApprovalEmail({
 
     // Use the enhanced templated email service
     const result = await sendTemplatedEmail({
-      userId: eventDetails.organizer?.toString() || "system",
+      userId: organizerId?.toString() || "",
       templateType: "success",
       recipientEmail: attendeeEmail,
       recipientName: attendeeName,
@@ -479,9 +526,11 @@ export async function sendRegistrationRejectionEmail({
   attendeeEmail,
   attendeeName,
   rejectionReason,
-  emailSubject = null,
-  eventId = null,
+  emailSubject = "Registration Rejected",
+  eventId,
   eventDetails = null,
+  organizerEmail,
+  organizerId,
 }: {
   eventName: string
   attendeeEmail: string
@@ -490,6 +539,8 @@ export async function sendRegistrationRejectionEmail({
   emailSubject?: string
   eventId?: string
   eventDetails?: any
+  organizerEmail?: string
+  organizerId?: string
 }) {
   try {
     if (!attendeeEmail) {
@@ -512,7 +563,7 @@ export async function sendRegistrationRejectionEmail({
     let result = false
     if (eventId && eventDetails && eventDetails.organizer) {
       result = await sendTemplatedEmail({
-        userId: eventDetails.organizer.toString(),
+        userId: organizerId?.toString() || "",
         templateType: "rejection",
         recipientEmail: attendeeEmail,
         recipientName: attendeeName,
@@ -599,6 +650,47 @@ export async function sendRegistrationRejectionEmail({
     })
 
     console.log(`Admin copy of rejection sent to ${adminEmail}`)
+
+    // Format the event date in IST
+    let formattedDate = "Date TBA"
+    if (eventDetails && eventDetails.date) {
+      const eventDate = new Date(eventDetails.date)
+      formattedDate = formatEventDate(eventDate)
+    }
+
+    // Send a copy to the organizer if an email is provided
+    if (organizerEmail) {
+      const organizerSubject = `Copy: Registration Rejected for ${attendeeName} - ${eventName}`
+      const organizerHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+          <h2 style="color: #4f46e5;">Registration Rejected</h2>
+          <p>This is a copy of the rejection email sent to ${attendeeName} (${attendeeEmail}) for the event <strong>"${eventName}"</strong>.</p>
+          
+          <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">Event Details</h3>
+          <p><strong>Date:</strong> ${formattedDate}</p>
+            <p><strong>Location:</strong> ${eventDetails.location}</p>
+            <p><strong>Attendee:</strong> ${attendeeName} (${attendeeEmail})</p>
+          </div>
+          
+          <p style="background-color: #fff8e6; padding: 15px; border-radius: 5px; border-left: 4px solid #f59e0b;">
+            <strong>Note:</strong> If you need any additional assistance or have specific requirements for this event, 
+            please contact us at <a href="mailto:info@techmilap.com">info@techmilap.com</a>.
+          </p>
+          
+          <p style="color: #6b7280; font-size: 0.9em; margin-top: 30px;">
+            Thank you for using Tech Milap!
+          </p>
+        </div>
+      `
+
+      await sendEmail({
+        to: organizerEmail,
+        subject: organizerSubject,
+        text: `This is a copy of the rejection email sent to ${attendeeName} (${attendeeEmail}) for the event "${eventName}". If you need any additional assistance, please contact info@techmilap.com.`,
+        html: organizerHtml,
+      })
+    }
 
     if (result) {
       console.log(`Successfully sent rejection email to ${attendeeEmail}`)

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 
-export default function VolunteerRedirectPage({ params }) {
-  const eventId = params.id
-  redirect(`/events/${eventId}/forms/volunteer`)
+export default async function VolunteerRedirectPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  redirect(`/events/${id}/forms/volunteer`)
 }

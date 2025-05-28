@@ -81,7 +81,8 @@ export default function EventCheckInPage() {
       setIsProcessing(true)
 
       // Process the scanned QR code
-      const ticketId = data.trim()
+      const url = data.trim()
+      const ticketId = url.split("/tickets/")[1];
 
       // Call the check-in API
       const response = await fetch("/api/tickets/check-in", {
@@ -98,6 +99,8 @@ export default function EventCheckInPage() {
 
       const result = await response.json()
 
+      console.log("Check-in result:", result)
+
       // Set the scan result
       setScanResult(result)
 
@@ -107,7 +110,7 @@ export default function EventCheckInPage() {
           toast({
             title: "Duplicate Check-in",
             description: `${result.attendee?.name || result.ticket?.name || "Attendee"} has been checked in again.`,
-            variant: "warning",
+            variant: "default",
           })
         } else {
           toast({
@@ -120,7 +123,7 @@ export default function EventCheckInPage() {
         toast({
           title: "Already Checked In",
           description: `${result.attendee?.name || result.ticket?.name || "Attendee"} was already checked in ${result.checkInCount > 1 ? result.checkInCount + " times" : ""}.`,
-          variant: "warning",
+          variant: "default",
         })
       } else {
         toast({
@@ -180,7 +183,7 @@ export default function EventCheckInPage() {
           toast({
             title: "Duplicate Check-in",
             description: `${result.attendee?.name || result.ticket?.name || "Attendee"} has been checked in again.`,
-            variant: "warning",
+            variant: "default",
           })
         } else {
           toast({
@@ -193,7 +196,7 @@ export default function EventCheckInPage() {
         toast({
           title: "Already Checked In",
           description: `${result.attendee?.name || result.ticket?.name || "Attendee"} was already checked in ${result.checkInCount > 1 ? result.checkInCount + " times" : ""}.`,
-          variant: "warning",
+          variant: "default",
         })
       } else {
         toast({
@@ -219,7 +222,7 @@ export default function EventCheckInPage() {
 
   const resetScan = () => {
     setScanResult(null)
-    setIsScanning(true)
+    setIsScanning(false)
   }
 
   if (loading) {

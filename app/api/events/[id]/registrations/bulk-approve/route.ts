@@ -2,6 +2,9 @@ import { NextResponse, type NextRequest } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { sendRegistrationApprovalEmail } from "@/lib/email-service"
+import User from "@/models/User"
+import FormSubmission from "@/models/FormSubmission"
+import { logWithTimestamp } from "@/utils/logger"
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -23,7 +26,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     let organizerEmail = null
     if (event.organizerId) {
       try {
-        const organizer = await db.collection("users").findOne({ _id: new ObjectId(event.organizerId) })
+        const organizer = await User.findById(event.organizerId)
         if (organizer && organizer.email) {
           organizerEmail = organizer.email
           console.log(`Found organizer email: ${organizerEmail}`)
@@ -37,8 +40,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       console.log("No organizerId found in event")
     }
 
+    logWithTimestamp("info", "Organizer Email", organizerEmail)
+
     // Update all registrations to approved status
-    const updateResult = await db.collection("formsubmissions").updateMany(
+    const updateResult = await FormSubmission.updateMany(
       {
         _id: { $in: registrationIds.map((id) => new ObjectId(id)) },
         eventId: new ObjectId(params.id),
@@ -97,10 +102,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           formData.Name ||
           formData.FullName ||
           ((formData.firstName || formData.first_name || formData.FirstName) &&
-          (formData.lastName || formData.last_name || formData.LastName)
-            ? `${formData.firstName || formData.first_name || formData.FirstName} ${
-                formData.lastName || formData.last_name || formData.LastName
-              }`
+            (formData.lastName || formData.last_name || formData.LastName)
+            ? `${formData.firstName || formData.first_name || formData.FirstName} ${formData.lastName || formData.last_name || formData.LastName
+            }`
             : formData.firstName || formData.first_name || formData.FirstName) ||
           registration.userName ||
           "Attendee"

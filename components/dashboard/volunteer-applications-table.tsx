@@ -35,7 +35,7 @@ export function VolunteerApplicationsTable({ eventId, title, description }: Volu
         setError(null)
 
         // Use the correct API endpoint
-        let url = `/api/events/${eventId}/submissions/volunteer`
+        let url = `/api/events/${eventId}/volunteer-applications`
         if (searchQuery) {
           url += `?search=${encodeURIComponent(searchQuery)}`
         }

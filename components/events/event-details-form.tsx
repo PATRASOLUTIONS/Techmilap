@@ -14,13 +14,24 @@ import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { useToast } from "@/hooks/use-toast"
+
+type EventDetailsFormProps = {
+  data: any;
+  updateData: (data: any) => void;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  formData: any;
+  setFormData: (data: any) => void;
+  handleNext: () => void;
+  toast: any;
+};
 
 // Define the schema for form validation
 const formSchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters" }),
   description: z.string().min(10, { message: "Description must be at least 10 characters" }),
-  date: z.date({ required_error: "Event date is required" }),
+  date: z.date({ required_error: "Start date is required" }),
+  endDate: z.date({ required_error: "End date is required" }),
   startTime: z.string().min(1, { message: "Start time is required" }),
   endTime: z.string().min(1, { message: "End time is required" }),
   location: z.string().min(3, { message: "Location must be at least 3 characters" }),
@@ -35,24 +46,35 @@ const formSchema = z.object({
   type: z.enum(["Online", "Offline", "Hybrid"]),
 })
 
-export function EventDetailsForm({ onSubmit, initialData = {} }) {
-  const [categories, setCategories] = useState([])
-  const { toast } = useToast()
+export function EventDetailsForm({
+  data,
+  updateData,
+  activeTab,
+  setActiveTab,
+  formData,
+  setFormData,
+  handleNext,
+  toast,
+}: EventDetailsFormProps) {
+  const [categories, setCategories] = useState<string[]>([]);
+  const [dateOpen, setDateOpen] = useState(false)
+  const [endDateOpen, setEndDateOpen] = useState(false)
 
   // Initialize the form with default values or initial data
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: initialData.title || "",
-      description: initialData.description || "",
-      date: initialData.date ? new Date(initialData.date) : new Date(),
-      startTime: initialData.startTime || "09:00",
-      endTime: initialData.endTime || "17:00",
-      location: initialData.location || "",
-      category: initialData.category || "",
-      image: initialData.image || "",
-      visibility: initialData.visibility || "Public",
-      type: initialData.type || "Offline",
+      title: data.title || "",
+      description: data.description || "",
+      date: data.date ? new Date(data.date) : new Date(),
+      endDate: data.endDate ? new Date(data.endDate) : new Date(),
+      startTime: data.startTime || "09:00",
+      endTime: data.endTime || "17:00",
+      location: data.location || "",
+      category: data.category || "",
+      image: data.image || "",
+      visibility: data.visibility || "Public",
+      type: data.type || "Offline",
     },
   })
 
@@ -73,6 +95,28 @@ export function EventDetailsForm({ onSubmit, initialData = {} }) {
 
     fetchCategories()
   }, [])
+
+  // Effect to reset form when 'data' prop changes (e.g., when editing an existing event)
+  useEffect(() => {
+    if (data) {
+      form.reset({
+        title: data.title || "",
+        description: data.description || "",
+        date: data.date ? new Date(data.date) : new Date(),
+        endDate: data.endDate ? new Date(data.endDate) : new Date(),
+        startTime: data.startTime || "09:00",
+        endTime: data.endTime || "17:00",
+        location: data.location || "",
+        category: data.category || "",
+        image: data.image || "",
+        visibility: data.visibility || "Public",
+        type: data.type || "Offline",
+      })
+    }
+    // form.reset is stable, so the effect primarily depends on `data`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, form.reset])
+
 
   // Handle form submission
   const handleSubmit = (data) => {
@@ -97,7 +141,6 @@ export function EventDetailsForm({ onSubmit, initialData = {} }) {
     }
 
     // Pass the validated data to the parent component
-    onSubmit(data)
   }
 
   return (
@@ -110,7 +153,13 @@ export function EventDetailsForm({ onSubmit, initialData = {} }) {
             <FormItem>
               <FormLabel>Event Title</FormLabel>
               <FormControl>
-                <Input placeholder="Enter event title" {...field} />
+                <Input
+                  placeholder="Enter event title"
+                  {...field}
+                  onChange={(e) => {
+                    field.onChange(e); // update local form state
+                    updateData({ ...form.getValues(), title: e.target.value }); // update parent
+                  }} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -124,7 +173,13 @@ export function EventDetailsForm({ onSubmit, initialData = {} }) {
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea placeholder="Describe your event" className="min-h-32" {...field} />
+                <Textarea placeholder="Describe your event" className="min-h-32"
+                  {...field}
+                  onChange={(e) => {
+                    field.onChange(e);
+                    updateData({ ...form.getValues(), description: e.target.value });
+                  }}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -137,8 +192,8 @@ export function EventDetailsForm({ onSubmit, initialData = {} }) {
             name="date"
             render={({ field }) => (
               <FormItem className="flex flex-col">
-                <FormLabel>Event Date</FormLabel>
-                <Popover>
+                <FormLabel>Start Date</FormLabel>
+                <Popover open={dateOpen} onOpenChange={setDateOpen}>
                   <PopoverTrigger asChild>
                     <FormControl>
                       <Button
@@ -154,9 +209,13 @@ export function EventDetailsForm({ onSubmit, initialData = {} }) {
                     <Calendar
                       mode="single"
                       selected={field.value}
-                      onSelect={field.onChange}
+                      onSelect={(e) => {
+                        field.onChange(e)
+                        updateData({ ...form.getValues(), date: e });
+                        setDateOpen(false)
+                      }}
                       disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                      initialFocus
+                      autoFocus
                     />
                   </PopoverContent>
                 </Popover>
@@ -164,7 +223,6 @@ export function EventDetailsForm({ onSubmit, initialData = {} }) {
               </FormItem>
             )}
           />
-
           <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
@@ -174,13 +232,58 @@ export function EventDetailsForm({ onSubmit, initialData = {} }) {
                   <FormLabel>Start Time</FormLabel>
                   <div className="flex items-center">
                     <Clock className="mr-2 h-4 w-4 opacity-50" />
-                    <Input type="time" {...field} />
+                    <Input type="time"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                        updateData({ ...form.getValues(), startTime: e.target.value });
+                      }} />
                   </div>
                   <FormMessage />
                 </FormItem>
               )}
             />
+          </div>
+        </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="endDate"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>End Date</FormLabel>
+                <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant={"outline"}
+                        className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                      >
+                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={(e) => {
+                        field.onChange(e)
+                        updateData({ ...form.getValues(), endDate: e });
+                        setEndDateOpen(false)
+                      }}
+                      disabled={(endDate) => endDate < data.date}
+                      autoFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="endTime"
@@ -189,7 +292,12 @@ export function EventDetailsForm({ onSubmit, initialData = {} }) {
                   <FormLabel>End Time</FormLabel>
                   <div className="flex items-center">
                     <Clock className="mr-2 h-4 w-4 opacity-50" />
-                    <Input type="time" {...field} />
+                    <Input type="time"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                        updateData({ ...form.getValues(), endTime: e.target.value });
+                      }} />
                   </div>
                   <FormMessage />
                 </FormItem>
@@ -205,7 +313,13 @@ export function EventDetailsForm({ onSubmit, initialData = {} }) {
             <FormItem>
               <FormLabel>Location</FormLabel>
               <FormControl>
-                <Input placeholder="Event location or address" {...field} />
+                <Input placeholder="Event location or address"
+                  {...field}
+                  onChange={(e) => {
+                    field.onChange(e);
+                    updateData({ ...form.getValues(), location: e.target.value });
+                  }}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -222,6 +336,10 @@ export function EventDetailsForm({ onSubmit, initialData = {} }) {
                 <select
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   {...field}
+                  onChange={(e) => {
+                    field.onChange(e);
+                    updateData({ ...form.getValues(), category: e.target.value });
+                  }}
                 >
                   <option value="">Select a category</option>
                   {categories.map((category) => (
@@ -243,7 +361,14 @@ export function EventDetailsForm({ onSubmit, initialData = {} }) {
             <FormItem>
               <FormLabel>Image URL</FormLabel>
               <FormControl>
-                <Input placeholder="https://example.com/image.jpg" {...field} required />
+                <Input placeholder="https://example.com/image.jpg"
+                  {...field}
+                  required
+                  onChange={(e) => {
+                    field.onChange(e);
+                    updateData({ ...form.getValues(), image: e.target.value });
+                  }}
+                />
               </FormControl>
               <FormDescription>Enter a valid URL starting with http:// or https://</FormDescription>
               <FormMessage />
@@ -260,7 +385,10 @@ export function EventDetailsForm({ onSubmit, initialData = {} }) {
                 <FormLabel>Visibility</FormLabel>
                 <FormControl>
                   <RadioGroup
-                    onValueChange={field.onChange}
+                    onValueChange={(val) => {
+                      field.onChange(val);
+                      updateData({ ...form.getValues(), visibility: val });
+                    }}
                     defaultValue={field.value}
                     className="flex flex-col space-y-1"
                   >
@@ -291,7 +419,10 @@ export function EventDetailsForm({ onSubmit, initialData = {} }) {
                 <FormLabel>Event Type</FormLabel>
                 <FormControl>
                   <RadioGroup
-                    onValueChange={field.onChange}
+                    onValueChange={(val) => {
+                      field.onChange(val);
+                      updateData({ ...form.getValues(), type: val });
+                    }}
                     defaultValue={field.value}
                     className="flex flex-col space-y-1"
                   >
@@ -320,10 +451,6 @@ export function EventDetailsForm({ onSubmit, initialData = {} }) {
             )}
           />
         </div>
-
-        <Button type="submit" className="w-full">
-          Continue
-        </Button>
       </form>
     </Form>
   )
