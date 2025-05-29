@@ -310,11 +310,11 @@ export default async function DashboardPage() {
 
       {/* Main content with tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid grid-cols-4 md:w-[600px]">
+        <TabsList className="grid grid-cols-2 md:w-[600px]">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="upcoming">Upcoming Events</TabsTrigger>
-          <TabsTrigger value="speakers">Speakers</TabsTrigger>
-          <TabsTrigger value="volunteers">Volunteers</TabsTrigger>
+          {/* <TabsTrigger value="speakers">Speakers</TabsTrigger>
+          <TabsTrigger value="volunteers">Volunteers</TabsTrigger> */}
         </TabsList>
 
         {/* Overview Tab */}
@@ -670,7 +670,7 @@ export default async function DashboardPage() {
         </TabsContent>
 
         {/* Speakers Tab */}
-        <TabsContent value="speakers" className="space-y-6">
+        {/* <TabsContent value="speakers" className="space-y-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Featured Speakers</h2>
             <Button asChild>
@@ -739,10 +739,10 @@ export default async function DashboardPage() {
               </Link>
             </Button>
           </div>
-        </TabsContent>
+        </TabsContent> */}
 
         {/* Volunteers Tab */}
-        <TabsContent value="volunteers" className="space-y-6">
+        {/* <TabsContent value="volunteers" className="space-y-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Available Volunteers</h2>
             <Button asChild>
@@ -819,7 +819,7 @@ export default async function DashboardPage() {
               </Link>
             </Button>
           </div>
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
     </div>
   )
