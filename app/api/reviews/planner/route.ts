@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
+import Review from "@/models/Review"
+import Event from "@/models/Event"
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     console.log("Planner API called by user:", session.user.id, "role:", session.user.role)
 
-    const { db } = await connectToDatabase()
+    await connectToDatabase()
 
     // Get query parameters
     const searchParams = req.nextUrl.searchParams
@@ -42,18 +44,16 @@ export async function GET(req: NextRequest) {
     if (session.user.role !== "super-admin") {
       try {
         // First, get all events created by this user
-        const events = await db
-          .collection("events")
-          .find({
-            $or: [
-              { organizerId: new ObjectId(session.user.id) },
-              { "organizer.id": new ObjectId(session.user.id) },
-              { "organizer._id": new ObjectId(session.user.id) },
-              { userId: new ObjectId(session.user.id) },
-            ],
-          })
-          .project({ _id: 1 })
-          .toArray()
+        const events = await Event.find({
+          $or: [
+            { organizer: new ObjectId(session.user.id) },
+            { "organizer.id": new ObjectId(session.user.id) },
+            { "organizer._id": new ObjectId(session.user.id) },
+            { userId: new ObjectId(session.user.id) },
+          ],
+        }).lean() // Use .lean() for plain JavaScript objects
+          .select({ _id: 1 })
+        // .toArray()
 
         console.log("Found events for organizer:", events.length)
 
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
           })
         }
 
-        const eventIds = events.map((event) => event._id)
+        const eventIds = events.map((event: any) => event._id)
         query.eventId = { $in: eventIds }
       } catch (error) {
         console.error("Error finding organizer events:", error)
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
     console.log("Final MongoDB query:", JSON.stringify(query))
 
     // Get total count for pagination
-    const totalCount = await db.collection("reviews").countDocuments(query)
+    const totalCount = await Review.countDocuments(query)
     console.log("Total reviews count:", totalCount)
 
     // Determine sort options
@@ -192,7 +192,7 @@ export async function GET(req: NextRequest) {
       { $limit: limit },
     ]
 
-    const reviews = await db.collection("reviews").aggregate(aggregationPipeline).toArray()
+    const reviews = await Review.aggregate(aggregationPipeline)
     console.log("Retrieved reviews:", reviews.length)
 
     if (reviews.length > 0) {
@@ -200,7 +200,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get statistics
-    const stats = {
+    const stats: any = {
       total: totalCount,
       average: 0,
       pending: 0,
@@ -216,18 +216,15 @@ export async function GET(req: NextRequest) {
     }
 
     // Get counts by status
-    const statusCounts = await db
-      .collection("reviews")
-      .aggregate([
-        { $match: query },
-        {
-          $group: {
-            _id: "$status",
-            count: { $sum: 1 },
-          },
+    const statusCounts = await Review.collection.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
         },
-      ])
-      .toArray()
+      },
+    ])
 
     statusCounts.forEach((item) => {
       if (item._id === "pending") stats.pending = item.count
@@ -236,17 +233,15 @@ export async function GET(req: NextRequest) {
     })
 
     // Get counts by rating
-    const ratingCounts = await db
-      .collection("reviews")
-      .aggregate([
-        { $match: query },
-        {
-          $group: {
-            _id: "$rating",
-            count: { $sum: 1 },
-          },
+    const ratingCounts = await Review.collection.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: "$rating",
+          count: { $sum: 1 },
         },
-      ])
+      },
+    ])
       .toArray()
 
     ratingCounts.forEach((item) => {
@@ -256,10 +251,10 @@ export async function GET(req: NextRequest) {
     })
 
     // Calculate average rating
-    const ratingResult = await db
-      .collection("reviews")
+    const ratingResult = await Review.collection
       .aggregate([
         { $match: { ...query, status: "approved" } },
+        { $project: { rating: 1 } }, // Add projection to only include rating field
         {
           $group: {
             _id: null,
