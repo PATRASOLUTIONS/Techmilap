@@ -10,6 +10,7 @@ import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PublicEventList } from "@/components/events/public-event-list"
 import { getImageUrl } from "@/lib/image-utils"
+import { logWithTimestamp } from "@/utils/logger"
 
 // Types for better type safety
 interface Event {
@@ -26,6 +27,7 @@ interface Event {
   capacity?: number
   organizer?: any
   organizerInfo?: {
+    _id?: string;
     name: string
     email: string
   }
@@ -151,32 +153,50 @@ async function getEventsDirectly(searchParams?: {
     // Create organizer map for quick lookup
     const organizerMap: Record<string, any> = {}
     for (const organizer of organizers) {
-      organizerMap[organizer._id.toString()] = organizer
+      organizerMap[organizer._id.toString()] = {
+        _id: organizer._id.toString(),
+        email: organizer.email,
+      }
     }
 
     // Add organizer info to events and process image URLs
-    const processedEvents = paginatedEvents.map((event) => {
-      const eventWithOrganizer = { ...event } as Event
-
-      // Process image URL
-      eventWithOrganizer.image = getImageUrl(event.image)
-
-      if (event.organizer) {
-        const organizerId = event.organizer.toString()
-        eventWithOrganizer.organizerInfo = organizerMap[organizerId] || null
+    const processedEvents = paginatedEvents.map((dbEvent) => {
+      // Create a new plain object for the client, ensuring all fields are serializable.
+      // This clientEvent will be passed to the PublicEventList component.
+      const clientEvent: Event = {
+        _id: dbEvent._id.toString(),
+        title: dbEvent.title,
+        description: dbEvent.description,
+        // Convert dates to ISO strings for robust serialization
+        date: dbEvent.date ? new Date(dbEvent.date).toISOString() : undefined,
+        endDate: dbEvent.endDate ? new Date(dbEvent.endDate).toISOString() : undefined,
+        createdAt: dbEvent.createdAt ? new Date(dbEvent.createdAt).toISOString() : undefined,
+        // Ensure other fields are also plain and serializable
+        location: dbEvent.location,
+        image: getImageUrl(dbEvent.image), // getImageUrl should return a string
+        category: dbEvent.category,
+        slug: dbEvent.slug,
+        price: dbEvent.price, // Assuming number
+        capacity: dbEvent.capacity, // Assuming number
+        isActive: dbEvent.isActive, // Assuming boolean
+        // organizerInfo will be added below.
+        // The raw 'organizer' ObjectId from dbEvent is NOT included in clientEvent.
+      };
+      if (dbEvent.organizer) {
+        const organizerIdString = dbEvent.organizer.toString();
+        clientEvent.organizerInfo = organizerMap[organizerIdString] || null;
       }
-
-      // Add event type for UI display
-      if (recentEvents.some((e) => e._id.toString() === event._id.toString())) {
-        ;(eventWithOrganizer as any).eventType = "recent"
-      } else if (upcomingEvents.some((e) => e._id.toString() === event._id.toString())) {
-        ;(eventWithOrganizer as any).eventType = "upcoming"
+      // This property is compatible with the Event type in public-event-list.tsx
+      if (recentEvents.some((e) => e._id.toString() === dbEvent._id.toString())) {
+        (clientEvent as any).eventType = "recent";
+      } else if (upcomingEvents.some((e) => e._id.toString() === dbEvent._id.toString())) {
+        (clientEvent as any).eventType = "upcoming";
       } else {
-        ;(eventWithOrganizer as any).eventType = "past"
+        (clientEvent as any).eventType = "past";
       }
-
-      return eventWithOrganizer
-    })
+      logWithTimestamp("info", "Client-bound event object:", clientEvent); // Log the actual object being sent
+      return clientEvent; // Return the newly constructed plain object
+    });
 
     // Get distinct categories for filtering
     const categories = await Event.distinct("category")
@@ -333,9 +353,8 @@ export default async function EventsPage({
                     page: Math.max(1, currentPage - 1),
                   },
                 }}
-                className={`flex items-center justify-center h-10 w-10 rounded-md border ${
-                  currentPage <= 1 ? "opacity-50 cursor-not-allowed" : "hover:bg-accent"
-                }`}
+                className={`flex items-center justify-center h-10 w-10 rounded-md border ${currentPage <= 1 ? "opacity-50 cursor-not-allowed" : "hover:bg-accent"
+                  }`}
                 aria-disabled={currentPage <= 1}
                 tabIndex={currentPage <= 1 ? -1 : undefined}
                 aria-label="Previous page"
@@ -371,9 +390,8 @@ export default async function EventsPage({
                     page: Math.min(totalPages, currentPage + 1),
                   },
                 }}
-                className={`flex items-center justify-center h-10 w-10 rounded-md border ${
-                  currentPage >= totalPages ? "opacity-50 cursor-not-allowed" : "hover:bg-accent"
-                }`}
+                className={`flex items-center justify-center h-10 w-10 rounded-md border ${currentPage >= totalPages ? "opacity-50 cursor-not-allowed" : "hover:bg-accent"
+                  }`}
                 aria-disabled={currentPage >= totalPages}
                 tabIndex={currentPage >= totalPages ? -1 : undefined}
                 aria-label="Next page"
