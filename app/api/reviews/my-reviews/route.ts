@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import mongoose from "mongoose"
+import Review from "@/models/Review"
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
     const limit = Number.parseInt(url.searchParams.get("limit") || "10")
     const skip = (page - 1) * limit
 
-    const { db } = await connectToDatabase()
+    await connectToDatabase()
 
     // Build the query
     const query: any = {
@@ -45,11 +46,10 @@ export async function GET(req: NextRequest) {
     }
 
     // Get total count for pagination
-    const totalCount = await db.collection("reviews").countDocuments(query)
+    const totalCount = await Review.countDocuments(query)
 
     // Get reviews with pagination
-    let reviews = await db
-      .collection("reviews")
+    let reviews = await Review.collection
       .aggregate([
         { $match: query },
         {
@@ -109,8 +109,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get all events for the dropdown filter
-    const events = await db
-      .collection("events")
+    const events = await Review
       .find(
         {
           _id: {
@@ -128,7 +127,7 @@ export async function GET(req: NextRequest) {
         },
         { projection: { _id: 1, title: 1 } },
       )
-      .toArray()
+      // .toArray()
 
     // Get statistics
     const stats = {
@@ -147,8 +146,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get counts by status
-    const statusCounts = await db
-      .collection("reviews")
+    const statusCounts = await Review.collection
       .aggregate([
         { $match: { userId: new mongoose.Types.ObjectId(session.user.id) } },
         {
@@ -167,8 +165,7 @@ export async function GET(req: NextRequest) {
     })
 
     // Get counts by rating
-    const ratingCounts = await db
-      .collection("reviews")
+    const ratingCounts = await Review.collection
       .aggregate([
         { $match: { userId: new mongoose.Types.ObjectId(session.user.id) } },
         {
@@ -187,8 +184,7 @@ export async function GET(req: NextRequest) {
     })
 
     // Calculate average rating
-    const ratingResult = await db
-      .collection("reviews")
+    const ratingResult = await Review.collection
       .aggregate([
         { $match: { userId: new mongoose.Types.ObjectId(session.user.id) } },
         {

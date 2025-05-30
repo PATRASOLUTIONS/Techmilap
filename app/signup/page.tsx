@@ -68,13 +68,107 @@ export default function SignupPage() {
     if (error) setError("")
   }, [formData])
 
+  const handleMobileNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+    // Allow digits, +, (, ), -, and space.
+    // You can adjust this regex to be more or less restrictive.
+    const sanitizedValue = inputValue.replace(/[^0-9+()-\s]/g, "");
+    setMobileNumber(sanitizedValue);
+  };
+
+  const validateForm = () => {
+    // Basic Info Validation
+    if (!formData.firstName.trim()) {
+      setError("First name is required.");
+      return false;
+    }
+    if (!formData.lastName.trim()) {
+      setError("Last name is required.");
+      return false;
+    }
+    if (!formData.email.trim()) {
+      setError("Email is required.");
+      return false;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setError("Invalid email format.");
+      return false;
+    }
+    if (!formData.password) {
+      setError("Password is required.");
+      return false;
+    }
+    const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
+    if (!passwordPattern.test(formData.password)) {
+      setError("Password must be at least 8 characters and include uppercase, lowercase, number, and special character.");
+      return false;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match.");
+      return false;
+    }
+
+    // Event Planner Specific Validation
+    if (formData.userType === "event-planner") {
+      if (!corporateEmail.trim()) {
+        setError("Corporate email is required for event planners.");
+        return false;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corporateEmail)) {
+        setError("Invalid corporate email format.");
+        return false;
+      }
+      if (!designation.trim()) {
+        setError("Designation is required for event planners.");
+        return false;
+      }
+      if (!eventOrganizer.trim()) {
+        setError("Event organizer name is required for event planners.");
+        return false;
+      }
+      if (isMicrosoftMVP) {
+        if (!mvpId.trim()) { setError("MVP ID is required if you are an MVP."); return false; }
+        if (!mvpProfileLink.trim()) { setError("MVP Profile Link is required if you are an MVP."); return false; }
+        if (!/^https?:\/\/.+/.test(mvpProfileLink)) { setError("Invalid MVP Profile Link URL format (e.g., https://mvp.microsoft.com/...)."); return false; }
+        if (!mvpCategory.trim()) { setError("MVP Category is required if you are an MVP."); return false; }
+      }
+      if (isMeetupGroupRunning) {
+        if (!meetupEventName.trim()) { setError("Meetup/Event Name is required if you run a meetup."); return false; }
+        if (!eventDetails.trim()) { setError("Event Details are required if you run a meetup."); return false; }
+        if (!meetupPageDetails.trim()) { setError("Meetup Page Details are required if you run a meetup."); return false; }
+        if (!/^https?:\/\/.+/.test(meetupPageDetails)) { setError("Invalid Meetup Page Details URL format (e.g., https://meetup.com/...)."); return false; }
+      }
+      if (!linkedinId.trim()) {
+        setError("LinkedIn ID is required for event planners.");
+        return false;
+      }
+      const linkedinPattern = /^https:\/\/(www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]{1,100}\/?$/;
+      if (!linkedinPattern.test(linkedinId)) { setError("Invalid LinkedIn URL. Expected format: https://www.linkedin.com/in/username"); return false; }
+
+      if (!githubId.trim()) {
+        setError("GitHub ID is required for event planners.");
+        return false;
+      }
+      const githubPattern = /^https:\/\/(www\.)?github\.com\/[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}\/?$/;
+      if (!githubPattern.test(githubId)) { setError("Invalid GitHub URL. Expected format: https://github.com/username"); return false; }
+
+      if (!mobileNumber.trim()) {
+        setError("Mobile number is required for event planners.");
+        return false;
+      }
+      const mobilePattern = /^\+?[0-9\s()-]{7,20}$/;
+      if (!mobilePattern.test(mobileNumber)) { setError("Invalid mobile number. Must be 7-20 digits and can include +, (), -, space."); return false; }
+    }
+    return true; // Form is valid
+  };
+
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
     setError("")
 
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match")
+    if (!validateForm()) {
       setIsLoading(false)
       return
     }
@@ -291,11 +385,10 @@ export default function SignupPage() {
                       <Label>Account Type</Label>
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         <div
-                          className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                            formData.userType === "attendee"
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-primary/50"
-                          }`}
+                          className={`border rounded-lg p-4 cursor-pointer transition-all ${formData.userType === "attendee"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
+                            }`}
                           onClick={() => setFormData({ ...formData, userType: "attendee" })}
                         >
                           <div className="flex items-center gap-2">
@@ -317,11 +410,10 @@ export default function SignupPage() {
                           <p className="text-sm text-muted-foreground mt-2">I want to discover and attend events</p>
                         </div>
                         <div
-                          className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                            formData.userType === "volunteer"
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-primary/50"
-                          }`}
+                          className={`border rounded-lg p-4 cursor-pointer transition-all ${formData.userType === "volunteer"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
+                            }`}
                           onClick={() => setFormData({ ...formData, userType: "volunteer" })}
                         >
                           <div className="flex items-center gap-2">
@@ -345,11 +437,10 @@ export default function SignupPage() {
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div
-                          className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                            formData.userType === "speaker"
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-primary/50"
-                          }`}
+                          className={`border rounded-lg p-4 cursor-pointer transition-all ${formData.userType === "speaker"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
+                            }`}
                           onClick={() => setFormData({ ...formData, userType: "speaker" })}
                         >
                           <div className="flex items-center gap-2">
@@ -371,11 +462,10 @@ export default function SignupPage() {
                           <p className="text-sm text-muted-foreground mt-2">I want to speak at events</p>
                         </div>
                         <div
-                          className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                            formData.userType === "event-planner"
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-primary/50"
-                          }`}
+                          className={`border rounded-lg p-4 cursor-pointer transition-all ${formData.userType === "event-planner"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
+                            }`}
                           onClick={() => setFormData({ ...formData, userType: "event-planner" })}
                         >
                           <div className="flex items-center gap-2">
@@ -539,6 +629,8 @@ export default function SignupPage() {
                             value={linkedinId}
                             onChange={(e) => setLinkedinId(e.target.value)}
                             required
+                            pattern="^https:\/\/(www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]{3,100}\/?$"
+                            title="Format: https://www.linkedin.com/in/your-username. Username must be 3-100 characters using only letters (a-z, A-Z), numbers (0-9), and hyphens (-)."
                           />
                         </div>
                         <div className="space-y-2">
@@ -551,6 +643,9 @@ export default function SignupPage() {
                             value={githubId}
                             onChange={(e) => setGithubId(e.target.value)}
                             required
+                            pattern="^https:\/\/(www\.)?github\.com\/[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}\/?$"
+                            minLength={20} // e.g., https://github.com/a
+                            title="Enter a valid GitHub profile URL (e.g., https://github.com/yourusername). Username must be 1-39 characters."
                           />
                         </div>
                         <div className="space-y-2">
@@ -572,8 +667,10 @@ export default function SignupPage() {
                             type="tel"
                             placeholder="+1 (555) 123-4567"
                             value={mobileNumber}
-                            onChange={(e) => setMobileNumber(e.target.value)}
+                            onChange={handleMobileNumberChange}
                             required
+                            pattern="^\+?[0-9\s()-]{7,20}$"
+                            title="Please enter a valid phone number, e.g., +1 (555) 123-4567"
                           />
                         </div>
                       </>

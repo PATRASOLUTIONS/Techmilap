@@ -3,6 +3,8 @@ import { connectToDatabase } from "@/lib/mongodb"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { ObjectId } from "mongodb"
+import FormSubmission from "@/models/FormSubmission" // Assuming this is your Mongoose model
+import Event from "@/models/Event" // Assuming this is your Mongoose model
 
 export async function GET(request: Request) {
   try {
@@ -16,29 +18,30 @@ export async function GET(request: Request) {
     const userId = session.user.id
 
     // Connect to database
-    const { db } = await connectToDatabase()
+    await connectToDatabase()
 
     // Find all pending submissions for this user
-    const submissions = await db
-      .collection("formsubmissions") // Note the lowercase 's'
+    const submissions = await FormSubmission
       .find({
         $or: [{ userId: new ObjectId(userId) }, { userEmail: session.user.email }],
         status: "pending",
       })
       .sort({ createdAt: -1 })
-      .toArray()
+      .lean() // Use lean for plain JS objects
 
     // Get event details for each submission
     const submissionsWithEventDetails = await Promise.all(
       submissions.map(async (submission) => {
         let event = null
         try {
-          event = await db
-            .collection("events")
+          // Ensure submission.eventId is a valid ObjectId string or ObjectId
+          // Mongoose findOne can typically handle string ObjectIds
+          event = await Event
             .findOne(
               { _id: new ObjectId(submission.eventId) },
-              { projection: { title: 1, date: 1, location: 1, slug: 1 } },
             )
+            .select({ title: 1, date: 1, location: 1, slug: 1 }) // Mongoose select syntax
+            .lean() // Use lean for plain JS objects
         } catch (error) {
           console.error(`Error fetching event for submission ${submission._id}:`, error)
         }
