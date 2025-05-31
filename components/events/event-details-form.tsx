@@ -4,15 +4,15 @@ import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { CalendarIcon, Clock } from "lucide-react"
+import { Clock } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
+// import { Calendar } from "@/components/ui/calendar"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+// import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 
 type EventDetailsFormProps = {
@@ -57,8 +57,8 @@ export function EventDetailsForm({
   toast,
 }: EventDetailsFormProps) {
   const [categories, setCategories] = useState<string[]>([]);
-  const [dateOpen, setDateOpen] = useState(false)
-  const [endDateOpen, setEndDateOpen] = useState(false)
+  // const [dateOpen, setDateOpen] = useState(false)
+  // const [endDateOpen, setEndDateOpen] = useState(false)
 
   // Initialize the form with default values or initial data
   const form = useForm({
@@ -141,7 +141,7 @@ export function EventDetailsForm({
     }
 
     // Pass the validated data to the parent component
-  }
+  };
 
   return (
     <Form {...form}>
@@ -186,44 +186,31 @@ export function EventDetailsForm({
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <FormField
             control={form.control}
             name="date"
             render={({ field }) => (
-              <FormItem className="flex flex-col">
+              <FormItem>
                 <FormLabel>Start Date</FormLabel>
-                <Popover open={dateOpen} onOpenChange={setDateOpen}>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant={"outline"}
-                        className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                      >
-                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={(e) => {
-                        field.onChange(e)
-                        updateData({ ...form.getValues(), date: e });
-                        setDateOpen(false)
-                      }}
-                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                      autoFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                <FormControl>
+                  <Input
+                    type="date"
+                    value={field.value ? format(field.value, "yyyy-MM-dd") : ""}
+                    onChange={(e) => {
+                      const dateString = e.target.value;
+                      const dateObject = dateString ? new Date(dateString) : null;
+                      field.onChange(dateObject);
+                      updateData({ ...form.getValues(), date: dateObject });
+                    }}
+                    min={format(new Date(new Date().setHours(0, 0, 0, 0)), "yyyy-MM-dd")}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <div className="grid grid-cols-2 gap-4">
+          {/* <div className="grid grid-cols-2 gap-4"> */}
             <FormField
               control={form.control}
               name="startTime"
@@ -231,7 +218,7 @@ export function EventDetailsForm({
                 <FormItem>
                   <FormLabel>Start Time</FormLabel>
                   <div className="flex items-center">
-                    <Clock className="mr-2 h-4 w-4 opacity-50" />
+                    {/* <Clock className="mr-2 h-4 w-4 opacity-50" /> */}
                     <Input type="time"
                       {...field}
                       onChange={(e) => {
@@ -243,47 +230,35 @@ export function EventDetailsForm({
                 </FormItem>
               )}
             />
-          </div>
-        </div>
+          {/* </div> */}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="endDate"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>End Date</FormLabel>
-                <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant={"outline"}
-                        className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
-                      >
-                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={(e) => {
-                        field.onChange(e)
-                        updateData({ ...form.getValues(), endDate: e });
-                        setEndDateOpen(false)
+          {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> */}
+          {/* <div className="grid grid-cols-2 gap-4"> */}
+            <FormField
+              control={form.control}
+              name="endDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>End Date</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      value={field.value ? format(field.value, "yyyy-MM-dd") : ""}
+                      onChange={(e) => {
+                        const dateString = e.target.value;
+                        const dateObject = dateString ? new Date(dateString) : null;
+                        field.onChange(dateObject);
+                        updateData({ ...form.getValues(), endDate: dateObject });
                       }}
-                      disabled={(endDate) => endDate < data.date}
-                      autoFocus
+                      min={form.getValues("date") ? format(form.getValues("date"), "yyyy-MM-dd") : ""}
                     />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <div className="grid grid-cols-2 gap-4">
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          {/* </div> */}
+          {/* <div className="grid grid-cols-2 gap-4"> */}
             <FormField
               control={form.control}
               name="endTime"
@@ -291,7 +266,7 @@ export function EventDetailsForm({
                 <FormItem>
                   <FormLabel>End Time</FormLabel>
                   <div className="flex items-center">
-                    <Clock className="mr-2 h-4 w-4 opacity-50" />
+                    {/* <Clock className="mr-2 h-4 w-4 opacity-50" /> */}
                     <Input type="time"
                       {...field}
                       onChange={(e) => {
@@ -303,108 +278,24 @@ export function EventDetailsForm({
                 </FormItem>
               )}
             />
-          </div>
+          {/* </div> */}
         </div>
-
-        <FormField
-          control={form.control}
-          name="location"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Location</FormLabel>
-              <FormControl>
-                <Input placeholder="Event location or address"
-                  {...field}
-                  onChange={(e) => {
-                    field.onChange(e);
-                    updateData({ ...form.getValues(), location: e.target.value });
-                  }}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="category"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Category</FormLabel>
-              <FormControl>
-                <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  {...field}
-                  onChange={(e) => {
-                    field.onChange(e);
-                    updateData({ ...form.getValues(), category: e.target.value });
-                  }}
-                >
-                  <option value="">Select a category</option>
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="image"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Image URL</FormLabel>
-              <FormControl>
-                <Input placeholder="https://example.com/image.jpg"
-                  {...field}
-                  required
-                  onChange={(e) => {
-                    field.onChange(e);
-                    updateData({ ...form.getValues(), image: e.target.value });
-                  }}
-                />
-              </FormControl>
-              <FormDescription>Enter a valid URL starting with http:// or https://</FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
           <FormField
             control={form.control}
-            name="visibility"
+            name="location"
             render={({ field }) => (
-              <FormItem className="space-y-3">
-                <FormLabel>Visibility</FormLabel>
+              <FormItem>
+                <FormLabel>Location</FormLabel>
                 <FormControl>
-                  <RadioGroup
-                    onValueChange={(val) => {
-                      field.onChange(val);
-                      updateData({ ...form.getValues(), visibility: val });
+                  <Input placeholder="Event location or address"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      updateData({ ...form.getValues(), location: e.target.value });
                     }}
-                    defaultValue={field.value}
-                    className="flex flex-col space-y-1"
-                  >
-                    <FormItem className="flex items-center space-x-3 space-y-0">
-                      <FormControl>
-                        <RadioGroupItem value="Public" />
-                      </FormControl>
-                      <FormLabel className="font-normal">Public</FormLabel>
-                    </FormItem>
-                    <FormItem className="flex items-center space-x-3 space-y-0">
-                      <FormControl>
-                        <RadioGroupItem value="Private" disabled />
-                      </FormControl>
-                      <FormLabel className="font-normal text-muted-foreground">Private (Premium feature)</FormLabel>
-                    </FormItem>
-                  </RadioGroup>
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -413,43 +304,129 @@ export function EventDetailsForm({
 
           <FormField
             control={form.control}
-            name="type"
+            name="category"
             render={({ field }) => (
-              <FormItem className="space-y-3">
-                <FormLabel>Event Type</FormLabel>
+              <FormItem>
+                <FormLabel>Category</FormLabel>
                 <FormControl>
-                  <RadioGroup
-                    onValueChange={(val) => {
-                      field.onChange(val);
-                      updateData({ ...form.getValues(), type: val });
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      updateData({ ...form.getValues(), category: e.target.value });
                     }}
-                    defaultValue={field.value}
-                    className="flex flex-col space-y-1"
                   >
-                    <FormItem className="flex items-center space-x-3 space-y-0">
-                      <FormControl>
-                        <RadioGroupItem value="Offline" />
-                      </FormControl>
-                      <FormLabel className="font-normal">In-person</FormLabel>
-                    </FormItem>
-                    <FormItem className="flex items-center space-x-3 space-y-0">
-                      <FormControl>
-                        <RadioGroupItem value="Online" />
-                      </FormControl>
-                      <FormLabel className="font-normal">Online</FormLabel>
-                    </FormItem>
-                    <FormItem className="flex items-center space-x-3 space-y-0">
-                      <FormControl>
-                        <RadioGroupItem value="Hybrid" />
-                      </FormControl>
-                      <FormLabel className="font-normal">Hybrid</FormLabel>
-                    </FormItem>
-                  </RadioGroup>
+                    <option value="">Select a category</option>
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+
+          <FormField
+            control={form.control}
+            name="image"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Image URL</FormLabel>
+                <FormControl>
+                  <Input placeholder="https://example.com/image.jpg"
+                    {...field}
+                    required
+                    onChange={(e) => {
+                      field.onChange(e);
+                      updateData({ ...form.getValues(), image: e.target.value });
+                    }}
+                  />
+                </FormControl>
+                <FormDescription>Enter a valid URL starting with http:// or https://</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField
+              control={form.control}
+              name="visibility"
+              render={({ field }) => (
+                <FormItem className="space-y-3">
+                  <FormLabel>Visibility</FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        updateData({ ...form.getValues(), visibility: val });
+                      }}
+                      defaultValue={field.value}
+                      className="flex flex-col space-y-1"
+                    >
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="Public" />
+                        </FormControl>
+                        <FormLabel className="font-normal">Public</FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="Private" disabled />
+                        </FormControl>
+                        <FormLabel className="font-normal text-muted-foreground">Private (Premium feature)</FormLabel>
+                      </FormItem>
+                    </RadioGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem className="space-y-3">
+                  <FormLabel>Event Type</FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        updateData({ ...form.getValues(), type: val });
+                      }}
+                      defaultValue={field.value}
+                      className="flex flex-col space-y-1"
+                    >
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="Offline" />
+                        </FormControl>
+                        <FormLabel className="font-normal">In-person</FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="Online" />
+                        </FormControl>
+                        <FormLabel className="font-normal">Online</FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="Hybrid" />
+                        </FormControl>
+                        <FormLabel className="font-normal">Hybrid</FormLabel>
+                      </FormItem>
+                    </RadioGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </div>
       </form>
     </Form>
