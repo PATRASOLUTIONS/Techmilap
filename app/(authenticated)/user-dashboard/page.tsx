@@ -5,10 +5,41 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Ticket as TicketIcon, Star, Calendar, Clock } from "lucide-react" // Renamed Ticket to avoid conflict
 import { connectToDatabase } from "@/lib/mongodb"
-import TicketModel from "@/models/Ticket" // Assuming TicketModel is your Mongoose model for tickets
+import Ticket from "@/models/Ticket" // Assuming TicketModel is your Mongoose model for tickets
 import Review from "@/models/Review" // Assuming Review is your Mongoose model for reviews
 import Event from "@/models/Event" // Assuming Event is your Mongoose model for events
+import FormSubmission from "@/models/FormSubmission"
 import { ObjectId } from "mongodb"
+import { log } from "console"
+
+interface PopulatedEvent {
+  _id: ObjectId;
+  title: string;
+  date: Date; // Date might be a string from DB, convert to Date object
+  location: string;
+  type: string;
+  slug: string;
+}
+// Interface for the FormSubmission document when eventId is populated
+interface PopulatedFormSubmission {
+  _id: ObjectId;
+  eventId: PopulatedEvent; // After populate, this will be an object
+  userId: ObjectId;
+  userEmail: string;
+  userName: string;
+  formType: string;
+  status: string;
+  isCheckedIn: boolean;
+  isWebCheckIn: boolean;
+  checkInCount: number;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  data: {
+    email: string;
+    [key: string]: any;
+  };
+  ticketType?: string; // As used in the original "My Tickets" tab
+}
 
 export default async function UserDashboardPage() {
   const session = await getServerSession(authOptions)
@@ -32,13 +63,18 @@ export default async function UserDashboardPage() {
 
   try {
     // Fetch all active tickets for the user and populate event details
-    const allUserTickets = await TicketModel.find({ userId: userId, status: "active" })
-      .populate<{ event: { _id: ObjectId; title: string; date: Date; location: string; type: string; slug: string } }>({
-        path: "event", // Changed from eventId to event
-        select: "title date location type slug", // Select fields needed for display
+    console.log("userId", userId)
+    const allUserTickets = await FormSubmission.find({ userId: userId })
+      .populate<{ eventId: PopulatedEvent }>({
+        path: "eventId",
+        model: Event, // Explicitly specify the model for population
+        select: "title date location type slug",
       })
-      .sort({ createdAt: -1 }) // Sort tickets by creation date, or event date if preferred
+      .sort({ createdAt: -1 })
       .lean()
+      .exec()
+
+    console.log("all user tickets:", allUserTickets)
 
     userTicketsList = allUserTickets.slice(0, 5) // For "My Tickets" tab
 
@@ -46,33 +82,37 @@ export default async function UserDashboardPage() {
     const uniquePastEventIds = new Set<string>()
 
     allUserTickets.forEach((ticket) => {
-      if (ticket.event && ticket.event.date) { // Changed from ticket.eventId to ticket.event
-        const eventDate = new Date(ticket.event.date)
+      console.log(ticket)
+      if (ticket.eventId && typeof ticket.eventId === 'object' && ticket.eventId.date) { // Changed from ticket.eventId to ticket.event
+        const eventDate = new Date(ticket.eventId.date)
+        const eventIdStr = ticket?.eventId?._id.toString()
+
         if (eventDate >= currentDate) {
           upcomingTicketsCount++ // Count each ticket for an upcoming event
-          if (!uniqueUpcomingEventIds.has(ticket.event._id.toString())) { // Changed from ticket.eventId to ticket.event
+          if (!uniqueUpcomingEventIds.has(eventIdStr)) {
             upcomingRegisteredEventsCount++
             if (upcomingRegisteredEventsList.length < 3) {
               // Add to list for display
               upcomingRegisteredEventsList.push({
-                ...ticket.event, // Changed from ticket.eventId to ticket.event
+                ...ticket.eventId, // Changed from ticket.eventId to ticket.event
                 // Ensure date is a Date object if not already, or format as needed
                 date: eventDate,
               })
             }
-            uniqueUpcomingEventIds.add(ticket.event._id.toString()) // Changed from ticket.eventId to ticket.event
+            uniqueUpcomingEventIds.add(eventIdStr)
           }
         } else {
-          if (!uniquePastEventIds.has(ticket.event._id.toString())) { // Changed from ticket.eventId to ticket.event
+          if (!uniquePastEventIds.has(eventIdStr)) {
             pastRegisteredEventsCount++
-            uniquePastEventIds.add(ticket.event._id.toString()) // Changed from ticket.eventId to ticket.event
+            uniquePastEventIds.add(eventIdStr)
           }
         }
       }
     })
 
     // Sort upcomingRegisteredEventsList by date
-    upcomingRegisteredEventsList.sort((a, b) => a.date.getTime() - b.date.getTime())
+    upcomingRegisteredEventsList.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    console.log("upcomingRegisteredEventsList:", upcomingRegisteredEventsList)
 
     // Fetch total reviews count
     totalReviewsCount = await Review.countDocuments({ userId: userId })
@@ -150,7 +190,7 @@ export default async function UserDashboardPage() {
                 {upcomingRegisteredEventsList.length > 0 ? (
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {upcomingRegisteredEventsList.map((event) => (
-                      <Card key={event._id.toString()}>
+                      <Card key={event?._id}>
                         <CardHeader className="pb-2">
                           <CardTitle className="text-base">{event.title}</CardTitle>
                           <CardDescription>
@@ -191,14 +231,18 @@ export default async function UserDashboardPage() {
                       <Card key={ticket._id.toString()}>
                         <CardHeader className="pb-2">
                           <CardTitle className="text-base">Ticket #{ticket._id.toString().slice(-6)}</CardTitle>
-                          <CardDescription>{ticket.event?.title || "Event details unavailable"}</CardDescription>
+                          <CardDescription>
+                            {ticket.eventId && typeof ticket.eventId === 'object'
+                              ? ticket.eventId.title
+                              : "Event details unavailable"}
+                          </CardDescription>
                         </CardHeader>
                         <CardContent>
                           <div className="text-sm">
                             <p>
                               Date:{" "}
-                              {ticket.event?.date
-                                ? new Date(ticket.event.date).toLocaleDateString()
+                              {ticket.eventId && typeof ticket.eventId === 'object' && ticket.eventId.date
+                                ? new Date(ticket.eventId.date).toLocaleDateString()
                                 : "N/A"}
                             </p>
                             <p>Type: {ticket.ticketType || "Standard"}</p>

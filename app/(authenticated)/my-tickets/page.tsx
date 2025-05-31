@@ -144,11 +144,12 @@ export default function MyTicketsPage() {
   }
 
   // Fetch tickets when component mounts or retry count changes
+  const userId = session?.user?.id;
   useEffect(() => {
-    if (session?.user) {
+    if (userId) {
       fetchTickets(retryCount > 0)
     }
-  }, [retryCount, session])
+  }, [retryCount, userId])
 
   // Function to retry fetching tickets
   const retryFetch = () => {
@@ -299,7 +300,7 @@ export default function MyTicketsPage() {
             <Ticket className="h-5 w-5 text-indigo-600" />
             <span className="font-medium">{loading ? "..." : tickets.all?.length || 0} Tickets</span>
           </div>
-          {tickets.all?.some(t => t.isFormSubmission && t.status === "confirmed") && (
+          {session?.user?.role !== "user" && tickets.all?.some(t => t.isFormSubmission && t.status === "confirmed") && (
             <Button
               variant="default"
               size="sm"

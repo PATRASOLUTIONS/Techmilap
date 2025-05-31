@@ -31,6 +31,7 @@ export default function EventDashboardPage() {
     volunteer: 0,
     speaker: 0,
   })
+  const [isPast, setIsPast] = useState(false);
 
   // Add state for form URLs
   const [formUrls, setFormUrls] = useState({
@@ -128,7 +129,7 @@ export default function EventDashboardPage() {
   }, [eventId, toast])
 
   // Separate function to fetch form status
-  const fetchFormStatus = async (eventId) => {
+  const fetchFormStatus = async (eventId: string) => {
     try {
       const response = await fetch(`/api/events/${eventId}/forms/status`, {
         headers: {
@@ -174,6 +175,8 @@ export default function EventDashboardPage() {
         category: event.category || "",
         description: event.description || "",
       })
+
+      handlePastEvent();
     }
   }, [event])
 
@@ -265,7 +268,7 @@ export default function EventDashboardPage() {
   }
 
   // Add this function to handle the form submission
-  const handleUpdateDetails = async (e) => {
+  const handleUpdateDetails = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!eventId) return
 
@@ -375,6 +378,15 @@ export default function EventDashboardPage() {
   const volunteerFormStatus = formStatusData.current.volunteerForm?.status || "draft"
   const speakerFormStatus = formStatusData.current.speakerForm?.status || "draft"
 
+  const handlePastEvent = () => {
+    let dateString = event.date || event.endDate;
+    let eventDate = new Date(dateString);
+    eventDate.setHours(0, 0, 0, 0);
+    let currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+    setIsPast(eventDate < currentDate)
+  }
+
   return (
     <div className="container mx-auto py-8">
       <div className="flex items-center justify-between mb-6">
@@ -407,10 +419,13 @@ export default function EventDashboardPage() {
             <QrCode className="h-4 w-4 mr-1" />
             Check-in
           </TabsTrigger>
-          <TabsTrigger value="settings">
-            <SettingsIcon className="h-4 w-4 mr-1" />
-            Settings
-          </TabsTrigger>
+          {// Past event should not be editable
+            !isPast &&
+            <TabsTrigger value="settings">
+              <SettingsIcon className="h-4 w-4 mr-1" />
+              Settings
+            </TabsTrigger>
+          }
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -845,32 +860,35 @@ export default function EventDashboardPage() {
         </TabsContent>
 
         {/* New Settings Tab Content */}
-        <TabsContent value="settings" className="space-y-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Event Settings</CardTitle>
-                <CardDescription>Edit all aspects of your event</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-2">Complete Event Editor</h3>
-                <p className="text-muted-foreground mb-4">
-                  Make comprehensive changes to your event including details, tickets, and custom questions.
-                </p>
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
-                  <p className="text-sm text-blue-700">
-                    Changes made here will be applied immediately. Please review carefully before saving.
-                  </p>
+        {
+          !isPast &&
+          <TabsContent value="settings" className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Event Settings</CardTitle>
+                  <CardDescription>Edit all aspects of your event</CardDescription>
                 </div>
-              </div>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold mb-2">Complete Event Editor</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Make comprehensive changes to your event including details, tickets, and custom questions.
+                  </p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
+                    <p className="text-sm text-blue-700">
+                      Changes made here will be applied immediately. Please review carefully before saving.
+                    </p>
+                  </div>
+                </div>
 
-              {/* Using the existing EventCreationForm component with the current event data */}
-              <EventCreationForm existingEvent={event} isEditing={true} />
-            </CardContent>
-          </Card>
-        </TabsContent>
+                {/* Using the existing EventCreationForm component with the current event data */}
+                <EventCreationForm existingEvent={event} isEditing={true} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        }
       </Tabs>
     </div>
   )
