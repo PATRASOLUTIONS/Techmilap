@@ -43,7 +43,7 @@ const fallbackEvent = {
 }
 
 // Helper function to safely format dates
-function formatEventDate(dateString) {
+function formatEventDate(dateString: any) {
   if (!dateString) return "Date TBA"
   try {
     const date = new Date(dateString)
@@ -60,7 +60,7 @@ function formatEventDate(dateString) {
 }
 
 // Helper function to safely format time
-function formatEventTime(timeString) {
+function formatEventTime(timeString: any) {
   if (!timeString) return "Time TBA"
   try {
     if (typeof timeString === "string" && timeString.length <= 5 && timeString.includes(":")) {
@@ -79,8 +79,9 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   const [event, setEvent] = useState<EventType>(fallbackEvent);
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [isPast, setIsPast] = useState(false)
 
-  const {id} = use(params as Promise<{id: string}>)
+  const { id } = use(params as Promise<{ id: string }>)
 
   useEffect(() => {
     async function fetchEvent() {
@@ -90,6 +91,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
           throw new Error("Failed to fetch event")
         }
         const data = await response.json()
+        console.log("Fetched event:", data)
         setEvent(data)
         setLoading(false)
       } catch (error) {
@@ -101,6 +103,13 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
     fetchEvent()
   }, [id])
+
+  useEffect(() => {
+    if (event) {
+      const isPast = hasEventPassed(event);
+      setIsPast(isPast);
+    }
+  }, [event]);
 
   // Format dates
   const formattedDate = formatEventDate(event.date)
@@ -117,6 +126,13 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
   // Default image
   const imageUrl = event.image || "/vibrant-tech-event.png"
+
+  // Determine if the event has passed
+  const hasEventPassed = (event: any): boolean => {
+    const now = new Date();
+    const eventDate = event.endDate ? new Date(event.endDate) : new Date(event.date);
+    return eventDate < now;
+  };
 
   if (loading) {
     return (
@@ -272,15 +288,15 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
           <div className="space-y-3">
             <Button asChild className="w-full">
-              <Link href={`/events/${id}/register`}>Register Now</Link>
+              <Link href={`/events/${id}/register`} className={isPast ? 'disabled-link' : ''}>Register Now</Link>
             </Button>
 
             <Button variant="outline" asChild className="w-full">
-              <Link href={`/events/${id}/volunteer`}>Volunteer</Link>
+              <Link href={`/events/${id}/volunteer`} className={isPast ? 'disabled-link' : ''}>Volunteer</Link>
             </Button>
 
             <Button variant="outline" asChild className="w-full">
-              <Link href={`/events/${id}/speaker`}>Apply as Speaker</Link>
+              <Link href={`/events/${id}/speaker`} className={isPast ? 'disabled-link' : ''}>Apply as Speaker</Link>
             </Button>
           </div>
         </div>
