@@ -402,7 +402,7 @@ export function DynamicForm({
                   <FormControl>
                     <RadioGroupItem value={option.value} id={option.value} />
                   </FormControl>
-                  <FormLabel htmlFor={option.value}>{option.label}</FormLabel>
+                  <FormLabel htmlFor={option.value}>{option.value}</FormLabel>
                 </FormItem>
               ))}
             </div>
