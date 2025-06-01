@@ -87,10 +87,10 @@ export function EventPreview({ formData }) {
       <motion.div variants={item}>
         <Card className="border overflow-hidden">
           <div className="h-40 bg-gradient-to-r from-primary/20 to-secondary/20 relative">
-            {details.coverImageUrl ? (
+            {details.image ? (
               <img
-                src={details.coverImageUrl || "/placeholder.svg"}
-                alt={details.name || "Event cover"}
+                src={details.image || "/placeholder.svg"}
+                alt={details.title || "Event cover"}
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   e.target.src = "/placeholder.svg?key=antfj"
@@ -98,9 +98,9 @@ export function EventPreview({ formData }) {
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
-                {details.name ? (
+                {details.title ? (
                   <h1 className="text-3xl font-bold text-center px-4 py-2 bg-background/80 backdrop-blur-sm rounded-lg shadow-sm">
-                    {details.name}
+                    {details.title}
                   </h1>
                 ) : (
                   <div className="text-center px-4 py-2 bg-background/80 backdrop-blur-sm rounded-lg shadow-sm">

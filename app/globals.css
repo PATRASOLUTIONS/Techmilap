@@ -320,3 +320,12 @@ h1 {
   animation: wave 2.5s ease-in-out infinite;
   transform-origin: 70% 70%;
 }
+
+.disabled-link {
+  /* Your custom styles for a disabled link */
+  /* Example: if the Button component's disabled state doesn't fully style the Link child as desired */
+  opacity: 0.7;
+  cursor: not-allowed;
+  pointer-events: none;
+  /* text-decoration: line-through; */ /* Add any specific visual cue */
+}
