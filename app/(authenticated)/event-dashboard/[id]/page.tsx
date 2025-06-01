@@ -32,6 +32,8 @@ export default function EventDashboardPage() {
     speaker: 0,
   })
   const [isPast, setIsPast] = useState(false);
+  const [dataChanged, setDataChanged] = useState(false)
+
 
   // Add state for form URLs
   const [formUrls, setFormUrls] = useState({
@@ -126,7 +128,7 @@ export default function EventDashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [eventId, toast])
+  }, [eventId, toast, dataChanged])
 
   // Separate function to fetch form status
   const fetchFormStatus = async (eventId: string) => {
@@ -884,7 +886,7 @@ export default function EventDashboardPage() {
                 </div>
 
                 {/* Using the existing EventCreationForm component with the current event data */}
-                <EventCreationForm existingEvent={event} isEditing={true} />
+                <EventCreationForm existingEvent={event} isEditing={true} setDataChanged={setDataChanged} />
               </CardContent>
             </Card>
           </TabsContent>

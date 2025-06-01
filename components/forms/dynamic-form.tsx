@@ -12,11 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useToast } from "@/hooks/use-toast"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
-import { CalendarIcon, Loader2, AlertCircle } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Loader2, AlertCircle, CalendarIcon } from "lucide-react"
 import { validateField, getValidationType } from "@/lib/form-validation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
@@ -410,29 +407,20 @@ export function DynamicForm({
         )
       case "date":
         return (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-[240px] justify-start text-left font-normal",
-                  !formField.value && "text-muted-foreground",
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {formField.value ? format(formField.value, "PPP") : <span>Pick a date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={formField.value}
-                onSelect={formField.onChange}
-                disabled={(date) => date > new Date()}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
+          <Input
+            type="date"
+            value={formField.value ? format(new Date(formField.value), "yyyy-MM-dd") : ""}
+            onChange={(e) => {
+              const dateString = e.target.value;
+              // When a date is cleared, dateString is empty. new Date('') is an Invalid Date.
+              // So, we pass null to react-hook-form to clear the value.
+              // Otherwise, parse the date string.
+              const dateObject = dateString ? new Date(dateString) : null;
+              formField.onChange(dateObject);
+              handleBlur(field.id);
+            }}
+            className={error ? "border-red-500" : ""}
+          />
         )
       default:
         return null

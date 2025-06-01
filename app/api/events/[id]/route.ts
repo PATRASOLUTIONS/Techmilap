@@ -117,16 +117,35 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const requestData = await req.json()
     const eventData: any = {}
 
-    // Update the event with the new data
-    const { title, description, date, location, capacity, price, category } = requestData
+    logWithTimestamp("info", "Event data from DB :", event)
 
-    if (title) eventData.title = title
-    if (description) eventData.description = description
-    if (date) eventData.date = date
-    if (location) eventData.location = location
-    if (capacity) eventData.capacity = capacity
-    if (price) eventData.price = price
-    if (category) eventData.category = category
+    logWithTimestamp("info", "Request data in event update :", requestData)
+
+
+    // Update event details
+    if (requestData.details) {
+      const { title, displayName, description, date, endDate, startTime, endTime, location, category, type, visibility, image, slug } = requestData.details;
+
+      if (title) eventData.title = title;
+      if (displayName) eventData.displayName = displayName;
+      if (description) eventData.description = description;
+      if (date) eventData.date = date;
+      if (endDate) eventData.endDate = endDate;
+      if (startTime) eventData.startTime = startTime;
+      if (endTime) eventData.endTime = endTime;
+      if (location) eventData.location = location;
+      if (category) eventData.category = category;
+      if (type) eventData.type = type;
+      if (visibility) eventData.visibility = visibility;
+      if (image) eventData.image = image;
+      if (slug) eventData.slug = slug;
+      if (requestData.details.customQuestions) {
+        eventData.customQuestions = requestData.details.customQuestions;
+      }
+      if (requestData.details.status) {
+        eventData.status = requestData.details.status;
+      }
+    }
 
     // When updating an event, ensure status is properly set
     if (requestData.status) {
@@ -163,7 +182,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       eventData.speakerForm = requestData.speakerForm
     }
 
-    console.log("Updating event with:", eventData)
+    // Update tickets if provided
+    if (requestData.tickets) {
+      eventData.tickets = requestData.tickets;
+    }
+
+    logWithTimestamp("info", "Updating event with:", eventData)
+
+    // return;
 
     const updatedEvent = await Event.findByIdAndUpdate(event._id, eventData, { new: true })
 

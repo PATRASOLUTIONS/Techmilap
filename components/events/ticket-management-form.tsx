@@ -59,15 +59,15 @@ export function TicketManagementForm({ updateData, initialData , handleNext}: Ti
         ticketType: "Free",
         ticketNumber: `TKT-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Date.now().toString().substring(9)}`,
         userId: "",
-      },
+      }
     ],
   )
 
   const { toast } = useToast()
   const { data: session } = useSession()
-  logWithTimestamp("info", "Session Data", session)
+  // logWithTimestamp("info", "Session Data", session)
 
-  logWithTimestamp("info", "Initial Tickets Data", initialData)
+  // logWithTimestamp("info", "Initial Tickets Data", initialData)
 
   // Initialize the form with default values
   const form = useForm({
@@ -75,6 +75,7 @@ export function TicketManagementForm({ updateData, initialData , handleNext}: Ti
     defaultValues: {
       tickets,
     },
+    mode: "onChange",
   })
 
   // Add a new ticket
@@ -92,6 +93,7 @@ export function TicketManagementForm({ updateData, initialData , handleNext}: Ti
     const updatedTickets = [...tickets, newTicket]
     setTickets(updatedTickets)
     form.setValue("tickets", updatedTickets)
+    handleTicketUpdate(updatedTickets)
   }
 
   // Remove a ticket
@@ -108,6 +110,7 @@ export function TicketManagementForm({ updateData, initialData , handleNext}: Ti
     const updatedTickets = tickets.filter((_, i) => i !== index)
     setTickets(updatedTickets)
     form.setValue("tickets", updatedTickets)
+    handleTicketUpdate(updatedTickets)
   }
 
   // Update a ticket field
@@ -129,12 +132,12 @@ export function TicketManagementForm({ updateData, initialData , handleNext}: Ti
 
     setTickets(updatedTickets)
     form.setValue("tickets", updatedTickets)
+    handleTicketUpdate(updatedTickets)
   }
 
-  // Handle form submission
-  const handleSubmit = (data) => {
+  const handleTicketUpdate = (data) => {    
     // Ensure all tickets have ticketNumber and userId
-    const processedTickets = data.tickets.map((ticket) => ({
+    const processedTickets = data.map((ticket) => ({
       ...ticket,
       ticketNumber:
         ticket.ticketNumber ||
@@ -142,14 +145,12 @@ export function TicketManagementForm({ updateData, initialData , handleNext}: Ti
       userId: ticket.userId || session?.user?.id || "",
     }))
 
-    // updateData({ tickets: processedTickets })
-    logWithTimestamp("info", "Processed Tickets Data", tickets)
-    handleNext()
+    updateData(processedTickets)
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
+      <form className="space-y-8">
         <div className="space-y-6">
           {tickets.map((ticket, index) => (
             <div key={index} className="p-6 border rounded-lg space-y-4">
@@ -269,9 +270,9 @@ export function TicketManagementForm({ updateData, initialData , handleNext}: Ti
           )}
         />
 
-        <div className="flex justify-end space-x-4">
+        {/* <div className="flex justify-end space-x-4">
           <Button type="submit">Save and Continue</Button>
-        </div>
+        </div> */}
       </form>
     </Form>
   )

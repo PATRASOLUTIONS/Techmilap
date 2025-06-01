@@ -18,8 +18,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input"
 import { useSession } from "next-auth/react"
 import { logWithTimestamp } from "@/utils/logger"
+import { boolean } from "zod"
 
-export function EventCreationForm({ existingEvent = null, isEditing = false }) {
+export function EventCreationForm({ existingEvent = null, isEditing = false, setDataChanged }) {
   const router = useRouter()
   const { toast } = useToast()
   const { data: session } = useSession()
@@ -50,7 +51,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       ticketType: "Free",
       ticketNumber: `TKT-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Date.now().toString().substring(9)}`,
       userId: "",
-    },],
+    }],
     customQuestions: {
       attendee: [],
       volunteer: [],
@@ -299,6 +300,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
         },
         tickets:
           formData.tickets.map((ticket, index) => {
+            console.log("Processing ticket:", ticket)
             // Generate a unique ticket number if not provided
             const ticketNumber = ticket.ticketNumber || `TICKET-${Date.now()}-${index}`
 
@@ -317,7 +319,9 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
       console.log("Submitting event data:", apiData)
       console.log("Form status:", formStatus)
 
-      const url = isEditing ? `/api/events/${existingEvent._id}` : "/api/events/create"
+      // return;
+
+      const url = isEditing ? `/api/events/${existingEvent.id}` : "/api/events/create"
 
       const method = isEditing ? "PUT" : "POST"
 
@@ -352,6 +356,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
 
       setSubmittedEventId(eventId)
       setSubmittedEventSlug(eventSlug)
+      setDataChanged((prev: boolean) => !prev);
 
       // Generate public URLs
       const baseUrl = window.location.origin
@@ -526,10 +531,10 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                 ? "Update your event details below"
                 : "Fill out the details below to create a new event that will wow your attendees."
             }
-            // className="mb-8"
+          // className="mb-8"
           />
 
-          <Card className="border-0 shadow-lg overflow-hidden">
+          <Card className="border-0 shadow-lg overflow-hidden relative z-10">
             <div className="h-2 w-full bg-muted overflow-hidden">
               <motion.div
                 className="h-full bg-gradient-to-r from-primary to-secondary"
@@ -618,7 +623,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false }) {
                     <TicketManagementForm
                       initialData={formData.tickets}
                       updateData={(data) => updateFormData("tickets", data)}
-                      eventId={isEditing ? existingEvent._id : null}
+                      eventId={isEditing ? existingEvent.id : null}
                       handleNext={handleNext}
                     />
                   )}

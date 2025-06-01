@@ -15,6 +15,7 @@ export default function EditEventPage() {
   const [error, setError] = useState(null)
   const { toast } = useToast()
   const router = useRouter()
+  const [dataChanged, setDataChanged] = useState(false)
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -74,7 +75,7 @@ export default function EditEventPage() {
     if (id) {
       fetchEvent()
     }
-  }, [id, toast])
+  }, [id, toast, dataChanged])
 
   const handleBack = () => {
     router.push(`/event-dashboard/${id}`)
@@ -131,7 +132,7 @@ export default function EditEventPage() {
         <p className="text-muted-foreground mt-2">Update your event details and settings</p>
       </div>
 
-      <EventCreationForm existingEvent={event} isEditing={true} />
+      <EventCreationForm existingEvent={event} isEditing={true} setDataChanged={setDataChanged}/>
     </div>
   )
 }
