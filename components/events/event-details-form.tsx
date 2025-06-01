@@ -44,7 +44,15 @@ const formSchema = z.object({
     }),
   visibility: z.enum(["Public", "Private"]),
   type: z.enum(["Online", "Offline", "Hybrid"]),
-})
+}).superRefine((data, ctx) => {
+  if (data.date && data.endDate && data.endDate < data.date) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "End date cannot be earlier than the start date.",
+      path: ["endDate"], // Specify the field this error is associated with
+    });
+  }
+});
 
 export function EventDetailsForm({
   data,
