@@ -373,7 +373,7 @@ export function EventDetailsForm({
                         field.onChange(val);
                         updateData({ ...form.getValues(), visibility: val });
                       }}
-                      defaultValue={field.value}
+                      value={field.value}
                       className="flex flex-col space-y-1"
                     >
                       <FormItem className="flex items-center space-x-3 space-y-0">
@@ -407,7 +407,7 @@ export function EventDetailsForm({
                         field.onChange(val);
                         updateData({ ...form.getValues(), type: val });
                       }}
-                      defaultValue={field.value}
+                      value={field.value}
                       className="flex flex-col space-y-1"
                     >
                       <FormItem className="flex items-center space-x-3 space-y-0">
