@@ -61,6 +61,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
       tags: Array.isArray(event.tags) ? event.tags : [],
       slug: event.slug || event._id.toString(),
       organizerName,
+      attendeeForm:event.attendeeForm,
+      volunteerForm:event.volunteerForm,
+      speakerForm:event.speakerForm,
     }
 
     return NextResponse.json(eventData)

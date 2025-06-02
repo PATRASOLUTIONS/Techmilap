@@ -287,17 +287,24 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
           </Card>
 
           <div className="space-y-3">
-            <Button asChild className="w-full">
-              <Link href={`/events/${id}/register`} className={isPast ? 'disabled-link' : ''}>Register Now</Link>
-            </Button>
-
-            <Button variant="outline" asChild className="w-full">
-              <Link href={`/events/${id}/volunteer`} className={isPast ? 'disabled-link' : ''}>Volunteer</Link>
-            </Button>
-
-            <Button variant="outline" asChild className="w-full">
-              <Link href={`/events/${id}/speaker`} className={isPast ? 'disabled-link' : ''}>Apply as Speaker</Link>
-            </Button>
+            {// This hides the draft forms
+              event.attendeeForm.status == "published" &&
+              <Button asChild className="w-full">
+                <Link href={`/events/${id}/register`} className={isPast ? 'disabled-link' : ''}>Register Now</Link>
+              </Button>
+            }
+            {
+              event.volunteerForm.status == "published" &&
+              <Button variant="outline" asChild className="w-full">
+                <Link href={`/events/${id}/volunteer`} className={isPast ? 'disabled-link' : ''}>Volunteer</Link>
+              </Button>
+            }
+            {
+              event.speakerForm.status == "published" &&
+              <Button variant="outline" asChild className="w-full">
+                <Link href={`/events/${id}/speaker`} className={isPast ? 'disabled-link' : ''}>Apply as Speaker</Link>
+              </Button>
+            }
           </div>
         </div>
       </div>

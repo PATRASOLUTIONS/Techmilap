@@ -145,8 +145,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       if (requestData.details.status) {
         eventData.status = requestData.details.status;
       }
+      if (requestData.details.attendeeForm) {
+        eventData.attendeeForm = requestData.details.attendeeForm
+      }
+      if (requestData.details.volunteerForm) {
+        eventData.volunteerForm = requestData.details.volunteerForm
+      }
+      if (requestData.details.speakerForm) {
+        eventData.speakerForm = requestData.details.speakerForm
+      }
     }
-
     // When updating an event, ensure status is properly set
     if (requestData.status) {
       // If explicitly setting status, use that value
@@ -171,16 +179,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       }
     }
 
-    // Update form status if provided
-    if (requestData.attendeeForm) {
-      eventData.attendeeForm = requestData.attendeeForm
-    }
-    if (requestData.volunteerForm) {
-      eventData.volunteerForm = requestData.volunteerForm
-    }
-    if (requestData.speakerForm) {
-      eventData.speakerForm = requestData.speakerForm
-    }
 
     // Update tickets if provided
     if (requestData.tickets) {
