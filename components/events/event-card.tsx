@@ -44,13 +44,23 @@ export function EventCard({ event, onClick, showRegisterButton = false }: EventC
     : "Date TBA"
 
   // Format time with fallback
-  const formattedTime = eventDate
-    ? eventDate.toLocaleTimeString("en-US", {
+  let formattedTime = "Time TBA";
+  if (event.startTime && typeof event.startTime === 'string') {
+    const timeParts = event.startTime.split(':');
+    if (timeParts.length === 2) {
+      const hours = parseInt(timeParts[0], 10);
+      const minutes = parseInt(timeParts[1], 10);
+      if (!isNaN(hours) && !isNaN(minutes)) {
+        const tempDate = new Date();
+        tempDate.setHours(hours, minutes, 0, 0);
+        formattedTime = tempDate.toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
         hour12: true,
-      })
-    : "Time TBA"
+        });
+      }
+    }
+  }
 
   // Get organizer name
   const organizerName =

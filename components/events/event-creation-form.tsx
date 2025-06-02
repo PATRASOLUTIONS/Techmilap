@@ -18,9 +18,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input"
 import { useSession } from "next-auth/react"
 import { logWithTimestamp } from "@/utils/logger"
-import { boolean } from "zod"
+interface EventCreationFormProps {
+  existingEvent?: any;
+  isEditing?: boolean;
+  setDataChanged?: React.Dispatch<React.SetStateAction<boolean>>;
+}
 
-export function EventCreationForm({ existingEvent = null, isEditing = false, setDataChanged }) {
+export function EventCreationForm({ existingEvent = null, isEditing = false, setDataChanged=() => {} }: EventCreationFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const { data: session } = useSession()

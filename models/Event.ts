@@ -210,6 +210,16 @@ const EventSchema = new mongoose.Schema(
       required: [true, "Event organizer is required"],
       index: true, // Add index for better query performance
     },
+    type: {
+      type: String,
+      enum: ["Online", "Offline", "Hybrid"],
+      required: true
+    },
+    visibility: {
+      type: String,
+      enum: ["Public", "Private"],
+      required: true
+    },
     attendees: [
       {
         type: mongoose.Schema.Types.ObjectId,

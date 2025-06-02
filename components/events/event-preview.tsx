@@ -147,7 +147,7 @@ export function EventPreview({ formData }) {
                       <div>
                         <p className="font-medium">Date</p>
                         <p className="text-sm text-muted-foreground">
-                          {formatDate(details.startDate)} {details.endDate && `to ${formatDate(details.endDate)}`}
+                          {formatDate(details.date)} {details.endDate && `to ${formatDate(details.endDate)}`}
                         </p>
                       </div>
                     </div>
@@ -261,19 +261,19 @@ export function EventPreview({ formData }) {
                             <span className="font-medium">Quantity:</span>
                             <span>{ticket.quantity || "0"}</span>
                           </div>
-                          <div className="flex justify-between">
+                          {/* <div className="flex justify-between">
                             <span className="font-medium">Sale Period:</span>
                             <span className="text-right text-sm">
                               {formatDate(ticket.saleStartDate)} to {formatDate(ticket.saleEndDate)}
                             </span>
-                          </div>
+                          </div> */}
                           {ticket.pricingModel === "Paid" && (
                             <div className="flex justify-between">
                               <span className="font-medium">Fees paid by:</span>
                               <span>{ticket.feeStructure}</span>
                             </div>
                           )}
-                          <div className="pt-2">
+                          {/* <div className="pt-2">
                             <Button
                               variant="outline"
                               className="w-full button-hover"
@@ -281,7 +281,7 @@ export function EventPreview({ formData }) {
                             >
                               {ticket.pricingModel === "Free" ? "Register" : "Purchase"}
                             </Button>
-                          </div>
+                          </div> */}
                         </CardContent>
                       </Card>
                     ))}
