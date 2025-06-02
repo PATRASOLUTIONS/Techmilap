@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Loader2, Eye, CheckCircle, XCircle, Search, Download, Mail, ChevronLeft, ChevronRight } from "lucide-react"
+import { Loader2, Eye, CheckCircle, XCircle, Search, Download, Mail, ChevronLeft, ChevronRight, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { downloadCSV, objectsToCSV, formatDateForCSV } from "@/lib/csv-export"
@@ -52,6 +52,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
   const [selectedRegistration, setSelectedRegistration] = useState<any>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
   const { toast } = useToast()
   const [selectedRegistrations, setSelectedRegistrations] = useState<string[]>([])
   const [customQuestions, setCustomQuestions] = useState<QuestionType[]>([])
@@ -406,6 +407,18 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     console.log("Full registration object:", registration)
   }
 
+  // Debounce search query
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 500) // 500ms delay
+
+    return () => {
+      clearTimeout(timerId)
+    }
+  }, [searchQuery])
+
+
   // Modify the useEffect that fetches registrations to include retry logic
   useEffect(() => {
     const fetchRegistrations = async () => {
@@ -422,8 +435,8 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
           params.append("status", filterStatus)
         }
 
-        if (searchQuery) {
-          params.append("search", searchQuery)
+        if (debouncedSearchQuery) {
+          params.append("search", debouncedSearchQuery)
         }
 
         if (params.toString()) {
@@ -521,7 +534,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     return () => {
       if (retryTimeout) clearTimeout(retryTimeout)
     }
-  }, [eventId, filterStatus, searchQuery, toast, shouldRetry, retryCount])
+  }, [eventId, filterStatus, debouncedSearchQuery, toast, shouldRetry, retryCount])
 
   // Add a separate effect to handle the retry logic
   useEffect(() => {
@@ -997,14 +1010,24 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
             Export CSV
           </Button>
 
-          <div className="relative">
+          <div className="relative flex items-center">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name or email..."
-              className="pl-8 max-w-sm"
+              className="pl-8 pr-8 max-w-sm" // Added pr-8 for button spacing
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => setSearchQuery("")}
+              >
+                <X className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
