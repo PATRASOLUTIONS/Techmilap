@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Loader2, Eye, CheckCircle, XCircle, Search, Download, Mail, ChevronLeft, ChevronRight, X } from "lucide-react"
+import { Loader2, Eye, CheckCircle, XCircle, Search, Download, Mail, ChevronLeft, ChevronRight, X, ListFilter } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { downloadCSV, objectsToCSV, formatDateForCSV } from "@/lib/csv-export"
@@ -22,6 +22,15 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
 
 interface RegistrationsTableProps {
   eventId: string
@@ -43,6 +52,17 @@ interface QuestionType {
   placeholder?: string
   min?: number
   max?: number
+}
+
+// Define ColumnConfig interface
+interface ColumnConfig {
+  id: string
+  label: string
+  defaultVisible: boolean
+  isToggleable: boolean
+  headerClassName?: string
+  cellClassName?: string
+  renderCell: (registration: any) => React.ReactNode
 }
 
 export function RegistrationsTable({ eventId, title, description, filterStatus }: RegistrationsTableProps) {
@@ -87,6 +107,105 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
       return acc
     },
     {} as Record<string, QuestionType[]>,
+  )
+
+  // Define all table columns configuration
+  const allTableColumns: ColumnConfig[] = [
+    {
+      id: "name",
+      label: "Name",
+      defaultVisible: true,
+      isToggleable: false, // Name is fundamental, keep it always visible
+      headerClassName: "sticky left-[50px] bg-background z-20 min-w-[150px]",
+      cellClassName: "sticky left-[50px] bg-background z-20 font-medium",
+      renderCell: (registration) => getAttendeeName(registration),
+    },
+    {
+      id: "email",
+      label: "Email ID",
+      defaultVisible: true,
+      isToggleable: true,
+      headerClassName: "min-w-[200px]",
+      cellClassName: "max-w-[200px] truncate",
+      renderCell: (registration) => getAttendeeEmail(registration),
+    },
+    {
+      id: "corporateEmail",
+      label: "Corporate Email ID",
+      defaultVisible: true,
+      isToggleable: true,
+      headerClassName: "min-w-[200px]",
+      cellClassName: "max-w-[200px] truncate",
+      renderCell: (registration) => getCorporateEmail(registration) || "N/A",
+    },
+    {
+      id: "designation",
+      label: "Designation",
+      defaultVisible: true,
+      isToggleable: true,
+      headerClassName: "min-w-[150px]",
+      renderCell: (registration) => getDesignation(registration) || "N/A",
+    },
+    {
+      id: "linkedin",
+      label: "LinkedIn ID",
+      defaultVisible: false, // Less critical info, hidden by default
+      isToggleable: true,
+      headerClassName: "min-w-[150px]",
+      cellClassName: "max-w-[150px] truncate",
+      renderCell: (registration) => getLinkedIn(registration) || "N/A",
+    },
+    {
+      id: "github",
+      label: "GitHub ID",
+      defaultVisible: false,
+      isToggleable: true,
+      headerClassName: "min-w-[150px]",
+      cellClassName: "max-w-[150px] truncate",
+      renderCell: (registration) => getGitHub(registration) || "N/A",
+    },
+    {
+      id: "otherSocialMedia",
+      label: "Other Social Media",
+      defaultVisible: false,
+      isToggleable: true,
+      headerClassName: "min-w-[150px]",
+      renderCell: (registration) => getOtherSocialMedia(registration) || "N/A",
+    },
+    {
+      id: "mobileNumber",
+      label: "Mobile Number",
+      defaultVisible: true,
+      isToggleable: true,
+      headerClassName: "min-w-[150px]",
+      renderCell: (registration) => getMobileNumber(registration) || "N/A",
+    },
+    {
+      id: "registeredDate",
+      label: "Registered",
+      defaultVisible: true,
+      isToggleable: true,
+      headerClassName: "min-w-[150px]",
+      renderCell: (registration) => formatDistanceToNow(new Date(registration.createdAt), { addSuffix: true }),
+    },
+    {
+      id: "status",
+      label: "Status",
+      defaultVisible: true,
+      isToggleable: false, // Status is fundamental
+      headerClassName: "min-w-[100px]",
+      renderCell: (registration) => getStatusBadge(registration.status),
+    },
+  ]
+
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(
+    allTableColumns.reduce(
+      (acc, col) => {
+        acc[col.id] = col.defaultVisible
+        return acc
+      },
+      {} as Record<string, boolean>,
+    ),
   )
 
   // Calculate pagination values
@@ -1010,6 +1129,31 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
             Export CSV
           </Button>
 
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <ListFilter className="h-4 w-4 mr-1" />
+                Columns
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {allTableColumns
+                .filter((col) => col.isToggleable)
+                .map((col) => (
+                  <DropdownMenuCheckboxItem
+                    key={col.id}
+                    className="capitalize"
+                    checked={columnVisibility[col.id]}
+                    onCheckedChange={(value) => setColumnVisibility((prev) => ({ ...prev, [col.id]: !!value }))}
+                  >
+                    {col.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <div className="relative flex items-center">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -1049,16 +1193,14 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
                         aria-label="Select all"
                       />
                     </TableHead>
-                    <TableHead className="sticky left-[50px] bg-background z-20 min-w-[150px]">Name</TableHead>
-                    <TableHead className="min-w-[200px]">Email ID</TableHead>
-                    <TableHead className="min-w-[200px]">Corporate Email ID</TableHead>
-                    <TableHead className="min-w-[150px]">Designation</TableHead>
-                    <TableHead className="min-w-[150px]">LinkedIn ID</TableHead>
-                    <TableHead className="min-w-[150px]">GitHub ID</TableHead>
-                    <TableHead className="min-w-[150px]">Other Social Media</TableHead>
-                    <TableHead className="min-w-[150px]">Mobile Number</TableHead>
-                    <TableHead className="min-w-[150px]">Registered</TableHead>
-                    <TableHead className="min-w-[100px]">Status</TableHead>
+                    {allTableColumns.map(
+                      (col) =>
+                        columnVisibility[col.id] && (
+                          <TableHead key={col.id} className={col.headerClassName}>
+                            {col.label}
+                          </TableHead>
+                        ),
+                    )}
                     <TableHead className="sticky right-0 bg-background z-20 min-w-[180px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1072,22 +1214,14 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
                           aria-label="Select row"
                         />
                       </TableCell>
-                      <TableCell className="sticky left-[50px] bg-background z-20 font-medium">
-                        {getAttendeeName(registration)}
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate">{getAttendeeEmail(registration)}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {getCorporateEmail(registration) || "N/A"}
-                      </TableCell>
-                      <TableCell>{getDesignation(registration) || "N/A"}</TableCell>
-                      <TableCell className="max-w-[150px] truncate">{getLinkedIn(registration) || "N/A"}</TableCell>
-                      <TableCell className="max-w-[150px] truncate">{getGitHub(registration) || "N/A"}</TableCell>
-                      <TableCell>{getOtherSocialMedia(registration) || "N/A"}</TableCell>
-                      <TableCell>{getMobileNumber(registration) || "N/A"}</TableCell>
-                      <TableCell>
-                        {formatDistanceToNow(new Date(registration.createdAt), { addSuffix: true })}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(registration.status)}</TableCell>
+                      {allTableColumns.map(
+                        (col) =>
+                          columnVisibility[col.id] && (
+                            <TableCell key={col.id} className={col.cellClassName}>
+                              {col.renderCell(registration)}
+                            </TableCell>
+                          ),
+                      )}
                       <TableCell className="sticky right-0 bg-background z-20">
                         <div className="flex justify-end gap-2">
                           <Button variant="outline" size="sm" onClick={() => handleViewRegistration(registration)}>
