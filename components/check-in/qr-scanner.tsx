@@ -512,10 +512,11 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
           </div>
         )}
 
-        <div className="flex flex-col items-center">
-          <div id={scannerContainerId} className="w-full max-w-sm h-64 bg-gray-100 rounded-lg overflow-hidden relative"></div>
+        <div className="flex flex-col items-center relative">
+          <div id={scannerContainerId} className="w-full max-w-sm h-96 bg-gray-100 rounded-lg overflow-hidden 
+          "></div>
           {!isScanning && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/5 pointer-events-none">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               {permissionState === "denied" ? (
                 <div className="text-center p-4 pointer-events-auto">
                   <Camera className="h-12 w-12 text-gray-400 mx-auto mb-2" />
@@ -541,7 +542,7 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
                   </Button>
                 </div>
               ) : (
-                <Camera className="h-12 w-12 text-gray-400" />
+                <Camera className="h-12 w-12 text-gray-400 " />
               )}
             </div>
           )}
