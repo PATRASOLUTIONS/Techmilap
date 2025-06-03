@@ -312,7 +312,7 @@ export default function MyTicketsPage() {
               ) : (
                 <Mail className="mr-2 h-4 w-4" />
               )}
-              {isSendingBulkEmails ? "Sending Emails..." : "Send All Confirmation Emails"}
+              {isSendingBulkEmails ? "Sending Emails..." : "Confirmation Emails"}
             </Button>
           )}
         </div>
