@@ -90,6 +90,13 @@ export function DynamicForm({
             /^(https?:\/\/)?(www\.)?github\.com\/[a-zA-Z0-9_-]+\/?$/,
             `${field.label} must be a valid GitHub profile URL`,
           )
+      } else if(field.label?.toLowerCase().includes("mvp")) {
+        fieldSchema = z
+          .string()
+          .regex(
+            /^https?:\/\/mvp\.microsoft\.com\/[a-zA-Z-]+\/MVP\/profile\/[a-fA-F0-9-]+\/?$/, 
+            `${field.label} must be a valid MVP profile URL`
+          )
       } else if (field.validation?.pattern) {
         // Use custom validation pattern if provided
         fieldSchema = z
