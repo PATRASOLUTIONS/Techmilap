@@ -106,6 +106,8 @@ export default async function ExplorePage({
       }
     })
 
+    formattedEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
     // Store user email in client-side script for comparison
     const userEmail = session.user.email
 

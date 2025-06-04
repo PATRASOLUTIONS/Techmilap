@@ -16,7 +16,13 @@ async function getPublicEvents() {
     }
 
     const data = await response.json()
-    return data.events || []
+    const fetchedEvents = data.events || []
+
+    fetchedEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+    console.log(fetchedEvents)
+
+    return fetchedEvents
   } catch (error) {
     console.error("Error fetching public events:", error)
     return []

@@ -16,6 +16,7 @@ import { format } from "date-fns"
 import { Loader2, AlertCircle, CalendarIcon } from "lucide-react"
 import { validateField, getValidationType } from "@/lib/form-validation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { logWithTimestamp } from "@/utils/logger"
 
 interface DynamicFormProps {
   formFields: any[]
@@ -36,6 +37,10 @@ export function DynamicForm({
   submitButtonText = "Submit",
   isSubmitting = false,
 }: DynamicFormProps) {
+  logWithTimestamp("info", "form fields", formFields)
+  logWithTimestamp("info", "formTitle", formTitle)
+  logWithTimestamp("info", "formDescription", formDescription)
+
   const [localSubmitting, setLocalSubmitting] = useState(false)
   const { toast } = useToast()
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
@@ -166,6 +171,8 @@ export function DynamicForm({
   }
 
   const handleSubmit = async (values: any) => {
+    logWithTimestamp("info", "form values", values)
+
     try {
       setLocalSubmitting(true)
       setFormError("") // Clear any previous form errors
@@ -337,6 +344,13 @@ export function DynamicForm({
         // Handle multiple checkboxes (options array)
         return (
           <div className="flex flex-col space-y-2">
+            {/* Render the group label once */}
+            <FormLabel>
+              {field.label}
+              {field.required && <span className="text-destructive ml-1">*</span>}
+            </FormLabel>
+
+            {/* Render each checkbox */}
             {field.options.map((option: any) => {
               const optionValue = option.value || option.id || ""
               const optionLabel = option.label || option.value || ""

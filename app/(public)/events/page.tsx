@@ -96,6 +96,7 @@ async function getEventsDirectly(searchParams?: {
     const pastEvents: Event[] = []
 
     allEvents.forEach((event) => {
+      console.log("Processing event:", event )
       const eventDate = event.date ? new Date(event.date) : null
       const eventEndDate = event.endDate ? new Date(event.endDate) : null
       const createdAt = event.createdAt ? new Date(event.createdAt) : new Date(0)
@@ -122,11 +123,13 @@ async function getEventsDirectly(searchParams?: {
     })
 
     // Sort each category
-    recentEvents.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    recentEvents.sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime())
     upcomingEvents.sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime())
     pastEvents.sort(
       (a, b) => new Date(b.endDate || b.date || 0).getTime() - new Date(a.endDate || a.date || 0).getTime(),
     )
+
+    
 
     // Combine all events in the desired order
     const sortedEvents = [...recentEvents, ...upcomingEvents, ...pastEvents]
