@@ -135,9 +135,9 @@ export function DashboardSidebar() {
   // Get submenu icon based on title
   const getSubmenuIcon = (title) => {
     switch (title) {
-      case "My Events":
+      case "Events":
         return BookMarked
-      case "My Tickets":
+      case "Event Tickets":
         return Ticket
       case "Past Events":
         return Clock
@@ -166,8 +166,8 @@ export function DashboardSidebar() {
       icon: Calendar,
       expanded: expandedSections.events,
       children: [
-        { title: "My Events", href: "/my-events", icon: BookMarked },
-        { title: "My Tickets", href: "/my-tickets", icon: Ticket },
+        { title: "Events", href: "/my-events", icon: BookMarked },
+        { title: "Event Tickets", href: "/my-tickets", icon: Ticket },
         { title: "Past Events", href: "/past-events", icon: Clock },
         { title: "Explore Events", href: "/explore", icon: Compass },
       ],
@@ -201,10 +201,10 @@ export function DashboardSidebar() {
       icon: Calendar,
       expanded: expandedSections.events,
       children: [
-        { title: "My Events", href: "/my-events", icon: BookMarked },
-        { title: "My Tickets", href: "/my-tickets", icon: Ticket },
-        { title: "Past Events", href: "/past-events", icon: Clock },
         { title: "Create Event", href: "/dashboard/events/create", icon: PlusCircle },
+        { title: "Events", href: "/my-events", icon: BookMarked },
+        { title: "Event Tickets", href: "/my-tickets", icon: Ticket },
+        { title: "Past Events", href: "/past-events", icon: Clock },
         { title: "Explore Events", href: "/explore", icon: Compass },
       ],
     },
@@ -474,7 +474,7 @@ export function DashboardSidebar() {
               <div className="h-8 w-8 rounded-md bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
                 <Calendar className="h-5 w-5" />
               </div>
-              <span className="font-semibold text-lg text-white">MyEvent</span>
+              <span className="font-semibold text-lg text-white">Event</span>
             </Link>
           )}
           {isCollapsed && (
