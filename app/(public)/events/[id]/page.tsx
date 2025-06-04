@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { logWithTimestamp } from "@/utils/logger"
+import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 
 type EventType = {
   title: string;
@@ -75,13 +77,25 @@ function formatEventTime(timeString: any) {
   }
 }
 
-export default function EventPage({ params }: { params: Promise<{ id: string }> }) {
+// : { params: Promise<{ id: string }> }
+export default function EventPage({ params }: {params: {id: string}}) {
+  const { status} = useSession()
+  const router = useRouter()
+  
+  // when unauthenticated push the user to login page
+  useEffect(() => {
+    if(status === "unauthenticated") {
+      router.push("/login")
+    }
+  }, [status])
+
   const [event, setEvent] = useState<EventType>(fallbackEvent);
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [isPast, setIsPast] = useState(false)
 
-  const { id } = use(params as Promise<{ id: string }>)
+// const { id } = use(params as Promise<{ id: string }>)
+  const {id} = params 
 
   useEffect(() => {
     async function fetchEvent() {

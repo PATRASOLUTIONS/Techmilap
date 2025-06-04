@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useSession } from "next-auth/react"
 import { formatDistanceToNow } from "date-fns"
-import { Star, ThumbsUp, Flag, MoreVertical, MessageSquare, Trash, Edit, Check, X } from "lucide-react"
+import { Star, ThumbsUp, Flag, MoreVertical, MessageSquare, Trash, Edit, Check, X, Smile } from "lucide-react"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -231,11 +231,11 @@ export function ReviewCard({
           <div>
             <h3 className="text-sm font-medium">{getUserName()}</h3>
             <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-              <div className="flex items-center">
+              <div className="flex items-center gap-1">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
+                  <Smile
                     key={i}
-                    className={cn("h-3 w-3", i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300")}
+                    className={cn("h-4 w-4", i < review.rating ? "text-yellow-400" : "text-gray-300")}
                   />
                 ))}
               </div>

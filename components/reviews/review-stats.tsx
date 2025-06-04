@@ -1,6 +1,6 @@
 "use client"
 
-import { Star } from "lucide-react"
+import { Smile, Star } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 
 interface ReviewStatsProps {
@@ -84,7 +84,8 @@ export function ReviewStats({ stats }: ReviewStatsProps) {
           <div key={rating} className="flex items-center gap-2">
             <div className="flex items-center w-12">
               <span>{rating}</span>
-              <Star className="h-4 w-4 ml-1 text-yellow-400 fill-yellow-400" />
+              {/* <Star className="h-4 w-4 ml-1 text-yellow-400 fill-yellow-400" /> */}
+              <Smile className="h-4 w-4 ml-1 text-yellow-500 "/>
             </div>
             <Progress value={ratingPercentages[rating]} className="h-2" />
             <div className="w-12 text-right text-sm text-muted-foreground">{ratings[rating] || 0}</div>

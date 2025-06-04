@@ -10,6 +10,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, CheckCircle } from "lucide-react"
+import { isZeroValueString } from "framer-motion"
+import { useToast } from "@/hooks/use-toast"
+
 
 const profileFormSchema = z.object({
   firstName: z.string().min(2, {
@@ -71,6 +74,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
+  const { toast } = useToast()
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -94,12 +98,48 @@ export function ProfileForm({ user }: ProfileFormProps) {
     },
   })
 
+  // Validation
+  const isValid = () => {
+    // check the form data
+    // to validate
+    // 1. MVP
+    // 2. Github
+    // 3. Linkedin
+    
+    if(form.getValues().mvpProfileLink?.trim().length !== 0 && !/^https?:\/\/mvp\.microsoft\.com\/[a-zA-Z-]+\/MVP\/profile\/[a-fA-F0-9-]+\/?$/.test(form.getValues().mvpProfileLink)) {
+      console.log("mvp profile url error")
+      return "Invalid MVP Profile Link."
+    }
+    if(form.getValues().githubId?.trim().length !== 0 && !/^(https?:\/\/)?(www\.)?github\.com\/[a-zA-Z0-9_-]+\/?$/.test(form.getValues().githubId)) {
+      console.log("github profile url error")
+      return "Invalid Github Profile Link."
+    }
+    if(form.getValues().linkedinId?.trim().length !== 0 && !/^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+\/?$/.test(form.getValues().linkedinId)){
+      console.log("linkedin profile url error")
+      return "Invalid Linkedin Profile Link."
+    }
+  }
+
+  // console.log(form.getValues().)
+
   async function onSubmit(data: ProfileFormValues) {
     setIsLoading(true)
     setError("")
     setSuccess(false)
 
+    const isValidated = isValid()
+    if(isValidated) {
+      toast({
+        variant: "destructive", 
+        title: "Error",
+        description: isValidated || "Unknown error occured"
+      }) 
+
+      return 
+    }
+
     try {
+
       const response = await fetch(`/api/users/${user._id}`, {
         method: "PUT",
         headers: {

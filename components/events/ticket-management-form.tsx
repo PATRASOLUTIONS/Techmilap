@@ -256,9 +256,10 @@ export function TicketManagementForm({ updateData, initialData , handleNext}: Ti
           ))}
         </div>
 
-        <Button type="button" variant="outline" onClick={addTicket} className="w-full">
+        {/* Ticket Type */}
+        {/* <Button type="button" variant="outline" onClick={addTicket} className="w-full">
           Add Another Ticket Type
-        </Button>
+        </Button> */}
 
         <FormField
           control={form.control}
