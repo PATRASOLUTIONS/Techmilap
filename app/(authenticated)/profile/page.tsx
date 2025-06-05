@@ -20,6 +20,20 @@ export default async function ProfilePage() {
     return <div>User not found</div>
   }
 
+  const plainUserObject = {
+    ...user,
+    _id: user._id.toString(), // Convert ObjectId to string
+    createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : undefined,
+    updatedAt: user.updatedAt ? new Date(user.updatedAt).toISOString() : undefined,
+    // Explicitly convert contents of arrays that might contain ObjectIds or nested Mongoose documents.
+    createdEvents: user.createdEvents ? user.createdEvents.map((eventId: any) => eventId.toString()) : [],
+    registeredEvents: user.registeredEvents ? user.registeredEvents.map((reg: any) => ({
+        ...reg, // Spread the lean registration object
+        _id: reg._id.toString(), // Convert its ObjectId to string
+        // Convert any dates within the nested object if necessary (e.g., reg.createdAt, reg.updatedAt)
+    })) : [],
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -33,7 +47,7 @@ export default async function ProfilePage() {
           <CardDescription>Update your personal details and contact information.</CardDescription>
         </CardHeader>
         <CardContent>
-          <ProfileForm user={user} />
+          <ProfileForm user={plainUserObject} />
         </CardContent>
       </Card>
     </div>
