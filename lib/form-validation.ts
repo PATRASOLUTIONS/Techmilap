@@ -7,6 +7,7 @@ export const validationPatterns = {
   url: /^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)$/,
   linkedinUrl: /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+\/?$/,
   githubUrl: /^(https?:\/\/)?(www\.)?github\.com\/[a-zA-Z0-9_-]+\/?$/,
+  mvpUrl: /^https?:\/\/mvp\.microsoft\.com\/[a-zA-Z-]+\/MVP\/profile\/[a-fA-F0-9-]+\/?$/,
 }
 
 // Validation messages
@@ -18,6 +19,7 @@ export const validationMessages = {
   url: "Please enter a valid URL",
   linkedinUrl: "Please enter a valid LinkedIn profile URL",
   githubUrl: "Please enter a valid GitHub profile URL",
+  mvpUrl: "Please enter a valid MVP Profile URL",
 }
 
 // Function to validate a field based on its type and value
@@ -49,6 +51,9 @@ export function validateField(type: string, value: string, required = false): st
     case "githubUrl":
       return validationPatterns.githubUrl.test(value) ? null : validationMessages.githubUrl
 
+    case "mvpUrl":
+      return validationPatterns.mvpUrl.test(value) ? null : validationMessages.mvpUrl
+
     case "url":
       return validationPatterns.url.test(value) ? null : validationMessages.url
 
@@ -74,6 +79,10 @@ export function getValidationType(question: any): string {
 
   if (label.includes("github")) {
     return "githubUrl"
+  }
+
+  if(label.includes("mvp")) {
+    return "mvpUrl"
   }
 
   if (label.includes("mobile") || label.includes("phone")) {

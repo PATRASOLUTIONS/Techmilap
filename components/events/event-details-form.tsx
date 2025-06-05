@@ -310,6 +310,24 @@ export function EventDetailsForm({
             )}
           />
 
+          <FormField control={form.control}
+          name="location"
+          render={({field}) => (
+            <FormItem>
+              <FormLabel>
+                Online Link
+              </FormLabel>
+              <FormControl>
+                <Input placeholder="Event Online Link"
+                  {...field}
+                  onChange={(e) => {
+                    // further changes needed for the online event
+                  }}
+                />
+              </FormControl>
+            </FormItem>
+          )}/>
+
           <FormField
             control={form.control}
             name="category"

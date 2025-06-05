@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next"
 import { redirect } from "next/navigation"
 import { authOptions } from "@/lib/auth"
+import { SubmissionsTable } from "@/components/dashboard/submissions-table"
 import { SpeakerApplicationsTable } from "@/components/dashboard/speaker-applications-table"
 
 export default async function EventSpeakersPage({ params }: { params: { id: string } }) {
@@ -18,16 +19,13 @@ export default async function EventSpeakersPage({ params }: { params: { id: stri
   const eventId = params.id
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Speaker Applications</h1>
-        <p className="text-muted-foreground">Manage speaker applications for your event.</p>
-      </div>
-
-      <SpeakerApplicationsTable
+    <div className="container mx-auto py-6 space-y-6">
+      <h1 className="text-3xl font-bold tracking-tight">Speaker Applications</h1>
+      <SubmissionsTable
         eventId={eventId}
         title="Speaker Applications"
-        description="Review and manage speaker applications for your event. Use filters to find specific speakers based on their application information."
+        formType="speaker"
+        description="Review and manage speaker applications for your event."
       />
     </div>
   )

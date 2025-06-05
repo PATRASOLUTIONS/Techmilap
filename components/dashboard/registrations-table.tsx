@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Loader2, Eye, CheckCircle, XCircle, Search, Download, Mail, ChevronLeft, ChevronRight } from "lucide-react"
+import { Loader2, Eye, CheckCircle, XCircle, Search, Download, Mail, ChevronLeft, ChevronRight, X, ListFilter } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { formatDistanceToNow } from "date-fns"
 import { downloadCSV, objectsToCSV, formatDateForCSV } from "@/lib/csv-export"
@@ -22,6 +22,15 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
 
 interface RegistrationsTableProps {
   eventId: string
@@ -45,16 +54,29 @@ interface QuestionType {
   max?: number
 }
 
-export function RegistrationsTable({ eventId, title, description, filterStatus }: RegistrationsTableProps) {
+// Define ColumnConfig interface
+interface ColumnConfig {
+  id: string
+  label: string
+  defaultVisible: boolean
+  isToggleable: boolean
+  headerClassName?: string
+  cellClassName?: string
+  renderCell: (registration: any) => React.ReactNode
+}
+
+export function RegistrationsTable({ eventId, title, description, filterStatus: initialFilterStatus }: RegistrationsTableProps) {
+  // Renamed filterStatus to initialFilterStatus to avoid conflict if we add filter state later
   const [registrations, setRegistrations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedRegistration, setSelectedRegistration] = useState<any>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
   const { toast } = useToast()
   const [selectedRegistrations, setSelectedRegistrations] = useState<string[]>([])
-  const [customQuestions, setCustomQuestions] = useState<QuestionType[]>([])
+  const [formSchemaQuestions, setFormSchemaQuestions] = useState<QuestionType[]>([]) // Renamed for clarity
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -77,7 +99,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
   const RETRY_DELAY = 5000 // 5 seconds
 
   // Group questions by type for better organization
-  const questionsByType = customQuestions.reduce(
+  const questionsByType = formSchemaQuestions.reduce(
     (acc, question) => {
       if (!acc[question.type]) {
         acc[question.type] = []
@@ -87,6 +109,118 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     },
     {} as Record<string, QuestionType[]>,
   )
+
+  // State for table columns and their visibility - will be set dynamically
+  const [allTableColumns, setAllTableColumns] = useState<ColumnConfig[]>([])
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({})
+
+  // useEffect to dynamically build table columns based on formSchemaQuestions
+  useEffect(() => {
+    const buildColumns = () => {
+      const generatedColumns: ColumnConfig[] = []
+
+      // --- Start with essential, always-present columns or columns derived by helper functions ---
+      // generatedColumns.push({
+      //   id: "name",
+      //   label: "Name",
+      //   defaultVisible: true,
+      //   isToggleable: false,
+      //   headerClassName: "sticky left-[50px] bg-background z-20 min-w-[150px]",
+      //   cellClassName: "sticky left-[50px] bg-background z-20 font-medium",
+      //   renderCell: (registration) => getAttendeeName(registration),
+      // })
+      // generatedColumns.push({
+      //   id: "email",
+      //   label: "Email ID",
+      //   defaultVisible: true,
+      //   isToggleable: true,
+      //   headerClassName: "min-w-[200px]",
+      //   cellClassName: "max-w-[200px] truncate",
+      //   renderCell: (registration) => getAttendeeEmail(registration),
+      // })
+
+      // --- Add columns from the fetched form schema ---
+      formSchemaQuestions.forEach(question => {
+        // Avoid re-adding 'name' or 'email' if they are also in formSchemaQuestions,
+        // as we've already added them with more robust getters.
+        // We can update their labels if the form schema has a more specific one.
+        const isNameOrEmail = question.id.toLowerCase() === 'name' || question.id.toLowerCase() === 'email';
+        if (isNameOrEmail) {
+          const existingCol = generatedColumns.find(col => col.id === question.id.toLowerCase());
+          if (existingCol) {
+            existingCol.label = question.label; // Update label if different
+          }
+          return; // Skip adding as a new column
+        }
+
+        // For other questions, add them as new columns
+        generatedColumns.push({
+          id: question.id, // This ID should match the key in registration.data
+          label: question.label,
+          defaultVisible: [ // Define which common fields might be visible by default
+            "corporateEmail", "designation", "mobileNumber", "phone", "company", "jobTitle"
+          ].includes(question.id) || question.required || false, // Make required questions visible by default
+          isToggleable: true,
+          headerClassName: "min-w-[150px]",
+          cellClassName: "max-w-[200px] truncate",
+          renderCell: (registration: any) => {
+            const value = getFieldValue(registration, [question.id], "N/A");
+            if (typeof value === 'boolean') return value ? "Yes" : "No";
+            if (Array.isArray(value)) return value.join(", ");
+            return String(value);
+          }
+        });
+      });
+
+      // --- Add other static columns like Registered Date and Status ---
+      generatedColumns.push({
+        id: "registeredDate",
+        label: "Registered",
+        defaultVisible: true,
+        isToggleable: true,
+        headerClassName: "min-w-[150px]",
+        renderCell: (registration) => formatDistanceToNow(new Date(registration.createdAt), { addSuffix: true }),
+      });
+      generatedColumns.push({
+        id: "status",
+        label: "Status",
+        defaultVisible: true,
+        isToggleable: false,
+        headerClassName: "min-w-[100px]",
+        renderCell: (registration) => getStatusBadge(registration.status),
+      });
+
+      // Deduplicate columns by ID, prioritizing earlier definitions
+      const finalColumns = Array.from(new Map(generatedColumns.map(col => [col.id, col])).values());
+      setAllTableColumns(finalColumns);
+
+      // Initialize columnVisibility based on the final columns
+      const initialVisibility = finalColumns.reduce((acc, col) => {
+        acc[col.id] = col.defaultVisible;
+        return acc;
+      }, {} as Record<string, boolean>);
+      setColumnVisibility(initialVisibility);
+    };
+
+    // Build columns if formSchemaQuestions are loaded, otherwise use a minimal default.
+    if (formSchemaQuestions.length > 0) {
+      buildColumns();
+    } else {
+      // Fallback to a minimal set of columns if formSchemaQuestions are not yet loaded or empty
+      const minimalColumns: ColumnConfig[] = [
+        { id: "name", label: "Name", defaultVisible: true, isToggleable: false, headerClassName: "sticky left-[50px] bg-background z-20 min-w-[150px]", cellClassName: "sticky left-[50px] bg-background z-20 font-medium", renderCell: (registration) => getAttendeeName(registration) },
+        { id: "email", label: "Email ID", defaultVisible: true, isToggleable: true, headerClassName: "min-w-[200px]", cellClassName: "max-w-[200px] truncate", renderCell: (registration) => getAttendeeEmail(registration) },
+        { id: "registeredDate", label: "Registered", defaultVisible: true, isToggleable: true, headerClassName: "min-w-[150px]", renderCell: (registration) => formatDistanceToNow(new Date(registration.createdAt), { addSuffix: true }) },
+        { id: "status", label: "Status", defaultVisible: true, isToggleable: false, headerClassName: "min-w-[100px]", renderCell: (registration) => getStatusBadge(registration.status) },
+      ];
+      setAllTableColumns(minimalColumns);
+      const initialVisibility = minimalColumns.reduce((acc, col) => {
+        acc[col.id] = col.defaultVisible;
+        return acc;
+      }, {} as Record<string, boolean>);
+      setColumnVisibility(initialVisibility);
+    }
+  }, [formSchemaQuestions]); // Rebuild columns when formSchemaQuestions changes
 
   // Calculate pagination values
   useEffect(() => {
@@ -406,6 +540,18 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     console.log("Full registration object:", registration)
   }
 
+  // Debounce search query
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 500) // 500ms delay
+
+    return () => {
+      clearTimeout(timerId)
+    }
+  }, [searchQuery])
+
+
   // Modify the useEffect that fetches registrations to include retry logic
   useEffect(() => {
     const fetchRegistrations = async () => {
@@ -418,12 +564,12 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
         let url = `/api/events/${eventId}/registrations`
         const params = new URLSearchParams()
 
-        if (filterStatus) {
-          params.append("status", filterStatus)
+        if (initialFilterStatus) {
+          params.append("status", initialFilterStatus)
         }
 
-        if (searchQuery) {
-          params.append("search", searchQuery)
+        if (debouncedSearchQuery) {
+          params.append("search", debouncedSearchQuery)
         }
 
         if (params.toString()) {
@@ -451,31 +597,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
         if (data.registrations && data.registrations.length > 0) {
           logRegistrationStructure(data.registrations[0])
         }
-
-        // Process each registration to ensure name and email are properly set
-        const processedRegistrations =
-          data.registrations?.map((reg: any) => {
-            // Make sure the registration has a data object
-            if (!reg.data) reg.data = {}
-
-            // Extract email and name from the registration data
-            const email = getAttendeeEmail(reg)
-            const name = getAttendeeName(reg)
-
-            // Update the registration object with the extracted email and name
-            return {
-              ...reg,
-              userEmail: email !== "N/A" ? email : reg.userEmail,
-              userName: name !== "Anonymous" ? name : reg.userName,
-              data: {
-                ...reg.data,
-                email: email !== "N/A" ? email : reg.data.email,
-                name: name !== "Anonymous" ? name : reg.data.name,
-              },
-            }
-          }) || []
-
-        setRegistrations(processedRegistrations)
+        setRegistrations(data.registrations || [])
         setShouldRetry(false) // Reset retry flag on success
         setRetryCount(0) // Reset retry count on success
 
@@ -521,7 +643,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     return () => {
       if (retryTimeout) clearTimeout(retryTimeout)
     }
-  }, [eventId, filterStatus, searchQuery, toast, shouldRetry, retryCount])
+  }, [eventId, initialFilterStatus, debouncedSearchQuery, toast, shouldRetry, retryCount])
 
   // Add a separate effect to handle the retry logic
   useEffect(() => {
@@ -534,31 +656,35 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
     }
   }, [error, retryCount])
 
-  // Fetch custom questions for the attendee form
+  // Fetch form schema questions for the attendee form
   useEffect(() => {
-    const fetchCustomQuestions = async () => {
+    const fetchFormSchema = async () => {
       try {
-        const response = await fetch(`/api/events/${eventId}/attendee-form`)
+        // Ensure this API endpoint returns the questions for the 'attendee' form
+        const response = await fetch(`/api/events/${eventId}/forms/attendee`)
         if (!response.ok) {
           throw new Error("Failed to fetch form questions")
         }
 
         const data = await response.json()
+        // The actual questions might be nested, e.g., data.form.questions or data.questions
+        const questions = data.questions || data.form?.questions || [];
 
-        // Combine predefined questions with custom questions
-        const predefinedQuestions = [
-          { id: "name", label: "Name", type: "text" },
-          { id: "email", label: "Email", type: "email" },
-          { id: "phone", label: "Phone", type: "tel" },
-        ]
-
-        setCustomQuestions([...predefinedQuestions, ...(data.questions || [])])
+        const validQuestions = questions
+          .filter(q => q.id && q.label) // Ensure essential properties exist
+          .map(q => ({
+            id: q.id,
+            label: q.label,
+            type: q.type || 'text', // Default type if not specified
+            required: q.required || false,
+          }));
+        setFormSchemaQuestions(validQuestions);
       } catch (error) {
         console.error("Error fetching custom questions:", error)
       }
     }
 
-    fetchCustomQuestions()
+    fetchFormSchema()
   }, [eventId])
 
   const handleViewRegistration = (registration: any) => {
@@ -997,14 +1123,49 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
             Export CSV
           </Button>
 
-          <div className="relative">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <ListFilter className="h-4 w-4 mr-1" />
+                Columns
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {allTableColumns
+                .filter((col) => col.isToggleable)
+                .map((col) => (
+                  <DropdownMenuCheckboxItem
+                    key={col.id}
+                    className="capitalize"
+                    checked={columnVisibility[col.id]}
+                    onCheckedChange={(value) => setColumnVisibility((prev) => ({ ...prev, [col.id]: !!value }))}
+                  >
+                    {col.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="relative flex items-center">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name or email..."
-              className="pl-8 max-w-sm"
+              className="pl-8 pr-8 max-w-sm" // Added pr-8 for button spacing
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => setSearchQuery("")}
+              >
+                <X className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -1015,90 +1176,86 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
           </div>
         ) : (
           <div className="border rounded-md">
-            <div className="overflow-auto" style={{ maxWidth: "100%", maxHeight: "70vh" }}>
-              <Table className="min-w-full">
-                <TableHeader className="sticky top-0 bg-background z-10">
-                  <TableRow>
-                    <TableHead className="sticky left-0 bg-background z-20 w-[50px]">
-                      <Checkbox
-                        checked={allSelected}
-                        onCheckedChange={() => toggleSelectAll()}
-                        aria-label="Select all"
-                      />
-                    </TableHead>
-                    <TableHead className="sticky left-[50px] bg-background z-20 min-w-[150px]">Name</TableHead>
-                    <TableHead className="min-w-[200px]">Email ID</TableHead>
-                    <TableHead className="min-w-[200px]">Corporate Email ID</TableHead>
-                    <TableHead className="min-w-[150px]">Designation</TableHead>
-                    <TableHead className="min-w-[150px]">LinkedIn ID</TableHead>
-                    <TableHead className="min-w-[150px]">GitHub ID</TableHead>
-                    <TableHead className="min-w-[150px]">Other Social Media</TableHead>
-                    <TableHead className="min-w-[150px]">Mobile Number</TableHead>
-                    <TableHead className="min-w-[150px]">Registered</TableHead>
-                    <TableHead className="min-w-[100px]">Status</TableHead>
-                    <TableHead className="sticky right-0 bg-background z-20 min-w-[180px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {getCurrentPageItems().map((registration: any) => (
-                    <TableRow key={registration._id}>
-                      <TableCell className="sticky left-0 bg-background z-20">
+            {/* This outer div handles vertical scrolling if the content (including the table) exceeds 70vh */}
+            <div style={{ maxHeight: "70vh", overflowY: "auto" }}>
+              {/* This inner div specifically handles horizontal scrolling for the table */}
+              <div className="overflow-x-auto">
+                <Table className="min-w-full">
+                  <TableHeader className="sticky top-0 bg-background z-10">
+                    <TableRow>
+                      <TableHead className="sticky left-0 bg-background z-20 w-[50px]">
                         <Checkbox
-                          checked={selectedRegistrations.includes(registration._id)}
-                          onCheckedChange={() => toggleRegistration(registration._id)}
-                          aria-label="Select row"
+                          checked={allSelected}
+                          onCheckedChange={() => toggleSelectAll()}
+                          aria-label="Select all"
                         />
-                      </TableCell>
-                      <TableCell className="sticky left-[50px] bg-background z-20 font-medium">
-                        {getAttendeeName(registration)}
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate">{getAttendeeEmail(registration)}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {getCorporateEmail(registration) || "N/A"}
-                      </TableCell>
-                      <TableCell>{getDesignation(registration) || "N/A"}</TableCell>
-                      <TableCell className="max-w-[150px] truncate">{getLinkedIn(registration) || "N/A"}</TableCell>
-                      <TableCell className="max-w-[150px] truncate">{getGitHub(registration) || "N/A"}</TableCell>
-                      <TableCell>{getOtherSocialMedia(registration) || "N/A"}</TableCell>
-                      <TableCell>{getMobileNumber(registration) || "N/A"}</TableCell>
-                      <TableCell>
-                        {formatDistanceToNow(new Date(registration.createdAt), { addSuffix: true })}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(registration.status)}</TableCell>
-                      <TableCell className="sticky right-0 bg-background z-20">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleViewRegistration(registration)}>
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                          {registration.status === "pending" && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-green-600 hover:text-green-700"
-                                onClick={() => handleUpdateStatus(registration._id, "approved")}
-                              >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Approve
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-red-600 hover:text-red-700"
-                                onClick={() => handleUpdateStatus(registration._id, "rejected")}
-                              >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Reject
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
+                      </TableHead>
+                      {allTableColumns.map(
+                        (col) =>
+                          columnVisibility[col.id] && (
+                            <TableHead key={col.id} className={col.headerClassName}>
+                              {col.label}
+                            </TableHead>
+                          ),
+                      )}
+                      <TableHead className="sticky right-0 bg-background z-20 min-w-[180px]">
+                        {/* Actions column header content, if any, or leave empty for alignment */}
+                      </TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {getCurrentPageItems().map((registration: any) => (
+                      <TableRow key={registration._id}>
+                        <TableCell className="sticky left-0 bg-background z-20">
+                          <Checkbox
+                            checked={selectedRegistrations.includes(registration._id)}
+                            onCheckedChange={() => toggleRegistration(registration._id)}
+                            aria-label="Select row"
+                          />
+                        </TableCell>
+                        {allTableColumns.map(
+                          (col) =>
+                            columnVisibility[col.id] && (
+                              <TableCell key={col.id} className={col.cellClassName}>
+                                {col.renderCell(registration)}
+                              </TableCell>
+                            ),
+                        )}
+                        <TableCell className="sticky right-0 bg-background z-20">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleViewRegistration(registration)}>
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </Button>
+                            {registration.status === "pending" && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-green-600 hover:text-green-700"
+                                  onClick={() => handleUpdateStatus(registration._id, "approved")}
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Approve
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700"
+                                  onClick={() => handleUpdateStatus(registration._id, "rejected")}
+                                >
+                                  <XCircle className="h-4 w-4 mr-1" />
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           </div>
         )}
@@ -1213,17 +1370,30 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
               <div className="border-t pt-4">
                 <h3 className="font-medium mb-2">Form Responses</h3>
                 <div className="space-y-3">
-                  {selectedRegistration.data &&
-                    Object.entries(selectedRegistration.data).map(([key, value]) => (
-                      <div key={key} className="grid grid-cols-3 gap-2">
-                        <div className="font-medium text-sm">{key}</div>
-                        <div className="col-span-2">{String(value)}</div>
-                      </div>
-                    ))}
+                  {selectedRegistration.data && (
+                    Object.entries(selectedRegistration.data).map(([key, value]) => {
+                      // Find the question label from formSchemaQuestions array
+                      const question = formSchemaQuestions.find(q => q.id === key);
+                      // Use the question's label if found, otherwise format the key (you might need a formatFieldName helper)
+                      const displayLabel = question ? question.label : key.replace(/^question_/, "").replace(/_\d+$/, "").replace(/([A-Z])/g, " $1").replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase());
+
+                      // If the displayLabel is "Name" or "Email", skip rendering it in this section
+                      // as it's already covered in the summary.
+                      if (displayLabel.toLowerCase().includes("name") || displayLabel.toLowerCase().includes("email")) {
+                        return null;
+                      }
+
+                      return (
+                        <div key={key} className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-1 py-1 border-b border-dashed last:border-b-0">
+                          <div className="font-medium text-sm text-muted-foreground md:col-span-1">{displayLabel}</div>
+                          <div className="col-span-2">{String(value)}</div>
+                        </div>
+                      );
+                    }))}
                 </div>
               </div>
 
-              {selectedRegistration.status === "pending" && (
+              {/* {selectedRegistration.status === "pending" && (
                 <div className="flex justify-end gap-2 pt-4">
                   <Button
                     variant="outline"
@@ -1248,7 +1418,7 @@ export function RegistrationsTable({ eventId, title, description, filterStatus }
                     Reject
                   </Button>
                 </div>
-              )}
+              )} */}
             </div>
           )}
         </DialogContent>

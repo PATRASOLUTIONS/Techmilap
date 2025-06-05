@@ -72,6 +72,27 @@ export function CustomQuestionsForm({
   // Add a ref to track the last fetch time to prevent too frequent API calls
   const lastFetchTime = useRef(0)
 
+  // Helper function to convert a label to a camelCase ID segment
+  const labelToIdSegment = (label: string): string => {
+    if (!label || typeof label !== 'string' || label.trim() === '') {
+      return `untitled`; // Default segment if label is empty
+    }
+    const words = label.trim().toLowerCase().split(/\s+/);
+    if (words.length === 0) return 'untitled';
+
+    return words.map((word, index) => {
+      if (index === 0) return word;
+      // Special handling for "ID" to become "Id" in camelCase
+      if (word.toUpperCase() === "ID" && index > 0) return "Id";
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    }).join('');
+  };
+
+  // Helper function to generate a unique question ID
+  const generateQuestionId = (label: string): string => {
+    const labelSegment = labelToIdSegment(label);
+    return `question_${labelSegment}_${Date.now()}`; // Timestamp generated here
+  };
   const generateDefaultQuestions = useCallback(() => {
     const defaultAttendeeQuestions = [
       {
@@ -82,154 +103,156 @@ export function CustomQuestionsForm({
         required: true,
       },
       {
-        id: `question_email_${Date.now() + 1}`,
+        // id: generateQuestionId("Email ID"), // Will be set in map
         type: "email",
         label: "Email ID",
         placeholder: "Enter your email address",
         required: true,
       },
       {
-        id: `question_corporateEmail_${Date.now() + 2}`,
+        // id: generateQuestionId("Corporate Email ID"),
         type: "email",
         label: "Corporate Email ID",
         placeholder: "Enter your corporate email address",
         required: true,
       },
       {
-        id: `question_designation_${Date.now() + 3}`,
+        // id: generateQuestionId("Designation"),
         type: "text",
         label: "Designation",
         placeholder: "Enter your designation",
         required: true,
       },
       {
-        id: `question_linkedinId_${Date.now() + 4}`,
+        // id: generateQuestionId("LinkedIn ID"),
         type: "text",
         label: "LinkedIn ID",
         placeholder: "Enter your LinkedIn profile URL",
         required: true,
       },
       {
-        id: `question_githubId_${Date.now() + 5}`,
+        // id: generateQuestionId("GitHub ID"),
         type: "text",
         label: "GitHub ID",
         placeholder: "Enter your GitHub profile URL",
         required: true,
       },
       {
-        id: `question_otherSocialMediaId_${Date.now() + 6}`,
+        // id: generateQuestionId("Any other social Media ID"),
         type: "text",
         label: "Any other social Media ID",
         placeholder: "Enter any other social media profile URL",
         required: false,
       },
       {
-        id: `question_mobileNumber_${Date.now() + 7}`,
+        // id: generateQuestionId("Mobile number"),
         type: "phone",
         label: "Mobile number",
         placeholder: "Enter your mobile number",
         required: true,
       },
-    ]
+    ].map(q => {
+      return { ...q, id: generateQuestionId(q.label) }; // Use new generateQuestionId
+    });
 
     const defaultVolunteerQuestions = [
       {
-        id: `question_name_${Date.now() + 10}`,
+        // id: `question_name_${Date.now() + 10}`, // Will be set in map
         type: "text",
         label: "Name",
         placeholder: "Enter your name",
         required: true,
       },
       {
-        id: `question_email_${Date.now() + 11}`,
+        // id: generateQuestionId("Email ID"),
         type: "email",
         label: "Email ID",
         placeholder: "Enter your email address",
         required: true,
       },
       {
-        id: `question_corporateEmail_${Date.now() + 12}`,
+        // id: generateQuestionId("Corporate Email ID"),
         type: "email",
         label: "Corporate Email ID",
         placeholder: "Enter your corporate email address",
         required: true,
       },
       {
-        id: `question_designation_${Date.now() + 13}`,
+        // id: generateQuestionId("Designation"),
         type: "text",
         label: "Designation",
         placeholder: "Enter your designation",
         required: true,
       },
       {
-        id: `question_eventOrganizer_${Date.now() + 14}`,
+        // id: generateQuestionId("Event Organizer"),
         type: "text",
         label: "Event Organizer",
         placeholder: "Enter the event organizer",
         required: true,
       },
       {
-        id: `question_isMicrosoftMVP_${Date.now() + 15}`,
+        // id: generateQuestionId("Are you a Microsoft MVP?"),
         type: "checkbox",
         label: "Are you a Microsoft MVP?",
         required: true,
       },
       {
-        id: `question_mvpId_${Date.now() + 16}`,
+        // id: generateQuestionId("MVP ID"),
         type: "text",
         label: "MVP ID",
         placeholder: "Enter your MVP ID",
         required: false,
       },
       {
-        id: `question_mvpProfileLink_${Date.now() + 17}`,
+        // id: generateQuestionId("MVP Profile Link"),
         type: "text",
         label: "MVP Profile Link",
         placeholder: "Enter your MVP profile link",
         required: false,
       },
       {
-        id: `question_mvpCategory_${Date.now() + 18}`,
+        // id: generateQuestionId("MVP Category"),
         type: "text",
         label: "MVP Category",
         placeholder: "Enter your MVP category",
         required: false,
       },
       {
-        id: `question_howManyEventsVolunteered_${Date.now() + 19}`,
+        // id: generateQuestionId("How many events have you supported as a volunteer?"),
         type: "select",
         label: "How many events have you supported as a volunteer?",
         placeholder: "Select the number of events",
         required: true,
         options: [
-          { id: "events_1", value: "1-5" },
-          { id: "events_2", value: "6-10" },
-          { id: "events_3", value: "11+" },
+          { value: "1-5" },
+          { value: "6-10" },
+          { value: "11+" },
         ],
       },
       {
-        id: `question_meetupEventName_${Date.now() + 20}`,
+        // id: `question_meetupEventName_${Date.now() + 20}`,
         type: "text",
         label: "Meetup/Event Name",
         placeholder: "Enter the meetup/event name",
         required: true,
       },
       {
-        id: `question_eventDetails_${Date.now() + 21}`,
+        // id: generateQuestionId("Event Details"),
         type: "textarea",
         label: "Event Details",
         placeholder: "Enter the event details",
         required: true,
       },
       {
-        id: `question_meetupPageDetails_${Date.now() + 22}`,
+        // id: generateQuestionId("Meetup page details"),
         type: "text",
         label: "Meetup page details",
         placeholder: "Enter the meetup page details",
         required: true,
       },
       {
-        id: `question_yourContribution_${Date.now() + 23}`,
+        // id: generateQuestionId("Your Contribution"),
         type: "select",
         label: "Your Contribution",
         placeholder: "Select your contribution",
@@ -243,162 +266,167 @@ export function CustomQuestionsForm({
         ],
       },
       {
-        id: `question_organizerName_${Date.now() + 24}`,
+        // id: generateQuestionId("Organizer Name/ LinkedIn ID"),
         type: "text",
         label: "Organizer Name/ LinkedIn ID",
         placeholder: "Enter the organizer name/ LinkedIn ID",
         required: true,
       },
       {
-        id: `question_linkedinId_${Date.now() + 25}`,
+        // id: generateQuestionId("LinkedIn ID"),
         type: "text",
         label: "LinkedIn ID",
         placeholder: "Enter your LinkedIn profile URL",
         required: true,
       },
       {
-        id: `question_githubId_${Date.now() + 26}`,
+        // id: generateQuestionId("GitHub ID"),
         type: "text",
         label: "GitHub ID",
         placeholder: "Enter your GitHub profile URL",
         required: true,
       },
       {
-        id: `question_otherSocialMediaId_${Date.now() + 27}`,
+        // id: generateQuestionId("Any other social Media ID"),
         type: "text",
         label: "Any other social Media ID",
         placeholder: "Enter any other social media profile URL",
         required: false,
       },
       {
-        id: `question_mobileNumber_${Date.now() + 28}`,
+        // id: generateQuestionId("Mobile number"),
         type: "phone",
         label: "Mobile number",
         placeholder: "Enter your mobile number",
         required: true,
       },
-    ]
+    ].map(q => {
+      const ts = Date.now() + Math.random(); // Unique timestamp
+      const optionsWithIds = q.options?.map(opt => ({ ...opt, id: `option_${ts}_${Math.random().toString(36).substring(2, 7)}` })) || [];
+      return { ...q, id: generateQuestionId(q.label), options: optionsWithIds }; // Use new generateQuestionId
+    });
 
     const defaultSpeakerQuestions = [
       {
-        id: `question_name_${Date.now() + 30}`,
+        // id: generateQuestionId("Name"), // Will be set in map
         type: "text",
         label: "Name",
         placeholder: "Enter your name",
         required: true,
       },
       {
-        id: `question_email_${Date.now() + 31}`,
+        // id: generateQuestionId("Email ID"),
         type: "email",
         label: "Email ID",
         placeholder: "Enter your email address",
         required: true,
       },
       {
-        id: `question_corporateEmail_${Date.now() + 32}`,
+        // id: generateQuestionId("Corporate Email ID"),
         type: "email",
         label: "Corporate Email ID",
         placeholder: "Enter your corporate email address",
         required: true,
       },
       {
-        id: `question_designation_${Date.now() + 33}`,
+        // id: generateQuestionId("Designation"),
         type: "text",
         label: "Designation",
         placeholder: "Enter your designation",
         required: true,
       },
       {
-        id: `question_eventOrganizer_${Date.now() + 34}`,
+        // id: generateQuestionId("Event Organizer"),
         type: "text",
         label: "Event Organizer",
         placeholder: "Enter the event organizer",
         required: true,
       },
       {
-        id: `question_isMicrosoftMVP_${Date.now() + 35}`,
+        // id: generateQuestionId("Are you a Microsoft MVP?"),
         type: "checkbox",
         label: "Are you a Microsoft MVP?",
         required: true,
       },
       {
-        id: `question_mvpId_${Date.now() + 36}`,
+        // id: generateQuestionId("MVP ID"),
         type: "text",
         label: "MVP ID",
         placeholder: "Enter your MVP ID",
         required: false,
       },
       {
-        id: `question_mvpProfileLink_${Date.now() + 37}`,
+        // id: generateQuestionId("MVP Profile Link"),
         type: "text",
         label: "MVP Profile Link",
         placeholder: "Enter your MVP profile link",
         required: false,
       },
       {
-        id: `question_mvpCategory_${Date.now() + 38}`,
+        // id: generateQuestionId("MVP Category"),
         type: "text",
         label: "MVP Category",
         placeholder: "Enter your MVP category",
         required: false,
       },
       {
-        id: `question_areYouRunningMeetupGroup_${Date.now() + 39}`,
+        // id: generateQuestionId("Are you running any meetup group?"),
         type: "checkbox",
         label: "Are you running any meetup group?",
         required: true,
       },
       {
-        id: `question_meetupEventName_${Date.now() + 40}`,
+        // id: generateQuestionId("Meetup/Event Name"),
         type: "text",
         label: "Meetup/Event Name",
         placeholder: "Enter the meetup/event name",
         required: true,
       },
       {
-        id: `question_eventDetails_${Date.now() + 41}`,
+        // id: generateQuestionId("Event Details"),
         type: "textarea",
         label: "Event Details",
         placeholder: "Enter the event details",
         required: true,
       },
       {
-        id: `question_meetupPageDetails_${Date.now() + 42}`,
+        // id: generateQuestionId("Meetup page details"),
         type: "text",
         label: "Meetup page details",
         placeholder: "Enter the meetup page details",
         required: true,
       },
       {
-        id: `question_linkedinId_${Date.now() + 43}`,
+        // id: generateQuestionId("LinkedIn ID"),
         type: "text",
         label: "LinkedIn ID",
         placeholder: "Enter your LinkedIn profile URL",
         required: true,
       },
       {
-        id: `question_githubId_${Date.now() + 44}`,
+        // id: generateQuestionId("GitHub ID"),
         type: "text",
         label: "GitHub ID",
         placeholder: "Enter your GitHub profile URL",
         required: true,
       },
       {
-        id: `question_otherSocialMediaId_${Date.now() + 45}`,
+        // id: generateQuestionId("Any other social Media ID"),
         type: "text",
         label: "Any other social Media ID",
         placeholder: "Enter any other social media profile URL",
         required: false,
       },
-    ]
-
+    ].map(q => {
+      return { ...q, id: generateQuestionId(q.label) }; // Use new generateQuestionId
+    });
+    
     return {
       attendee: defaultAttendeeQuestions,
       volunteer: defaultVolunteerQuestions,
       speaker: defaultSpeakerQuestions,
     }
   }, [])
-
   // Function to force refresh the form status
   const refreshFormStatus = async () => {
     if (!eventId || isApiCallInProgress.current) return
@@ -748,13 +776,12 @@ export function CustomQuestionsForm({
       // Determine which questions to send based on form type
       let questionsToSend = []
 
-      if (formType === "attendee") {
-        questionsToSend = attendeeQuestions
-      } else if (formType === "volunteer") {
-        questionsToSend = volunteerQuestions
-      } else if (formType === "speaker") {
-        questionsToSend = speakerQuestions
-      }
+      const currentQuestions = formType === "attendee" ? attendeeQuestions : formType === "volunteer" ? volunteerQuestions : speakerQuestions;
+
+      // Regenerate IDs for all questions before publishing to ensure they reflect the latest labels
+      questionsToSend = currentQuestions.map(q => ({
+        ...q, id: generateQuestionId(q.label) // Regenerate ID with new timestamp
+      }));
 
       // Make sure we have at least the default questions
       if (!questionsToSend || questionsToSend.length === 0) {
@@ -883,7 +910,6 @@ export function CustomQuestionsForm({
 
   const addQuestion = (type) => {
     const newQuestion = {
-      id: `question_${Date.now()}`,
       type: "text",
       label: "",
       placeholder: "",
@@ -891,6 +917,7 @@ export function CustomQuestionsForm({
       options: [],
     }
 
+    newQuestion.id = generateQuestionId(newQuestion.label); // Generate initial ID
     if (type === "attendee") {
       updateQuestions("attendee", [...attendeeQuestions, newQuestion])
     } else if (type === "volunteer") {
@@ -919,18 +946,50 @@ export function CustomQuestionsForm({
     }
   }
 
-  const updateQuestion = (type, id, field, value) => {
+  // This function updates the question's properties (like label, type) WITHOUT changing its ID.
+  // The ID is only changed on blur or before publishing.
+  const updateQuestion = (type, questionIdToUpdate, field, value) => {
     if (type === "attendee") {
-      const updatedQuestions = attendeeQuestions.map((q) => (q.id === id ? { ...q, [field]: value } : q))
+      const updatedQuestions = attendeeQuestions.map((q) =>
+        q.id === questionIdToUpdate ? { ...q, [field]: value } : q // Only update the field, not the ID here
+      );
       updateQuestions("attendee", updatedQuestions)
     } else if (type === "volunteer") {
-      const updatedQuestions = volunteerQuestions.map((q) => (q.id === id ? { ...q, [field]: value } : q))
+      const updatedQuestions = volunteerQuestions.map((q) =>
+        q.id === questionIdToUpdate ? { ...q, [field]: value } : q
+      );
       updateQuestions("volunteer", updatedQuestions)
     } else if (type === "speaker") {
-      const updatedQuestions = speakerQuestions.map((q) => (q.id === id ? { ...q, [field]: value } : q))
+      const updatedQuestions = speakerQuestions.map((q) =>
+        q.id === questionIdToUpdate ? { ...q, [field]: value } : q
+      );
       updateQuestions("speaker", updatedQuestions)
     }
   }
+
+  // New handler for when the label input loses focus
+  const handleLabelBlur = (type, questionIdToUpdate) => {
+    let questionsList = [];
+    if (type === "attendee") questionsList = attendeeQuestions;
+    else if (type === "volunteer") questionsList = volunteerQuestions;
+    else if (type === "speaker") questionsList = speakerQuestions;
+
+    const updatedQuestions = questionsList.map((q) => {
+      if (q.id === questionIdToUpdate) {
+        // Regenerate the ID using the current label and stored creation timestamp
+        return { ...q, id: generateQuestionId(q.label) }; // Regenerate ID with new timestamp
+      }
+      return q;
+    });
+
+    if (type === "attendee") {
+      updateQuestions("attendee", updatedQuestions);
+    } else if (type === "volunteer") {
+      updateQuestions("volunteer", updatedQuestions);
+    } else if (type === "speaker") {
+      updateQuestions("speaker", updatedQuestions);
+    }
+  };
 
   const addOption = (type, questionId) => {
     const newOption = {
@@ -1042,7 +1101,9 @@ export function CustomQuestionsForm({
               id={`${question.id}-label`}
               value={question.label || ""}
               onChange={(e) => updateQuestion(type, question.id, "label", e.target.value)}
+              onBlur={() => handleLabelBlur(type, question.id)} // Regenerate ID on blur
               placeholder="Enter question label"
+              required
             />
           </div>
           <div>
