@@ -16,7 +16,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
-import { format } from "date-fns"
+import { format, isValid } from "date-fns"
 import { Slider } from "@/components/ui/slider" // Keep Slider import
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ListFilter } from "lucide-react" // Import ListFilter
@@ -126,6 +126,22 @@ const PREDEFINED_QUESTIONS = {
 const getFieldValue = (registration: any, fieldNames: string[], defaultValue = "N/A") => {
   if (!registration) return defaultValue
 
+  // Date formatting logic directly integrated
+  const formatDateValue = (value: any): any => {
+    if (typeof value === 'string') {
+      // Check if it's a typical ISO 8601 date string or a date-only string
+      // e.g., "2023-10-26T10:00:00.000Z", "1996-05-30T00:00:00.000Z", or "2023-10-26"
+      if (value.match(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3}Z?)?)?$/)) {
+        const parsedDate = new Date(value);
+        if (isValid(parsedDate)) {
+          return format(parsedDate, "dd MMMM yyyy"); // Format as "12 May 2022"
+        }
+      }
+    }
+    // Return the original value if it's not a date string or not a valid date
+    return value;
+  };
+
   // First check in data object
   if (registration.data) {
     // Check for dynamic field names with patterns like question_fieldname_123456789
@@ -136,9 +152,9 @@ const getFieldValue = (registration: any, fieldNames: string[], defaultValue = "
           if (
             registration.data[key] !== undefined &&
             registration.data[key] !== null &&
-            registration.data[key] !== ""
+              registration.data[key] !== "" // Consider if empty string should be returned or default
           ) {
-            return registration.data[key]
+              return formatDateValue(registration.data[key]);
           }
         }
       }
@@ -149,9 +165,9 @@ const getFieldValue = (registration: any, fieldNames: string[], defaultValue = "
       if (
         registration.data[fieldName] !== undefined &&
         registration.data[fieldName] !== null &&
-        registration.data[fieldName] !== ""
+        registration.data[fieldName] !== "" // Consider if empty string should be returned or default
       ) {
-        return registration.data[fieldName]
+        return formatDateValue(registration.data[fieldName]);
       }
 
       // Check for case-insensitive match
@@ -161,9 +177,9 @@ const getFieldValue = (registration: any, fieldNames: string[], defaultValue = "
           key.toLowerCase() === lowerFieldName &&
           registration.data[key] !== undefined &&
           registration.data[key] !== null &&
-          registration.data[key] !== ""
+          registration.data[key] !== "" // Consider if empty string should be returned or default
         ) {
-          return registration.data[key]
+          return formatDateValue(registration.data[key]);
         }
       }
     }
@@ -172,7 +188,7 @@ const getFieldValue = (registration: any, fieldNames: string[], defaultValue = "
   // Then check in the registration object itself
   for (const fieldName of fieldNames) {
     if (registration[fieldName] !== undefined && registration[fieldName] !== null && registration[fieldName] !== "") {
-      return registration[fieldName]
+      return formatDateValue(registration[fieldName]);
     }
   }
 
@@ -193,7 +209,7 @@ const getFieldValue = (registration: any, fieldNames: string[], defaultValue = "
       }
 
       if (found && obj !== undefined && obj !== null && obj !== "") {
-        return obj
+        return formatDateValue(obj);
       }
     }
   }
@@ -776,10 +792,21 @@ export function SubmissionsTable({
         // Build the query URL with filters.
         // Use the specific volunteer applications endpoint if formType is 'volunteer',
         // otherwise use the generic submissions endpoint.
-        let url =
-          formType === "volunteer"
-            ? `/api/events/${eventId}/volunteer-applications`
-            : `/api/events/${eventId}/submissions/${formType}`
+        const getUrl = () => {
+          if (formType === "volunteer") {
+            return `/api/events/${eventId}/volunteer-applications`
+          } else if (formType === "speaker") {
+            return `/api/events/${eventId}/speaker-applications`
+          } else {
+            return `/api/events/${eventId}/registrations`
+          }
+        }
+
+        let url = getUrl();
+
+        //   formType === "volunteer"
+        // ? `/api/events/${eventId}/volunteer-applications`
+        // : `/api/events/${eventId}/submissions/${formType}`
         const params = new URLSearchParams()
 
         if (filterStatus) {
@@ -1548,7 +1575,7 @@ export function SubmissionsTable({
                       return (
                         <div key={key} className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-1 py-1 border-b border-dashed last:border-b-0">
                           <div className="font-medium text-sm text-muted-foreground md:col-span-1">{displayLabel}</div>
-                          <div className="col-span-2">{String(value)}</div>
+                          <div className="col-span-2">{String(getFieldValue(selectedSubmission, [key], "N/A"))}</div> {/* Use getFieldValue directly */}
                         </div>
                       );
                     })}

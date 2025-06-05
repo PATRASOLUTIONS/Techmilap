@@ -62,6 +62,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const url = new URL(req.url)
     const status = url.searchParams.get("status")
     const search = url.searchParams.get("search")
+    const page = Number.parseInt(url.searchParams.get("page") || "1")
+    const limit = Number.parseInt(url.searchParams.get("limit") || "10")
 
     // Get attendee submissions for this event
     const submissionQuery: any = {
@@ -303,10 +305,20 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       (a: any, b: any) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime(),
     )
 
+    // Apply pagination to the final unique and sorted list
+    const total = uniqueRegistrations.length
+    const paginatedRegistrations = uniqueRegistrations.slice((page - 1) * limit, page * limit)
+
     return NextResponse.json({
-      registrations: uniqueRegistrations,
-      totalCount: uniqueRegistrations.length,
+      submissions: paginatedRegistrations, // Changed 'registrations' to 'submissions'
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
     })
+
   } catch (error: any) {
     console.error("Error fetching registrations:", error)
     return NextResponse.json(
