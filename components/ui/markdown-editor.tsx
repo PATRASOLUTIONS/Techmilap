@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Bold, Italic, List, ListOrdered, Heading, Link, ImageIcon, Eye, Edit } from "lucide-react"
+import remarkBreaks from "remark-breaks"
 import ReactMarkdown from "react-markdown"
 
 interface MarkdownEditorProps {
@@ -144,7 +145,7 @@ export function MarkdownEditor({
 
         <TabsContent value="preview" className="p-4 m-0 prose prose-sm max-w-none min-h-[250px] bg-white">
           {value ? (
-            <ReactMarkdown>{value}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkBreaks]}>{value}</ReactMarkdown>
           ) : (
             <p className="text-muted-foreground italic">Nothing to preview</p>
           )}
