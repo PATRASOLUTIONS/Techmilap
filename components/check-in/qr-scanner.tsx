@@ -30,17 +30,51 @@ export function QRScanner({ onScan, isScanning, setIsScanning }: QRScannerProps)
 
     // Clean up the scanner when the component unmounts
     return () => {
-      if (scannerRef.current) {
-        if (scannerRef.current.isScanning) {
-          scannerRef.current.stop().catch((err) => console.error("Error stopping scanner", err))
-        }
-        // Additional cleanup to help prevent memory leaks
-        try {
-          // Force release any camera resources
-          scannerRef.current.clear()
-          console.log("Scanner resources cleared")
-        } catch (err) {
-          console.error("Error clearing scanner resources", err)
+      // if (scannerRef.current) {
+      //   if (scannerRef.current.isScanning) {
+      //     scannerRef.current.stop().catch((err) => console.error("Error stopping scanner", err))
+      //   }
+      //   // Additional cleanup to help prevent memory leaks
+      //   try {
+      //     // Force release any camera resources
+      //     scannerRef.current.clear()
+      //     console.log("Scanner resources cleared")
+      //   } catch (err) {
+      //     console.error("Error clearing scanner resources", err)
+      //   }
+      // }
+
+      const localScannerInstance = scannerRef.current; // Capture instance for closure
+      if (localScannerInstance) {
+        if (localScannerInstance.isScanning) {
+          console.log("QRScanner: Attempting to stop scanner on unmount.");
+          localScannerInstance.stop()
+            .then(() => {
+              console.log("QRScanner: Scanner stopped successfully on unmount.");
+              // Attempt to clear only after successful stop, if clear method exists
+              // @ts-ignore
+              if (typeof localScannerInstance.clear === 'function') {
+                try {
+                  localScannerInstance.clear();
+                  console.log("QRScanner: Resources cleared on unmount after stop.");
+                } catch (e) {
+                  console.error("QRScanner: Error clearing resources on unmount after stop:", e);
+                }
+              }
+            })
+            .catch((err) => {
+              console.error("QRScanner: Error stopping scanner on unmount:", err);
+              // Even if stop fails, try to clear resources as a last resort
+              // @ts-ignore
+              if (typeof localScannerInstance.clear === 'function') {
+                try {
+                  localScannerInstance.clear();
+                  console.log("QRScanner: Resources cleared on unmount after stop failure.");
+                } catch (e) {
+                  console.error("QRScanner: Error clearing resources on unmount after stop failure:", e);
+                }
+              }
+            });
         }
       }
     }
