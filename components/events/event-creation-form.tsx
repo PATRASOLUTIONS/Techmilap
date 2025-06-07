@@ -46,6 +46,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false, set
       desktopCoverImage: null,
       mobileCoverImage: null,
       slug: "",
+      onlineLink: "", // Added onlineLink
     },
     tickets: [{
       name: "General Admission",
@@ -110,6 +111,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false, set
           mobileCoverImage: null,
           slug: existingEvent.slug || "",
           category: existingEvent.category || "",
+          onlineLink: existingEvent.onlineLink || "", // Load existing onlineLink
         },
         tickets: Array.isArray(existingEvent.tickets)
           ? existingEvent.tickets.map((ticket) => ({
@@ -153,47 +155,70 @@ export function EventCreationForm({ existingEvent = null, isEditing = false, set
     const details = formData.details
     logWithTimestamp("info", "Validating details form:", details)
     const missingFields = []
+    const invalidFields = []
 
-    if (!details.title) missingFields.push("Event Name")
+    if (!details.title?.trim()) missingFields.push("Event Title")
     // if (!details.displayName) missingFields.push("Event Display Name")
     if (!details.date) missingFields.push("Start Date")
     if (!details.startTime) missingFields.push("Start Time")
     if (!details.endDate) missingFields.push("End Date")
     if (!details.endTime) missingFields.push("End Time")
-    if (!details.description) missingFields.push("Event Description")
-    if (!details.image) missingFields.push("Image URL")
+    if (!details.description?.trim()) missingFields.push("Event Description")
+    if (!details.image?.trim()) {
+      missingFields.push("Image URL")
+    } else if (!details.image.match(/^https?:\/\/.+/)) {
+      invalidFields.push("Image URL (must be a valid URL starting with http:// or https://)")
+    }
+
+    if (!details.category?.trim()) missingFields.push("Category")
 
     // Check venue details for offline or hybrid events
     if (details.type === "Offline" || details.type === "Hybrid") {
-      if (!details.location) missingFields.push("Venue Name")
+      if (!details.location?.trim()) missingFields.push("Location (for Offline/Hybrid event)")
     }
 
-    return missingFields
+    // Check online link for online or hybrid events
+    if (details.type === "Online" || details.type === "Hybrid") {
+      if (!details.onlineLink?.trim()) {
+        missingFields.push("Virtual Meeting Link (for Online/Hybrid event)")
+      } else if (!details.onlineLink.match(/^https?:\/\/.+/)) {
+        invalidFields.push("Virtual Meeting Link (must be a valid URL starting with http:// or https://)")
+      }
+    }
+
+    // Date validation: endDate should not be before startDate
+    if (details.date && details.endDate) {
+      const startDate = new Date(details.date)
+      const endDate = new Date(details.endDate)
+      if (endDate < startDate) {
+        invalidFields.push("End Date (cannot be earlier than Start Date)")
+      }
+    }
+
+    // Combine missing and invalid fields for the toast message
+    return { missing: missingFields, invalid: invalidFields }
   }
 
   const handleNext = () => {
     if (activeTab === "details") {
       const missingFields = validateDetailsForm()
 
-      if (missingFields.length > 0) {
+      // if (missingFields.length > 0) {
+      if (missingFields.missing.length > 0 || missingFields.invalid.length > 0) {
+        let description = ""
+        if (missingFields.missing.length > 0) {
+          description += `Please fill in the following fields: ${missingFields.missing.join(", ")}. `
+        }
+        if (missingFields.invalid.length > 0) {
+          description += `Please correct the following fields: ${missingFields.invalid.join(", ")}.`
+        }
         toast({
-          title: "Required Fields Missing",
-          description: `Please fill in the following fields: ${missingFields.join(", ")}`,
+          title: "Validation Error",
+          description: description.trim(),
           variant: "destructive",
         })
         return
       }
-
-      // Validate image URL format
-      if (formData.details.image && !formData.details.image.match(/^https?:\/\/.+/)) {
-        toast({
-          title: "Invalid Image URL",
-          description: "Image URL must start with http:// or https://",
-          variant: "destructive",
-        })
-        return
-      }
-
       if (formData.details.visibility === "Private") {
         toast({
           title: "Premium Feature",
@@ -283,6 +308,7 @@ export function EventCreationForm({ existingEvent = null, isEditing = false, set
           type: formData.details.type,
           visibility: formData.details.visibility || "Public", // Default to Public if not specified
           image: formData.details.image,
+          onlineLink: formData.details.onlineLink || "", // Include onlineLink
           slug:
             formData.details.slug ||
             formData.details.title
