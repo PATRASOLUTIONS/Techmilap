@@ -439,7 +439,7 @@ export default function MyEventsPage() {
                           event={event}
                           onClick={() => handleEventClick(event._id, event.userRole || "organizer", event.slug)}
                           onManageClick={(e) => handleManageClick(e, event._id)}
-                          isPast={new Date(event.date) < currentTime}
+                          isPast={new Date(event.endDate) < currentTime}
                         />
                       ))}
                     </div>

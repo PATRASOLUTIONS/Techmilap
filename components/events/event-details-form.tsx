@@ -34,7 +34,7 @@ const formSchema = z.object({
   endDate: z.date({ required_error: "End date is required" }),
   startTime: z.string().min(1, { message: "Start time is required" }),
   endTime: z.string().min(1, { message: "End time is required" }),
-  location: z.string().min(3, { message: "Location must be at least 3 characters" }),
+  location: z.string().optional(), // Made optional, will be conditionally required
   category: z.string().min(1, { message: "Category is required" }),
   image: z
     .string()
@@ -44,6 +44,7 @@ const formSchema = z.object({
     }),
   visibility: z.enum(["Public", "Private"]),
   type: z.enum(["Online", "Offline", "Hybrid"]),
+  onlineLink: z.string().url({ message: "Please enter a valid URL for the virtual meeting." }).optional(),
 }).superRefine((data, ctx) => {
   if (data.date && data.endDate && data.endDate < data.date) {
     ctx.addIssue({
@@ -52,6 +53,22 @@ const formSchema = z.object({
       path: ["endDate"], // Specify the field this error is associated with
     });
   }
+  // Conditionally require location for Offline or Hybrid events
+  if ((data.type === "Offline" || data.type === "Hybrid") && (!data.location || data.location.trim().length < 3)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Location must be at least 3 characters for Offline or Hybrid events.",
+      path: ["location"],
+    });
+  }
+  // Conditionally require onlineLink for Online or Hybrid events (optional for now, uncomment to make required)
+  // if ((data.type === "Online" || data.type === "Hybrid") && (!data.onlineLink || data.onlineLink.trim().length === 0)) {
+  //   ctx.addIssue({
+  //     code: z.ZodIssueCode.custom,
+  //     message: "Virtual Meeting Link is required for Online or Hybrid events.",
+  //     path: ["onlineLink"],
+  //   });
+  // }
 });
 
 export function EventDetailsForm({
@@ -83,22 +100,33 @@ export function EventDetailsForm({
       image: data.image || "",
       visibility: data.visibility || "Public",
       type: data.type || "Offline",
+      onlineLink: data.onlineLink || "",
     },
   })
 
+  const eventType = form.watch("type");
+
   // Fetch categories on component mount
   useEffect(() => {
-    async function fetchCategories() {
-      try {
-        const response = await fetch("/api/events/categories")
-        const data = await response.json()
-        if (data.categories) {
-          setCategories(data.categories)
-        }
-      } catch (error) {
-        console.error("Failed to fetch categories:", error)
-        setCategories(["Conference", "Workshop", "Networking", "Seminar", "Webinar", "Hackathon", "Meetup", "Other"])
-      }
+    function fetchCategories() {
+      // Set categories manually
+      setCategories([
+        "Tech & Startups",
+        "Finance / FinTech",
+        "Education / EdTech",
+        "AI / Data Science",
+        "Other"
+      ]);
+      // try {
+      //   const response = await fetch("/api/events/categories")
+      //   const data = await response.json()
+      //   if (data.categories) {
+      //     setCategories(data.categories)
+      //   }
+      // } catch (error) {
+      //   console.error("Failed to fetch categories:", error)
+      //   setCategories(["Conference", "Workshop", "Networking", "Seminar", "Webinar", "Hackathon", "Meetup", "Other"])
+      // }
     }
 
     fetchCategories()
@@ -119,6 +147,7 @@ export function EventDetailsForm({
         image: data.image || "",
         visibility: data.visibility || "Public",
         type: data.type || "Offline",
+        onlineLink: data.onlineLink || "",
       })
     }
     // form.reset is stable, so the effect primarily depends on `data`.
@@ -219,114 +248,119 @@ export function EventDetailsForm({
             )}
           />
           {/* <div className="grid grid-cols-2 gap-4"> */}
-            <FormField
-              control={form.control}
-              name="startTime"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Start Time</FormLabel>
-                  <div className="flex items-center">
-                    {/* <Clock className="mr-2 h-4 w-4 opacity-50" /> */}
-                    <Input type="time"
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                        updateData({ ...form.getValues(), startTime: e.target.value });
-                      }} />
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <FormField
+            control={form.control}
+            name="startTime"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Start Time</FormLabel>
+                <div className="flex items-center">
+                  {/* <Clock className="mr-2 h-4 w-4 opacity-50" /> */}
+                  <Input type="time"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      updateData({ ...form.getValues(), startTime: e.target.value });
+                    }} />
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           {/* </div> */}
 
           {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> */}
           {/* <div className="grid grid-cols-2 gap-4"> */}
-            <FormField
-              control={form.control}
-              name="endDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>End Date</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      value={field.value ? format(field.value, "yyyy-MM-dd") : ""}
-                      onChange={(e) => {
-                        const dateString = e.target.value;
-                        const dateObject = dateString ? new Date(dateString) : null;
-                        field.onChange(dateObject);
-                        updateData({ ...form.getValues(), endDate: dateObject });
-                      }}
-                      min={form.getValues("date") ? format(form.getValues("date"), "yyyy-MM-dd") : ""}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          {/* </div> */}
-          {/* <div className="grid grid-cols-2 gap-4"> */}
-            <FormField
-              control={form.control}
-              name="endTime"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>End Time</FormLabel>
-                  <div className="flex items-center">
-                    {/* <Clock className="mr-2 h-4 w-4 opacity-50" /> */}
-                    <Input type="time"
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                        updateData({ ...form.getValues(), endTime: e.target.value });
-                      }} />
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          {/* </div> */}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
           <FormField
             control={form.control}
-            name="location"
+            name="endDate"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Location</FormLabel>
+                <FormLabel>End Date</FormLabel>
                 <FormControl>
-                  <Input placeholder="Event location or address"
-                    {...field}
+                  <Input
+                    type="date"
+                    value={field.value ? format(field.value, "yyyy-MM-dd") : ""}
                     onChange={(e) => {
-                      field.onChange(e);
-                      updateData({ ...form.getValues(), location: e.target.value });
+                      const dateString = e.target.value;
+                      const dateObject = dateString ? new Date(dateString) : null;
+                      field.onChange(dateObject);
+                      updateData({ ...form.getValues(), endDate: dateObject });
                     }}
+                    min={form.getValues("date") ? format(form.getValues("date"), "yyyy-MM-dd") : ""}
                   />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+          {/* </div> */}
+          {/* <div className="grid grid-cols-2 gap-4"> */}
+          <FormField
+            control={form.control}
+            name="endTime"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>End Time</FormLabel>
+                <div className="flex items-center">
+                  {/* <Clock className="mr-2 h-4 w-4 opacity-50" /> */}
+                  <Input type="time"
+                    {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      updateData({ ...form.getValues(), endTime: e.target.value });
+                    }} />
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          {/* </div> */}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {(eventType === "Offline" || eventType === "Hybrid") && (
+            <FormField
+              control={form.control}
+              name="location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Location</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Event location or address"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                        updateData({ ...form.getValues(), location: e.target.value });
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
-          <FormField control={form.control}
-          name="location"
-          render={({field}) => (
-            <FormItem>
-              <FormLabel>
-                Online Link
-              </FormLabel>
-              <FormControl>
-                <Input placeholder="Event Online Link"
-                  {...field}
-                  onChange={(e) => {
-                    // further changes needed for the online event
-                  }}
-                />
-              </FormControl>
-            </FormItem>
-          )}/>
+          {(eventType === "Online" || eventType === "Hybrid") && (
+            <FormField
+              control={form.control}
+              name="onlineLink"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Virtual Meeting Link</FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://example.com/meeting-link"
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e);
+                        updateData({ ...form.getValues(), onlineLink: e.target.value });
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
           <FormField
             control={form.control}
