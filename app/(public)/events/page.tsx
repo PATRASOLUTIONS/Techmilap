@@ -285,10 +285,10 @@ export default async function EventsPage({
                     ))}
                   </SelectContent>
                 </Select>
-                <Button type="submit" variant="ghost" size="sm" className="mt-2 w-full">
+                {/* <Button type="submit" variant="ghost" size="sm" className="mt-2 w-full">
                   <Filter className="h-4 w-4 mr-2" />
                   Apply Filters
-                </Button>
+                </Button> */}
               </form>
             </div>
           </div>

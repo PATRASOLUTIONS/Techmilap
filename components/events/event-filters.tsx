@@ -161,7 +161,7 @@ export function EventFilters({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Sheet>
+        {/* <Sheet>
           <SheetTrigger asChild>
             <Button variant="outline" className="gap-2">
               <Filter className="h-4 w-4" />
@@ -218,7 +218,7 @@ export function EventFilters({
               </SheetClose>
             </SheetFooter>
           </SheetContent>
-        </Sheet>
+        </Sheet> */}
       </div>
 
       {selectedFormat !== "all" && (
