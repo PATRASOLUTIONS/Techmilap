@@ -9,8 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle } from "lucide-react"
-import { isZeroValueString } from "framer-motion"
+import { AlertCircle, CheckCircle } from "lucide-react" // Keep AlertCircle and CheckCircle
 import { useToast } from "@/hooks/use-toast"
 
 
@@ -28,20 +27,31 @@ const profileFormSchema = z.object({
     .string()
     .email({
       message: "Please enter a valid corporate email address.",
-    })
-    .optional(),
-  designation: z.string().optional(),
-  eventOrganizer: z.string().optional(),
-  mvpId: z.string().optional(),
-  mvpProfileLink: z.string().optional(),
-  mvpCategory: z.string().optional(),
-  meetupEventName: z.string().optional(),
-  eventDetails: z.string().optional(),
-  meetupPageDetails: z.string().optional(),
-  linkedinId: z.string().optional(),
-  githubId: z.string().optional(),
-  otherSocialMediaId: z.string().optional(),
-  mobileNumber: z.string().optional(),
+    }).optional().or(z.literal("")), // Allow empty string or valid email
+  designation: z.string().max(100, "Designation can be at most 100 characters.").optional().or(z.literal("")),
+  eventOrganizer: z.string().max(100, "Event organizer name can be at most 100 characters.").optional().or(z.literal("")),
+  mvpId: z.string().max(50, "MVP ID can be at most 50 characters.").optional().or(z.literal("")),
+  mvpProfileLink: z.string().url({ message: "Please enter a valid URL for MVP Profile." })
+    .refine(val => !val || /^https?:\/\/mvp\.microsoft\.com\/[a-zA-Z-]+\/MVP\/profile\/[a-fA-F0-9-]+\/?$/.test(val), {
+      message: "Please enter a valid Microsoft MVP Profile URL (e.g., https://mvp.microsoft.com/en-us/MVP/profile/your-id).",
+    }).optional().or(z.literal("")),
+  mvpCategory: z.string().max(100, "MVP Category can be at most 100 characters.").optional().or(z.literal("")),
+  meetupEventName: z.string().max(150, "Meetup/Event name can be at most 150 characters.").optional().or(z.literal("")),
+  eventDetails: z.string().max(500, "Event details can be at most 500 characters.").optional().or(z.literal("")),
+  meetupPageDetails: z.string().max(200, "Meetup page details can be at most 200 characters.").optional().or(z.literal("")),
+  linkedinId: z.string().url({ message: "Please enter a valid URL for LinkedIn." })
+    .refine(val => !val || /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+\/?$/.test(val), {
+      message: "Please enter a valid LinkedIn Profile URL (e.g., https://linkedin.com/in/yourprofile).",
+    }).optional().or(z.literal("")),
+  githubId: z.string().url({ message: "Please enter a valid URL for GitHub." })
+    .refine(val => !val || /^(https?:\/\/)?(www\.)?github\.com\/[a-zA-Z0-9_-]+\/?$/.test(val), {
+      message: "Please enter a valid GitHub Profile URL (e.g., https://github.com/yourusername).",
+    }).optional().or(z.literal("")),
+  otherSocialMediaId: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal("")),
+  mobileNumber: z.string()
+    .refine(val => !val || /^\+?[1-9]\d{1,14}$/.test(val), { // E.164 format-like validation
+      message: "Please enter a valid mobile number (e.g., +1234567890).",
+    }).optional().or(z.literal("")),
 })
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>
@@ -98,45 +108,13 @@ export function ProfileForm({ user }: ProfileFormProps) {
     },
   })
 
-  // Validation
-  const isValid = () => {
-    // check the form data
-    // to validate
-    // 1. MVP
-    // 2. Github
-    // 3. Linkedin
-    
-    if(form.getValues().mvpProfileLink?.trim().length !== 0 && !/^https?:\/\/mvp\.microsoft\.com\/[a-zA-Z-]+\/MVP\/profile\/[a-fA-F0-9-]+\/?$/.test(form.getValues().mvpProfileLink)) {
-      console.log("mvp profile url error")
-      return "Invalid MVP Profile Link."
-    }
-    if(form.getValues().githubId?.trim().length !== 0 && !/^(https?:\/\/)?(www\.)?github\.com\/[a-zA-Z0-9_-]+\/?$/.test(form.getValues().githubId)) {
-      console.log("github profile url error")
-      return "Invalid Github Profile Link."
-    }
-    if(form.getValues().linkedinId?.trim().length !== 0 && !/^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+\/?$/.test(form.getValues().linkedinId)){
-      console.log("linkedin profile url error")
-      return "Invalid Linkedin Profile Link."
-    }
-  }
-
-  // console.log(form.getValues().)
-
   async function onSubmit(data: ProfileFormValues) {
     setIsLoading(true)
     setError("")
     setSuccess(false)
 
-    const isValidated = isValid()
-    if(isValidated) {
-      toast({
-        variant: "destructive", 
-        title: "Error",
-        description: isValidated || "Unknown error occured"
-      }) 
-
-      return 
-    }
+    // Custom validation is removed, react-hook-form + zod handles it.
+    // If form.handleSubmit(onSubmit) is called, it means zod validation passed.
 
     try {
 

@@ -11,6 +11,8 @@ import { MarkdownEditor } from "@/components/ui/markdown-editor"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, CheckCircle, Info } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { marked } from "marked"
+import DOMPurify from "dompurify"
 
 interface EmailTemplateManagerProps {
   userId: string
@@ -128,7 +130,7 @@ export function EmailTemplateManager({ userId }: EmailTemplateManagerProps) {
       case "rejection":
         return "Dear {{attendeeName}},\n\nThank you for your interest in **{{eventName}}**.\n\nWe regret to inform you that we are unable to confirm your registration at this time.\n\nPlease contact us if you have any questions.\n\nBest regards,\n{{organizerName}}"
       case "ticket":
-        return "# Event Ticket\n\n**{{eventName}}**\n\nAttendee: {{attendeeName}}\nTicket ID: {{ticketId}}\nDate: {{eventDate}}\nTime: {{eventTime}}\nLocation: {{eventLocation}}\n\n*Please present this ticket at the event entrance.*"
+        return "# Event Ticket\n\n**{{eventName}}**\n\nAttendee: {{attendeeName}}<br>\nTicket ID: {{ticketId}}<br>\nDate: {{eventDate}}<br>\nTime: {{eventTime}}<br>\nLocation: {{eventLocation}}\n\n*Please present this ticket at the event entrance.*"
       case "certificate":
         return "# Certificate of Participation\n\nThis is to certify that\n\n**{{attendeeName}}**\n\nhas successfully participated in\n\n**{{eventName}}**\n\nheld on {{eventDate}} at {{eventLocation}}.\n\n{{organizerName}}\nEvent Organizer"
       case "reminder":
@@ -368,6 +370,15 @@ export function EmailTemplateManager({ userId }: EmailTemplateManagerProps) {
       previewContent = previewContent.replace(new RegExp(`{{${variable}}}`, "g"), sampleValue)
     })
 
+    // Configure marked to treat single newlines as <br> tags
+    const markedOptions = {
+      async: false,
+      breaks: true, // This is the key change
+    }
+    const parsedHtml = marked.parse(previewContent, markedOptions)
+    // console.log("Markdown Input:", previewContent) // You can keep or remove these logs
+    // console.log("Parsed HTML Output:", parsedHtml)
+
     return (
       <div className="border rounded-md p-4 bg-white">
         <div className="mb-4 pb-4 border-b">
@@ -375,7 +386,10 @@ export function EmailTemplateManager({ userId }: EmailTemplateManagerProps) {
           <div>{currentTemplate.subject}</div>
         </div>
         <div className="prose prose-sm max-w-none">
-          <div dangerouslySetInnerHTML={{ __html: previewContent }} />
+          {/* Parse Markdown to HTML and sanitize before rendering */}
+          <div
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(parsedHtml) }}
+          />
         </div>
       </div>
     )
