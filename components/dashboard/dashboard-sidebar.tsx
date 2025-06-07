@@ -289,16 +289,16 @@ export function DashboardSidebar() {
       href: "/settings",
       icon: Settings,
     },
-    {
-      href: "/settings/email-templates",
-      label: "Email Templates",
-      icon: Mail,
-    },
-    {
-      href: "/settings/email-designs",
-      label: "Email Designs",
-      icon: Palette,
-    },
+    // {
+    //   href: "/settings/email-templates",
+    //   label: "Email Templates",
+    //   icon: Mail,
+    // },
+    // {
+    //   href: "/settings/email-designs",
+    //   label: "Email Designs",
+    //   icon: Palette,
+    // },
     {
       href: "/settings/email-history",
       label: "Email History",
@@ -661,13 +661,13 @@ export function DashboardSidebar() {
                 </Button>
               ),
             )}
-            {userRole === "super-admin" && (
+            {/* {userRole === "super-admin" && (
               <div className="mt-4 px-2">
                 <Button variant="outline" size="sm" className="w-full text-xs" onClick={refreshUserRole}>
                   Debug: Refresh Role ({userRole})
                 </Button>
               </div>
-            )}
+            )} */}
           </div>
         </ScrollArea>
       </div>
