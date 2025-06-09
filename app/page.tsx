@@ -1,17 +1,22 @@
-"use client"
+"use client";
 
-import { LandingHeader } from "@/components/landing/landing-header"
-import { SiteFooter } from "@/components/site-footer"
-import { HeroSection } from "@/components/landing/hero-section-enhanced"
-import { FeaturesSection } from "@/components/landing/features-section-enhanced"
-import { CtaSection } from "@/components/landing/cta-section"
-import { StatsSectionWrapper } from "@/components/landing/stats-section-wrapper"
-import { WhyChooseUsSection } from "@/components/landing/why-choose-us-section"
-import { TestimonialsSlider } from "@/components/landing/testimonials-slider"
-import { ComparisonTable } from "@/components/landing/comparison-table"
-import { FaqSection } from "@/components/landing/faq-section"
-import { DecorativeBlob } from "@/components/ui/decorative-blob"
-import { motion } from "framer-motion"
+import { LandingHeader } from "@/components/landing/landing-header";
+import { SiteFooter } from "@/components/site-footer";
+import { HeroSection } from "@/components/landing/hero-section-enhanced";
+import { FeaturesSection } from "@/components/landing/features-section-enhanced";
+import { CtaSection } from "@/components/landing/cta-section";
+import { StatsSectionWrapper } from "@/components/landing/stats-section-wrapper";
+import { WhyChooseUsSection } from "@/components/landing/why-choose-us-section";
+import { TestimonialsSlider } from "@/components/landing/testimonials-slider";
+import { ComparisonTable } from "@/components/landing/comparison-table";
+import { FaqSection } from "@/components/landing/faq-section";
+import { DecorativeBlob } from "@/components/ui/decorative-blob";
+import { motion } from "framer-motion";
+import Navbar from "@/components/landing/NavBar";
+import HeroContent from "@/components/landing/HeroContent";
+import TextAnimationSection from "@/components/landing/TextAnimation-section";
+import { Integrations } from "@/components/landing/BlurIntegration";
+import GalleryView from "@/components/landing/GalleryView";
 
 export default function LandingPage() {
   return (
@@ -36,12 +41,20 @@ export default function LandingPage() {
 
       <div className="relative z-10">
         {/* Landing Header with Login/Register */}
-        <LandingHeader />
+        {/* <LandingHeader /> */}
+        <Navbar />
 
         {/* Add padding to account for fixed header */}
-        <div className="pt-24">
+        <div className="pt-0">
           {/* Enhanced Hero Section */}
-          <HeroSection />
+          {/* <HeroSection /> */}
+          <HeroContent />
+
+          <TextAnimationSection />
+
+          <Integrations />
+
+          <GalleryView />
 
           {/* Stats Section - Using the client component wrapper */}
           <StatsSectionWrapper />
@@ -59,7 +72,7 @@ export default function LandingPage() {
           <TestimonialsSlider />
 
           {/* FAQ Section */}
-          <FaqSection />
+          {/* <FaqSection /> */}
 
           {/* CTA Section */}
           <CtaSection />
@@ -69,5 +82,5 @@ export default function LandingPage() {
         </div>
       </div>
     </motion.div>
-  )
+  );
 }
