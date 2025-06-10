@@ -32,7 +32,7 @@ export default function RootLayout({
         <meta httpEquiv="Permissions-Policy" content="camera=(self), microphone=(self)" />
         <meta
           httpEquiv="Content-Security-Policy"
-          content="default-src * 'self' data: blob:; script-src * 'self' 'unsafe-inline' 'unsafe-eval'; style-src * 'self' 'unsafe-inline'; img-src * 'self' data: blob:; media-src * 'self' data: blob:; connect-src * 'self'; font-src * 'self'; object-src 'none'; frame-src * 'self'; worker-src * 'self' blob:; frame-ancestors 'self'; form-action 'self'; base-uri 'self'; manifest-src 'self'"
+          content="default-src * 'self' data: blob:; script-src * 'self' 'unsafe-inline' 'unsafe-eval'; style-src * 'self' 'unsafe-inline'; img-src * data: blob:; media-src * 'self' data: blob:; connect-src * 'self'; font-src * 'self'; object-src 'none'; frame-src * 'self'; worker-src * 'self' blob:; frame-ancestors 'self'; form-action 'self'; base-uri 'self'; manifest-src 'self'"
         />
       </head>
       <body className={inter.className}>
