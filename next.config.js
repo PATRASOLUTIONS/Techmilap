@@ -60,7 +60,7 @@ const nextConfig = {
                 "default-src 'self' data: blob:",
                 "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
                 "style-src 'self' 'unsafe-inline'",
-                "img-src 'self' data: blob: https://images.unsplash.com https://plus.unsplash.com https://source.unsplash.com https://res.cloudinary.com https://cloudinary.com https://storage.googleapis.com https://s3.amazonaws.com https://img.youtube.com https://i.imgur.com https://localhost https://placeholder.com https://picsum.photos https://loremflickr.com https://placehold.co https://placekitten.com https://dummyimage.com https://via.placeholder.com",
+                "img-src * data: blob:",
                 "media-src 'self' data: blob:",
                 "connect-src 'self'",
                 "font-src 'self'",
