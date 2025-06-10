@@ -326,7 +326,7 @@ export default function MyTicketsPage() {
           <TabsTrigger value="attendee">Attendee ({loading ? "..." : attendeeTickets.length})</TabsTrigger>
           <TabsTrigger value="volunteer">Volunteer ({loading ? "..." : volunteerTickets.length})</TabsTrigger>
           <TabsTrigger value="speaker">Speaker ({loading ? "..." : speakerTickets.length})</TabsTrigger>
-          <TabsTrigger value="debug">Debug</TabsTrigger>
+          {/* <TabsTrigger value="debug">Debug</TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="all" className="mt-6">
