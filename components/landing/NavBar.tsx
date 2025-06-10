@@ -1,9 +1,23 @@
 "use client";
 
+import { formatFieldName } from "@/lib/csv-export";
 import { motion } from "framer-motion";
+import { useSession } from "next-auth/react";
 import Image from "next/image";
+import Link from "next/link";
+
+type NavbarHeadingType = { fieldName: String; fieldLink: String }[];
+
+const navbarHeading: NavbarHeadingType = [
+  { fieldName: "Explore Events", fieldLink: "/events" },
+  { fieldName: "Features", fieldLink: "/features" },
+  { fieldName: "FAQ", fieldLink: "/FAQ" },
+  { fieldName: "About", fieldLink: "/about" },
+  { fieldName: "Pricing", fieldLink: "/pricing" },
+];
 
 export default function Navbar() {
+  const { session: data } = useSession();
   return (
     <motion.nav
       initial={{ opacity: 0, y: -20 }}
@@ -37,7 +51,7 @@ export default function Navbar() {
 
           {/* Navigation Menu - Hidden on mobile */}
           <div className="hidden md:block">
-            <ul className="flex gap-6 lg:gap-8">
+            {/* <ul className="flex gap-6 lg:gap-8">
               {["Explore Events", "Features", "About", "FAQ", "Pricing"].map(
                 (item) => (
                   <motion.li
@@ -49,6 +63,18 @@ export default function Navbar() {
                   </motion.li>
                 )
               )}
+            </ul> */}
+
+            <ul className="md:flex items-center gap-6">
+              {navbarHeading.map((fields) => (
+                <motion.li
+                  whileHover={{ scale: 1.05 }}
+                  className="text-gray-700 hover:text-[#0aacf7]"
+                  key={fields.fieldName}
+                >
+                  <Link href={fields.fieldLink}>{fields.fieldName}</Link>
+                </motion.li>
+              ))}
             </ul>
           </div>
 
