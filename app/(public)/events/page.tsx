@@ -1,14 +1,12 @@
 import { Suspense } from "react"
 import { connectToDatabase } from "@/lib/mongodb"
 import { Card, CardContent } from "@/components/ui/card"
-import { AlertCircle, Search, Filter } from "lucide-react"
+import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PublicEventList } from "@/components/events/public-event-list"
+import { EventFilterControls } from "@/components/events/event-filter-controls"
 import { getImageUrl } from "@/lib/image-utils"
 import { logWithTimestamp } from "@/utils/logger"
 
@@ -250,47 +248,7 @@ export default async function EventsPage({
               </p>
             </div>
 
-            <div className="w-full md:w-auto flex flex-col sm:flex-row gap-3">
-              <form className="flex-1 min-w-[200px]" action="/events">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    name="search"
-                    placeholder="Search events..."
-                    className="pl-8"
-                    defaultValue={searchParams?.search || ""}
-                    aria-label="Search events"
-                  />
-                  {/* Preserve other params */}
-                  {searchParams?.category && searchParams.category !== "all" && (
-                    <input type="hidden" name="category" value={searchParams.category} />
-                  )}
-                </div>
-              </form>
-
-              <form className="flex-1 min-w-[150px]" action="/events">
-                {/* Preserve search param if it exists */}
-                {searchParams?.search && <input type="hidden" name="search" value={searchParams.search} />}
-                <Select name="category" defaultValue={searchParams?.category || "all"}>
-                  <SelectTrigger aria-label="Filter by category">
-                    <SelectValue placeholder="Filter by category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {categories?.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {/* <Button type="submit" variant="ghost" size="sm" className="mt-2 w-full">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Apply Filters
-                </Button> */}
-              </form>
-            </div>
+            <EventFilterControls categories={categories} />
           </div>
 
           {error && (
