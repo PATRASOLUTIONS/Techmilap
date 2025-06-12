@@ -32,22 +32,24 @@ export default function Navbar() {
                         border border-white/20 transition-all duration-300
                         hover:shadow-xl hover:bg-white/20"
         >
-          <div className="flex justify-center gap-2">
-            <Image
-              src="/techmilap-logo-round.png"
-              alt="Tech Milap Logo"
-              width={40}
-              height={40}
-              className="object-contain"
-            />
-            {/* Logo */}
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              className="text-xl md:text-2xl font-extrabold bg-gradient-to-r from-[#F59E0B] to-[#8B5CF6] bg-clip-text text-transparent"
-            >
-              Tech Milap
-            </motion.div>
-          </div>
+          <Link href={"/"}>
+            <div className="flex justify-center gap-2">
+              <Image
+                src="/techmilap-logo-round.png"
+                alt="Tech Milap Logo"
+                width={40}
+                height={40}
+                className="object-contain"
+              />
+              {/* Logo */}
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                className="text-xl md:text-2xl font-extrabold bg-gradient-to-r from-[#F59E0B] to-[#8B5CF6] bg-clip-text text-transparent"
+              >
+                Tech Milap
+              </motion.div>
+            </div>
+          </Link>
 
           {/* Navigation Menu - Hidden on mobile */}
           <div className="hidden md:block">
@@ -80,22 +82,26 @@ export default function Navbar() {
 
           {/* Action Buttons */}
           <div className="flex gap-3 md:gap-6 items-center">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="text-gray-700 hover:text-[#F59E0B] transition-colors duration-300 font-semibold text-sm md:text-base"
-            >
-              MyEvents
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="bg-[#4C1D95] text-white px-3 md:px-4 py-2 rounded-full 
+            <Link href={"/my-events"}>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="text-gray-700 hover:text-[#F59E0B] transition-colors duration-300 font-semibold text-sm md:text-base"
+              >
+                MyEvents
+              </motion.button>
+            </Link>
+            <Link href={"/dashboard"}>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="bg-[#4C1D95] text-white px-3 md:px-4 py-2 rounded-full 
                         hover:bg-[#5B21B6] transition-colors duration-300
                         shadow-md hover:shadow-lg font-semibold text-sm md:text-base"
-            >
-              Dashboard
-            </motion.button>
+              >
+                Dashboard
+              </motion.button>
+            </Link>
           </div>
         </div>
       </div>
