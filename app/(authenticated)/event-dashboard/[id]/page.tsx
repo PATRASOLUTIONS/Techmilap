@@ -381,12 +381,12 @@ export default function EventDashboardPage() {
   const speakerFormStatus = formStatusData.current.speakerForm?.status || "draft"
 
   const handlePastEvent = () => {
-    let dateString = event.date || event.endDate;
-    let eventDate = new Date(dateString);
-    eventDate.setHours(0, 0, 0, 0);
+    let dateString = event.endDate || event.date;
+    let eventEndDate = new Date(dateString);
+    eventEndDate.setHours(0, 0, 0, 0);
     let currentDate = new Date();
     currentDate.setHours(0, 0, 0, 0);
-    setIsPast(eventDate < currentDate)
+    setIsPast(eventEndDate < currentDate)
   }
 
   return (
@@ -421,13 +421,10 @@ export default function EventDashboardPage() {
             <QrCode className="h-4 w-4 mr-1" />
             Check-in
           </TabsTrigger>
-          {// Past event should not be editable
-            !isPast &&
-            <TabsTrigger value="settings">
-              <SettingsIcon className="h-4 w-4 mr-1" />
-              Settings
-            </TabsTrigger>
-          }
+          <TabsTrigger value="settings">
+            <SettingsIcon className="h-4 w-4 mr-1" />
+            Settings
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -862,9 +859,20 @@ export default function EventDashboardPage() {
         </TabsContent>
 
         {/* New Settings Tab Content */}
-        {
-          !isPast &&
-          <TabsContent value="settings" className="space-y-4">
+        <TabsContent value="settings" className="space-y-4">
+          {isPast ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Event Settings</CardTitle>
+                <CardDescription>Editing for past events is disabled.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  This event has already passed, and its settings can no longer be modified.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -884,13 +892,11 @@ export default function EventDashboardPage() {
                     </p>
                   </div>
                 </div>
-
-                {/* Using the existing EventCreationForm component with the current event data */}
                 <EventCreationForm existingEvent={event} isEditing={true} setDataChanged={setDataChanged} />
               </CardContent>
             </Card>
-          </TabsContent>
-        }
+          )}
+        </TabsContent>
       </Tabs>
     </div>
   )
