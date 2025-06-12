@@ -52,7 +52,7 @@ export default function LandingPage() {
 
           <TextAnimationSection />
 
-          <Integrations />
+          {/* <Integrations /> */}
 
           <GalleryView />
 

@@ -17,7 +17,7 @@ const navbarHeading: NavbarHeadingType = [
 ];
 
 export default function Navbar() {
-  const { session: data } = useSession();
+  // const { session: data } = useSession();
   return (
     <motion.nav
       initial={{ opacity: 0, y: -20 }}

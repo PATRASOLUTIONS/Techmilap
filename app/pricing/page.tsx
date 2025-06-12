@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { CheckCircle2, HelpCircle, X } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import Navbar from "@/components/landing/NavBar"
 
 export const metadata = {
   title: "Pricing | Tech Milap",
@@ -29,7 +30,8 @@ export default function PricingPage() {
 
       <div className="relative z-10">
         {/* Landing Header with Login/Register */}
-        <LandingHeader />
+        {/* <LandingHeader /> */}
+        <Navbar/>
 
         {/* Add padding to account for fixed header */}
         <div className="pt-24">
