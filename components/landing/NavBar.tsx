@@ -16,7 +16,7 @@ const navbarHeading: NavbarHeadingType = [
   { fieldName: "Pricing", fieldLink: "/pricing" },
 ];
 
-export default function Navbar() {
+export default function itNavbar() {
   // const { session: data } = useSession();
   return (
     <motion.nav
