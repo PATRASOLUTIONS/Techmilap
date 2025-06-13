@@ -66,9 +66,10 @@ export default async function DashboardPage() {
   // Fetch event statistics
   const currentDate = new Date()
   const totalEvents = await Event.countDocuments({ organizer: userId })
+
   const activeEvents = await Event.countDocuments({
     organizer: userId,
-    date: { $gte: currentDate },
+    endDate: { $gte: currentDate },
     status: { $in: ["published", "active"] },
   })
 
@@ -77,14 +78,16 @@ export default async function DashboardPage() {
   const eventIds = userEvents.map((event) => event._id)
 
   // Count total attendees across all events
-  const totalAttendees = await TicketModel.countDocuments({
+  const totalAttendees = await FormSubmission.countDocuments({
     eventId: { $in: eventIds },
+    formType:'attendee'
   })
 
   // Count tickets sold
   const ticketsSold = await TicketModel.countDocuments({
     eventId: { $in: eventIds },
-    status: "active",
+    price: { $gt: 0 },
+    status: "confirmed",
   })
 
   // Fetch upcoming events
@@ -100,7 +103,7 @@ export default async function DashboardPage() {
   // Calculate registrations for each event
   const eventsWithRegistrations = await Promise.all(
     upcomingEvents.map(async (event) => {
-      const registrations = await TicketModel.countDocuments({
+      const registrations = await FormSubmission.countDocuments({
         eventId: event._id,
       })
       return {
@@ -310,18 +313,18 @@ export default async function DashboardPage() {
 
       {/* Main content with tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid grid-cols-2 md:w-[600px]">
+        <TabsList className="grid grid-cols-4 md:w-[600px]">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="upcoming">Upcoming Events</TabsTrigger>
-          {/* <TabsTrigger value="speakers">Speakers</TabsTrigger>
-          <TabsTrigger value="volunteers">Volunteers</TabsTrigger> */}
+          <TabsTrigger value="speakers">Speakers</TabsTrigger>
+          <TabsTrigger value="volunteers">Volunteers</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
           {/* Quick insights section */}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <GradientCard gradientFrom="from-blue-500/10" gradientTo="to-indigo-500/10">
+            {/* <GradientCard gradientFrom="from-blue-500/10" gradientTo="to-indigo-500/10">
               <Card className="bg-white/80 backdrop-blur-sm h-full border-0">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center text-lg">
@@ -371,7 +374,7 @@ export default async function DashboardPage() {
                   </Button>
                 </CardFooter>
               </Card>
-            </GradientCard>
+            </GradientCard> */}
 
             <GradientCard gradientFrom="from-purple-500/10" gradientTo="to-pink-500/10">
               <Card className="bg-white/80 backdrop-blur-sm h-full border-0">
@@ -388,17 +391,16 @@ export default async function DashboardPage() {
                       notifications.map((notification, index) => (
                         <div key={index} className="flex items-start gap-3 pb-3 border-b">
                           <Badge
-                            className={`h-2 w-2 rounded-full p-0 mt-2 ${
-                              notification.type === "registration"
+                            className={`h-2 w-2 rounded-full p-0 mt-2 ${notification.type === "attendee"
                                 ? "bg-green-500"
                                 : notification.type === "speaker"
                                   ? "bg-blue-500"
                                   : "bg-amber-500"
-                            }`}
+                              }`}
                           />
                           <div>
                             <p className="text-sm font-medium">
-                              {notification.type === "registration"
+                              {notification.type === "attendee"
                                 ? `New registration for ${notification.eventTitle}`
                                 : notification.type === "speaker"
                                   ? `Speaker application for ${notification.eventTitle}`
@@ -418,12 +420,12 @@ export default async function DashboardPage() {
                     )}
                   </div>
                 </CardContent>
-                <CardFooter>
+                {/* <CardFooter>
                   <Button variant="ghost" size="sm" className="ml-auto">
                     View All
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
-                </CardFooter>
+                </CardFooter> */}
               </Card>
             </GradientCard>
 
@@ -508,9 +510,9 @@ export default async function DashboardPage() {
                             {eventsWithRegistrations[0].startTime
                               ? eventsWithRegistrations[0].startTime
                               : new Date(eventsWithRegistrations[0].date).toLocaleTimeString("en-US", {
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                })}
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })}
                           </span>
                         </div>
                         <div className="flex items-center text-sm">
@@ -531,9 +533,8 @@ export default async function DashboardPage() {
                           <div
                             className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"
                             style={{
-                              width: `${
-                                (eventsWithRegistrations[0].registrations / eventsWithRegistrations[0].capacity) * 100
-                              }%`,
+                              width: `${(eventsWithRegistrations[0].registrations / eventsWithRegistrations[0].capacity) * 100
+                                }%`,
                             }}
                           ></div>
                         </div>
@@ -564,7 +565,7 @@ export default async function DashboardPage() {
                   <Button asChild>
                     <Link href="/dashboard/events/create">
                       <PlusCircle className="mr-2 h-4 w-4" />
-                      Create Your First Event
+                      Create Event
                     </Link>
                   </Button>
                 </div>
@@ -609,9 +610,9 @@ export default async function DashboardPage() {
                             {event.startTime
                               ? event.startTime
                               : new Date(event.date).toLocaleTimeString("en-US", {
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                })}
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })}
                           </span>
                         </div>
                         <div className="flex items-center text-sm">
@@ -653,7 +654,7 @@ export default async function DashboardPage() {
                 <Button asChild>
                   <Link href="/dashboard/events/create">
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Create Your First Event
+                    Create Event
                   </Link>
                 </Button>
               </div>
@@ -670,7 +671,7 @@ export default async function DashboardPage() {
         </TabsContent>
 
         {/* Speakers Tab */}
-        {/* <TabsContent value="speakers" className="space-y-6">
+        <TabsContent value="speakers" className="space-y-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Featured Speakers</h2>
             <Button asChild>
@@ -685,10 +686,10 @@ export default async function DashboardPage() {
               {speakers.map((speaker) => (
                 <Card key={speaker.id} className="overflow-hidden">
                   <div className="flex items-center p-6">
-                    <Avatar className="h-16 w-16 border-2 border-blue-100">
+                    {/* <Avatar className="h-16 w-16 border-2 border-blue-100">
                       <AvatarImage src={speaker.image || "/placeholder.svg"} alt={speaker.name} />
                       <AvatarFallback>{getInitials(speaker.name)}</AvatarFallback>
-                    </Avatar>
+                    </Avatar> */}
                     <div className="ml-4">
                       <h3 className="font-semibold">{speaker.name}</h3>
                       <p className="text-sm text-muted-foreground">{speaker.role}</p>
@@ -739,10 +740,10 @@ export default async function DashboardPage() {
               </Link>
             </Button>
           </div>
-        </TabsContent> */}
+        </TabsContent>
 
         {/* Volunteers Tab */}
-        {/* <TabsContent value="volunteers" className="space-y-6">
+        <TabsContent value="volunteers" className="space-y-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Available Volunteers</h2>
             <Button asChild>
@@ -757,13 +758,13 @@ export default async function DashboardPage() {
               {volunteers.map((volunteer) => (
                 <Card key={volunteer.id} className="overflow-hidden">
                   <div className="flex items-center p-6">
-                    <Avatar className="h-16 w-16 border-2 border-blue-100">
+                    {/* <Avatar className="h-16 w-16 border-2 border-blue-100">
                       <AvatarImage src={volunteer.image || "/placeholder.svg"} alt={volunteer.name} />
                       <AvatarFallback>{getInitials(volunteer.name)}</AvatarFallback>
-                    </Avatar>
+                    </Avatar> */}
                     <div className="ml-4">
                       <h3 className="font-semibold">{volunteer.name}</h3>
-                      <p className="text-sm text-muted-foreground">{volunteer.role}</p>
+                      {/* <p className="text-sm text-muted-foreground">{volunteer.role}</p> */}
                       <div className="flex items-center mt-1">
                         <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
                           {volunteer.events} events
@@ -819,7 +820,7 @@ export default async function DashboardPage() {
               </Link>
             </Button>
           </div>
-        </TabsContent> */}
+        </TabsContent>
       </Tabs>
     </div>
   )

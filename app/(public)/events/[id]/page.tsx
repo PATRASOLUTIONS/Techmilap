@@ -7,9 +7,12 @@ import { CalendarIcon, MapPinIcon, Clock, Users, Tag, Ticket } from "lucide-reac
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { logWithTimestamp } from "@/utils/logger"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
+
+type FormDetails = {
+  status: "published" | "draft" | string;
+};
 
 type EventType = {
   title: string;
@@ -24,11 +27,13 @@ type EventType = {
   tags?: string[];
   startTime?: string;
   endTime?: string;
+  attendeeForm: FormDetails;
+  volunteerForm: FormDetails;
+  speakerForm: FormDetails;
   // Add any other fields you expect
 };
 
-// Static fallback data for when the event can't be loaded
-const fallbackEvent = {
+const fallbackEvent: EventType = {
   title: "Event Details",
   description:
     "<p>This event will be a gathering of professionals and enthusiasts. Join us for networking, learning, and fun!</p>",
@@ -42,6 +47,9 @@ const fallbackEvent = {
   tags: ["networking", "community"],
   startTime: "09:00",
   endTime: "17:00",
+  attendeeForm: { status: "draft" },
+  volunteerForm: { status: "draft" },
+  speakerForm: { status: "draft" },
 }
 
 // Helper function to safely format dates
@@ -77,25 +85,31 @@ function formatEventTime(timeString: any) {
   }
 }
 
-// : { params: Promise<{ id: string }> }
-export default function EventPage({ params }: {params: {id: string}}) {
-  const { status} = useSession()
+export default function EventPage({
+  params: paramsPromise, // Rename the prop for clarity, it's a Promise
+}: {
+  params: Promise<{ id: string }>; // Type the incoming prop as a Promise as per Next.js warning
+}) {
+  const params = use(paramsPromise); // Unwrap the promise using React.use()
+  const { id } = params; // Now 'params' is the resolved object { id: string }, destructure id
+  const { status } = useSession()
   const router = useRouter()
-  
-  // when unauthenticated push the user to login page
+
   useEffect(() => {
-    if(status === "unauthenticated") {
-      router.push("/login")
+    // If the authentication status is still loading, do nothing and wait.
+    if (status === "loading") {
+      return;
     }
-  }, [status])
+    // If the status is determined to be unauthenticated, then redirect.
+    if (status === "unauthenticated") {
+      router.push("/login");
+    }
+  }, [status, router]);
 
   const [event, setEvent] = useState<EventType>(fallbackEvent);
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [isPast, setIsPast] = useState(false)
-
-// const { id } = use(params as Promise<{ id: string }>)
-  const {id} = params 
 
   useEffect(() => {
     async function fetchEvent() {
@@ -302,23 +316,23 @@ export default function EventPage({ params }: {params: {id: string}}) {
 
           <div className="space-y-3">
             {// This hides the draft forms
-              event.attendeeForm.status == "published" &&
-              <Button asChild className="w-full">
-                <Link href={`/events/${id}/register`} className={isPast ? 'disabled-link' : ''}>Register Now</Link>
-              </Button>
-            }
+              event.attendeeForm?.status === "published" && (
+                <Button asChild className="w-full">
+                  <Link href={`/events/${id}/register`} className={isPast ? 'disabled-link' : ''}>Register Now</Link>
+                </Button>
+              )}
             {
-              event.volunteerForm.status == "published" &&
-              <Button variant="outline" asChild className="w-full">
-                <Link href={`/events/${id}/volunteer`} className={isPast ? 'disabled-link' : ''}>Volunteer</Link>
-              </Button>
-            }
+              event.volunteerForm?.status === "published" && (
+                <Button variant="outline" asChild className="w-full">
+                  <Link href={`/events/${id}/volunteer`} className={isPast ? 'disabled-link' : ''}>Volunteer</Link>
+                </Button>
+              )}
             {
-              event.speakerForm.status == "published" &&
-              <Button variant="outline" asChild className="w-full">
-                <Link href={`/events/${id}/speaker`} className={isPast ? 'disabled-link' : ''}>Apply as Speaker</Link>
-              </Button>
-            }
+              event.speakerForm?.status === "published" && (
+                <Button variant="outline" asChild className="w-full">
+                  <Link href={`/events/${id}/speaker`} className={isPast ? 'disabled-link' : ''}>Apply as Speaker</Link>
+                </Button>
+              )}
           </div>
         </div>
       </div>
