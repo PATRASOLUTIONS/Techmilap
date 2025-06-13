@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { StaggeredText } from "./TextAnimation";
 import { motion } from "framer-motion";
 
@@ -27,20 +28,22 @@ export default function TextAnimationSection() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.5 }}
-        className="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-10 text-center"
+        className="absolute bottom-20 left-[44%] transform -translate-x-1/2 z-10 text-center"
       >
         <p className="text-white/80 text-lg mb-4">
           Create, Connect, Collaborate
         </p>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="bg-white/20 backdrop-blur-md text-white px-8 py-3 rounded-full
+        <Link href={"/events"}>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="bg-white/20 backdrop-blur-md text-white px-8 py-3 rounded-full
                     font-semibold tracking-wide transition-all duration-300 shadow-lg hover:shadow-xl
                     border border-white/30"
-        >
-          Explore Now
-        </motion.button>
+          >
+            Explore Now
+          </motion.button>
+        </Link>
       </motion.div>
     </div>
   );

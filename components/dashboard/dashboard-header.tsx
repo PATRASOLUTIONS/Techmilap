@@ -106,12 +106,12 @@ export function DashboardHeader() {
                   Settings
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
+              {/* <DropdownMenuItem asChild>
                 <Link href="/help" className="cursor-pointer flex w-full items-center">
                   <HelpCircle className="mr-2 h-4 w-4" />
                   Help & Support
                 </Link>
-              </DropdownMenuItem>
+              </DropdownMenuItem> */}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="cursor-pointer text-red-600 focus:text-red-600"

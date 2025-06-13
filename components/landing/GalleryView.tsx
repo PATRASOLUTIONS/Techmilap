@@ -6,38 +6,37 @@ import Image from "next/image";
 const eventCategories = [
   {
     id: 1,
-    title: "AI & ML EVENTS",
+    title: "TECH & STARTUPS",
     eventCount: "8 Events",
-    image:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Birthday_candles.jpg/330px-Birthday_candles.jpg",
+    image: "/HomePageImage1.jpg",
     className: "col-span-1 row-span-1",
   },
   {
     id: 2,
-    title: "WEB DEVELOPMENT",
+    title: "FINANCE & FINTECH",
     eventCount: "12 Events",
-    image: "/placeholder.svg?height=500&width=800",
+    image: "/HomePageImage3.jpg",
     className: "col-span-2 row-span-1",
   },
   {
     id: 3,
-    title: "MOBILE APPS",
+    title: "EDUCATION & EDTECH",
     eventCount: "6 Events",
-    image: "/placeholder.svg?height=400&width=600",
+    image: "/HomePageImage2.jpg",
     className: "col-span-1 row-span-1",
   },
   {
     id: 4,
-    title: "BLOCKCHAIN & CRYPTO",
+    title: "AI & CLOUD DEVELOPMEMT",
     eventCount: "5 Events",
-    image: "/placeholder.svg?height=500&width=800",
+    image: "/HomePageImage4.jpg",
     className: "col-span-2 row-span-1",
   },
   {
     id: 5,
-    title: "CYBERSECURITY",
+    title: "DATA SCIENCE",
     eventCount: "7 Events",
-    image: "/placeholder.svg?height=500&width=800",
+    image: "/HomePageImage5.jpg",
     className: "col-span-2 row-span-1",
   },
 ];
@@ -76,7 +75,7 @@ export default function GalleryView() {
             >
               <div className="h-60 lg:h-80 overflow-hidden relative">
                 <Image
-                  src={category.image}
+                  src={`${category.image}`}
                   alt="/placeholder.svg"
                   fill
                   className="object-cover transition-transform duration-700 group-hover:scale-110"
@@ -84,11 +83,11 @@ export default function GalleryView() {
 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-                {/* <div className="absolute top-4 right-4 z-10">
+                <div className="absolute top-4 right-4 z-10">
                   <span className="bg-[#b8860b] rounded-full text-sm px-3 py-1 text-white shadow-lg font-semibold ">
                     {category.title}
                   </span>
-                </div> */}
+                </div>
               </div>
             </motion.div>
           ))}

@@ -2,6 +2,8 @@
 
 import { Anton } from "next/font/google";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const fontAnton = Anton({
   weight: "400",
@@ -21,7 +23,7 @@ export default function HeroContent() {
       <div className="container mx-auto px-4 relative z-10">
         <div className="grid lg:grid-cols-2 gap-12 items-center min-h-screen pt-20">
           {/* Left Column - Main Content */}
-          <div className="space-y-8">
+          <div className="space-y-8 ml-20">
             <div className={`space-y-4 ${fontAnton.className}`}>
               <motion.h1
                 initial={{ opacity: 0, y: 60 }}
@@ -68,7 +70,7 @@ export default function HeroContent() {
               transition={{ duration: 0.6, ease: "easeOut", delay: 0.4 }}
               className="flex flex-col sm:flex-row gap-4 max-w-lg"
             >
-              <div className="flex-1 relative">
+              {/* <div className="flex-1 relative">
                 <input
                   type="email"
                   placeholder="Your email..."
@@ -76,16 +78,18 @@ export default function HeroContent() {
                            focus:outline-none focus:ring-2 focus:ring-[#b8860b]/50 focus:border-transparent
                            placeholder:text-neutral-400 text-gray-700"
                 />
-              </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-[#b8860b] to-[#d8a62a] text-white px-8 py-4 rounded-full
+              </div> */}
+              <Link href={"/signup"}>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-gradient-to-r from-[#b8860b] to-[#d8a62a] text-white px-8 py-4 rounded-full
                           font-semibold tracking-wide transition-all duration-300 shadow-lg hover:shadow-xl
                           whitespace-nowrap"
-              >
-                Get Started
-              </motion.button>
+                >
+                  Get Started
+                </motion.button>
+              </Link>
             </motion.div>
           </div>
 
