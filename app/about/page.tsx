@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Users, Globe, Award, Heart, Lightbulb, Handshake, Shield, Clock } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import Navbar from "@/components/landing/NavBar"
 
 export const metadata = {
   title: "About Us | Tech Milap",
@@ -29,7 +30,8 @@ export default function AboutPage() {
 
       <div className="relative z-10">
         {/* Landing Header with Login/Register */}
-        <LandingHeader />
+        {/* <LandingHeader /> */}
+        <Navbar/>
 
         {/* Add padding to account for fixed header */}
         <div className="pt-24">
@@ -76,7 +78,7 @@ function AboutSection() {
         </div>
         <div className="relative rounded-2xl overflow-hidden shadow-xl">
           <Image
-            src="/diverse-group-city.png"
+            src="/HomePageImage4.jpg"
             alt="Tech Milap Team"
             width={600}
             height={400}
@@ -178,24 +180,12 @@ function AboutSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="flex justify-center gap-8 ">
           <TeamMember
-            image="/joyful-portrait.png"
-            name="Rahul Sharma"
-            title="Co-founder & CEO"
-            bio="Former tech conference organizer with 10+ years of experience building community-driven events."
-          />
-          <TeamMember
-            image="/confident-asian-professional.png"
-            name="Mei Lin"
-            title="Co-founder & CTO"
-            bio="Full-stack developer and hackathon enthusiast who has built event tools for major tech companies."
-          />
-          <TeamMember
-            image="/confident-leader.png"
-            name="Alex Johnson"
-            title="Chief Product Officer"
-            bio="Product leader with experience at leading event technology companies and a passion for user-centered design."
+            image="https://media.licdn.com/dms/image/v2/D5603AQG0J1ZjiAXzOA/profile-displayphoto-shrink_200_200/B56ZOLbmwGGgAY-/0/1733211090844?e=1755129600&v=beta&t=luWtBuacwtKnCw_6B_5m9yl4ubULKmrNIoBklGzLhwM"
+            name="Lalit Rawat"
+            title="Microsoft Azure MVP"
+            bio="Inspiring Public Speaker: Advocate for Azure’s transformative potential through storytelling and active engagements."
           />
         </div>
       </div>
