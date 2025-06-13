@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Users, Globe, Award, Heart, Lightbulb, Handshake, Shield, Clock } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import Navbar from "@/components/landing/NavBar"
 
 export const metadata = {
   title: "About Us | Tech Milap",
@@ -29,7 +30,8 @@ export default function AboutPage() {
 
       <div className="relative z-10">
         {/* Landing Header with Login/Register */}
-        <LandingHeader />
+        {/* <LandingHeader /> */}
+        <Navbar/>
 
         {/* Add padding to account for fixed header */}
         <div className="pt-24">
