@@ -42,7 +42,7 @@ export default function LandingPage() {
       <div className="relative z-10">
         {/* Landing Header with Login/Register */}
         {/* <LandingHeader /> */}
-        <Navbar />
+        <Navbar/>
 
         {/* Add padding to account for fixed header */}
         <div className="pt-0">
