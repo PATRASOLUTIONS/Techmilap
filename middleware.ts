@@ -22,6 +22,7 @@ const publicPaths = [
   "/cookies",
   "/gdpr",
   "/event-terms",
+  "/FAQ"
 ]
 
 // Define paths that require super-admin role
