@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge" // Keep Badge import
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Loader2, Eye, CheckCircle, XCircle, Search, Filter, X, CalendarIcon, Download as DownloadIcon } from "lucide-react" // Added CalendarIcon, Renamed Download icon
 import { useToast } from "@/hooks/use-toast"
-import { formatDistanceToNow } from "date-fns"
+import { formatDistanceToNow, sub } from "date-fns"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox" // Keep Checkbox import
@@ -152,9 +152,9 @@ const getFieldValue = (registration: any, fieldNames: string[], defaultValue = "
           if (
             registration.data[key] !== undefined &&
             registration.data[key] !== null &&
-              registration.data[key] !== "" // Consider if empty string should be returned or default
+            registration.data[key] !== "" // Consider if empty string should be returned or default
           ) {
-              return formatDateValue(registration.data[key]);
+            return formatDateValue(registration.data[key]);
           }
         }
       }
@@ -875,7 +875,7 @@ export function SubmissionsTable({
         //       },
         //     }
         //   }) || []
-
+        console.log("Processed submissions:", data.submissions)
         setSubmissions(data.submissions || [])
 
         // Extract unique values for each field for filtering
@@ -966,8 +966,9 @@ export function SubmissionsTable({
     setDialogOpen(true)
   }
 
-  const handleUpdateStatus = async (submissionId: string, newStatus: string) => {
+  const handleUpdateStatus = async (submissionId: string, name: string, email: string, newStatus: string) => {
     try {
+      console.log("handleUpdateStatusInputs", submissionId, name, email, newStatus)
       setUpdatingSubmissionId(`${submissionId}_${newStatus}`) // Store ID and action
       // Basic validation for submissionId format
       if (!submissionId || submissionId.length < 24) {
@@ -984,7 +985,7 @@ export function SubmissionsTable({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, name: name, email: email }),
       })
 
       if (!response.ok) {
@@ -1476,7 +1477,7 @@ export function SubmissionsTable({
                               variant="outline"
                               size="sm"
                               className="text-green-600 hover:text-green-700"
-                              onClick={() => handleUpdateStatus(submission._id, "approved")}
+                              onClick={() => handleUpdateStatus(submission._id, submission.name? submission.name : submission.userName, submission.email ? submission.email : submission.userEmail, "approved")}
                               disabled={updatingSubmissionId?.startsWith(submission._id)} // Disable if any action on this row
                             >
                               {updatingSubmissionId === `${submission._id}_approved` ? ( // Specific check for approve
@@ -1495,7 +1496,7 @@ export function SubmissionsTable({
                               variant="outline"
                               size="sm"
                               className="text-red-600 hover:text-red-700"
-                              onClick={() => handleUpdateStatus(submission._id, "rejected")}
+                              onClick={() => handleUpdateStatus(submission._id, submission.name? submission.name : submission.userName, submission.email ? submission.email : submission.userEmail, "rejected")}
                               disabled={updatingSubmissionId?.startsWith(submission._id)} // Disable if any action on this row
                             >
                               {updatingSubmissionId === `${submission._id}_rejected` ? ( // Specific check for reject

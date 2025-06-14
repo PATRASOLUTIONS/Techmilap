@@ -4,9 +4,12 @@ import mongoose from "mongoose"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { isValidObjectId } from "mongoose"
+import { sendRegistrationApprovalEmail, sendRegistrationRejectionEmail } from "@/lib/email-service"
+
 
 // Import models
 const Event = mongoose.models.Event || mongoose.model("Event", require("@/models/Event").default.schema)
+const User = mongoose.models.User || mongoose.model("User", require("@/models/User").default.schema) // Ensure User model is correctly imported/defined
 const FormSubmission =
   mongoose.models.FormSubmission ||
   mongoose.model(
@@ -59,34 +62,94 @@ export async function PATCH(
     }
 
     // Get the request body
-    const { status } = await req.json()
+    const { status, name, email } = await req.json()
+    let emailSent = false
 
     if (!status || !["pending", "approved", "rejected"].includes(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 })
     }
 
-    // Find and update the submission
-    const submission = await FormSubmission.findOneAndUpdate(
-      {
-        _id: params.submissionId,
-        eventId: event._id,
-        formType: params.formType,
-      },
-      {
-        status,
-        updatedAt: new Date(),
-      },
-      { new: true },
-    )
+    // Find the registration
+    const registration = await FormSubmission.findById(params.submissionId)
 
-    if (!submission) {
-      return NextResponse.json({ error: "Submission not found" }, { status: 404 })
+    if (!registration) {
+      return NextResponse.json({ error: "Registration not found" }, { status: 404 })
     }
 
+    // Update the registration status
+    if (registration) {
+      registration.status = status
+      registration.updatedAt = new Date()
+      await registration.save()
+    }
+
+    // // Find and update the submission
+    // const submission = await FormSubmission.findOneAndUpdate(
+    //   {
+    //     _id: params.submissionId,
+    //     eventId: event._id,
+    //     formType: params.formType,
+    //   },
+    //   {
+    //     status,
+    //     updatedAt: new Date(),
+    //   },
+    //   { new: true },
+    // )
+
+    // if (!submission) {
+    //   return NextResponse.json({ error: "Submission not found" }, { status: 404 })
+    // }
+    if (email && (status === "approved" || status === "rejected")) {
+      let organizerUser = null
+      let organizerEmail: string | null = null
+      if (event.organizer && isValidObjectId(event.organizer)) {
+        try {
+          organizerUser = await User.findById(event.organizer).lean()
+          if (organizerUser && organizerUser.email) {
+            organizerEmail = organizerUser.email
+          }
+        } catch (error) {
+          console.error("Error fetching organizer for email:", error)
+        }
+      }
+
+      const emailEventDetails = {
+        ...event.toObject(),
+        organizerName: organizerUser?.name || `${organizerUser?.firstName || ""} ${organizerUser?.lastName || ""}`.trim() || "Event Organizer",
+        attendeeId: registration.userId.toString(),
+      }
+
+      try {
+        if (status === "approved") {
+          emailSent = await sendRegistrationApprovalEmail({
+            eventName: event.title,
+            attendeeEmail: email,
+            attendeeName: name,
+            eventDetails: emailEventDetails,
+            eventId: event._id.toString(),
+            organizerEmail: organizerEmail || null,
+            organizerId: event.organizer?.toString(),
+          })
+        } else if (status === "rejected") {
+          emailSent = await sendRegistrationRejectionEmail({
+            eventName: event.title,
+            attendeeEmail: email,
+            attendeeName: name,
+            eventDetails: emailEventDetails,
+            eventId: event._id.toString(),
+            organizerEmail: organizerEmail,
+            organizerId: event.organizer?.toString(),
+          })
+        }
+        console.log(`Email notification for ${params.formType} ${emailSent ? "sent successfully" : "failed or not applicable"}`)
+      } catch (emailError) {
+        console.error(`Error sending ${params.formType} submission email:`, emailError)
+      }
+    }
     return NextResponse.json({
       success: true,
       message: `${params.formType} submission status updated to ${status}`,
-      submission,
     })
   } catch (error: any) {
     console.error(`Error updating ${params.formType} submission:`, error)
