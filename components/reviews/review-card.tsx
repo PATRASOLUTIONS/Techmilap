@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useSession } from "next-auth/react"
 import { formatDistanceToNow } from "date-fns"
-import { Star, ThumbsUp, Flag, MoreVertical, MessageSquare, Trash, Edit, Check, X, Smile } from "lucide-react"
+import { ThumbsUp, Flag, MoreVertical, MessageSquare, Trash, Edit, Check, X, Angry, Frown, Meh, Smile as SmileIcon, Laugh } from "lucide-react" // Added smiley icons, renamed Smile to SmileIcon
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -22,6 +22,14 @@ interface ReviewCardProps {
   onReject?: (id: string) => Promise<void>
   showEventDetails?: boolean
 }
+
+const ratingSmileys = {
+  1: { Icon: Angry, color: "text-red-500" },
+  2: { Icon: Frown, color: "text-orange-500" },
+  3: { Icon: Meh, color: "text-yellow-500" },
+  4: { Icon: SmileIcon, color: "text-lime-500" },
+  5: { Icon: Laugh, color: "text-green-500" },
+};
 
 export function ReviewCard({
   review,
@@ -232,12 +240,17 @@ export function ReviewCard({
             <h3 className="text-sm font-medium">{getUserName()}</h3>
             <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
               <div className="flex items-center gap-1">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Smile
-                    key={i}
-                    className={cn("h-4 w-4", i < review.rating ? "text-yellow-400" : "text-gray-300")}
-                  />
-                ))}
+                {Array.from({ length: 5 }).map((_, i) => {
+                  const ratingValue = i + 1;
+                  const SmileyComponent = ratingSmileys[ratingValue]?.Icon || SmileIcon; // Fallback to SmileIcon
+                  const smileyColor = ratingSmileys[ratingValue]?.color || "text-gray-300";
+                  return (
+                    <SmileyComponent
+                      key={i}
+                      className={cn("h-4 w-4", ratingValue <= review.rating ? smileyColor : "text-gray-300")}
+                    />
+                  );
+                })}
               </div>
               <span className="mx-1">•</span>
               <span>{formattedDate}</span>
