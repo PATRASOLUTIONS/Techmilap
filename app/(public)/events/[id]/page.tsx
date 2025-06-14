@@ -196,7 +196,7 @@ export default function EventPage({
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
-      <div className="my-6">
+      <div className="mb-6 mt-10">
         <Link href="/events" className="text-primary hover:underline flex items-center gap-2">
           <CalendarIcon className="h-4 w-4" />
           Back to Events

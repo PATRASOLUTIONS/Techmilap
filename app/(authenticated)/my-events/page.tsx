@@ -89,14 +89,6 @@ export default function MyEventsPage() {
   // Set default tab based on user role
   const [defaultTab, setDefaultTab] = useState(isEventPlanner ? "organized" : "applications")
 
-  // Update current time every minute
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 60000) // Update every minute
-
-    return () => clearInterval(timer)
-  }, [])
 
   useEffect(() => {
     // Set default tab based on user role when session loads
