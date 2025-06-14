@@ -8,6 +8,8 @@ interface Event {
   description?: string
   date?: string
   endDate?: string
+  startTime?: string
+  endTime?: string
   location?: string
   image?: string
   category?: string
@@ -35,6 +37,8 @@ export function PublicEventList({ events = [] }: { events: Event[] }) {
     ...event,
     image: getImageUrl(event.image),
   }))
+
+  console.log("Processed Events: from PublicEventList:", processedEvents)
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

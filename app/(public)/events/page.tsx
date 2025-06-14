@@ -17,6 +17,8 @@ interface Event {
   description?: string
   date?: string
   endDate?: string
+  startTime?: string
+  endTime?: string
   location?: string
   image?: string
   category?: string
@@ -89,48 +91,56 @@ async function getEventsDirectly(searchParams?: {
     const allEvents = await Event.find(query).lean().exec()
 
     // Categorize events
-    const recentEvents: Event[] = []
     const upcomingEvents: Event[] = []
+    const ongoingEvents: Event[] = []
     const pastEvents: Event[] = []
 
     allEvents.forEach((event) => {
       console.log("Processing event:", event )
       const eventDate = event.date ? new Date(event.date) : null
       const eventEndDate = event.endDate ? new Date(event.endDate) : null
-      const createdAt = event.createdAt ? new Date(event.createdAt) : new Date(0)
+      // For more precise comparison, consider startTime and endTime if available
+      // For simplicity here, we'll stick to date-level comparison primarily
+      // but a more robust solution would parse startTime/endTime.
 
-      // Recent events (created in the last 7 days)
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-
-      if (createdAt >= sevenDaysAgo) {
-        recentEvents.push(event)
-      }
-      // Upcoming events (start date is in the future)
-      else if (eventDate && eventDate > now) {
+      if (eventDate && eventDate > now) {
         upcomingEvents.push(event)
       }
-      // Past events (end date is in the past)
-      else if ((eventEndDate && eventEndDate < now) || (eventDate && eventDate < now && !eventEndDate)) {
+      // Check for Ongoing
+      // Event started or is starting today, and ends in the future or today (if endDate exists)
+      // Or, event started today and has no specific end date (ongoing for the day)
+      else if (eventDate && eventDate <= now && eventEndDate && eventEndDate >= now) {
+        ongoingEvents.push(event)
+      } else if (eventDate && eventDate.toDateString() === now.toDateString() && !eventEndDate) {
+        // Started today, no end date specified, consider ongoing for the day
+        ongoingEvents.push(event)
+      }
+      // Check for Past
+      // Event ended in the past (if endDate exists)
+      // Or, event started in the past and has no specific end date
+      else if (eventEndDate && eventEndDate < now) {
+        pastEvents.push(event)
+      } else if (eventDate && eventDate < now && !eventEndDate) {
         pastEvents.push(event)
       }
-      // Default to upcoming if we can't categorize
-      else {
-        upcomingEvents.push(event)
-      }
+      // Fallback, if an event doesn't fit cleanly (e.g., bad dates), it might not be categorized.
+      // Or, you could add a default category like 'upcoming' if dates are missing/invalid.
     })
 
     // Sort each category
-    recentEvents.sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime())
     upcomingEvents.sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime())
+    ongoingEvents.sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime()) // Or by end date if preferred
     pastEvents.sort(
       (a, b) => new Date(b.endDate || b.date || 0).getTime() - new Date(a.endDate || a.date || 0).getTime(),
     )
 
-    
+    console.log("Categorized events:")
+    console.log("Upcoming:", upcomingEvents)
+    console.log("Ongoing:", ongoingEvents)
+    console.log("Past:", pastEvents)
 
     // Combine all events in the desired order
-    const sortedEvents = [...recentEvents, ...upcomingEvents, ...pastEvents]
+    const sortedEvents = [...upcomingEvents, ...ongoingEvents, ...pastEvents]
 
     // Apply pagination to the sorted events
     const paginatedEvents = sortedEvents.slice(skip, skip + limit)
@@ -172,6 +182,8 @@ async function getEventsDirectly(searchParams?: {
         date: dbEvent.date ? new Date(dbEvent.date).toISOString() : undefined,
         endDate: dbEvent.endDate ? new Date(dbEvent.endDate).toISOString() : undefined,
         createdAt: dbEvent.createdAt ? new Date(dbEvent.createdAt).toISOString() : undefined,
+        startTime: dbEvent.startTime,
+        endTime: dbEvent.endTime,
         // Ensure other fields are also plain and serializable
         location: dbEvent.location,
         image: getImageUrl(dbEvent.image), // getImageUrl should return a string
@@ -188,10 +200,10 @@ async function getEventsDirectly(searchParams?: {
         clientEvent.organizerInfo = organizerMap[organizerIdString] || null;
       }
       // This property is compatible with the Event type in public-event-list.tsx
-      if (recentEvents.some((e) => e._id.toString() === dbEvent._id.toString())) {
-        (clientEvent as any).eventType = "recent";
-      } else if (upcomingEvents.some((e) => e._id.toString() === dbEvent._id.toString())) {
+      if (upcomingEvents.some((e) => e._id.toString() === dbEvent._id.toString())) {
         (clientEvent as any).eventType = "upcoming";
+      } else if (ongoingEvents.some((e) => e._id.toString() === dbEvent._id.toString())) {
+        (clientEvent as any).eventType = "ongoing";
       } else {
         (clientEvent as any).eventType = "past";
       }
@@ -263,17 +275,16 @@ export default async function EventsPage({
             {events && events.length > 0 ? (
               <>
                 {/* Group events by type */}
-                {events.some((e) => (e as any).eventType === "recent") && (
-                  <div className="mb-10">
-                    <h2 className="text-2xl font-semibold mb-4">Recent Events</h2>
-                    <PublicEventList events={events.filter((e) => (e as any).eventType === "recent")} />
-                  </div>
-                )}
-
                 {events.some((e) => (e as any).eventType === "upcoming") && (
                   <div className="mb-10">
                     <h2 className="text-2xl font-semibold mb-4">Upcoming Events</h2>
                     <PublicEventList events={events.filter((e) => (e as any).eventType === "upcoming")} />
+                  </div>
+                )}
+                {events.some((e) => (e as any).eventType === "ongoing") && (
+                  <div className="mb-10">
+                    <h2 className="text-2xl font-semibold mb-4">Ongoing Events</h2>
+                    <PublicEventList events={events.filter((e) => (e as any).eventType === "ongoing")} />
                   </div>
                 )}
 
