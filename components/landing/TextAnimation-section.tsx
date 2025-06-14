@@ -22,29 +22,32 @@ export default function TextAnimationSection() {
           once={false}
         />
       </div>
-
-      {/* Floating elements */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.5 }}
-        className="absolute bottom-20 left-[44%] transform -translate-x-1/2 z-10 text-center"
+      {/* Wrapper for positioning and centering */}
+      <div
+        className="absolute bottom-20 z-10 w-full left-0 right-0 px-4 sm:px-0 sm:w-auto sm:left-1/2 sm:transform sm:-translate-x-1/2 sm:right-auto"
       >
-        <p className="text-white/80 text-lg mb-4">
-          Create, Connect, Collaborate
-        </p>
-        <Link href={"/events"}>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="bg-white/20 backdrop-blur-md text-white px-8 py-3 rounded-full
+        {/* Motion div for animation and content */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.5 }}
+          className="w-full text-center" // w-full ensures it fills the (now correctly sized) parent
+        >
+          <p className="text-white/80 text-lg mb-4">
+            Create, Connect, Collaborate
+          </p>
+          <Link href={"/events"}>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="bg-white/20 backdrop-blur-md text-white px-8 py-3 rounded-full
                     font-semibold tracking-wide transition-all duration-300 shadow-lg hover:shadow-xl
-                    border border-white/30"
-          >
-            Explore Now
-          </motion.button>
-        </Link>
-      </motion.div>
+                    border border-white/30">
+              Explore Now
+            </motion.button>
+          </Link>
+        </motion.div>
+      </div>
     </div>
   );
 }

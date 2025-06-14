@@ -1,12 +1,12 @@
 "use client";
 
-import { formatFieldName } from "@/lib/csv-export";
 import { motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
-type NavbarHeadingType = { fieldName: String; fieldLink: String }[];
+type NavbarHeadingType = { fieldName: string; fieldLink: string }[];
 
 const navbarHeading: NavbarHeadingType = [
   { fieldName: "Explore Events", fieldLink: "/events" },
@@ -16,8 +16,9 @@ const navbarHeading: NavbarHeadingType = [
   { fieldName: "Pricing", fieldLink: "/pricing" },
 ];
 
-export default function itNavbar() {
-  // const { session: data } = useSession();
+export default function Navbar() {
+  const { data: session } = useSession();
+
   return (
     <motion.nav
       initial={{ opacity: 0, y: -20 }}
@@ -39,12 +40,12 @@ export default function itNavbar() {
                 alt="Tech Milap Logo"
                 width={40}
                 height={40}
-                className="object-contain"
+                className="relative h-10 w-10 overflow-hidden rounded-full border border-gray-200"
               />
               {/* Logo */}
               <motion.div
                 whileHover={{ scale: 1.05 }}
-                className="text-xl md:text-2xl font-extrabold bg-gradient-to-r from-[#F59E0B] to-[#8B5CF6] bg-clip-text text-transparent"
+                className="mt-1 text-xl md:text-2xl font-extrabold bg-gradient-to-r from-[#F59E0B] to-[#8B5CF6] bg-clip-text text-transparent"
               >
                 Tech Milap
               </motion.div>
@@ -53,26 +54,12 @@ export default function itNavbar() {
 
           {/* Navigation Menu - Hidden on mobile */}
           <div className="hidden md:block">
-            {/* <ul className="flex gap-6 lg:gap-8">
-              {["Explore Events", "Features", "About", "FAQ", "Pricing"].map(
-                (item) => (
-                  <motion.li
-                    key={item}
-                    whileHover={{ scale: 1.05 }}
-                    className="text-gray-700 hover:text-[#F59E0B] transition-colors duration-300 cursor-pointer font-semibold"
-                  >
-                    {item}
-                  </motion.li>
-                )
-              )}
-            </ul> */}
-
             <ul className="md:flex items-center gap-6">
               {navbarHeading.map((fields) => (
                 <motion.li
                   whileHover={{ scale: 1.05 }}
                   className="text-gray-700 hover:text-[#0aacf7]"
-                  key={fields.fieldName}
+                  key={fields.fieldName.toString()}
                 >
                   <Link href={fields.fieldLink}>{fields.fieldName}</Link>
                 </motion.li>
@@ -81,27 +68,42 @@ export default function itNavbar() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 md:gap-6 items-center">
-            <Link href={"/my-events"}>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="text-gray-700 hover:text-[#F59E0B] transition-colors duration-300 font-semibold text-sm md:text-base"
-              >
-                MyEvents
-              </motion.button>
-            </Link>
-            <Link href={"/dashboard"}>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-[#4C1D95] text-white px-3 md:px-4 py-2 rounded-full 
-                        hover:bg-[#5B21B6] transition-colors duration-300
-                        shadow-md hover:shadow-lg font-semibold text-sm md:text-base"
-              >
-                Dashboard
-              </motion.button>
-            </Link>
+          <div className="flex items-center gap-2">
+            {session ? (
+              // Show these buttons when user is logged in
+              <>
+                <Button
+                  asChild
+                  variant="ghost"
+                  className="text-[#170f83] hover:text-[#0aacf7] hover:bg-[#170f83]/10"
+                >
+                  <Link href="/my-events">My Events</Link>
+                </Button>
+                <Button
+                  asChild
+                  className="bg-[#170f83] hover:bg-[#170f83]/90 text-white"
+                >
+                  <Link href="/dashboard">Dashboard</Link>
+                </Button>
+              </>
+            ) : (
+              // Show these buttons when user is not logged in
+              <>
+                <Button
+                  asChild
+                  variant="ghost"
+                  className="text-[#170f83] hover:text-[#0aacf7] hover:bg-[#170f83]/10"
+                >
+                  <Link href="/login">Sign In</Link>
+                </Button>
+                <Button
+                  asChild
+                  className="bg-[#170f83] hover:bg-[#170f83]/90 text-white"
+                >
+                  <Link href="/signup">Sign Up</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>
