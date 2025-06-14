@@ -261,7 +261,7 @@ export function DashboardSidebar() {
     },
     {
       title: "All Reviews",
-      href: "/super-admin/reviews",
+      href: "/event-reviews",
       icon: Star,
     },
     {
