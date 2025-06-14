@@ -437,8 +437,14 @@ export function EmailDesignPreview({ designId }: EmailDesignPreviewProps) {
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="success">
+  <TabsList
+    className="
+      w-full items-center h-12
+      flex gap-2 overflow-x-auto whitespace-nowrap
+      xl:grid xl:grid-cols-3 xl:overflow-visible xl:whitespace-normal
+      scrollbar-hide
+    "
+  >                     <TabsTrigger value="success">
               <div className="flex items-center gap-2">
                 <span>Confirmation</span>
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">

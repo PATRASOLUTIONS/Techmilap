@@ -420,8 +420,13 @@ export function EmailTemplateManager({ userId }: EmailTemplateManagerProps) {
           Removed grid layout for mobile, using flex with horizontal scroll.
           Kept grid layout for medium screens and up.
         */}
-        <TabsList className="flex overflow-x-auto whitespace-nowrap md:grid md:grid-cols-6 mb-4">
-          {TEMPLATE_TYPES.map((type) => (
+  <TabsList
+    className="
+      flex w-full gap-2 overflow-x-auto whitespace-nowrap
+      xl:grid xl:grid-cols-6 xl:overflow-visible xl:whitespace-normal
+      scrollbar-hide mb-4
+    "
+  >         {TEMPLATE_TYPES.map((type) => (
             <TabsTrigger key={type.value} value={type.value}>
               {type.label}
             </TabsTrigger>
