@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Password Reset</h2>
-          <p>You requested a password reset for your MyEvent account.</p>
+          <p>You requested a password reset for your Tech Milap account.</p>
           <p>Your password reset code is: <strong>${otp}</strong></p>
           <p>This code will expire in 15 minutes.</p>
           <p>If you didn't request this reset, please ignore this email.</p>

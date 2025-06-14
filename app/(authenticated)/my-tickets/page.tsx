@@ -752,8 +752,8 @@ function FormSubmissionTicket({ ticket, index }: { ticket: any; index: number })
       doc.setProperties({
         title: `${event.title || "Event"} - ${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Pass`,
         subject: "Event Ticket",
-        author: "MyEvent Platform",
-        creator: "MyEvent Platform",
+        author: "Tech Milap Platform",
+        creator: "Tech Milap Platform",
       })
 
       // Add title

@@ -101,8 +101,8 @@ export function TicketCard({ ticket, index }: TicketCardProps) {
       doc.setProperties({
         title: `${eventTitle} - Ticket`,
         subject: "Event Ticket",
-        author: "MyEvent Platform",
-        creator: "MyEvent Platform",
+        author: "Tech Milap Platform",
+        creator: "Tech Milap Platform",
       })
 
       // Add title

@@ -330,7 +330,7 @@ export function DashboardSidebar() {
               <div className="h-8 w-8 rounded-md bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
                 <Calendar className="h-5 w-5" />
               </div>
-              <span className="font-semibold text-lg text-white">MyEvent</span>
+              <span className="font-semibold text-lg text-white">Tech Milap</span>
             </Link>
           </div>
 
