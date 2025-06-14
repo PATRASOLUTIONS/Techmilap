@@ -30,7 +30,7 @@ export function SiteFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/public-events" className="text-black hover:text-[#0aacf7]">
+                <Link href="/events" className="text-black hover:text-[#0aacf7]">
                   Explore Events
                 </Link>
               </li>
