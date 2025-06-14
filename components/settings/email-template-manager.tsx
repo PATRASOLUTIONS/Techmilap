@@ -416,7 +416,11 @@ export function EmailTemplateManager({ userId }: EmailTemplateManagerProps) {
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid grid-cols-3 md:grid-cols-6 mb-4">
+        {/*
+          Removed grid layout for mobile, using flex with horizontal scroll.
+          Kept grid layout for medium screens and up.
+        */}
+        <TabsList className="flex overflow-x-auto whitespace-nowrap md:grid md:grid-cols-6 mb-4">
           {TEMPLATE_TYPES.map((type) => (
             <TabsTrigger key={type.value} value={type.value}>
               {type.label}
