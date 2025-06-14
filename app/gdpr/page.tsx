@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 
 export const metadata = {
-  title: "GDPR Compliance | TechEventPlanner",
-  description: "GDPR compliance information for the TechEventPlanner platform.",
+  title: "GDPR Compliance | Tech Milap",
+  description: "GDPR compliance information for the Tech Milap platform.",
 }
 
 export default function GDPRCompliancePage() {
@@ -27,25 +27,25 @@ export default function GDPRCompliancePage() {
 
           <h2 className="text-2xl font-semibold mt-8 mb-4">1. Introduction</h2>
           <p>
-            At TechEventPlanner, we are committed to protecting the privacy and security of your personal data. This
+            At Tech Milap, we are committed to protecting the privacy and security of your personal data. This
             GDPR Compliance Statement explains how we comply with the General Data Protection Regulation (GDPR) when
             processing personal data of individuals in the European Economic Area (EEA).
           </p>
 
           <h2 className="text-2xl font-semibold mt-8 mb-4">2. Data Controller</h2>
           <p>
-            TechEventPlanner acts as a data controller for the personal data we collect and process. As a data
+            Tech Milap acts as a data controller for the personal data we collect and process. As a data
             controller, we determine the purposes and means of processing personal data.
           </p>
           <p>Our contact details are:</p>
           <p>
-            TechEventPlanner
+            Tech Milap
             <br />
             123 Tech Street
             <br />
             San Francisco, CA 94105
             <br />
-            Email: privacy@techeventplanner.com
+            Email: privacy@techmilap.com
           </p>
 
           <h2 className="text-2xl font-semibold mt-8 mb-4">3. Data Protection Officer</h2>
@@ -55,7 +55,7 @@ export default function GDPRCompliancePage() {
             how we handle your personal data, please contact our DPO at:
           </p>
           <p>
-            Email: dpo@techeventplanner.com
+            Email: dpo@techmilap.com
             <br />
             Address: 123 Tech Street, San Francisco, CA 94105
           </p>
@@ -175,7 +175,7 @@ export default function GDPRCompliancePage() {
             at:
           </p>
           <p>
-            Email: privacy@techeventplanner.com
+            Email: privacy@techmilap.com
             <br />
             Address: 123 Tech Street, San Francisco, CA 94105
           </p>

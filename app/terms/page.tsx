@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 
 export const metadata = {
-  title: "Terms of Service | TechEventPlanner",
-  description: "Terms of service for using the TechEventPlanner platform.",
+  title: "Terms of Service | Tech Milap",
+  description: "Terms of service for using the Tech Milap platform.",
 }
 
 export default function TermsPage() {
@@ -27,7 +27,7 @@ export default function TermsPage() {
 
           <h2 className="text-2xl font-semibold mt-8 mb-4">1. Introduction</h2>
           <p>
-            Welcome to TechEventPlanner ("we," "our," or "us"). These Terms of Service govern your use of our website,
+            Welcome to Tech Milap ("we," "our," or "us"). These Terms of Service govern your use of our website,
             mobile applications, and services (collectively, the "Services"). By accessing or using our Services, you
             agree to be bound by these Terms. If you do not agree to these Terms, please do not use our Services.
           </p>
@@ -116,7 +116,7 @@ export default function TermsPage() {
           <h2 className="text-2xl font-semibold mt-8 mb-4">10. Contact Us</h2>
           <p>If you have any questions about these Terms, please contact us at:</p>
           <p>
-            Email: support@techeventplanner.com
+            Email: support@techmilap.com
             <br />
             Address: 123 Tech Street, San Francisco, CA 94105
           </p>

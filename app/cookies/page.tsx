@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 
 export const metadata = {
-  title: "Cookie Policy | TechEventPlanner",
-  description: "Cookie policy for the TechEventPlanner platform.",
+  title: "Cookie Policy | Tech Milap",
+  description: "Cookie policy for the Tech Milap platform.",
 }
 
 export default function CookiePolicyPage() {
@@ -27,7 +27,7 @@ export default function CookiePolicyPage() {
 
           <h2 className="text-2xl font-semibold mt-8 mb-4">1. Introduction</h2>
           <p>
-            This Cookie Policy explains how TechEventPlanner ("we," "our," or "us") uses cookies and similar
+            This Cookie Policy explains how Tech Milap ("we," "our," or "us") uses cookies and similar
             technologies to recognize you when you visit our website and use our services (collectively, the
             "Services"). It explains what these technologies are and why we use them, as well as your rights to control
             our use of them.
@@ -40,7 +40,7 @@ export default function CookiePolicyPage() {
             as to provide reporting information.
           </p>
           <p>
-            Cookies set by the website owner (in this case, TechEventPlanner) are called "first-party cookies." Cookies
+            Cookies set by the website owner (in this case, Tech Milap) are called "first-party cookies." Cookies
             set by parties other than the website owner are called "third-party cookies." Third-party cookies enable
             third-party features or functionality to be provided on or through the website (e.g., advertising,
             interactive content, and analytics).
@@ -119,7 +119,7 @@ export default function CookiePolicyPage() {
           <h2 className="text-2xl font-semibold mt-8 mb-4">8. Contact Us</h2>
           <p>If you have any questions about our use of cookies or other technologies, please contact us at:</p>
           <p>
-            Email: privacy@techeventplanner.com
+            Email: privacy@techmilap.com
             <br />
             Address: 123 Tech Street, San Francisco, CA 94105
           </p>

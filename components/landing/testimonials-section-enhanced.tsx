@@ -48,7 +48,7 @@ export function TestimonialsSection() {
       role: "Event Manager at TechCorp",
       image: "/joyful-portrait.png",
       content:
-        "TechEventPlanner has transformed how we organize our annual developer conference. The platform is intuitive, powerful, and has saved us countless hours of manual work.",
+        "Tech Milap has transformed how we organize our annual developer conference. The platform is intuitive, powerful, and has saved us countless hours of manual work.",
       rating: 5,
     },
     {
@@ -56,7 +56,7 @@ export function TestimonialsSection() {
       role: "CTO at StartupHub",
       image: "/confident-asian-professional.png",
       content:
-        "We've tried several event management platforms, but TechEventPlanner stands out with its tech-focused features and excellent customer support. Highly recommended!",
+        "We've tried several event management platforms, but Tech Milap stands out with its tech-focused features and excellent customer support. Highly recommended!",
       rating: 5,
     },
     {
@@ -80,7 +80,7 @@ export function TestimonialsSection() {
       role: "Conference Organizer",
       image: "/confident-blonde-professional.png",
       content:
-        "TechEventPlanner made it easy to manage multiple tracks and sessions for our conference. The scheduling features are particularly impressive and user-friendly.",
+        "Tech Milap made it easy to manage multiple tracks and sessions for our conference. The scheduling features are particularly impressive and user-friendly.",
       rating: 4,
     },
     {
@@ -99,7 +99,7 @@ export function TestimonialsSection() {
         <SectionHeading
           title="What Our Customers Say"
           subtitle="Testimonials"
-          description="Don't just take our word for it. Here's what event organizers have to say about their experience with TechEventPlanner."
+          description="Don't just take our word for it. Here's what event organizers have to say about their experience with Tech Milap."
         />
 
         <motion.div

@@ -5,9 +5,9 @@ import { ContactForm } from "@/components/contact/contact-form"
 import { DecorativeBlob } from "@/components/ui/decorative-blob"
 
 export const metadata: Metadata = {
-  title: "Contact Us | TechEventPlanner",
+  title: "Contact Us | Tech Milap",
   description:
-    "Get in touch with TechEventPlanner. We'd love to hear from you and help with your event planning needs.",
+    "Get in touch with Tech Milap. We'd love to hear from you and help with your event planning needs.",
 }
 
 export default function ContactPage() {
