@@ -1,6 +1,7 @@
 import type React from "react"
 import { LandingHeader } from "@/components/landing/landing-header"
 import { SiteFooter } from "@/components/site-footer"
+import Navbar from "@/components/landing/NavBar"
 
 export default function PublicLayout({
   children,
@@ -10,8 +11,10 @@ export default function PublicLayout({
   // Public layout for non-authenticated routes
   return (
     <>
-      <LandingHeader />
-      <main className="min-h-screen">{children}</main>
+      {/* <LandingHeader /> */}
+      <Navbar />
+      
+      <main className="min-h-screen pt-6">{children}</main>
       <SiteFooter />
     </>
   )
