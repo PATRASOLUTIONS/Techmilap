@@ -25,8 +25,10 @@ export default function ContactPage() {
 
         <div className="grid grid-cols-1 gap-y-16 md:grid-cols-5 md:gap-x-12">
           <div className="md:col-span-2 space-y-8">
-            <div>
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            {/* Apply text-center for mobile and md:text-left for desktop */}
+            <div className="text-center md:text-left">
+              {/* For the h2, use justify-center for mobile and md:justify-start for desktop */}
+              <h2 className="text-xl font-semibold mb-4 flex items-center justify-center md:justify-start gap-2">
                 <MapPin className="h-5 w-5 text-primary" />
                 Our Location
               </h2>
@@ -39,8 +41,8 @@ export default function ContactPage() {
               </address>
             </div>
 
-            <div>
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <div className="text-center md:text-left">
+              <h2 className="text-xl font-semibold mb-4 flex items-center justify-center md:justify-start gap-2">
                 <Mail className="h-5 w-5 text-primary" />
                 Email Us
               </h2>
@@ -49,8 +51,8 @@ export default function ContactPage() {
               </a>
             </div>
 
-            <div>
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <div className="text-center md:text-left">
+              <h2 className="text-xl font-semibold mb-4 flex items-center justify-center md:justify-start gap-2">
                 <Phone className="h-5 w-5 text-primary" />
                 Call Us
               </h2>
@@ -59,12 +61,6 @@ export default function ContactPage() {
                   +91 8332936831
                 </a>
               </p>
-            </div>
-
-            <div className="py-4">
-              <div className="relative h-64 w-full overflow-hidden rounded-lg">
-                <Image src="/contemporary-city-center.png" alt="Office Location Map" fill className="object-cover" />
-              </div>
             </div>
           </div>
 
