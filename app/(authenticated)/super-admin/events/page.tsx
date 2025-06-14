@@ -42,6 +42,16 @@ export default function SuperAdminEventsPage() {
     }
   }
 
+  // Get full name from user data
+  const getFullName = (user) => {
+    if (!user) return "N/A";
+    if (user.name) return user.name;
+    if (user.firstName && user.lastName) return `${user.firstName} ${user.lastName}`;
+    if (user.firstName) return user.firstName;
+    if (user.lastName) return user.lastName;
+    return user.email ? user.email.split("@")[0] : "N/A";
+  };
+
   async function fetchEvents(page = 1, searchTerm = "") {
     setLoading(true)
     setError(null)
@@ -66,6 +76,7 @@ export default function SuperAdminEventsPage() {
       }
 
       setEvents(data.events)
+      console.log("Fetched events:", data.events)
       setPagination(data.pagination)
     } catch (err) {
       console.error("Error fetching events:", err)
@@ -169,7 +180,7 @@ export default function SuperAdminEventsPage() {
                       {events.map((event) => (
                         <TableRow key={event._id}>
                           <TableCell className="font-medium">{event.title}</TableCell>
-                          <TableCell>{event.organizer?.name || "N/A"}</TableCell>
+                          <TableCell>{getFullName(event.organizer)}</TableCell>
                           <TableCell>{event.organizer?.email || "N/A"}</TableCell>
                           <TableCell className="text-right">{event.attendeeCount || 0}</TableCell>
                           <TableCell className="text-right">{event.volunteerCount || 0}</TableCell>
