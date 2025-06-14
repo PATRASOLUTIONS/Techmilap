@@ -75,41 +75,48 @@ export const authOptions: NextAuthOptions = {
     GitHubProvider<GithubProfile>({
       clientId: process.env.GITHUB_ID ?? "",
       clientSecret: process.env.GITHUB_SECRET ?? "",
-      async profile(profile: GithubProfile) {
-          return {
-            name: profile.name,
-            email: profile.email,
-            picture: profile.avatar_url,
-            sub: "",
-            id: profile.id,
-            role: "user",
-            corporateEmail: "",
-            designation: "",
-            eventOrganizer: "",
-            isMicrosoftMVP: false,
-            mvpId: "",
-            mvpProfileLink: "",
-            mvpCategory: "",
-            isMeetupGroupRunning: false,
-            meetupEventName: "",
-            eventDetails: "",
-            meetupPageDetails: "",
-            linkedinId: "",
-            githubId: "",
-            otherSocialMediaId: "",
-            mobileNumber:  "",
-            iat: 1749901121,
-            exp: 1752493121,
-            jti: '3723e075-df0e-4e8a-b1e0-8b6bdddfbd21'
-          }
-      },
+      // async profile(profile: GithubProfile) {
+      //     return {
+      //       name: profile.name,
+      //       email: profile.email,
+      //       picture: profile.avatar_url,
+      //       sub: "",
+      //       id: profile.id,
+      //       role: "user",
+      //       corporateEmail: "",
+      //       designation: "",
+      //       eventOrganizer: "",
+      //       isMicrosoftMVP: false,
+      //       mvpId: "",
+      //       mvpProfileLink: "",
+      //       mvpCategory: "",
+      //       isMeetupGroupRunning: false,
+      //       meetupEventName: "",
+      //       eventDetails: "",
+      //       meetupPageDetails: "",
+      //       linkedinId: "",
+      //       githubId: "",
+      //       otherSocialMediaId: "",
+      //       mobileNumber:  "",
+      //       iat: 1749901121,
+      //       exp: 1752493121,
+      //       jti: '3723e075-df0e-4e8a-b1e0-8b6bdddfbd21'
+      //     }
+      // },
+async profile(profile) {
+  return {
+    id: profile.id,
+    email: profile.email,
+    name: profile.name,
+    image: profile.avatar_url,
+    role: 'user'
+  };
+}
+
     })
   ],
   callbacks: {
     async jwt({ token, user, account }) {
-      console.log("JWT -> ")
-      console.log("user: ", user)
-      console.log("token: ", token)
       if(account?.provider === "github") {
         await connectToDatabase()
 
@@ -158,9 +165,6 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token }) {
-      console.log("SESSION -> ")
-      console.log("session: ", session)
-      console.log("token: ", token)
       if (token) {
         // Ensure role is always set, defaulting to "user" if not present
         session.user.id = token.id as string
@@ -190,10 +194,6 @@ export const authOptions: NextAuthOptions = {
     },
 
     async signIn({user, account, profile}) {
-      console.log("signin -> ")
-      console.log("user: ", user)
-      console.log("profile: ", profile)
-      console.log("account: ", account)
       if(account?.provider === "github") {
         await connectToDatabase()
 
