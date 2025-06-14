@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@auth/core": "latest",
+    "@auth/mongodb-adapter": "^3.9.1",
     "@aws-sdk/credential-providers": "latest",
     "@emotion/is-prop-valid": "latest",
     "@hookform/resolvers": "latest",
@@ -61,7 +62,7 @@
     "kerberos": "latest",
     "lucide-react": "^0.454.0",
     "marked": "^15.0.12",
-    "mongodb": "latest",
+    "mongodb": "^6.17.0",
     "mongodb-client-encryption": "latest",
     "mongoose": "latest",
     "next": "15.2.4",

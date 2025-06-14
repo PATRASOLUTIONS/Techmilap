@@ -103,6 +103,8 @@ export async function middleware(request: NextRequest) {
   // For protected paths, check for authentication
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
 
+  console. log("Token:::", token)
+
   // If no token and trying to access a protected route, redirect to login
   if (!token) {
     console.log("No token found, redirecting to login")

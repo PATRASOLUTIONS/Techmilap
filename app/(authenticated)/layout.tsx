@@ -14,6 +14,8 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
       redirect("/login")
     }
 
+    console.log("Session: ", session)
+
     // Ensure we have a role, defaulting to "user" if not set
     const userRole = session.user.role || "user"
     console.log("Authenticated layout rendering for user:", session.user.name, "with role:", userRole)
