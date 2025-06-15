@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { signIn, useSession } from "next-auth/react"
+import { getSession, signIn, useSession } from "next-auth/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,6 +33,10 @@ export default function LoginPage() {
   const [registeredSuccess, setRegisteredSuccess] = useState(false)
   const [verifiedSuccess, setVerifiedSuccess] = useState(false)
   const { toast } = useToast()
+
+  // debug
+  console.log("Session : ", session)
+
 
   // Clean URL if there's an error parameter
   useEffect(() => {
@@ -363,6 +367,8 @@ export default function LoginPage() {
                   </AnimatePresence>
 
                   <form onSubmit={handleLogin} className="space-y-4">
+
+                    {/* email */}
                     <motion.div
                       className="space-y-2"
                       initial={{ opacity: 0, y: 10 }}
@@ -386,6 +392,7 @@ export default function LoginPage() {
                       </div>
                     </motion.div>
 
+                    {/* password */}
                     <motion.div
                       className="space-y-2"
                       initial={{ opacity: 0, y: 10 }}
@@ -422,6 +429,13 @@ export default function LoginPage() {
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>
+                    </motion.div>
+
+                    <motion.div className="border flex justify-center ">
+                      <button onClick={() => {
+                        signIn("github", { callbackUrl: "/dashboard"})
+
+                      }}>signin</button>
                     </motion.div>
 
                     <motion.div

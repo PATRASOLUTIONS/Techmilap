@@ -1,11 +1,14 @@
 import { getServerSession as getNextAuthServerSession } from "next-auth/next"
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { connectToDatabase } from "@/lib/mongodb"
+import { client, connectToDatabase } from "@/lib/mongodb"
 import { compare } from "bcryptjs"
 import User from "@/models/User"
+import GitHubProvider, { GithubProfile } from "next-auth/providers/github"
+import {MongoDBAdapter} from "@auth/mongodb-adapter"
 
 export const authOptions: NextAuthOptions = {
+  adapter: MongoDBAdapter(client),
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -69,9 +72,77 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
+    GitHubProvider<GithubProfile>({
+      clientId: process.env.GITHUB_ID ?? "",
+      clientSecret: process.env.GITHUB_SECRET ?? "",
+      // async profile(profile: GithubProfile) {
+      //     return {
+      //       name: profile.name,
+      //       email: profile.email,
+      //       picture: profile.avatar_url,
+      //       sub: "",
+      //       id: profile.id,
+      //       role: "user",
+      //       corporateEmail: "",
+      //       designation: "",
+      //       eventOrganizer: "",
+      //       isMicrosoftMVP: false,
+      //       mvpId: "",
+      //       mvpProfileLink: "",
+      //       mvpCategory: "",
+      //       isMeetupGroupRunning: false,
+      //       meetupEventName: "",
+      //       eventDetails: "",
+      //       meetupPageDetails: "",
+      //       linkedinId: "",
+      //       githubId: "",
+      //       otherSocialMediaId: "",
+      //       mobileNumber:  "",
+      //       iat: 1749901121,
+      //       exp: 1752493121,
+      //       jti: '3723e075-df0e-4e8a-b1e0-8b6bdddfbd21'
+      //     }
+      // },
+async profile(profile) {
+  return {
+    id: profile.id,
+    email: profile.email,
+    name: profile.name,
+    image: profile.avatar_url,
+    role: 'user'
+  };
+}
+
+    })
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
+      if(account?.provider === "github") {
+        await connectToDatabase()
+
+        const existingUser = await User.findOne({email: user.email})
+
+        if(!existingUser) {
+          return null
+        }
+
+        token.id = existingUser.id
+        token.role = existingUser.role
+        token.corporateEmail = existingUser.corporateEmail
+        token.designation = existingUser.designation
+        token.eventOrganizer = existingUser.eventOrganizer
+        token.isMicrosoftMVP = existingUser.isMicrosoftMVP
+        token.mvpId = existingUser.mvpId
+        token.mvpProfileLink = existingUser.mvpProfileLink
+        token.mvpCategory = existingUser.mvpCategory
+        token.eventDetails = existingUser.eventDetails 
+        token.meetupEventName = existingUser.meetupEventName 
+        token.linkedinId = existingUser.linkedinId 
+        token.githubId = existingUser.githubId 
+        token.otherSocialMediaId = existingUser.otherSocialMediaId 
+        token.mobileNumber = existingUser.mobileNumber 
+      }
+      else 
       if (user) {
         token.id = user.id
         token.role = user.role
@@ -121,6 +192,37 @@ export const authOptions: NextAuthOptions = {
       }
       return session
     },
+
+    async signIn({user, account, profile}) {
+      if(account?.provider === "github") {
+        await connectToDatabase()
+
+        const existingUser = await User.findOne({email: user.email})
+
+        if(!existingUser) {
+          return false
+        }
+
+        user.id = existingUser.id
+        user.role = existingUser.role
+        user.corporateEmail = existingUser.corporateEmail
+        user.designation = existingUser.designation
+        user.eventOrganizer = existingUser.eventOrganizer
+        user.isMicrosoftMVP = existingUser.isMicrosoftMVP
+        user.mvpId = existingUser.mvpId
+        user.mvpProfileLink = existingUser.mvpProfileLink
+        user.mvpCategory = existingUser.mvpCategory
+        user.eventDetails = existingUser.eventDetails 
+        user.meetupEventName = existingUser.meetupEventName 
+        user.linkedinId = existingUser.linkedinId 
+        user.githubId = existingUser.githubId 
+        user.otherSocialMediaId = existingUser.otherSocialMediaId 
+        user.mobileNumber = existingUser.mobileNumber 
+      }
+      
+      return true
+    },
+    
   },
   pages: {
     signIn: "/login",
