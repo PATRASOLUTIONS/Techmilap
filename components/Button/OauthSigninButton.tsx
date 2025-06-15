@@ -23,3 +23,25 @@ export function GithubSigninButton() {
     </motion.button>
   );
 }
+
+export function GoogleSigninButton() {
+  return (
+    <motion.button
+      whileHover={{ scale: 1.05 }}
+      onClick={() => {
+        signIn("google", { callbackUrl: "/dashboard" });
+      }}
+      className="bg-gray-200 px-3 py-2 rounded-lg h-10 flex gap-2 justify-center items-center"
+    >
+      <span>Signin with Google</span>
+      <div className="relative w-5 h-5">
+        <Image
+          src={"/google_logo.png"}
+          alt="google_logo"
+          fill
+          className="object-containe object-cover"
+        />
+      </div>
+    </motion.button>
+  );
+}

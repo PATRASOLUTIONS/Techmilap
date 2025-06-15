@@ -5,6 +5,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 import { compare } from "bcryptjs"
 import User from "@/models/User"
 import GitHubProvider, { GithubProfile } from "next-auth/providers/github"
+import GoogleProvider from "next-auth/providers/google"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -73,6 +74,10 @@ export const authOptions: NextAuthOptions = {
     GitHubProvider<GithubProfile>({
       clientId: process.env.GITHUB_ID ?? "",
       clientSecret: process.env.GITHUB_SECRET ?? "",
+    }),
+    GoogleProvider({
+      clientId: process.env.GOOGLE_ID ?? "",
+      clientSecret: process.env.GOOGLE_SECRET ?? "",
     })
   ],
   callbacks: {
@@ -128,7 +133,7 @@ export const authOptions: NextAuthOptions = {
     },
 
     async signIn({user, account, profile}) {
-      if(account?.provider === "github") {
+      if(account?.provider === "github" || account?.provider === "google") {
         await connectToDatabase()
 
         const existingUser = await User.findOne({email: user.email})
