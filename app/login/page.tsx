@@ -18,6 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { DecorativeBlob } from "@/components/ui/decorative-blob"
 import { Eye, EyeOff, Lock, Mail, AlertCircle, Info, ArrowRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { GithubSigninButton } from "@/components/Button/OauthSigninButton"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -492,12 +493,15 @@ export default function LoginPage() {
                       </Button>
                     </motion.div>
                   </form>
-                  <motion.div className="border flex justify-center ">
-                    <button onClick={() => {
-                      signIn("github", { callbackUrl: "/dashboard"})
 
-                    }}>signin with github</button>
-                </motion.div>
+                  {/* Oauth Signin Button */}
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className=" flex justify-center ">
+                      <GithubSigninButton/>
+                  </motion.div>
 
                 </TabsContent>
               </Tabs>

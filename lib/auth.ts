@@ -134,7 +134,35 @@ export const authOptions: NextAuthOptions = {
         const existingUser = await User.findOne({email: user.email})
 
         if(!existingUser) {
-          return false
+          try {
+            const newUser = await User.create({
+              name: user.name,
+              email: user.email,
+              role: user.role || "user",
+              image: user.image || null,
+              corporateEmail: user.corporateEmail,
+              designation: user.designation,
+              eventOrganizer: user.eventOrganizer,
+              isMicrosoftMVP: user.isMicrosoftMVP,
+              mvpId: user.mvpId,
+              mvpProfileLink: user.mvpProfileLink,
+              mvpCategory: user.mvpCategory,
+              isMeetupGroupRunning: user.isMeetupGroupRunning,
+              meetupEventName: user.meetupEventName,
+              eventDetails: user.eventDetails,
+              meetupPageDetails: user.meetupPageDetails,
+              linkedinId: user.linkedinId,
+              githubId: user.githubId,
+              otherSocialMediaId: user.otherSocialMediaId,
+              mobileNumber: user.mobileNumber,
+            })
+
+            return true
+          } catch(err) {
+            console.error(err)
+            return false
+          }
+          
         }
 
         user.id = existingUser.id
@@ -294,32 +322,32 @@ export const getServerSession = () => getNextAuthServerSession(authOptions)
 //   ],
 //   callbacks: {
 //     async jwt({ token, user, account }) {
-//       if(account?.provider === "github") {
-//         await connectToDatabase()
+//       // if(account?.provider === "github") {
+//       //   await connectToDatabase()
 
-//         const existingUser = await User.findOne({email: user.email})
+//       //   const existingUser = await User.findOne({email: user.email})
 
-//         if(!existingUser) {
-//           return null
-//         }
+//       //   if(!existingUser) {
+//       //     return null
+//       //   }
 
-//         token.id = existingUser.id
-//         token.role = existingUser.role
-//         token.corporateEmail = existingUser.corporateEmail
-//         token.designation = existingUser.designation
-//         token.eventOrganizer = existingUser.eventOrganizer
-//         token.isMicrosoftMVP = existingUser.isMicrosoftMVP
-//         token.mvpId = existingUser.mvpId
-//         token.mvpProfileLink = existingUser.mvpProfileLink
-//         token.mvpCategory = existingUser.mvpCategory
-//         token.eventDetails = existingUser.eventDetails 
-//         token.meetupEventName = existingUser.meetupEventName 
-//         token.linkedinId = existingUser.linkedinId 
-//         token.githubId = existingUser.githubId 
-//         token.otherSocialMediaId = existingUser.otherSocialMediaId 
-//         token.mobileNumber = existingUser.mobileNumber 
-//       }
-//       else 
+//       //   token.id = existingUser.id
+//       //   token.role = existingUser.role
+//       //   token.corporateEmail = existingUser.corporateEmail
+//       //   token.designation = existingUser.designation
+//       //   token.eventOrganizer = existingUser.eventOrganizer
+//       //   token.isMicrosoftMVP = existingUser.isMicrosoftMVP
+//       //   token.mvpId = existingUser.mvpId
+//       //   token.mvpProfileLink = existingUser.mvpProfileLink
+//       //   token.mvpCategory = existingUser.mvpCategory
+//       //   token.eventDetails = existingUser.eventDetails 
+//       //   token.meetupEventName = existingUser.meetupEventName 
+//       //   token.linkedinId = existingUser.linkedinId 
+//       //   token.githubId = existingUser.githubId 
+//       //   token.otherSocialMediaId = existingUser.otherSocialMediaId 
+//       //   token.mobileNumber = existingUser.mobileNumber 
+//       // }
+//       // else 
 //       if (user) {
 //         token.id = user.id
 //         token.role = user.role
@@ -380,8 +408,12 @@ export const getServerSession = () => getNextAuthServerSession(authOptions)
 //           return false
 //         }
 
+//         if (existingUser.role === null || existingUser.role === undefined || existingUser.role === "") {
+//           await User.updateOne({ email: user.email }, { role: 'user' })
+//         }
+
 //         user.id = existingUser.id
-//         user.role = existingUser.role
+//         user.role = existingUser.role ?? 'user'
 //         user.corporateEmail = existingUser.corporateEmail
 //         user.designation = existingUser.designation
 //         user.eventOrganizer = existingUser.eventOrganizer
