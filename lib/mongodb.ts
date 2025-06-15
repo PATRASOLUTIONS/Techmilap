@@ -121,5 +121,5 @@ const isConnected = () => {
   return mongoose.connection.readyState === 1
 }
 
-export { getDatabase, isConnected }
+export { getDatabase, isConnected, client }
 export default clientPromise
