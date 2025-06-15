@@ -431,13 +431,6 @@ export default function LoginPage() {
                       </div>
                     </motion.div>
 
-                    <motion.div className="border flex justify-center ">
-                      <button onClick={() => {
-                        signIn("github", { callbackUrl: "/dashboard"})
-
-                      }}>signin</button>
-                    </motion.div>
-
                     <motion.div
                       className="flex items-center space-x-2"
                       initial={{ opacity: 0, y: 10 }}
@@ -499,6 +492,13 @@ export default function LoginPage() {
                       </Button>
                     </motion.div>
                   </form>
+                  <motion.div className="border flex justify-center ">
+                    <button onClick={() => {
+                      signIn("github", { callbackUrl: "/dashboard"})
+
+                    }}>signin with github</button>
+                </motion.div>
+
                 </TabsContent>
               </Tabs>
             </CardContent>
