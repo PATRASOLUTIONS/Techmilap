@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 
 export const metadata = {
-  title: "Privacy Policy | TechEventPlanner",
-  description: "Privacy policy for the TechEventPlanner platform.",
+  title: "Privacy Policy | Tech Milap",
+  description: "Privacy policy for the Tech Milap platform.",
 }
 
 export default function PrivacyPolicyPage() {
@@ -27,7 +27,7 @@ export default function PrivacyPolicyPage() {
 
           <h2 className="text-2xl font-semibold mt-8 mb-4">1. Introduction</h2>
           <p>
-            TechEventPlanner ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy
+            Tech Milap ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy
             explains how we collect, use, disclose, and safeguard your information when you use our website, mobile
             applications, and services (collectively, the "Services").
           </p>
@@ -136,7 +136,7 @@ export default function PrivacyPolicyPage() {
           <h2 className="text-2xl font-semibold mt-8 mb-4">11. Contact Us</h2>
           <p>If you have any questions about this Privacy Policy, please contact us at:</p>
           <p>
-            Email: privacy@techeventplanner.com
+            Email: privacy@techmilap.com
             <br />
             Address: 123 Tech Street, San Francisco, CA 94105
           </p>

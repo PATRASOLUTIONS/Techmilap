@@ -304,7 +304,6 @@ function applyDesignTemplate(content: string, designTemplate: string, recipientN
             <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 700;">Tech Milap</h1>
           </div>
           <div style="background-color: #ffffff; padding: 30px 20px; border-radius: 0 0 8px 8px; margin-bottom: 1px;">
-            ${recipientName ? `<p style="color: #6b7280; font-size: 16px; margin-top: 0;">Hello ${recipientName},</p>` : ""}
             <div style="color: #374151; font-size: 16px; line-height: 1.6;">
               ${htmlContent}
             </div>
@@ -336,7 +335,6 @@ function applyDesignTemplate(content: string, designTemplate: string, recipientN
           <div style="text-align: center; margin-bottom: 30px; border-bottom: 1px solid #e5e7eb; padding-bottom: 20px;">
             <h1 style="color: #1f2937; font-size: 28px; font-weight: normal; margin: 0;">Tech Milap</h1>
           </div>
-          ${recipientName ? `<p style="color: #4b5563; font-size: 17px; margin-top: 0;">Dear ${recipientName},</p>` : ""}
           <div style="color: #1f2937; font-size: 17px; line-height: 1.7;">
             ${htmlContent}
           </div>
@@ -359,7 +357,6 @@ function applyDesignTemplate(content: string, designTemplate: string, recipientN
             <h1 style="color: white; margin: 0; font-size: 26px; font-weight: bold;">Tech Milap</h1>
           </div>
           <div style="padding: 30px 20px;">
-            ${recipientName ? `<p style="color: #4b5563; font-size: 16px; font-weight: bold; margin-top: 0;">Hi ${recipientName}!</p>` : ""}
             <div style="color: #1f2937; font-size: 16px; line-height: 1.6; background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
               ${htmlContent}
             </div>
@@ -386,7 +383,6 @@ function applyDesignTemplate(content: string, designTemplate: string, recipientN
           <div style="margin-bottom: 30px;">
             <h1 style="color: #111827; font-size: 22px; font-weight: 500; margin: 0;">Tech Milap</h1>
           </div>
-          ${recipientName ? `<p style="color: #374151; font-size: 16px; margin-top: 0;">Hello ${recipientName},</p>` : ""}
           <div style="color: #1f2937; font-size: 16px; line-height: 1.6;">
             ${htmlContent}
           </div>
@@ -405,7 +401,6 @@ function applyDesignTemplate(content: string, designTemplate: string, recipientN
             <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold;">Tech Milap</h1>
           </div>
           <div style="background-color: #ffffff; padding: 30px 20px;">
-            ${recipientName ? `<p style="color: #475569; font-size: 16px; margin-top: 0;">Dear ${recipientName},</p>` : ""}
             <div style="color: #1e293b; font-size: 16px; line-height: 1.6;">
               ${htmlContent}
             </div>
@@ -435,7 +430,6 @@ function applyDesignTemplate(content: string, designTemplate: string, recipientN
     default:
       return `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          ${recipientName ? `<p>Hello ${recipientName},</p>` : ""}
           <div>
             ${htmlContent}
           </div>
@@ -449,34 +443,62 @@ function applyDesignTemplate(content: string, designTemplate: string, recipientN
 
 // Enhanced markdown to HTML converter
 function markdownToHtml(markdown: string) {
-  let html = markdown
-    // Headers
-    .replace(/^# (.*$)/gm, "<h1 style='font-size: 24px; font-weight: bold; margin: 20px 0 10px 0;'>$1</h1>")
-    .replace(/^## (.*$)/gm, "<h2 style='font-size: 20px; font-weight: bold; margin: 18px 0 9px 0;'>$1</h2>")
-    .replace(/^### (.*$)/gm, "<h3 style='font-size: 18px; font-weight: bold; margin: 16px 0 8px 0;'>$1</h3>")
-    // Bold
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    // Italic
-    .replace(/\*(.*?)\*/g, "<em>$1</em>")
-    // Lists
-    .replace(/^- (.*$)/gm, "<li style='margin-bottom: 5px;'>$1</li>")
-    // Links
-    .replace(/\[([^\]]+)\]$$([^)]+)$$/g, '<a href="$2" style="color: #4f46e5; text-decoration: none;">$1</a>')
-    // Paragraphs
-    .replace(/\n\n/g, "</p><p style='margin: 10px 0;'>")
+  // Normalize line endings to \n and trim overall markdown to remove leading/trailing empty blocks
+  let processedMarkdown = markdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
 
-  // Wrap in paragraph tags if not already
-  if (!html.startsWith("<h") && !html.startsWith("<p")) {
-    html = "<p style='margin: 10px 0;'>" + html + "</p>"
+  if (!processedMarkdown) {
+    return ""; // Handle empty input
   }
 
-  // Fix lists
-  html = html
-    .replace(/<li/g, "<ul style='margin: 10px 0; padding-left: 20px;'><li")
-    .replace(/<\/li>/g, "</li></ul>")
-    .replace(/<\/ul>\s*<ul[^>]*>/g, "")
+  const blocks = processedMarkdown.split(/\n\n+/); // Split by one or more double newlines
 
-  return html
+  const htmlBlocks = blocks.map(block => {
+    const trimmedBlock = block.trim(); // Trim each individual block
+
+    if (!trimmedBlock) {
+      return ""; // Skip empty blocks
+    }
+
+    // Helper to apply inline markdown (bold, italic, link)
+    const applyInlineMarkdown = (text: string) => {
+      return text
+        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*(.*?)\*/g, "<em>$1</em>")
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #4f46e5; text-decoration: none;">$1</a>');
+    };
+
+    // Headers
+    if (trimmedBlock.startsWith('# ')) return `<h1 style='font-size: 24px; font-weight: bold; margin: 20px 0 10px 0;'>${applyInlineMarkdown(trimmedBlock.substring(2))}</h1>`;
+    if (trimmedBlock.startsWith('## ')) return `<h2 style='font-size: 20px; font-weight: bold; margin: 18px 0 9px 0;'>${applyInlineMarkdown(trimmedBlock.substring(3))}</h2>`;
+    if (trimmedBlock.startsWith('### ')) return `<h3 style='font-size: 18px; font-weight: bold; margin: 16px 0 8px 0;'>${applyInlineMarkdown(trimmedBlock.substring(4))}</h3>`;
+
+    // Lists (simple, assumes each item is on a new line starting with '- ')
+    if (trimmedBlock.startsWith('- ')) {
+      const listItems = trimmedBlock.split('\n').map(itemLine => {
+        const trimmedItemLine = itemLine.trim();
+        if (trimmedItemLine.startsWith('- ')) {
+          const listItemContent = applyInlineMarkdown(trimmedItemLine.substring(2).trim());
+          return `<li style='margin-bottom: 5px;'>${listItemContent}</li>`;
+        }
+        return '';
+      }).filter(Boolean).join('');
+      if (listItems) {
+        return `<ul style='margin: 10px 0; padding-left: 20px;'>${listItems}</ul>`;
+      }
+      return ''; // In case all lines in a list block were invalid
+    }
+
+    // Default to paragraph
+    // First, apply inline markdown to the whole block
+    let paragraphContentWithInlineMarkdown = applyInlineMarkdown(trimmedBlock);
+    // Then, replace newlines within this processed block with <br />
+    let finalParagraphContent = paragraphContentWithInlineMarkdown.replace(/\n/g, "<br />");
+
+    return `<p style='margin: 10px 0;'>${finalParagraphContent}</p>`;
+
+  }).filter(Boolean);
+
+  return htmlBlocks.join('');
 }
 
 // Strip HTML for plain text version

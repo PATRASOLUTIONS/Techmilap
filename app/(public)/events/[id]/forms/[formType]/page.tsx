@@ -184,7 +184,7 @@ export default function FormPage({ params }: { params: Promise<{ id: string; for
       } else if (formType === "volunteer") {
         endpoint = `/api/events/${id}/submissions/volunteer`
       } else if (formType === "speaker") {
-        endpoint = `/api/events/${id}/speaker-applications`
+        endpoint = `/api/events/${id}/submissions/speaker`
       } else {
         throw new Error("Unknown form type")
       }

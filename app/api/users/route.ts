@@ -17,6 +17,7 @@ const QuerySchema = z.object({
     .transform((val) => Number.parseInt(val, 10))
     .optional(),
   sort: z.enum(["asc", "desc"]).optional().default("desc"),
+  search: z.string().optional(), // Add search to the schema
 })
 
 export async function GET(req: NextRequest) {
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const { role, limit = 50, page = 1, sort } = queryResult.data
+    const { role, limit = 50, page = 1, sort, search } = queryResult.data
 
     // Connect to database with error handling
     try {
@@ -66,6 +67,17 @@ export async function GET(req: NextRequest) {
     // Build query
     const query: any = {}
     if (role) query.role = role
+
+    // Add search functionality
+    if (search) {
+      const searchRegex = { $regex: search, $options: "i" } // Case-insensitive search
+      query.$or = [
+        { name: searchRegex },
+        { email: searchRegex },
+        { firstName: searchRegex },
+        { lastName: searchRegex },
+      ]
+    }
 
     // Calculate pagination
     const skip = (page - 1) * limit

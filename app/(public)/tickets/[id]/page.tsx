@@ -358,10 +358,10 @@ export default async function TicketPage({ params }: { params: { id: string } })
           <p className="mt-1">
             Questions? Contact the event organizer at{" "}
             <a
-              href={`mailto:${event?.organizerEmail || "support@myevent.com"}`}
+              href={`mailto:${event?.organizerEmail || "support@techmilap.com"}`}
               className="text-blue-600 hover:underline"
             >
-              {event?.organizerEmail || "support@myevent.com"}
+              {event?.organizerEmail || "support@techmilap.com"}
             </a>
           </p>
         </div>

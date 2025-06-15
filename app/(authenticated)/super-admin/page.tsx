@@ -35,9 +35,12 @@ export default async function SuperAdminDashboardPage() {
     Review.aggregate([{ $group: { _id: null, avgRating: { $avg: "$rating" } } }]).then(
       (result) => result[0]?.avgRating || 0,
     ),
-    User.find({}).sort({ createdAt: -1 }).limit(5).select("name firstName lastName email role createdAt").lean(),
-    Event.find({}).sort({ createdAt: -1 }).limit(5).populate("organizer", "name email").lean(),
+    User.find({}).sort({ createdAt: -1 }).limit(5).select("name firstName lastName email role createdAt profileImage").lean(),
+    Event.find({}).sort({ createdAt: -1 }).limit(5).populate("organizer", "name firstName lastName email profileImage").lean(),
   ])
+
+  console.log("recent events", recentEvents)
+  console.log("recentUsers", recentUsers)
 
   // Calculate new users in the last week
   const oneWeekAgo = new Date()
@@ -79,6 +82,66 @@ export default async function SuperAdminDashboardPage() {
     if (user.lastName) return user.lastName
     return user.email ? user.email.split("@")[0] : "Unknown"
   }
+
+
+  // Determine event status using start/end dates and times
+  const getEventStatus = (eventDateStr, eventEndDateStr, startTimeStr, endTimeStr) => {
+    if (!eventDateStr) return "Unknown"; // Should not happen if date is required
+
+    const now = new Date();
+
+    const parseTime = (timeStr) => {
+      if (!timeStr) return null;
+      // Matches HH:MM AM/PM or HH:MM (24h)
+      const timeRegex = /(\d{1,2}):(\d{2})\s*(AM|PM)?/i;
+      const match = timeStr.match(timeRegex);
+
+      if (!match) return null;
+
+      let hours = parseInt(match[1], 10);
+      const minutes = parseInt(match[2], 10);
+      const ampm = match[3] ? match[3].toUpperCase() : null;
+
+      if (ampm === "PM" && hours < 12) {
+        hours += 12;
+      } else if (ampm === "AM" && hours === 12) { // 12 AM is midnight
+        hours = 0;
+      }
+      // For 24h format, hours will be as is.
+      if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null; // Basic validation
+
+      return { hours, minutes };
+    };
+
+    const eventStartDate = new Date(eventDateStr);
+    const eventStartDateTime = new Date(eventStartDate);
+    const parsedStartTime = parseTime(startTimeStr);
+
+    if (parsedStartTime) {
+      eventStartDateTime.setHours(parsedStartTime.hours, parsedStartTime.minutes, 0, 0);
+    } else {
+      eventStartDateTime.setHours(0, 0, 0, 0); // Default to start of the day
+    }
+
+    // Use eventStartDate if eventEndDateStr is not provided (for single-day events)
+    const eventEndDate = eventEndDateStr ? new Date(eventEndDateStr) : new Date(eventStartDate);
+    const eventEndDateTime = new Date(eventEndDate);
+    const parsedEndTime = parseTime(endTimeStr);
+
+    if (parsedEndTime) {
+      eventEndDateTime.setHours(parsedEndTime.hours, parsedEndTime.minutes, 59, 999); // End of the minute
+    } else {
+      eventEndDateTime.setHours(23, 59, 59, 999); // Default to end of the day
+    }
+
+    if (eventStartDateTime > now) {
+      return "Upcoming";
+    } else if (eventEndDateTime < now) {
+      return "Past";
+    } else {
+      return "Ongoing"; // Event is currently within its start and end datetime
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -217,19 +280,19 @@ export default async function SuperAdminDashboardPage() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {recentEvents.length > 0 ? (
-                        recentEvents.map((event, i) => (
+                        recentEvents.map((event: any, i: number) => (
                           <tr key={i}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {event.title}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {event.organizer?.name || "Unknown"}
+                              {event.organizer ? getFullName(event.organizer) : "Unknown"}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {event.startDate ? formatDate(event.startDate) : "Not set"}
+                              {formatDate(event.date)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {new Date(event.startDate) > new Date() ? "Upcoming" : "Past"}
+                              {getEventStatus(event.date, event.endDate, event.startTime, event.endTime)}
                             </td>
                           </tr>
                         ))

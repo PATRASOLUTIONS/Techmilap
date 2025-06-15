@@ -50,10 +50,10 @@ export function DashboardHeader() {
 
           {/* Logo and name */}
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/techmilap-logo-round.png" alt="MyEvent Logo" width={40} height={40} className="rounded-full" />
+            <Image src="/techmilap-logo-round.png" alt="Tech Milap Logo" width={40} height={40} className="rounded-full" />
             <div className="flex flex-col">
               <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
-                MyEvent
+                Tech Milap
               </span>
               <span className="text-xs text-muted-foreground">Event Management Platform</span>
             </div>

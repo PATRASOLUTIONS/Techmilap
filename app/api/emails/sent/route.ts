@@ -25,11 +25,11 @@ export async function GET(req: NextRequest) {
     const skip = (page - 1) * limit
 
     // Build query
-    const query: any = { userId: session.user.id }
+    const query: any = { }
 
     if (eventId) query.eventId = eventId
     if (emailType) query.emailType = emailType
-    if (recipientEmail) query.recipientEmail = recipientEmail
+    if (recipientEmail) query.recipientEmail = { $regex: recipientEmail, $options: "i" }
     if (status) query.status = status
 
     // Get total count for pagination
