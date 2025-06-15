@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
       .sort({ [sort]: order === "asc" ? 1 : -1 })
       .skip(skip)
       .limit(limit)
-      .populate("organizer", "name email")
+      .populate("organizer", "name firstName lastName email")
       .lean()
 
     // Get counts for each event

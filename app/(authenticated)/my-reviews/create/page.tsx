@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { StarRating } from "@/components/reviews/star-rating"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select" // StarRating import removed
+import { SmileyRating } from "@/components/reviews/smiley-rating" // Added SmileyRating import
 import { AlertCircle, Info } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import Link from "next/link"
@@ -65,16 +65,16 @@ export default function CreateReviewPage() {
         }
 
         // If we have no eligible events, fetch all events as fallback
-        if (!data.events || data.events.length === 0) {
-          console.log("No eligible events found, fetching all events...")
-          const allEventsResponse = await fetch("/api/events")
-          const allEventsData = await allEventsResponse.json()
+        // if (!data.events || data.events.length === 0) {                             we dont need all events, need only eligible events
+        //   console.log("No eligible events found, fetching all events...")
+        //   const allEventsResponse = await fetch("/api/events")
+        //   const allEventsData = await allEventsResponse.json()
 
-          if (allEventsResponse.ok && allEventsData.events) {
-            setAllEvents(allEventsData.events)
-            console.log("All events:", allEventsData.events)
-          }
-        }
+        //   if (allEventsResponse.ok && allEventsData.events) {
+        //     setAllEvents(allEventsData.events)
+        //     console.log("All events:", allEventsData.events)
+        //   }
+        // }
       } catch (error: any) {
         console.error("Error fetching eligible events:", error)
         setError(error.message || "Failed to fetch eligible events")
@@ -285,7 +285,7 @@ export default function CreateReviewPage() {
 
               <div className="space-y-2">
                 <Label>Rating</Label>
-                <StarRating rating={formData.rating} onRatingChange={handleRatingChange} size={24} />
+                <SmileyRating rating={formData.rating} onRatingChange={handleRatingChange} size={32} />
               </div>
 
               <div className="space-y-2">

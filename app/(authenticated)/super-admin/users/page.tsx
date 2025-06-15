@@ -34,6 +34,7 @@ import {
   Mail,
   User,
   Shield,
+  X
 } from "lucide-react"
 
 interface UserData {
@@ -44,7 +45,7 @@ interface UserData {
   email: string
   role: string
   createdAt: string
-  emailVerified: boolean | null
+  isVerified: boolean | null
   image?: string
 }
 
@@ -65,7 +66,8 @@ export default function UsersManagementPage() {
 
   // Filtering and sorting state
   const [roleFilter, setRoleFilter] = useState<string>("all")
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchInputValue, setSearchInputValue] = useState("") // For the input field
+  const [activeSearchQuery, setActiveSearchQuery] = useState("") // For triggering fetch
   const [sortField, setSortField] = useState<string>("createdAt")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
 
@@ -90,9 +92,12 @@ export default function UsersManagementPage() {
       // Build query parameters
       const params = new URLSearchParams()
       if (roleFilter !== "all") params.append("role", roleFilter)
+      if (activeSearchQuery) params.append("search", activeSearchQuery) // Add searchQuery to the API call
       params.append("page", page.toString())
       params.append("limit", limit.toString())
       params.append("sort", sortDirection)
+
+      console.log(params.toString())
 
       const response = await fetch(`/api/users?${params.toString()}`)
 
@@ -101,6 +106,7 @@ export default function UsersManagementPage() {
       }
 
       const data = await response.json()
+      console.log(data.users)
       setUsers(data.users)
       setTotalUsers(data.pagination.total)
       setTotalPages(data.pagination.pages)
@@ -120,7 +126,7 @@ export default function UsersManagementPage() {
     if (session?.user) {
       fetchUsers()
     }
-  }, [page, limit, roleFilter, sortDirection, session])
+  }, [page, limit, roleFilter, sortDirection, session, activeSearchQuery])
 
   // Handle sort toggle
   const toggleSort = (field: string) => {
@@ -135,7 +141,7 @@ export default function UsersManagementPage() {
   // Handle search
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    fetchUsers()
+    setActiveSearchQuery(searchInputValue)
   }
 
   // Export users as CSV
@@ -310,12 +316,29 @@ export default function UsersManagementPage() {
                 <div className="relative flex-grow">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                   <Input
-                    type="search"
+                    type="text"
                     placeholder="Search users..."
-                    className="pl-8"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8 pr-8"
+                    value={searchInputValue}
+                    onChange={(e) => setSearchInputValue(e.target.value)}
                   />
+                  {searchInputValue && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                      onClick={() => {
+                        setSearchInputValue("");
+                        setActiveSearchQuery("")
+                        if (page !== 1) { // Reset to page 1 if not already there
+                          setPage(1);
+                        }
+                      }}
+                    >
+                      <X className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  )}
                 </div>
                 <Button type="submit" variant="secondary">
                   Search
@@ -431,7 +454,7 @@ export default function UsersManagementPage() {
                         </TableCell>
                         <TableCell>{formatDate(user.createdAt)}</TableCell>
                         <TableCell>
-                          {user.emailVerified ? (
+                          {user.isVerified ? (
                             <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-200">
                               Verified
                             </Badge>

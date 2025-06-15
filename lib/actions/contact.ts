@@ -38,7 +38,7 @@ export async function submitContactForm(formData: FormData) {
 
     // Send email to the company
     const companyEmailSent = await sendEmail({
-      to: process.env.EMAIL_USER || "contact@techeventplanner.com",
+      to: process.env.EMAIL_USER || "contact@techmilap.com",
       subject: `Contact Form: ${subject}`,
       text: `
 Name: ${name}
@@ -63,11 +63,11 @@ ${message}
     // Send confirmation email to the user
     const userEmailSent = await sendEmail({
       to: email,
-      subject: `Thank you for contacting TechEventPlanner`,
+      subject: `Thank you for contacting Tech Milap`,
       text: `
 Dear ${name},
 
-Thank you for contacting TechEventPlanner. We have received your message regarding "${subject}".
+Thank you for contacting Tech Milap. We have received your message regarding "${subject}".
 
 Our team will review your inquiry and get back to you as soon as possible. We typically respond within 24-48 business hours.
 
@@ -78,20 +78,20 @@ ${message}
 Thank you for your patience.
 
 Best regards,
-TechEventPlanner Team
+Tech Milap Team
       `,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
           <h2 style="color: #4f46e5;">Thank You for Contacting Us</h2>
           <p>Dear ${name},</p>
-          <p>Thank you for contacting TechEventPlanner. We have received your message regarding "${subject}".</p>
+          <p>Thank you for contacting Tech Milap. We have received your message regarding "${subject}".</p>
           <p>Our team will review your inquiry and get back to you as soon as possible. We typically respond within 24-48 business hours.</p>
           <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <h3 style="margin-top: 0;">Your Message:</h3>
             <p>${message.replace(/\n/g, "<br>")}</p>
           </div>
           <p>Thank you for your patience.</p>
-          <p>Best regards,<br>TechEventPlanner Team</p>
+          <p>Best regards,<br>Tech Milap Team</p>
         </div>
       `,
     })

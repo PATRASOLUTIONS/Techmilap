@@ -261,7 +261,7 @@ export function DashboardSidebar() {
     },
     {
       title: "All Reviews",
-      href: "/super-admin/reviews",
+      href: "/event-reviews",
       icon: Star,
     },
     {
@@ -289,6 +289,11 @@ export function DashboardSidebar() {
       href: "/settings",
       icon: Settings,
     },
+    {
+      href: "/settings/email-history",
+      title: "Email History",
+      icon: History,
+    },
     // {
     //   href: "/settings/email-templates",
     //   label: "Email Templates",
@@ -299,11 +304,6 @@ export function DashboardSidebar() {
     //   label: "Email Designs",
     //   icon: Palette,
     // },
-    {
-      href: "/settings/email-history",
-      label: "Email History",
-      icon: History,
-    },
   ]
 
   let navItems = userNavItems
@@ -330,7 +330,7 @@ export function DashboardSidebar() {
               <div className="h-8 w-8 rounded-md bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
                 <Calendar className="h-5 w-5" />
               </div>
-              <span className="font-semibold text-lg text-white">MyEvent</span>
+              <span className="font-semibold text-lg text-white">Tech Milap</span>
             </Link>
           </div>
 
@@ -406,10 +406,10 @@ export function DashboardSidebar() {
                                       animate={
                                         lastClickedIcon === child.title
                                           ? {
-                                              y: [0, -5, 0, -5, 0, -3, 0],
-                                              rotate: [0, -5, 5, -5, 5, -3, 0],
-                                              transition: { duration: 2 },
-                                            }
+                                            y: [0, -5, 0, -5, 0, -3, 0],
+                                            rotate: [0, -5, 5, -5, 5, -3, 0],
+                                            transition: { duration: 2 },
+                                          }
                                           : {}
                                       }
                                     >
@@ -604,10 +604,10 @@ export function DashboardSidebar() {
                                     animate={
                                       lastClickedIcon === child.title
                                         ? {
-                                            y: [0, -5, 0, -5, 0, -3, 0],
-                                            rotate: [0, -5, 5, -5, 5, -3, 0],
-                                            transition: { duration: 2 },
-                                          }
+                                          y: [0, -5, 0, -5, 0, -3, 0],
+                                          rotate: [0, -5, 5, -5, 5, -3, 0],
+                                          transition: { duration: 2 },
+                                        }
                                         : {}
                                     }
                                   >
@@ -647,10 +647,10 @@ export function DashboardSidebar() {
                       animate={
                         lastClickedIcon === item.title
                           ? {
-                              y: [0, -5, 0, -5, 0, -3, 0],
-                              rotate: [0, -5, 5, -5, 5, -3, 0],
-                              transition: { duration: 2 },
-                            }
+                            y: [0, -5, 0, -5, 0, -3, 0],
+                            rotate: [0, -5, 5, -5, 5, -3, 0],
+                            transition: { duration: 2 },
+                          }
                           : {}
                       }
                     >

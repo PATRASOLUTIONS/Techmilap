@@ -40,20 +40,33 @@ export function EmailHistoryManager({ userId }: EmailHistoryManagerProps) {
   const [selectedEmail, setSelectedEmail] = useState<SentEmail | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
   const [emailType, setEmailType] = useState<string>("")
   const [status, setStatus] = useState<string>("")
   const { toast } = useToast()
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  const [totalPages, setTotalPages] = useState(0)
   const [totalItems, setTotalItems] = useState(0)
   const [itemsPerPage, setItemsPerPage] = useState(20)
+
+  // Debounce search query
+  useEffect(() => {
+    const timerId = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+      setCurrentPage(1) // Reset to first page when search query changes
+    }, 500) // 500ms delay
+
+    return () => {
+      clearTimeout(timerId)
+    }
+  }, [searchQuery])
 
   // Load emails on component mount and when filters change
   useEffect(() => {
     fetchEmails()
-  }, [currentPage, itemsPerPage, emailType, status, searchQuery])
+  }, [currentPage, itemsPerPage, emailType, status, debouncedSearchQuery])
 
   const fetchEmails = async () => {
     try {
@@ -65,7 +78,9 @@ export function EmailHistoryManager({ userId }: EmailHistoryManagerProps) {
 
       if (emailType) url += `&emailType=${emailType}`
       if (status) url += `&status=${status}`
-      if (searchQuery) url += `&recipientEmail=${searchQuery}`
+      if (debouncedSearchQuery) url += `&recipientEmail=${debouncedSearchQuery}` // Use debouncedSearchQuery
+
+      console.log(url)
 
       const response = await fetch(url)
 
@@ -74,9 +89,10 @@ export function EmailHistoryManager({ userId }: EmailHistoryManagerProps) {
       }
 
       const data = await response.json()
+      console.log(data)
       setEmails(data.emails)
-      setTotalPages(data.pagination.pages)
-      setTotalItems(data.pagination.total)
+      setTotalPages(data.pagination?.pages || 0)
+      setTotalItems(data.pagination?.total || 0)
     } catch (err: any) {
       setError(err.message || "An error occurred while fetching email history")
       toast({
@@ -212,7 +228,10 @@ export function EmailHistoryManager({ userId }: EmailHistoryManagerProps) {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-2">
-            <Select value={emailType} onValueChange={setEmailType}>
+            <Select value={emailType} onValueChange={(value) => {
+              setEmailType(value === "all" ? "" : value)
+              setCurrentPage(1)
+            }}>
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Email Type" />
               </SelectTrigger>
@@ -227,7 +246,10 @@ export function EmailHistoryManager({ userId }: EmailHistoryManagerProps) {
               </SelectContent>
             </Select>
 
-            <Select value={status} onValueChange={setStatus}>
+            <Select value={status} onValueChange={(value) => {
+              setStatus(value === "all" ? "" : value)
+              setCurrentPage(1)
+            }}>
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -411,7 +433,7 @@ export function EmailHistoryManager({ userId }: EmailHistoryManagerProps) {
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
-                  <p>{getStatusBadge(selectedEmail.status)}</p>
+                  <div>{getStatusBadge(selectedEmail.status)}</div>
                 </div>
                 <div className="col-span-2">
                   <h3 className="text-sm font-medium text-muted-foreground">Subject</h3>

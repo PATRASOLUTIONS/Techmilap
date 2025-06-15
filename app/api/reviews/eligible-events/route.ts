@@ -46,7 +46,6 @@ export async function GET(req: NextRequest) {
     try {
       // Try different queries to find events
       const eventQueries = [
-        { organizer: userObjectId },
         { attendees: userObjectId },
         { volunteers: userObjectId },
         { speakers: userObjectId },
@@ -73,6 +72,8 @@ export async function GET(req: NextRequest) {
       })
 
       console.log(`Found ${registeredEvents.length} registered events from ${allEvents.length} total results`)
+
+      console.log("Registered Events:", JSON.stringify(registeredEvents))
     } catch (error) {
       console.error("Error fetching registered events:", error)
       registeredEvents = []
@@ -191,7 +192,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Combine all events from different approaches
-    const combinedEvents = [...registeredEvents, ...ticketEvents, ...submissionEvents, ...allEvents]
+    const combinedEvents = [...registeredEvents, ...ticketEvents, ...submissionEvents]
 
     // Deduplicate the combined events
     const uniqueEventIds = new Set()
@@ -228,10 +229,20 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    // Filter out events that have already been reviewed
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize to the start of the day for date-only comparison
+
+    // Filter out events that have already been reviewed AND events that are in the future
     const eligibleEvents = uniqueEvents.filter((event) => {
+      // Basic check for event and event date
+      if (!event || !event._id || !event.date) return false;
+
       const eventId = event._id.toString()
-      return !reviewedEventIds.includes(eventId)
+      if (reviewedEventIds.includes(eventId)) return false; // Already reviewed
+
+      const eventDate = new Date(event.date);
+      eventDate.setHours(0,0,0,0); // Normalize event date to the start of its day
+      return eventDate <= today; // Event date must be today or in the past
     })
 
     console.log(`Filtered to ${eligibleEvents.length} eligible events after removing reviewed events`)

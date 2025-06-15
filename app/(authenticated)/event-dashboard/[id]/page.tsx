@@ -411,8 +411,14 @@ export default function EventDashboardPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-        <TabsList className="grid grid-cols-7 md:w-fit">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
+<TabsList
+  className="
+    w-full
+    flex gap-2 overflow-x-auto whitespace-nowrap
+    xl:grid xl:grid-cols-7 xl:w-fit xl:overflow-visible xl:whitespace-normal
+    scrollbar-hide
+  "
+>          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="attendees">Attendees</TabsTrigger>
           <TabsTrigger value="volunteers">Volunteers</TabsTrigger>
           <TabsTrigger value="speakers">Speakers</TabsTrigger>
