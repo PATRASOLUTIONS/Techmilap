@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { signIn, useSession } from "next-auth/react"
+import { getSession, signIn, useSession } from "next-auth/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,6 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { DecorativeBlob } from "@/components/ui/decorative-blob"
 import { Eye, EyeOff, Lock, Mail, AlertCircle, Info, ArrowRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { GithubSigninButton, GoogleSigninButton } from "@/components/Button/OauthSigninButton"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -33,6 +34,10 @@ export default function LoginPage() {
   const [registeredSuccess, setRegisteredSuccess] = useState(false)
   const [verifiedSuccess, setVerifiedSuccess] = useState(false)
   const { toast } = useToast()
+
+  // debug
+  console.log("Session : ", session)
+
 
   // Clean URL if there's an error parameter
   useEffect(() => {
@@ -363,6 +368,8 @@ export default function LoginPage() {
                   </AnimatePresence>
 
                   <form onSubmit={handleLogin} className="space-y-4">
+
+                    {/* email */}
                     <motion.div
                       className="space-y-2"
                       initial={{ opacity: 0, y: 10 }}
@@ -386,6 +393,7 @@ export default function LoginPage() {
                       </div>
                     </motion.div>
 
+                    {/* password */}
                     <motion.div
                       className="space-y-2"
                       initial={{ opacity: 0, y: 10 }}
@@ -485,6 +493,18 @@ export default function LoginPage() {
                       </Button>
                     </motion.div>
                   </form>
+
+                  {/* Oauth Signin Button */}
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className=" flex justify-center gap-4">
+                      <GithubSigninButton/>
+                      <GoogleSigninButton/>
+                      
+                  </motion.div>
+
                 </TabsContent>
               </Tabs>
             </CardContent>

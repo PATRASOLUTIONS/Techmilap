@@ -15,6 +15,7 @@ import { DecorativeBlob } from "@/components/ui/decorative-blob"
 import { AlertCircle, Info, ArrowRight, User, Users, Mic, Calendar } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Textarea } from "@/components/ui/textarea"
+import { GithubSigninButton, GoogleSigninButton } from "@/components/Button/OauthSigninButton"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -708,10 +709,21 @@ export default function SignupPage() {
                       )}
                     </Button>
                   </form>
+
+                  {/* Oauth Signin Button */}
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className=" flex justify-center gap-4">
+                      <GithubSigninButton/>
+                      <GoogleSigninButton/>
+                  </motion.div>
+
                 </TabsContent>
               </Tabs>
             </CardContent>
-            <CardFooter className="flex justify-center">
+            <CardFooter className="flex justify-center ">
               <Link href="/login" className="text-sm text-blue-600 hover:text-blue-800">
                 Already have an account?
               </Link>
