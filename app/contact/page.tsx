@@ -20,7 +20,7 @@ export default function ContactPage() {
       
       <Navbar/>
       
-      <div className="container relative mx-auto px-4 py-20 sm:py-32 sm:px-6 lg:px-8">
+      <div className="container relative mx-auto px-4 py-20 sm:py-32 sm:px-6 lg:px-8 lg:py-16">
         <div className="mx-auto max-w-4xl">
           <div className="text-center mb-16">
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Contact Us</h1>

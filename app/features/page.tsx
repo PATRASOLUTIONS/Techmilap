@@ -132,7 +132,7 @@ function FeaturesSection() {
             </ul>
           </div>
           <div className="order-1 lg:order-2 relative aspect-video rounded-lg overflow-hidden shadow-xl">
-            <Image src="/contemporary-city-center.png" alt="Event Creation Interface" fill className="object-cover" />
+            <Image src="/event_discussion.jpg" alt="Event Creation Interface" fill className="object-cover" />
           </div>
         </div>
 
