@@ -34,9 +34,10 @@ const TEMPLATE_TYPES = [
   { value: "success", label: "Registration Success" },
   { value: "rejection", label: "Registration Rejection" },
   { value: "ticket", label: "Event Ticket" },
-  { value: "certificate", label: "Event Certificate" },
-  { value: "reminder", label: "Event Reminder" },
-  { value: "custom", label: "Custom Template" },
+  // not for current push
+  // { value: "certificate", label: "Event Certificate" },
+  // { value: "reminder", label: "Event Reminder" },
+  // { value: "custom", label: "Custom Template" },
 ]
 
 const DESIGN_TEMPLATES = [
