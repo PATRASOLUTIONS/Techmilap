@@ -300,7 +300,7 @@ export default function MyTicketsPage() {
             <Ticket className="h-5 w-5 text-indigo-600" />
             <span className="font-medium">{loading ? "..." : tickets.all?.length || 0} Tickets</span>
           </div>
-          {session?.user?.role !== "user" && tickets.all?.some(t => t.isFormSubmission && t.status === "confirmed") && (
+          {/* {session?.user?.role !== "user" && tickets.all?.some(t => t.isFormSubmission && t.status === "confirmed") && (
             <Button
               variant="default"
               size="sm"
@@ -314,7 +314,7 @@ export default function MyTicketsPage() {
               )}
               {isSendingBulkEmails ? "Sending Emails..." : "Send Confirmation Emails"}
             </Button>
-          )}
+          )} */}
         </div>
       </div>
 
