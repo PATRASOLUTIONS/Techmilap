@@ -121,17 +121,17 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     logWithTimestamp("info", "Request data in event update :", requestData)
 
-    if(requestData !== null) {
-      const {location, category, description} = requestData
+    // if(requestData !== null) {
+    //   const {location, category, description} = requestData
 
-      if(location) eventData.location = location;  
-      if(category) eventData.category = category;  
-      if(description) eventData.description = description;  
-    }
+    //   if(location) eventData.location = location;  
+    //   if(category) eventData.category = category;  
+    //   if(description) eventData.description = description;  
+    // }
 
     // Update event details
-    if (requestData.details) {
-      const { title, displayName, description, date, endDate, startTime, endTime, location, category, type, visibility, image, slug } = requestData.details;
+    if (requestData !== null || requestData.details !== null) {
+      const { title, displayName, description, date, endDate, startTime, endTime, location, category, type, visibility, image, slug } = requestData.details || requestData;
 
       if (title) eventData.title = title;
       if (displayName) eventData.displayName = displayName;
@@ -146,19 +146,19 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       if (visibility) eventData.visibility = visibility;
       if (image) eventData.image = image;
       if (slug) eventData.slug = slug;
-      if (requestData.details.customQuestions) {
+      if (requestData.details?.customQuestions) {
         eventData.customQuestions = requestData.details.customQuestions;
       }
-      if (requestData.details.status) {
+      if (requestData.details?.status) {
         eventData.status = requestData.details.status;
       }
-      if (requestData.details.attendeeForm) {
+      if (requestData.details?.attendeeForm) {
         eventData.attendeeForm = requestData.details.attendeeForm
       }
-      if (requestData.details.volunteerForm) {
+      if (requestData.details?.volunteerForm) {
         eventData.volunteerForm = requestData.details.volunteerForm
       }
-      if (requestData.details.speakerForm) {
+      if (requestData.details?.speakerForm ) {
         eventData.speakerForm = requestData.details.speakerForm
       }
     }
@@ -166,21 +166,21 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     if (requestData.status) {
       // If explicitly setting status, use that value
       eventData.status = requestData.status
-    } else if (requestData.details?.visibility === "Public" && eventData.status === "draft") {
+    } else if (requestData && requestData.details?.visibility === "Public" && eventData.status === "draft") {
       // If making a draft event public, automatically publish it
       eventData.status = "published"
     }
 
     // Update custom questions if provided
-    if (requestData.customQuestions) {
+    if (requestData?.customQuestions) {
       eventData.customQuestions = {
-        attendee: Array.isArray(requestData.customQuestions.attendee)
+        attendee: Array.isArray(requestData.customQuestions?.attendee)
           ? requestData.customQuestions.attendee
           : event.customQuestions?.attendee || [],
-        volunteer: Array.isArray(requestData.customQuestions.volunteer)
+        volunteer: Array.isArray(requestData.customQuestions?.volunteer)
           ? requestData.customQuestions.volunteer
           : event.customQuestions?.volunteer || [],
-        speaker: Array.isArray(requestData.customQuestions.speaker)
+        speaker: Array.isArray(requestData.customQuestions?.speaker)
           ? requestData.customQuestions.speaker
           : event.customQuestions?.speaker || [],
       }
