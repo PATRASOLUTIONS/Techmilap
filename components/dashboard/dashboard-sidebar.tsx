@@ -256,7 +256,7 @@ export function DashboardSidebar() {
         { title: "My Tickets", href: "/my-tickets", icon: Ticket },
         { title: "Past Events", href: "/past-events", icon: Clock },
         { title: "Explore Events", href: "/explore", icon: Compass },
-        { title: "Categories", href: "/super-admin/events/categories", icon: Tag },
+        // { title: "Categories", href: "/super-admin/events/categories", icon: Tag },
       ],
     },
     {
