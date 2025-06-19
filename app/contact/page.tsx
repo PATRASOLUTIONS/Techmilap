@@ -3,6 +3,8 @@ import Image from "next/image"
 import { Mail, MapPin, Phone } from "lucide-react"
 import { ContactForm } from "@/components/contact/contact-form"
 import { DecorativeBlob } from "@/components/ui/decorative-blob"
+import Navbar from "@/components/landing/NavBar"
+import { SiteFooter } from "@/components/site-footer"
 
 export const metadata: Metadata = {
   title: "Contact Us | Tech Milap",
@@ -12,64 +14,73 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <div className="container relative mx-auto px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
+
+    <div className="relative px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
       <DecorativeBlob className="absolute right-0 top-0 -z-10 text-primary/10" />
+      
+      <Navbar/>
+      
+      <div className="container relative mx-auto px-4 py-20 sm:py-32 sm:px-6 lg:px-8 lg:py-16">
+        <div className="mx-auto max-w-4xl">
+          <div className="text-center mb-16">
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Contact Us</h1>
+            <p className="mt-6 text-lg leading-8 text-muted-foreground max-w-2xl mx-auto">
+              Have questions or need assistance? We're here to help. Reach out to our team using any of the methods below.
+            </p>
+          </div>
 
-      <div className="mx-auto max-w-4xl">
-        <div className="text-center mb-16">
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Contact Us</h1>
-          <p className="mt-6 text-lg leading-8 text-muted-foreground max-w-2xl mx-auto">
-            Have questions or need assistance? We're here to help. Reach out to our team using any of the methods below.
-          </p>
-        </div>
+          <div className="grid grid-cols-1 gap-y-16 md:grid-cols-5 md:gap-x-12">
+            <div className="md:col-span-2 space-y-8">
+              {/* Apply text-center for mobile and md:text-left for desktop */}
+              <div className="text-center md:text-left">
+                {/* For the h2, use justify-center for mobile and md:justify-start for desktop */}
+                <h2 className="text-xl font-semibold mb-4 flex items-center justify-center md:justify-start gap-2">
+                  <MapPin className="h-5 w-5 text-primary" />
+                  Our Location
+                </h2>
+                <address className="not-italic text-muted-foreground">
+                  Bengaluru
+                  <br />
+                  Karnataka
+                  <br />
+                  India
+                </address>
+              </div>
 
-        <div className="grid grid-cols-1 gap-y-16 md:grid-cols-5 md:gap-x-12">
-          <div className="md:col-span-2 space-y-8">
-            {/* Apply text-center for mobile and md:text-left for desktop */}
-            <div className="text-center md:text-left">
-              {/* For the h2, use justify-center for mobile and md:justify-start for desktop */}
-              <h2 className="text-xl font-semibold mb-4 flex items-center justify-center md:justify-start gap-2">
-                <MapPin className="h-5 w-5 text-primary" />
-                Our Location
-              </h2>
-              <address className="not-italic text-muted-foreground">
-                Bengaluru
-                <br />
-                Karnataka
-                <br />
-                India
-              </address>
-            </div>
-
-            <div className="text-center md:text-left">
-              <h2 className="text-xl font-semibold mb-4 flex items-center justify-center md:justify-start gap-2">
-                <Mail className="h-5 w-5 text-primary" />
-                Email Us
-              </h2>
-              <a href="mailto:info@techmilap.com" className="text-primary hover:underline">
-                info@techmilap.com
-              </a>
-            </div>
-
-            <div className="text-center md:text-left">
-              <h2 className="text-xl font-semibold mb-4 flex items-center justify-center md:justify-start gap-2">
-                <Phone className="h-5 w-5 text-primary" />
-                Call Us
-              </h2>
-              <p className="text-muted-foreground">
-                <a href="tel:+918332936831" className="text-primary hover:underline">
-                  +91 8332936831
+              <div className="text-center md:text-left">
+                <h2 className="text-xl font-semibold mb-4 flex items-center justify-center md:justify-start gap-2">
+                  <Mail className="h-5 w-5 text-primary" />
+                  Email Us
+                </h2>
+                <a href="mailto:info@techmilap.com" className="text-primary hover:underline">
+                  info@techmilap.com
                 </a>
-              </p>
+              </div>
+
+              <div className="text-center md:text-left">
+                <h2 className="text-xl font-semibold mb-4 flex items-center justify-center md:justify-start gap-2">
+                  <Phone className="h-5 w-5 text-primary" />
+                  Call Us
+                </h2>
+                <p className="text-muted-foreground">
+                  <a href="tel:+918332936831" className="text-primary hover:underline">
+                    +91 8332936831
+                  </a>
+                </p>
+              </div>
+            </div>
+
+            <div className="md:col-span-3 bg-white rounded-lg p-8 shadow-sm border">
+              <h2 className="text-2xl font-bold mb-6">Send Us a Message</h2>
+              <ContactForm />
             </div>
           </div>
-
-          <div className="md:col-span-3 bg-white rounded-lg p-8 shadow-sm border">
-            <h2 className="text-2xl font-bold mb-6">Send Us a Message</h2>
-            <ContactForm />
-          </div>
+        </div>
+        <div className="px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
+          <SiteFooter/>
         </div>
       </div>
+      
     </div>
   )
 }

@@ -18,7 +18,7 @@ export default async function CreateEventPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-hidden">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Create New Event</h1>
         <p className="text-muted-foreground">

@@ -181,10 +181,10 @@ export function EmailDesignPreview({ designId }: EmailDesignPreviewProps) {
         </div>
         <div>© 2023 Tech Events Inc. All rights reserved.</div>
         <div className="mt-2 text-xs text-gray-500">
-          <a href="#" className="text-gray-500 hover:underline">
+          {/* <a href="#" className="text-gray-500 hover:underline">
             Unsubscribe
           </a>{" "}
-          |
+          | */}
           <a href="#" className="text-gray-500 hover:underline ml-1">
             Privacy Policy
           </a>
