@@ -121,6 +121,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     logWithTimestamp("info", "Request data in event update :", requestData)
 
+    if(requestData !== null) {
+      const {location, category, description} = requestData
+
+      if(location) eventData.location = location;  
+      if(category) eventData.category = category;  
+      if(description) eventData.description = description;  
+    }
 
     // Update event details
     if (requestData.details) {
