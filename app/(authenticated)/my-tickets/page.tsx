@@ -1128,12 +1128,17 @@ Please present this ticket at the event entrance.
                           ([key]) =>
                             key !== "name" && key !== "email" && !key.includes("Email") && !key.includes("email"),
                         )
-                        .map(([key, value]) => (
-                          <div key={key} className="grid grid-cols-3 gap-2">
-                            <span className="text-gray-500 capitalize">{key.replace(/([A-Z])/g, " $1").trim()}:</span>
-                            <span className="col-span-2">{String(value)}</span>
-                          </div>
-                        ))}
+                        .map(([key, value]) => {
+                          // Extract only the name part using regex
+                          const extractedName = key.match(/^question_([a-zA-Z]+)/)?.[1] || key;
+
+                          return (
+                            <div key={key} className="grid grid-cols-3 gap-4">
+                              <span className="text-gray-500 capitalize">{extractedName}:</span>
+                              <span className="col-span-2">{String(value)}</span>
+                            </div>
+                          );
+                        })}
                     </div>
                   )}
                 </div>
