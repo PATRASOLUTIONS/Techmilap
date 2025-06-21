@@ -16,6 +16,7 @@ import FormSubmission, { IFormSubmission } from "@/models/FormSubmission"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Types } from "mongoose"
 import { format } from "date-fns"
+import DynamicEmailModal from "@/components/dashboard/DynamicEmailModal"
 
 // Helper function to get initials from name
 const getInitials = (name: string = "") => {
@@ -72,6 +73,10 @@ export default async function SpeakerDetailsPage({ params }: SpeakerDetailsPageP
       </div>
     )
   }
+
+  // Fetch current user to get favoriteSpeakers
+  const currentUser = await User.findById(session.user.id).lean() as IUser | null
+  const isFavorite = currentUser?.favoriteSpeakers?.includes(params.speakerId) ?? false
 
   const organizerId = session.user.id
 
@@ -166,11 +171,9 @@ export default async function SpeakerDetailsPage({ params }: SpeakerDetailsPageP
           )}
           {/* Favorite and Contact Buttons */}
           <div className="flex gap-2 w-full justify-center mb-4">
-            <FavoriteSpeakerButton speakerId={params.speakerId} />
+            <FavoriteSpeakerButton speakerId={params.speakerId} initialIsFavorite={isFavorite} />
             {speaker.email && (
-              <Button variant="outline" className="flex-1" asChild>
-                <a href={`mailto:${speaker.email}`}>Contact</a>
-              </Button>
+              <DynamicEmailModal email={speaker.email} name={speakerName} type="speaker"/>
             )}
           </div>
         </div>
