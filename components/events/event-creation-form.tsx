@@ -665,6 +665,8 @@ export function EventCreationForm({ existingEvent = null, isEditing = false, set
                       eventId={isEditing ? existingEvent._id : null}
                       updateFormStatus={updateFormStatus}
                       formStatus={formStatus}
+                      eventStartDate={formData.details.date}
+                      eventEndDate={formData.details.endDate}
                     />
                   )}
 

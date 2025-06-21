@@ -169,8 +169,7 @@ export function EventPreview({ formData }) {
                         </div>
                         <div>
                           <p className="font-medium">Venue</p>
-                          <p className="text-sm text-muted-foreground">{details.venue || "Venue Name"}</p>
-                          <p className="text-sm text-muted-foreground">{details.address || "Venue Address"}</p>
+                          <p className="text-sm text-muted-foreground">{details.location || "Venue Name"}</p>
                         </div>
                       </div>
                     )}
