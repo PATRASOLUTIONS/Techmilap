@@ -32,6 +32,20 @@ export default async function ProfilePage() {
         _id: reg._id.toString(), // Convert its ObjectId to string
         // Convert any dates within the nested object if necessary (e.g., reg.createdAt, reg.updatedAt)
     })) : [],
+    // Ensure new fields are passed through; .lean() and spread should handle most scalar types
+    userType: user.userType, // Crucial for conditional rendering in the form
+    profileImage: user.profileImage,
+    bio: user.bio,
+    company: user.company,
+    jobTitle: user.jobTitle,
+    website: user.website,
+    location: user.location,
+    skills: user.skills ? user.skills.map((skill: any) => String(skill)) : [],
+    tagline: user.tagline,
+    areasOfExpertise: user.areasOfExpertise ? user.areasOfExpertise.map((area: any) => String(area)) : [],
+    blogUrl: user.blogUrl,
+    companyWebsite: user.companyWebsite,
+    social: user.social, // Pass the whole social object
   };
 
   return (
