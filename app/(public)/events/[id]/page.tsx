@@ -164,7 +164,7 @@ export default function EventPage({
 
   if (loading) {
     return (
-      <div className="container mx-auto py-12 px-4 md:px-6">
+      <div className="container mx-auto py-12 px-4 md:px-6 mt-10">
         <div className="animate-pulse">
           <div className="h-6 w-32 bg-gray-200 rounded mb-6"></div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
