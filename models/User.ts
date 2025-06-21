@@ -1,6 +1,7 @@
 import mongoose, { Schema, type Document } from "mongoose"
 import bcrypt from "bcryptjs"
-import validator from "validator"
+// @ts-ignore
+import validator from "validator" // Ignore type checking for validator
 
 export enum UserRole {
   USER = "user",
@@ -34,14 +35,13 @@ export interface IUser extends Document {
   eventOrganizer?: string
   isMicrosoftMVP?: boolean
   mvpId?: string
+  mvpUrl?: string
   mvpProfileLink?: string
   mvpCategory?: string
   isMeetupGroupRunning?: boolean
   meetupEventName?: string
   eventDetails?: string
   meetupPageDetails?: string
-  linkedinId?: string
-  githubId?: string
   otherSocialMediaId?: string
   mobileNumber?: string
   createdAt: Date
@@ -55,15 +55,24 @@ export interface IUser extends Document {
   registeredEvents: mongoose.Types.ObjectId[]
   profileImage?: string
   bio?: string
-  company?: string
-  jobTitle?: string
-  website?: string
+  company?: string // Added default
+  location?: string; // Added default
+  skills?: string[]; // Added default
+  tagline?: string; // Added default
+  areasOfExpertise?: string[]; // Added default
+  blogUrl?: string; // Added default
+  companyWebsite?: string; // If 'website' is for personal // Added default
+  jobTitle?: string // Added default
+  website?: string // Added default
   social?: {
-    twitter?: string
-    linkedin?: string
-    github?: string
+    twitter?: string // Added default
+    linkedin?: string // Added default
+    github?: string // Added default
+    facebook?: string; // New social link
+    instagram?: string; // New social link
   }
   emailDesignPreference?: string
+  favoriteSpeakers?: string[] // New field to store favorite speakers 
 }
 
 const UserSchema = new Schema<IUser>(
@@ -91,7 +100,7 @@ const UserSchema = new Schema<IUser>(
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
+      required: false, // Make password optional for OAuth users
       minlength: [8, "Password should be at least 8 characters long"],
       // Don't return password in queries by default
       select: false,
@@ -139,6 +148,7 @@ const UserSchema = new Schema<IUser>(
     corporateEmail: {
       type: String,
       trim: true,
+      default: "", // Added default
       lowercase: true,
       validate: {
         validator: (email: string) => !email || validator.isEmail(email),
@@ -148,6 +158,7 @@ const UserSchema = new Schema<IUser>(
     designation: {
       type: String,
       trim: true,
+      default: "", // Added default
       maxlength: [100, "Designation cannot exceed 100 characters"],
     },
     eventOrganizer: {
@@ -186,6 +197,7 @@ const UserSchema = new Schema<IUser>(
     eventDetails: {
       type: String,
       trim: true,
+      default: "", // Added default
     },
     meetupPageDetails: {
       type: String,
@@ -195,27 +207,22 @@ const UserSchema = new Schema<IUser>(
         message: "Please provide a valid URL for meetup page",
       },
     },
-    linkedinId: {
-      type: String,
-      trim: true,
-    },
-    githubId: {
-      type: String,
-      trim: true,
-    },
     otherSocialMediaId: {
       type: String,
       trim: true,
+      default: "", // Added default
     },
     mobileNumber: {
       type: String,
       trim: true,
+      default: "", // Added default
       validate: {
         validator: (phone: string) => !phone || validator.isMobilePhone(phone),
         message: "Please provide a valid mobile number",
       },
     },
     lastLogin: {
+      // No default needed, will be null/undefined if not set
       type: Date,
     },
     failedLoginAttempts: {
@@ -252,6 +259,37 @@ const UserSchema = new Schema<IUser>(
       type: String,
       maxlength: [500, "Bio cannot exceed 500 characters"],
     },
+    location: {
+      type: String,
+      trim: true,
+      maxlength: [100, "Location cannot exceed 100 characters"],
+    },
+    skills: {
+      type: [String], // Array of strings
+      default: [],
+    },
+    tagline: {
+      type: String,
+      trim: true,
+      maxlength: [150, "Tagline cannot exceed 150 characters"],
+      default: "", // Added default
+    },
+    areasOfExpertise: {
+      type: [String], // Array of strings
+      default: [],
+    },
+    blogUrl: {
+      type: String,
+      trim: true,
+      default: "", // Added default
+      validate: { validator: (url: string) => !url || validator.isURL(url), message: "Please provide a valid blog URL" },
+    },
+    companyWebsite: {
+      type: String,
+      trim: true,
+      default: "", // Added default
+      validate: { validator: (url: string) => !url || validator.isURL(url), message: "Please provide a valid company website URL" },
+    },
     company: {
       type: String,
       trim: true,
@@ -271,29 +309,47 @@ const UserSchema = new Schema<IUser>(
       },
     },
     social: {
+      type: Object, // Define social as an object
+      default: {
+        twitter: "",
+        linkedin: "",
+        github: "",
+        facebook: "",
+        instagram: "",
+      },
       twitter: {
         type: String,
         trim: true,
-        validate: {
-          validator: (url: string) => !url || validator.isURL(url),
-          message: "Please provide a valid Twitter URL",
-        },
+        default: "",
+        validator: (url: string) => !url || validator.isURL(url),
+        message: "Please provide a valid Twitter URL",
       },
       linkedin: {
         type: String,
         trim: true,
-        validate: {
-          validator: (url: string) => !url || validator.isURL(url),
-          message: "Please provide a valid LinkedIn URL",
-        },
+        default: "",
+        validator: (url: string) => !url || validator.isURL(url),
+        message: "Please provide a valid LinkedIn URL",
       },
       github: {
         type: String,
         trim: true,
-        validate: {
-          validator: (url: string) => !url || validator.isURL(url),
-          message: "Please provide a valid GitHub URL",
-        },
+        default: "",
+        validator: (url: string) => !url || validator.isURL(url),
+        message: "Please provide a valid GitHub URL",
+      },
+      facebook: {
+        type: String,
+        trim: true,
+        default: "",
+        validator: (url: string) => !url || validator.isURL(url),
+        message: "Please provide a valid Facebook URL",
+      },
+      instagram: {
+        type: String,
+        default: "",
+        trim: true,
+        validate: { validator: (url: string) => !url || validator.isURL(url), message: "Please provide a valid Instagram URL" }, // Added default
       },
     },
     emailDesignPreference: {
@@ -301,12 +357,15 @@ const UserSchema = new Schema<IUser>(
       enum: ["modern", "elegant", "colorful", "minimal", "corporate"],
       default: "modern",
     },
+    favoriteSpeakers: {
+      type: [String], // Array of strings to store favorite speaker IDs
+    }
   },
   {
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  },
+  }
 )
 
 // Add virtual for full name
@@ -332,7 +391,7 @@ UserSchema.pre("save", async function (next) {
 UserSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
   try {
     // Need to select password explicitly since we've set select: false
-    const user = await this.constructor.findById(this._id).select("+password")
+    const user = await (this.constructor as mongoose.Model<IUser>).findById(this._id).select("+password")
     if (!user) return false
 
     return await bcrypt.compare(candidatePassword, user.password)
@@ -372,5 +431,18 @@ UserSchema.index({ firstName: "text", lastName: "text", email: "text" })
 UserSchema.index({ role: 1, isVerified: 1 })
 UserSchema.index({ email: 1, isVerified: 1 })
 
-const User = mongoose.models.User || mongoose.model<IUser>("User", UserSchema)
+let User: mongoose.Model<IUser>;
+try {
+  // Defensive check before accessing mongoose.models
+  if (mongoose && typeof mongoose.models !== 'undefined') {
+    User = mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
+  } else {
+    console.error("mongoose.models is undefined. Attempting direct mongoose.model() call, but this indicates a problem.");
+    // This will likely also fail if mongoose itself is not right, or if model() relies on .models
+    User = mongoose.model<IUser>("User", UserSchema);
+  }
+} catch (error) {
+  console.error("Error during Mongoose model definition:", error);
+  throw error; // Re-throw to see the original error context
+}
 export default User
