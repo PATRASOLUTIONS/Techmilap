@@ -36,6 +36,7 @@ import Review from "@/models/Review"
 import FormSubmission from "@/models/FormSubmission"
 import TicketModel from "@/models/Ticket"
 import { formatDistanceToNow } from "date-fns"
+import DynamicEmailModal from "@/components/dashboard/DynamicEmailModal"
 
 // Helper function to get initials from name
 const getInitials = (name: string) => {
@@ -80,7 +81,7 @@ export default async function DashboardPage() {
   // Count total attendees across all events
   const totalAttendees = await FormSubmission.countDocuments({
     eventId: { $in: eventIds },
-    formType:'attendee'
+    formType: 'attendee'
   })
 
   // Count tickets sold
@@ -148,41 +149,34 @@ export default async function DashboardPage() {
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
     .slice(0, 3)
 
-  // Fetch speakers (users who have submitted speaker forms)
-  const speakerSubmissions = await FormSubmission.find({
-    eventId: { $in: eventIds },
-    formType: "speaker",
-    status: "approved",
-  })
-    .sort({ createdAt: -1 })
-    .limit(10)
-    .lean()
+  // Fetch favorite speakers of the current user
+  const currentUser = await User.findById(userId).lean();
+  const favoriteSpeakerIds = currentUser?.favoriteSpeakers || [];
 
-  const speakerUserIds = [...new Set(speakerSubmissions.map((sub) => sub.userId))]
-  const speakerUsers = await User.find({
-    _id: { $in: speakerUserIds },
+  const favoriteSpeakersUsers = await User.find({
+    _id: { $in: favoriteSpeakerIds },
   })
     .limit(3)
-    .lean()
+    .lean();
 
   // Get speaker ratings from reviews
   const speakers = await Promise.all(
-    speakerUsers.map(async (user) => {
+    favoriteSpeakersUsers.map(async (user) => {
       const speakerEvents = await FormSubmission.countDocuments({
         userId: user._id,
         formType: "speaker",
         status: "approved",
-      })
+      });
 
       const speakerReviews = await Review.find({
         targetType: "speaker",
         targetId: user._id,
-      })
+      });
 
       const avgRating =
         speakerReviews.length > 0
           ? speakerReviews.reduce((sum, review) => sum + review.rating, 0) / speakerReviews.length
-          : 4.5 // Default rating if no reviews
+          : 4.5; // Default rating if no reviews
 
       return {
         id: user._id.toString(),
@@ -191,9 +185,10 @@ export default async function DashboardPage() {
         image: user.profileImage || `/confident-leader.png`,
         events: speakerEvents,
         rating: Number.parseFloat(avgRating.toFixed(1)),
-      }
+        email: user.email || "No email provided",
+      };
     }),
-  )
+  );
 
   // Fetch volunteers (users who have submitted volunteer forms)
   const volunteerSubmissions = await FormSubmission.find({
@@ -238,6 +233,7 @@ export default async function DashboardPage() {
         image: user.profileImage || `/joyful-portrait.png`,
         events: volunteerEvents,
         status: upcomingAssignments ? "Busy" : "Available",
+        email: user.email || "No email provided",
       }
     }),
   )
@@ -392,10 +388,10 @@ export default async function DashboardPage() {
                         <div key={index} className="flex items-start gap-3 pb-3 border-b">
                           <Badge
                             className={`h-2 w-2 rounded-full p-0 mt-2 ${notification.type === "attendee"
-                                ? "bg-green-500"
-                                : notification.type === "speaker"
-                                  ? "bg-blue-500"
-                                  : "bg-amber-500"
+                              ? "bg-green-500"
+                              : notification.type === "speaker"
+                                ? "bg-blue-500"
+                                : "bg-amber-500"
                               }`}
                           />
                           <div>
@@ -673,17 +669,17 @@ export default async function DashboardPage() {
         {/* Speakers Tab */}
         <TabsContent value="speakers" className="space-y-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Featured Speakers</h2>
+            <h2 className="text-xl font-semibold">Favorite Speakers</h2>
           </div>
           {speakers.length > 0 ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {speakers.map((speaker) => (
                 <Card key={speaker.id} className="overflow-hidden">
                   <div className="flex items-center p-6">
-                    {/* <Avatar className="h-16 w-16 border-2 border-blue-100">
+                    <Avatar className="h-16 w-16 border-2 border-blue-100">
                       <AvatarImage src={speaker.image || "/placeholder.svg"} alt={speaker.name} />
                       <AvatarFallback>{getInitials(speaker.name)}</AvatarFallback>
-                    </Avatar> */}
+                    </Avatar>
                     <div className="ml-4">
                       <h3 className="font-semibold">{speaker.name}</h3>
                       <p className="text-sm text-muted-foreground">{speaker.role}</p>
@@ -699,12 +695,7 @@ export default async function DashboardPage() {
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={`/dashboard/speakers/${speaker.id}`}>View Profile</Link>
                     </Button>
-                    <Button size="sm" asChild>
-                      <Link href={`/dashboard/speakers/${speaker.id}/invite`}>
-                        <Megaphone className="mr-2 h-3 w-3" />
-                        Invite
-                      </Link>
-                    </Button>
+                    <DynamicEmailModal type="speaker" email={speaker.email || ""} name={speaker.name} />
                   </div>
                 </Card>
               ))}
@@ -713,16 +704,10 @@ export default async function DashboardPage() {
             <Card className="p-8 text-center">
               <div className="flex flex-col items-center">
                 <Megaphone className="h-12 w-12 text-gray-300 mb-4" />
-                <h3 className="text-xl font-medium mb-2">No speakers found</h3>
+                <h3 className="text-xl font-medium mb-2">No favorite speakers found</h3>
                 <p className="text-muted-foreground mb-6">
-                  You don't have any speakers associated with your events yet.
+                  You don't have any favorite speakers yet.
                 </p>
-                <Button asChild>
-                  <Link href="/dashboard/speakers/connect">
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Find Speakers
-                  </Link>
-                </Button>
               </div>
             </Card>
           )}
@@ -746,10 +731,10 @@ export default async function DashboardPage() {
               {volunteers.map((volunteer) => (
                 <Card key={volunteer.id} className="overflow-hidden">
                   <div className="flex items-center p-6">
-                    {/* <Avatar className="h-16 w-16 border-2 border-blue-100">
+                    <Avatar className="h-16 w-16 border-2 border-blue-100">
                       <AvatarImage src={volunteer.image || "/placeholder.svg"} alt={volunteer.name} />
                       <AvatarFallback>{getInitials(volunteer.name)}</AvatarFallback>
-                    </Avatar> */}
+                    </Avatar>
                     <div className="ml-4">
                       <h3 className="font-semibold">{volunteer.name}</h3>
                       {/* <p className="text-sm text-muted-foreground">{volunteer.role}</p> */}
@@ -758,11 +743,10 @@ export default async function DashboardPage() {
                           {volunteer.events} events
                         </span>
                         <span
-                          className={`text-xs ml-2 px-2 py-0.5 rounded-full ${
-                            volunteer.status === "Available"
+                          className={`text-xs ml-2 px-2 py-0.5 rounded-full ${volunteer.status === "Available"
                               ? "bg-green-100 text-green-800"
                               : "bg-amber-100 text-amber-800"
-                          }`}
+                            }`}
                         >
                           {volunteer.status}
                         </span>
@@ -773,12 +757,7 @@ export default async function DashboardPage() {
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={`/dashboard/volunteers/${volunteer.id}`}>View Profile</Link>
                     </Button>
-                    <Button size="sm" asChild>
-                      <Link href={`/dashboard/volunteers/${volunteer.id}/invite`}>
-                        <HandHelping className="mr-2 h-3 w-3" />
-                        Recruit
-                      </Link>
-                    </Button>
+                    <DynamicEmailModal type="volunteer" email={volunteer.email || ""} name={volunteer.name} />
                   </div>
                 </Card>
               ))}
