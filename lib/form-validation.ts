@@ -81,7 +81,7 @@ export function getValidationType(question: any): string {
     return "githubUrl"
   }
 
-  if(label.includes("mvp")) {
+  if(label.includes("mvpUrl")) {
     return "mvpUrl"
   }
 

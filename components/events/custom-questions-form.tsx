@@ -1,5 +1,4 @@
 "use client"
-
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,6 +9,7 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Trash2, Plus, GripVertical, RefreshCw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { format, addDays, differenceInDays, isValid } from "date-fns"
 
 interface CustomQuestionsFormProps {
   data: { attendee: any[]; volunteer: any[]; speaker: any[] }
@@ -17,6 +17,8 @@ interface CustomQuestionsFormProps {
   eventId?: string
   updateFormStatus?: (formType: string, status: string) => void
   formStatus?: { attendee: string; volunteer: string; speaker: string }
+  eventStartDate?: string; // New prop for event start date
+  eventEndDate?: string;   // New prop for event end date
 }
 
 export function CustomQuestionsForm({
@@ -25,6 +27,8 @@ export function CustomQuestionsForm({
   eventId = null,
   updateFormStatus,
   formStatus: initialFormStatus,
+  eventStartDate,
+  eventEndDate,
 }: CustomQuestionsFormProps) {
   const [activeTab, setActiveTab] = useState("attendee")
   const { toast } = useToast()
@@ -36,9 +40,9 @@ export function CustomQuestionsForm({
 
   // Form publish status
   const [publishStatus, setPublishStatus] = useState({
-    attendee: false,
-    volunteer: false,
-    speaker: false,
+    attendee: true,
+    volunteer: true,
+    speaker: true,
   })
 
   // Add a new state for tracking the published URLs
@@ -94,165 +98,211 @@ export function CustomQuestionsForm({
     return `question_${labelSegment}_${Date.now()}`; // Timestamp generated here
   };
   const generateDefaultQuestions = useCallback(() => {
-    const defaultAttendeeQuestions = [
+
+    let dynamicVolunteerAvailabilityOptions = [
+      { id: "event_day_1", value: "Event Day 1", isDefaultOption: true },
+      { id: "event_day_2", value: "Event Day 2", isDefaultOption: true },
+      { id: "all_event_days", value: "All Event Days", isDefaultOption: true },
+    ];
+
+    if (eventStartDate && eventEndDate) {
+      const startDate = new Date(eventStartDate);
+      const endDate = new Date(eventEndDate);
+
+      if (isValid(startDate) && isValid(endDate) && endDate >= startDate) {
+        const dayOptions = [];
+        const numDays = differenceInDays(endDate, startDate) + 1;
+
+        for (let i = 0; i < numDays; i++) {
+          const currentDate = addDays(startDate, i);
+          dayOptions.push({ id: `day_${i + 1}`, value: `Day ${i + 1} (${format(currentDate, "EEE, MMM d")})`, isDefaultOption: true });
+        }
+        if (numDays > 1) {
+          dayOptions.push({ id: "all_event_days_calculated", value: "All Event Days", isDefaultOption: true });
+        }
+        dynamicVolunteerAvailabilityOptions = dayOptions;
+      }
+    }
+
+    const createDefaultQuestion = (qDef) => ({
+      ...qDef,
+      // Use predefined ID if available, otherwise generate. isDefault is part of qDef.
+      id: qDef.id || generateQuestionId(qDef.label),
+      options: qDef.options?.map(optDef => ({
+        ...optDef,
+        id: `option_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        isDefaultOption: true,
+      })) || [],
+    });
+
+    const attendeeDefs = [
       {
-        id: `question_name_${Date.now()}`,
+        id: "firstName", // Matches User model
         type: "text",
-        label: "Name",
-        placeholder: "Enter your name",
+        label: "First Name",
+        placeholder: "Enter your first name",
         required: true,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("Email ID"), // Will be set in map
+        id: "lastName", // Matches User model
+        type: "text",
+        label: "Last Name",
+        placeholder: "Enter your last name",
+        required: true,
+        isDefault: true,
+      },
+      {
+        id: "email", // Matches User model
         type: "email",
         label: "Email ID",
         placeholder: "Enter your email address",
         required: true,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("Corporate Email ID"),
-        type: "email",
-        label: "Corporate Email ID",
-        placeholder: "Enter your corporate email address",
-        required: true,
+        id: "company", // Matches User model
+        type: "text",
+        label: "Company",
+        placeholder: "Enter your company name (optional)",
+        required: false,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("Designation"),
+        id: "jobTitle", // Matches User model
+        type: "text",
+        label: "Job Title",
+        placeholder: "Enter your job title (optional)",
+        required: false,
+        isDefault: true,
+      },
+      {
+        id: "designation", // Matches User model
         type: "text",
         label: "Designation",
-        placeholder: "Enter your designation",
-        required: true,
+        placeholder: "Enter your designation (optional)",
+        required: false,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("LinkedIn ID"),
+        id: "social.linkedin", // Matches User model social object
         type: "text",
         label: "LinkedIn ID",
-        placeholder: "Enter your LinkedIn profile URL",
-        required: true,
+        placeholder: "https://linkedin.com/in/yourprofile",
+        required: false,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("GitHub ID"),
+        id: "social.github", // Matches User model social object
         type: "text",
         label: "GitHub ID",
-        placeholder: "Enter your GitHub profile URL",
-        required: true,
-      },
-      {
-        // id: generateQuestionId("Any other social Media ID"),
-        type: "text",
-        label: "Any other social Media ID",
-        placeholder: "Enter any other social media profile URL",
+        placeholder: "https://github.com/yourprofile",
         required: false,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("Mobile number"),
+        id: "mobileNumber", // Matches User model
         type: "phone",
         label: "Mobile number",
         placeholder: "Enter your mobile number",
         required: true,
+        isDefault: true,
       },
-    ].map(q => {
-      return { ...q, id: generateQuestionId(q.label) }; // Use new generateQuestionId
-    });
+    ];
 
-    const defaultVolunteerQuestions = [
+    const volunteerDefs = [
       {
-        // id: `question_name_${Date.now() + 10}`, // Will be set in map
+        id: "firstName", // Matches User model
         type: "text",
-        label: "Name",
-        placeholder: "Enter your name",
+        label: "First Name",
+        placeholder: "Enter your first name",
         required: true,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("Email ID"),
+        id: "lastName", // Matches User model
+        type: "text",
+        label: "Last Name",
+        placeholder: "Enter your last name",
+        required: true,
+        isDefault: true,
+      },
+      {
+        id: "email", // Matches User model
         type: "email",
         label: "Email ID",
         placeholder: "Enter your email address",
         required: true,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("Corporate Email ID"),
-        type: "email",
-        label: "Corporate Email ID",
-        placeholder: "Enter your corporate email address",
-        required: true,
+        id: "company", // Matches User model
+        type: "text",
+        label: "Company",
+        placeholder: "Enter your company name (optional)",
+        required: false,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("Designation"),
+        id: "jobTitle", // Matches User model
+        type: "text",
+        label: "Job Title",
+        placeholder: "Enter your job title (optional)",
+        required: false,
+        isDefault: true,
+      },
+      {
+        id: "designation", // Matches User model
         type: "text",
         label: "Designation",
-        placeholder: "Enter your designation",
-        required: true,
+        placeholder: "Enter your designation (optional)",
+        required: false,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("Event Organizer"),
-        type: "text",
-        label: "Event Organizer",
-        placeholder: "Enter the event organizer",
+        id: "volunteerAvailability", // Custom ID for volunteer form
+        type: "checkbox", // Or 'date' if you prefer a date picker
+        label: "Which days/dates are you available to volunteer?",
+        placeholder: "Select your available days/dates",
         required: true,
+        options: dynamicVolunteerAvailabilityOptions,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("Are you a Microsoft MVP?"),
+        id: "volunteerSetupTeardown", // Custom ID for volunteer form
         type: "checkbox",
-        label: "Are you a Microsoft MVP?",
+        label: "Are you available for pre-event setup or post-event teardown?",
         required: true,
+        options: [
+          { value: "Pre-event setup" },
+          { value: "Post-event teardown" },
+          { value: "Both" },
+          { value: "Neither" },
+        ],
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("MVP ID"),
-        type: "text",
-        label: "MVP ID",
-        placeholder: "Enter your MVP ID",
+        type: "textarea",
+        label: "Do you have any previous volunteer experience? If yes, please briefly describe.",
+        placeholder: "Describe your past volunteer roles or activities",
         required: false,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("MVP Profile Link"),
-        type: "text",
-        label: "MVP Profile Link",
-        placeholder: "Enter your MVP profile link",
-        required: false,
-      },
-      {
-        // id: generateQuestionId("MVP Category"),
-        type: "text",
-        label: "MVP Category",
-        placeholder: "Enter your MVP category",
-        required: false,
-      },
-      {
-        // id: generateQuestionId("How many events have you supported as a volunteer?"),
+        id: "eventsVolunteeredCount", // Custom ID, not directly in User model
         type: "select",
         label: "How many events have you supported as a volunteer?",
         placeholder: "Select the number of events",
         required: true,
         options: [
+          { value: "0" },
           { value: "1-5" },
           { value: "6-10" },
           { value: "11+" },
         ],
+        isDefault: true,
       },
       {
-        // id: `question_meetupEventName_${Date.now() + 20}`,
-        type: "text",
-        label: "Meetup/Event Name",
-        placeholder: "Enter the meetup/event name",
-        required: true,
-      },
-      {
-        // id: generateQuestionId("Event Details"),
-        type: "textarea",
-        label: "Event Details",
-        placeholder: "Enter the event details",
-        required: true,
-      },
-      {
-        // id: generateQuestionId("Meetup page details"),
-        type: "text",
-        label: "Meetup page details",
-        placeholder: "Enter the meetup page details",
-        required: true,
-      },
-      {
-        // id: generateQuestionId("Your Contribution"),
         type: "select",
         label: "Your Contribution",
         placeholder: "Select your contribution",
@@ -263,170 +313,233 @@ export function CustomQuestionsForm({
           { id: "contribution_3", value: "Event planner" },
           { id: "contribution_4", value: "Infographic designer" },
           { id: "contribution_5", value: "Organizer" },
+          { id: "contribution_5", value: "Other" },
         ],
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("Organizer Name/ LinkedIn ID"),
-        type: "text",
-        label: "Organizer Name/ LinkedIn ID",
-        placeholder: "Enter the organizer name/ LinkedIn ID",
-        required: true,
-      },
-      {
-        // id: generateQuestionId("LinkedIn ID"),
+        id: "social.linkedin", // Matches User model social object
         type: "text",
         label: "LinkedIn ID",
-        placeholder: "Enter your LinkedIn profile URL",
-        required: true,
+        placeholder: "https://linkedin.com/in/yourprofile",
+        required: false,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("GitHub ID"),
+        id: "social.github", // Matches User model social object
         type: "text",
         label: "GitHub ID",
-        placeholder: "Enter your GitHub profile URL",
-        required: true,
-      },
-      {
-        // id: generateQuestionId("Any other social Media ID"),
-        type: "text",
-        label: "Any other social Media ID",
-        placeholder: "Enter any other social media profile URL",
+        placeholder: "https://github.com/yourprofile",
         required: false,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("Mobile number"),
+        id: "mobileNumber", // Matches User model
         type: "phone",
         label: "Mobile number",
         placeholder: "Enter your mobile number",
         required: true,
+        isDefault: true,
       },
-    ].map(q => {
-      const ts = Date.now() + Math.random(); // Unique timestamp
-      const optionsWithIds = q.options?.map(opt => ({ ...opt, id: `option_${ts}_${Math.random().toString(36).substring(2, 7)}` })) || [];
-      return { ...q, id: generateQuestionId(q.label), options: optionsWithIds }; // Use new generateQuestionId
-    });
+    ];
 
-    const defaultSpeakerQuestions = [
+    const speakerDefs = [
       {
-        // id: generateQuestionId("Name"), // Will be set in map
+        id: "firstName", // Matches User model
         type: "text",
-        label: "Name",
-        placeholder: "Enter your name",
+        label: "First Name",
+        placeholder: "Enter your first name",
         required: true,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("Email ID"),
+        id: "lastName", // Matches User model
+        type: "text",
+        label: "Last Name",
+        placeholder: "Enter your last name",
+        required: true,
+        isDefault: true,
+      },
+      {
+        id: "email", // Matches User model
         type: "email",
         label: "Email ID",
         placeholder: "Enter your email address",
         required: true,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("Corporate Email ID"),
-        type: "email",
-        label: "Corporate Email ID",
+        id: "bio", // Matches User model
+        type: "textarea",
+        label: "Speaker Bio",
+        placeholder: "Tell us about your expertise and credentials (max 300 words)",
+        required: true,
+        isDefault: true,
+      },
+      {
+        id: "tagline", // Matches User model
+        type: "text",
+        label: "Speaker Tagline",
+        placeholder: "Your professional introduction (e.g., Cloud Architect, AI Enthusiast)",
+        required: true,
+        isDefault: true,
+      },
+      {
+        id: "sessionTitle", // Custom ID for speaker form
+        type: "text",
+        label: "Session Title",
+        placeholder: "Enter the title of your proposed session",
+        required: true,
+        isDefault: true,
+      },
+      {
+        id: "sessionDescription", // Custom ID for speaker form
+        type: "textarea",
+        label: "Session Description",
+        placeholder: "Provide a detailed description of your session (max 500 words)",
+        required: true,
+        isDefault: true,
+      },
+      {
+        id: "sessionTrack", // Custom ID for speaker form
+        type: "text",
+        label: "Track or Topic Area",
+        placeholder: "e.g., AI/ML, Web Development, Cloud Computing",
+        required: true,
+        isDefault: true,
+      },
+      {
+        type: "select",
+        label: "Session Duration",
+        placeholder: "Select preferred session length",
+        required: true,
+        options: [
+          { value: "15 minutes (Lightning Talk)" },
+          { value: "30 minutes" },
+          { value: "45 minutes" },
+          { value: "60 minutes" },
+          { value: "90 minutes (Workshop)" },
+          { value: "Other (specify in description)" },
+        ],
+        isDefault: true,
+      },
+      {
+        id: "coSpeakers", // Custom ID
+        type: "textarea",
+        label: "Co-speakers (if applicable)",
+        placeholder: "List names and email addresses of co-speakers, one per line.",
+        required: false,
+        isDefault: true,
+      },
+      {
+        id: "social.linkedin", // Matches User model social object
+        type: "text",
+        label: "LinkedIn Profile URL",
+        placeholder: "https://linkedin.com/in/yourprofile",
+        required: true,
+        isDefault: true,
+      },
+      {
+        id: "social.twitter", // Matches User model social object
+        type: "text",
+        label: "Twitter/X Profile URL",
+        placeholder: "https://x.com/yourprofile",
+        required: true,
+        isDefault: true,
+      },
+      {
+        id: "social.github", // Matches User model social object
+        type: "text",
+        label: "GitHub Profile URL",
+        placeholder: "https://github.com/yourprofile",
+        required: false,
+        isDefault: true,
+      },
+      {
+        id: "sessionLanguage", // Custom ID
+        type: "select",
+        label: "Preferred Session Language",
+        placeholder: "Select language",
+        required: true,
+        options: [
+          { value: "English" },
+          { value: "Hindi" },
+          { value: "French" },
+          { value: "German" },
+          { value: "Other (specify in description)" },
+        ],
+        isDefault: true,
+      },
+      {
+        id: "expectedAudienceSize", // Custom ID
+        type: "select",
+        label: "Expected Audience Size",
+        placeholder: "Select expected audience size",
+        required: false,
+        options: [
+          { value: "Small (1-50)" },
+          { value: "Medium (51-200)" },
+          { value: "Large (201-500)" },
+          { value: "Very Large (500+)" },
+        ],
+        isDefault: true,
+      },
+      // --- Keeping some of the previous relevant questions ---
+      {
+        id: "corporateEmail", // Matches User model
+        type: "text",
+        label: "Corporate Email ID (Optional)",
         placeholder: "Enter your corporate email address",
-        required: true,
+        required: false,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("Designation"),
+        id: "designation", // Matches User model
         type: "text",
-        label: "Designation",
-        placeholder: "Enter your designation",
+        label: "Designation/Job Title",
+        placeholder: "Enter your current designation or job title",
         required: true,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("Event Organizer"),
-        type: "text",
-        label: "Event Organizer",
-        placeholder: "Enter the event organizer",
-        required: true,
-      },
-      {
-        // id: generateQuestionId("Are you a Microsoft MVP?"),
-        type: "checkbox",
+        id: "isMicrosoftMVP", // Matches User model
+        type: "checkbox", // Changed from text to checkbox for boolean
         label: "Are you a Microsoft MVP?",
-        required: true,
+        required: false, // Assuming this is optional
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("MVP ID"),
+        id: "mvpUrl", // Matches User model
         type: "text",
-        label: "MVP ID",
-        placeholder: "Enter your MVP ID",
+        label: "MVP Profile URL(if applicable)",
+        placeholder: "Enter your MVP Profile URL",
         required: false,
+        isDefault: true,
       },
       {
-        // id: generateQuestionId("MVP Profile Link"),
-        type: "text",
-        label: "MVP Profile Link",
-        placeholder: "Enter your MVP profile link",
-        required: false,
-      },
-      {
-        // id: generateQuestionId("MVP Category"),
-        type: "text",
-        label: "MVP Category",
-        placeholder: "Enter your MVP category",
-        required: false,
-      },
-      {
-        // id: generateQuestionId("Are you running any meetup group?"),
-        type: "checkbox",
-        label: "Are you running any meetup group?",
-        required: true,
-      },
-      {
-        // id: generateQuestionId("Meetup/Event Name"),
+        id: "meetupEventName", // Matches User model
         type: "text",
         label: "Meetup/Event Name",
         placeholder: "Enter the meetup/event name",
-        required: true,
-      },
-      {
-        // id: generateQuestionId("Event Details"),
-        type: "textarea",
-        label: "Event Details",
-        placeholder: "Enter the event details",
-        required: true,
-      },
-      {
-        // id: generateQuestionId("Meetup page details"),
-        type: "text",
-        label: "Meetup page details",
-        placeholder: "Enter the meetup page details",
-        required: true,
-      },
-      {
-        // id: generateQuestionId("LinkedIn ID"),
-        type: "text",
-        label: "LinkedIn ID",
-        placeholder: "Enter your LinkedIn profile URL",
-        required: true,
-      },
-      {
-        // id: generateQuestionId("GitHub ID"),
-        type: "text",
-        label: "GitHub ID",
-        placeholder: "Enter your GitHub profile URL",
-        required: true,
-      },
-      {
-        // id: generateQuestionId("Any other social Media ID"),
-        type: "text",
-        label: "Any other social Media ID",
-        placeholder: "Enter any other social media profile URL",
         required: false,
+        isDefault: true,
       },
-    ].map(q => {
-      return { ...q, id: generateQuestionId(q.label) }; // Use new generateQuestionId
-    });
-    
+      {
+        id: "previousSpeakingExperience", // Custom ID
+        type: "textarea", // Renamed for clarity
+        label: "Previous Speaking Experience (Optional)",
+        placeholder: "Briefly describe any previous speaking engagements or relevant experience.",
+        required: false,
+        isDefault: true,
+      },
+    ];
+
     return {
-      attendee: defaultAttendeeQuestions,
-      volunteer: defaultVolunteerQuestions,
-      speaker: defaultSpeakerQuestions,
-    }
-  }, [])
+      attendee: attendeeDefs.map(createDefaultQuestion),
+      volunteer: volunteerDefs.map(createDefaultQuestion),
+      speaker: speakerDefs.map(createDefaultQuestion),
+    };
+  }, [eventStartDate, eventEndDate]) // Add dependencies here
   // Function to force refresh the form status
   const refreshFormStatus = async () => {
     if (!eventId || isApiCallInProgress.current) return
@@ -611,40 +724,32 @@ export function CustomQuestionsForm({
   // Initialize with default questions or existing data
   useEffect(() => {
     try {
-      // Get default questions
       const defaultQuestions = generateDefaultQuestions()
 
-      // Safely check if data exists and has the expected properties
-      const safeData = {
-        attendee: Array.isArray(data?.attendee) ? data.attendee : [],
-        volunteer: Array.isArray(data?.volunteer) ? data.volunteer : [],
-        speaker: Array.isArray(data?.speaker) ? data.speaker : [],
-      }
+      const initializeType = (type, setQsFunction, defaultQsForType) => {
+        if (data && data[type] && data[type].length > 0) {
+          // If loading saved data, it should ideally contain the isDefault flags.
+          // If not, a more complex merge/re-flagging logic would be needed here
+          // by comparing loaded data with defaultQsForType.
+          // For now, assume `data[type]` is the source of truth if present.
+          setQsFunction(data[type]);
+        } else {
+          setQsFunction(defaultQsForType);
+        }
+      };
 
-      // Use data if it exists, otherwise use defaults
-      const attendeeData = safeData.attendee.length > 0 ? safeData.attendee : defaultQuestions.attendee
-      const volunteerData = safeData.volunteer.length > 0 ? safeData.volunteer : defaultQuestions.volunteer
-      const speakerData = safeData.speaker.length > 0 ? safeData.speaker : defaultQuestions.speaker
+      initializeType("attendee", setAttendeeQuestions, defaultQuestions.attendee);
+      initializeType("volunteer", setVolunteerQuestions, defaultQuestions.volunteer);
+      initializeType("speaker", setSpeakerQuestions, defaultQuestions.speaker);
 
-      // Set state with the appropriate data
-      setAttendeeQuestions(attendeeData)
-      setVolunteerQuestions(volunteerData)
-      setSpeakerQuestions(speakerData)
-
-      // IMPORTANT: Only update parent component on initial load or when data changes
-      if (
-        JSON.stringify(data) !==
-        JSON.stringify({
-          attendee: attendeeData,
-          volunteer: volunteerData,
-          speaker: speakerData,
-        })
-      ) {
+      // Update parent data if it's the initial load and data prop was empty
+      // This ensures parent has the defaults if nothing was passed in.
+      if (!data || (data.attendee.length === 0 && data.volunteer.length === 0 && data.speaker.length === 0)) {
         updateData({
-          attendee: attendeeData,
-          volunteer: volunteerData,
-          speaker: speakerData,
-        })
+          attendee: defaultQuestions.attendee,
+          volunteer: defaultQuestions.volunteer,
+          speaker: defaultQuestions.speaker,
+        });
       }
 
       // Fetch form status if eventId exists and hasn't been fetched yet
@@ -654,29 +759,21 @@ export function CustomQuestionsForm({
     } catch (error) {
       console.error("Error initializing form data:", error)
       // Set default questions if there's an error
-      const defaultQuestions = generateDefaultQuestions()
-      setAttendeeQuestions(defaultQuestions.attendee)
-      setVolunteerQuestions(defaultQuestions.volunteer)
-      setSpeakerQuestions(defaultQuestions.speaker)
+      const defaultsOnError = generateDefaultQuestions()
+      setAttendeeQuestions(defaultsOnError.attendee)
+      setVolunteerQuestions(defaultsOnError.volunteer)
+      setSpeakerQuestions(defaultsOnError.speaker)
 
       // Update parent with defaults - only if needed
       if (!data || Object.keys(data).length === 0) {
-        updateData(defaultQuestions)
+        updateData({
+          attendee: defaultsOnError.attendee,
+          volunteer: defaultsOnError.volunteer,
+          speaker: defaultsOnError.speaker,
+        });
       }
     }
-  }, [data, updateData, eventId, fetchFormStatus, generateDefaultQuestions])
-
-  // Handle initial form status from props - only run once
-  useEffect(() => {
-    if (initialFormStatus && !formStatusFetched.current) {
-      setFormStatus(initialFormStatus)
-      setPublishStatus({
-        attendee: initialFormStatus.attendee === "published",
-        volunteer: initialFormStatus.volunteer === "published",
-        speaker: initialFormStatus.speaker === "published",
-      })
-    }
-  }, [initialFormStatus])
+  }, [data, eventId, fetchFormStatus, generateDefaultQuestions, updateData]);
 
   // Update parent component when questions change
   const updateQuestions = (type, questions) => {
@@ -785,8 +882,8 @@ export function CustomQuestionsForm({
 
       // Make sure we have at least the default questions
       if (!questionsToSend || questionsToSend.length === 0) {
-        const defaultQuestions = generateDefaultQuestions()
-        questionsToSend = defaultQuestions[formType]
+        const defaultSets = generateDefaultQuestions()
+        questionsToSend = defaultSets[formType]
       }
 
       // If we don't have an eventId, just update the local state
@@ -915,9 +1012,12 @@ export function CustomQuestionsForm({
       placeholder: "",
       required: false,
       options: [],
-    }
+    };
 
-    newQuestion.id = generateQuestionId(newQuestion.label); // Generate initial ID
+    // For newly added questions, use the dynamic ID generation
+    newQuestion.id = generateQuestionId(newQuestion.label || "newQuestion");
+    newQuestion.isDefault = false; // Explicitly mark as not default
+
     if (type === "attendee") {
       updateQuestions("attendee", [...attendeeQuestions, newQuestion])
     } else if (type === "volunteer") {
@@ -976,8 +1076,10 @@ export function CustomQuestionsForm({
 
     const updatedQuestions = questionsList.map((q) => {
       if (q.id === questionIdToUpdate) {
-        // Regenerate the ID using the current label and stored creation timestamp
-        return { ...q, id: generateQuestionId(q.label) }; // Regenerate ID with new timestamp
+        // Only regenerate ID for non-default questions. Default questions have fixed IDs.
+        if (!q.isDefault) {
+          return { ...q, id: generateQuestionId(q.label) };
+        }
       }
       return q;
     });
@@ -1095,12 +1197,15 @@ export function CustomQuestionsForm({
     return (
       <div className="space-y-2">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
           <div>
             <Label htmlFor={`${question.id}-label`}>Question Label</Label>
             <Input
               id={`${question.id}-label`}
               value={question.label || ""}
               onChange={(e) => updateQuestion(type, question.id, "label", e.target.value)}
+              disabled={question.isDefault} // Default question labels are not editable
+              // as our logic to hide delete button relies on the original label.
               onBlur={() => handleLabelBlur(type, question.id)} // Regenerate ID on blur
               placeholder="Enter question label"
               required
@@ -1111,6 +1216,7 @@ export function CustomQuestionsForm({
             <Select
               value={question.type || "text"}
               onValueChange={(value) => updateQuestion(type, question.id, "type", value)}
+              disabled={question.isDefault} // Default question types are not editable
             >
               <SelectTrigger id={`${question.id}-type`}>
                 <SelectValue placeholder="Select type" />
@@ -1135,6 +1241,8 @@ export function CustomQuestionsForm({
             id={`${question.id}-placeholder`}
             value={question.placeholder || ""}
             onChange={(e) => updateQuestion(type, question.id, "placeholder", e.target.value)}
+            // Placeholders for default questions can be editable if desired, or disabled like others
+            // disabled={question.isDefault} 
             placeholder="Enter placeholder text"
           />
         </div>
@@ -1150,16 +1258,14 @@ export function CustomQuestionsForm({
                       value={option.value || ""}
                       onChange={(e) => updateOption(type, question.id, option.id, e.target.value)}
                       placeholder={`Option ${optIndex + 1}`}
+                      disabled={option.isDefaultOption} // Options of default questions are not editable
                       className="flex-1"
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeOption(type, question.id, option.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {!option.isDefaultOption && ( // Show delete if not a default option
+                      <Button type="button" variant="ghost" size="icon" onClick={() => removeOption(type, question.id, option.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 ))}
             </div>
@@ -1169,6 +1275,7 @@ export function CustomQuestionsForm({
               size="sm"
               onClick={() => addOption(type, question.id)}
               className="mt-2"
+              disabled={question.isDefault && question.options?.some(opt => opt.isDefaultOption)} // Prevent adding options to default questions that have default options
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Option
@@ -1181,6 +1288,7 @@ export function CustomQuestionsForm({
             id={`${question.id}-required`}
             checked={question.required || false}
             onCheckedChange={(checked) => updateQuestion(type, question.id, "required", checked)}
+            disabled={question.isDefault && question.required} // Required status of default questions is not editable
           />
           <Label htmlFor={`${question.id}-required`}>Required</Label>
         </div>
@@ -1190,8 +1298,11 @@ export function CustomQuestionsForm({
 
   const renderFormCard = (type, title, description, questions, setQuestions) => {
     // Ensure questions is always an array
-    const safeQuestions = Array.isArray(questions) ? questions : []
-
+    const currentQuestions = Array.isArray(questions) ? questions : [];
+    // Separate default and custom questions for ordered display
+    const defaultQsInState = currentQuestions.filter(q => q.isDefault);
+    const customQsInState = currentQuestions.filter(q => !q.isDefault);
+    const questionsToRender = [...defaultQsInState, ...customQsInState];
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -1271,20 +1382,22 @@ export function CustomQuestionsForm({
           )}
 
           <div className="space-y-6">
-            {safeQuestions.length === 0 ? (
+            {questionsToRender.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No questions added yet. Add your first question below.
+                No custom questions added yet. Default questions are shown above if any.
               </div>
             ) : (
-              safeQuestions.map((question, index) => (
+              questionsToRender.map((question, index) => (
                 <div key={question.id || `question-${index}`} className="border rounded-lg p-4 relative">
                   <div className="absolute right-2 top-2 flex space-x-1">
-                    <Button type="button" variant="ghost" size="icon" onClick={() => removeQuestion(type, question.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <div className="cursor-move">
-                      <GripVertical className="h-4 w-4 text-muted-foreground" />
-                    </div>
+                    {/* Only show delete button if it's not a default question */}
+                    {!question.isDefault && (
+                      <Button type="button" variant="ghost" size="icon" onClick={() => removeQuestion(type, question.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {/* Drag handle - can be shown for all or only custom */}
+                    {/* <div className="cursor-move"> <GripVertical className="h-4 w-4 text-muted-foreground" /> </div> */}
                   </div>
                   <div className="mb-2 font-medium">Question {index + 1}</div>
                   {renderQuestionFields(question, type, index)}
@@ -1382,4 +1495,5 @@ export function CustomQuestionsForm({
       </Tabs>
     </div>
   )
+
 }

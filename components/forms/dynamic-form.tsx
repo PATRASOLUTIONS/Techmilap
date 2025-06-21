@@ -1,6 +1,5 @@
 "use client"
-
-import { useState } from "react"
+import React, { useState, useMemo, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -17,6 +16,7 @@ import { Loader2, AlertCircle, CalendarIcon } from "lucide-react"
 import { validateField, getValidationType } from "@/lib/form-validation"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { logWithTimestamp } from "@/utils/logger"
+import { useSession } from "next-auth/react"
 
 interface DynamicFormProps {
   formFields: any[]
@@ -41,12 +41,15 @@ export function DynamicForm({
   logWithTimestamp("info", "formTitle", formTitle)
   logWithTimestamp("info", "formDescription", formDescription)
 
+  const { data: session, update: updateSession } = useSession();
   const [localSubmitting, setLocalSubmitting] = useState(false)
   const { toast } = useToast()
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [formError, setFormError] = useState("")
   const [debugInfo, setDebugInfo] = useState<string | null>(null)
+  const [fetchedUserProfile, setFetchedUserProfile] = useState<Record<string, any> | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
   // Ensure formFields is always an array
   const safeFormFields = Array.isArray(formFields) ? formFields : []
@@ -82,26 +85,29 @@ export function DynamicForm({
             `${field.label} must be a valid phone number`,
           )
       } else if (field.label?.toLowerCase().includes("linkedin")) {
-        fieldSchema = z
-          .string()
-          .regex(
-            /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+\/?$/,
-            `${field.label} must be a valid LinkedIn profile URL`,
-          )
+        // fieldSchema = z
+        //   .string()
+        //   .trim()
+        //   .regex(
+        //     /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+\/?$/i,
+        //     `${field.label} must be a valid LinkedIn profile URL`,
+        //   )
       } else if (field.label?.toLowerCase().includes("github")) {
-        fieldSchema = z
-          .string()
-          .regex(
-            /^(https?:\/\/)?(www\.)?github\.com\/[a-zA-Z0-9_-]+\/?$/,
-            `${field.label} must be a valid GitHub profile URL`,
-          )
+        // console.log(field)
+        // fieldSchema = z
+        //   .string()
+        //   .trim()
+        //   .regex(
+        //     /^(https?:\/\/)?(www\.)?github\.com\/[a-zA-Z0-9_-]+\/?$/i,
+        //     `${field.label} must be a valid GitHub profile URL`,
+        //   )
       } else if(field.label?.toLowerCase().includes("mvp")) {
-        fieldSchema = z
-          .string()
-          .regex(
-            /^https?:\/\/mvp\.microsoft\.com\/[a-zA-Z-]+\/MVP\/profile\/[a-fA-F0-9-]+\/?$/, 
-            `${field.label} must be a valid MVP profile URL`
-          )
+        // fieldSchema = z
+        //   .string()
+        //   .regex(
+        //     /^https?:\/\/mvp\.microsoft\.com\/[a-zA-Z-]+\/MVP\/profile\/[a-fA-F0-9-]+\/?$/, 
+        //     `${field.label} must be a valid MVP profile URL`
+        //   )
       } else if (field.validation?.pattern) {
         // Use custom validation pattern if provided
         fieldSchema = z
@@ -138,13 +144,82 @@ export function DynamicForm({
     return z.object(schema)
   }
 
+  // Effect to fetch user profile data
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (session?.user?.id) {
+        setIsLoadingProfile(true);
+        try {
+          const response = await fetch(`/api/users/${session.user.id}`);
+          if (response.ok) {
+            const profileData = await response.json();
+            console.log("Fetched user profile:", profileData.user);
+            setFetchedUserProfile(profileData.user); // Assuming API returns { user: data }
+          } else {
+            console.error("Failed to fetch user profile:", response.statusText);
+            toast({ title: "Error", description: "Could not load your profile data.", variant: "destructive" });
+          }
+        } catch (error) {
+          console.error("Error fetching user profile:", error);
+          toast({ title: "Error", description: "An error occurred while loading your profile.", variant: "destructive" });
+        } finally {
+          setIsLoadingProfile(false);
+        }
+      }
+    };
+    loadUserProfile();
+  }, [session?.user?.id, toast]);
+
   // Create the form
+  // Moved this up so 'form' is initialized before the useEffect that uses it.
   const form = useForm({
     resolver: zodResolver(buildFormSchema()),
-    defaultValues: {
-      ...defaultValues,
-    },
-  })
+    defaultValues: useMemo(() => {
+      const initialValues = { ...defaultValues };
+
+      // Ensure all text-based fields have a default empty string if not already defined
+      safeFormFields.forEach(field => {
+        if (
+          (field.type === "text" || field.type === "email" || field.type === "phone" || field.type === "textarea") &&
+          initialValues[field.id] === undefined
+        ) {
+          initialValues[field.id] = "";
+        }
+      });
+
+      safeFormFields.forEach(field => {
+        if (Object.prototype.hasOwnProperty.call(defaultValues, field.id)) {
+          initialValues[field.id] = defaultValues[field.id];
+        }
+      });
+      return initialValues;
+    }, [safeFormFields, defaultValues]),
+  });
+
+  // Effect to reset form with fetched profile data
+  useEffect(() => {
+    if (fetchedUserProfile) {
+      const newDefaultValues: Record<string, any> = { ...defaultValues }; // Start with prop defaultValues
+      safeFormFields.forEach(field => {
+        if (field.id.includes('.')) {
+          const parts = field.id.split('.');
+          let currentValue = fetchedUserProfile;
+          for (const part of parts) {
+            if (currentValue && typeof currentValue === 'object' && Object.prototype.hasOwnProperty.call(currentValue, part)) {
+              currentValue = currentValue[part];
+            } else {
+              currentValue = undefined; // Path doesn't exist or value is undefined
+              break;
+            }
+          }
+          newDefaultValues[field.id] = currentValue ?? ''; // Use empty string if undefined/null
+        } else if (Object.prototype.hasOwnProperty.call(fetchedUserProfile, field.id)) {
+          newDefaultValues[field.id] = fetchedUserProfile[field.id] ?? ''; // Use empty string if undefined/null
+        }
+      });
+      form.reset(newDefaultValues);
+    }
+  }, [fetchedUserProfile]); // form.reset is stable, form itself is not
 
   const validateForm = () => {
     const errors: Record<string, string> = {}
@@ -160,6 +235,7 @@ export function DynamicForm({
       }
 
       const error = validateField(validationType, valueToValidate, question.required)
+      console.log("Error", error, validationType, valueToValidate, question.required)
 
       if (error) {
         errors[question.id] = error
@@ -228,6 +304,63 @@ export function DynamicForm({
 
       console.log("Sending data to parent component:", cleanData)
       await onSubmit(cleanData)
+
+      // After successful primary submission, attempt to update user profile
+      if (session?.user?.id && fetchedUserProfile) {
+        const profileDataToUpdate: Record<string, any> = {};
+        const socialDataToUpdate: Record<string, any> = {}; // For social fields
+
+        for (const key in cleanData) {
+          const formFieldDefinition = safeFormFields.find(f => f.id === key);
+          if (formFieldDefinition) {
+            // Exclude non-editable fields (name, email) from profile update payload
+            if (key === 'name' || key === 'email') {
+              continue;
+            }
+
+            if (key.startsWith('social.')) {
+              const socialFieldKey = key.substring('social.'.length); // e.g., 'twitter'
+              // Compare with fetchedUserProfile.social?.<socialFieldKey> or empty string if not present
+              if (cleanData[key] !== (fetchedUserProfile.social?.[socialFieldKey] ?? '')) {
+                socialDataToUpdate[socialFieldKey] = cleanData[key];
+              }
+            } else {
+              // Handle top-level fields
+              // Compare with fetchedUserProfile[key] or empty string if not present
+              if (cleanData[key] !== (fetchedUserProfile[key] ?? '')) {
+                profileDataToUpdate[key] = cleanData[key];
+              }
+            }
+          }
+        }
+        if (Object.keys(socialDataToUpdate).length > 0) {
+          // Merge with existing social data to not overwrite other social fields
+          profileDataToUpdate.social = { ...(fetchedUserProfile.social || {}), ...socialDataToUpdate };
+        }
+
+        if (Object.keys(profileDataToUpdate).length > 0) {
+          try {
+            const profileUpdateResponse = await fetch(`/api/users/${session.user.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(profileDataToUpdate),
+            });
+            if (profileUpdateResponse.ok) {
+              const updatedUserData = await profileUpdateResponse.json();
+              // Update the session with the new user data from the server's response
+              await updateSession({ user: updatedUserData.user }); // Assuming API returns { user: updatedUserObject }
+              toast({ title: 'Profile Updated', description: 'Your profile was updated with the new information.' });
+            } else {
+              const errorData = await profileUpdateResponse.json().catch(() => ({}));
+              console.error('Profile update failed:', errorData);
+              toast({ title: 'Profile Update Failed', description: errorData.error || 'Could not update your profile.', variant: 'destructive' });
+            }
+          } catch (profileError) {
+            console.error('Error updating profile:', profileError);
+            toast({ title: 'Profile Update Error', description: 'An unexpected error occurred while updating your profile.', variant: 'destructive' });
+          }
+        }
+      }
     } catch (error: any) {
       console.error("Form submission error:", error)
 
@@ -273,6 +406,11 @@ export function DynamicForm({
   const renderFormControl = (field: any, formField: any) => {
     const error = validationErrors[field.id]
 
+    const isNonEditableProfileField =
+      fetchedUserProfile && // Use fetchedUserProfile here
+      (field.id === 'firstName' || field.id === 'lastName' || field.id === 'email') &&
+      Object.prototype.hasOwnProperty.call(fetchedUserProfile, field.id);
+
     switch (field.type) {
       case "text":
       case "email":
@@ -282,6 +420,7 @@ export function DynamicForm({
           <Input
             type={field.type}
             placeholder={field.placeholder}
+            disabled={isNonEditableProfileField}
             {...formField}
             onBlur={() => handleBlur(field.id)}
             className={error ? "border-red-500" : ""}
@@ -367,40 +506,50 @@ export function DynamicForm({
                             : false
                       }
                       onCheckedChange={(checked) => {
-                        let newValue
+                        let currentValues = Array.isArray(formField.value) ? [...formField.value] : [];
 
-                        // Handle array values
-                        if (Array.isArray(formField.value)) {
-                          newValue = [...formField.value]
+                        // --- Special logic for "Which days/dates are you available to volunteer?" ---
+                        if (field.id === 'volunteerAvailability') {
+                          const allEventDaysValue = "All Event Days";
                           if (checked) {
-                            if (!newValue.includes(optionValue)) {
-                              newValue.push(optionValue)
+                            if (optionValue === allEventDaysValue) {
+                              // If "All Event Days" is checked, it's the only selection.
+                              currentValues = [allEventDaysValue];
+                            } else {
+                              // If an individual day is checked, add it and ensure "All Event Days" is not selected.
+                              if (!currentValues.includes(optionValue)) currentValues.push(optionValue);
+                              currentValues = currentValues.filter(v => v !== allEventDaysValue);
                             }
                           } else {
-                            newValue = newValue.filter((v) => v !== optionValue)
+                            // Just remove the unchecked option.
+                            currentValues = currentValues.filter((v) => v !== optionValue);
                           }
-                        }
-                        // Handle string values (comma-separated)
-                        else if (typeof formField.value === "string") {
-                          const values = formField.value ? formField.value.split(",") : []
+                        // --- Special logic for "Are you available for pre-event setup or post-event teardown?" ---
+                        } else if (field.id === 'volunteerSetupTeardown') {
+                          const bothValue = "Both";
+                          const neitherValue = "Neither";
                           if (checked) {
-                            if (!values.includes(optionValue)) {
-                              values.push(optionValue)
+                            if (optionValue === bothValue || optionValue === neitherValue) {
+                              // If "Both" or "Neither" is checked, it's the only selection.
+                              currentValues = [optionValue];
+                            } else {
+                              // If "Pre-event setup" or "Post-event teardown" is checked, add it and remove "Both" and "Neither".
+                              if (!currentValues.includes(optionValue)) currentValues.push(optionValue);
+                              currentValues = currentValues.filter(v => v !== bothValue && v !== neitherValue);
                             }
                           } else {
-                            const index = values.indexOf(optionValue)
-                            if (index !== -1) {
-                              values.splice(index, 1)
-                            }
+                            // Just remove the unchecked option.
+                            currentValues = currentValues.filter((v) => v !== optionValue);
                           }
-                          newValue = values.join(",")
+                        // --- Default logic for all other checkboxes ---
+                        } else {
+                          if (checked) {
+                            if (!currentValues.includes(optionValue)) currentValues.push(optionValue);
+                          } else {
+                            currentValues = currentValues.filter((v) => v !== optionValue);
+                          }
                         }
-                        // Handle empty/undefined values
-                        else {
-                          newValue = checked ? optionValue : ""
-                        }
-
-                        formField.onChange(newValue)
+                        formField.onChange(currentValues);
                       }}
                       className={error ? "border-red-500" : ""}
                     />
@@ -446,6 +595,15 @@ export function DynamicForm({
       default:
         return null
     }
+  }
+
+  if (isLoadingProfile && session?.user?.id) {
+    return (
+      <div className="flex justify-center items-center py-10">
+        <Loader2 className="mr-2 h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Loading your profile...</p>
+      </div>
+    );
   }
 
   return (
