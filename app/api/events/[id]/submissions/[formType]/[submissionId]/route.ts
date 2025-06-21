@@ -83,6 +83,18 @@ export async function PATCH(
       await registration.save()
     }
 
+    //get the userId from registration.userId
+    //fetch the user with the id
+    //if the status is approved, update the userType to "speaker"
+    if (status === "approved" && registration.userId && params.formType === "speaker") {
+      const user = await User.findById(registration.userId)
+      if (user) {
+        user.userType = "speaker"
+        await user.save()
+      }
+    }
+
+
     // // Find and update the submission
     // const submission = await FormSubmission.findOneAndUpdate(
     //   {
@@ -128,7 +140,7 @@ export async function PATCH(
             attendeeName: name,
             eventDetails: emailEventDetails,
             eventId: event._id.toString(),
-            organizerEmail: organizerEmail || null,
+            organizerEmail: organizerEmail || "",
             organizerId: event.organizer?.toString(),
           })
         } else if (status === "rejected") {
@@ -138,7 +150,7 @@ export async function PATCH(
             attendeeName: name,
             eventDetails: emailEventDetails,
             eventId: event._id.toString(),
-            organizerEmail: organizerEmail,
+            organizerEmail: organizerEmail || "",
             organizerId: event.organizer?.toString(),
           })
         }
